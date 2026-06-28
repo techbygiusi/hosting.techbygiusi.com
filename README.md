@@ -1,5 +1,15 @@
 # Hosting Portal - Changelog
 
+## v1.0.19 - 2026-06-28
+
+**Commit:** `fix: center desktop login card`
+
+- Centered the login card vertically on desktop as well as mobile.
+- Kept setup pages scroll-friendly and unchanged.
+- Preserved the mobile header, mobile theme toggle and floating mobile logout behavior from v1.0.18.
+
+---
+
 ## v1.0.18 - 2026-06-28
 
 **Commit:** `fix: enable mobile theme toggle and center login`

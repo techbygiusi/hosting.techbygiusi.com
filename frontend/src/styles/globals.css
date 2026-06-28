@@ -280,6 +280,12 @@ body.theme-dark .alert-danger  { color: #f8c4c4; }
   background: var(--color-bg);
 }
 
+.login-shell {
+  align-items: center;
+  justify-content: center;
+  padding: clamp(18px, 4vw, 40px);
+}
+
 .auth-card, .setup-card, .panel-card, .metric-card, .resource-card,
 .modal-card, .app-error-card, .intro-card, .list-card,
 .soft-box, .setup-content {
