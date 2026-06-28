@@ -21,6 +21,8 @@ function uploadText(progress) {
   return 'Startklar. Eure schönsten Augenblicke heben gleich ab.';
 }
 
+const IMAGE_EXT = /\.(jpe?g|jfif|png|webp|gif|avif|heics?|heifs?|heic|heif|bmp|tiff?|dng)$/i;
+
 export default function UploadPage() {
   const [files, setFiles] = useState([]);
   const [dragActive, setDragActive] = useState(false);
@@ -41,7 +43,9 @@ export default function UploadPage() {
   }, []);
 
   function addFiles(fileList) {
-    const selected = Array.from(fileList || []).filter((file) => file.type.startsWith('image/'));
+    const selected = Array.from(fileList || []).filter(
+      (file) => file.type.startsWith('image/') || IMAGE_EXT.test(file.name || '')
+    );
     setError('');
     setMessage('');
     setProgress(0);
@@ -92,19 +96,14 @@ export default function UploadPage() {
   return (
     <section className="hero-grid">
       <div className="hero-copy">
-        <p className="eyebrow">Zur Hochzeit · Alles Gute</p>
+        <p className="eyebrow">Danke fürs Dabeisein</p>
         <h1>Florian &amp; Alexandra</h1>
         <p>
-          Teilt eure schönsten Momente unseres großen Tages mit uns. Einfach Fotos auswählen,
-          hochladen, fertig - ganz ohne Anmeldung. So entsteht aus euren Blickwinkeln unser
-          gemeinsames Hochzeitsalbum.
+          Schön, dass ihr unseren Tag mit uns gefeiert habt! Teilt hier eure Fotos und
+          Schnappschüsse mit uns - so wird aus euren Blickwinkeln unser gemeinsames
+          Hochzeitsalbum. Danke fürs Hochladen!
         </p>
         <div className="ornament" aria-hidden="true">❦</div>
-        <div className="hero-pills" aria-label="Eigenschaften">
-          <span>Ohne Anmeldung</span>
-          <span>Für alle Gäste</span>
-          <span>Eure Perspektive</span>
-        </div>
       </div>
 
       <div className="upload-column">
@@ -114,7 +113,7 @@ export default function UploadPage() {
             <p className="eyebrow">Hochzeitsalbum</p>
             <h2>Eure Fotos</h2>
           </div>
-          <span className="soft-badge">PNG · JPG · WebP · GIF</span>
+          <span className="soft-badge">JPG · PNG · HEIC</span>
         </div>
 
         <button
@@ -138,7 +137,7 @@ export default function UploadPage() {
           ref={inputRef}
           className="sr-only"
           type="file"
-          accept="image/*"
+          accept="image/*,.heic,.heif,.heics,.heifs,.avif,.jpg,.jpeg,.jfif,.png,.bmp,.tif,.tiff,.dng"
           multiple
           disabled={uploading}
           onChange={(event) => addFiles(event.target.files)}
@@ -184,15 +183,6 @@ export default function UploadPage() {
           {uploading ? 'Eure Fotos werden geteilt...' : 'Fotos hochladen'}
         </button>
         </div>
-
-        <aside className="demo-info-card" aria-label="Hinweis">
-          <p className="eyebrow">Danke</p>
-          <h2>Eure Erinnerungen</h2>
-          <p>
-            Jedes Foto zählt - egal ob Schnappschuss oder perfekter Moment. Ladet gern alles hoch,
-            was ihr von unserem Tag festgehalten habt. Wir freuen uns auf eure Sichtweise!
-          </p>
-        </aside>
       </div>
     </section>
   );

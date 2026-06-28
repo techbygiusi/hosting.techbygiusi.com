@@ -148,7 +148,6 @@ function PasswordDialog({ onClose, onChanged }) {
         <div className="password-modal-head">
           <p className="eyebrow">Admin</p>
           <h2>Kennwort ändern</h2>
-          <p>Das neue Kennwort wird dauerhaft im Datenordner gespeichert und bleibt bei Container-Updates erhalten.</p>
         </div>
         <label>
           Aktuelles Kennwort

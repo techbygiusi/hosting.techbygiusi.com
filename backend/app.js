@@ -25,7 +25,7 @@ const DEFAULT_ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin';
 const ADMIN_PASSWORD_MIN_LENGTH = Number(process.env.ADMIN_PASSWORD_MIN_LENGTH || 8);
 const JWT_SECRET = process.env.JWT_SECRET || 'change-me';
 const JWT_EXPIRATION = process.env.JWT_EXPIRATION || '24h';
-const MAX_UPLOAD_MB = Number(process.env.MAX_UPLOAD_MB || 25);
+const MAX_UPLOAD_MB = Number(process.env.MAX_UPLOAD_MB || 50);
 const MAX_UPLOAD_FILES = Number(process.env.MAX_UPLOAD_FILES || 30);
 const MAX_PARALLEL_UPLOADS = Number(process.env.MAX_PARALLEL_UPLOADS || 12);
 const MIN_FREE_SPACE_MB = Number(process.env.MIN_FREE_SPACE_MB || 250);
@@ -40,15 +40,22 @@ let adminConfigQueue = Promise.resolve();
 
 const allowedMimeTypes = new Set([
   'image/jpeg',
+  'image/jpg',
+  'image/pjpeg',
   'image/png',
   'image/webp',
   'image/gif',
   'image/avif',
   'image/heic',
-  'image/heif'
+  'image/heif',
+  'image/heic-sequence',
+  'image/heif-sequence',
+  'image/bmp',
+  'image/tiff',
+  'image/x-adobe-dng'
 ]);
 
-const allowedExtensions = new Set(['.jpg', '.jpeg', '.png', '.webp', '.gif', '.avif', '.heic', '.heif']);
+const allowedExtensions = new Set(['.jpg', '.jpeg', '.jfif', '.png', '.webp', '.gif', '.avif', '.heic', '.heif', '.heics', '.heifs', '.bmp', '.tif', '.tiff', '.dng']);
 
 function ensureSafeName(name) {
   return String(name || 'image')
@@ -475,7 +482,12 @@ const upload = multer({
   },
   fileFilter: (_req, file, cb) => {
     const ext = path.extname(file.originalname || '').toLowerCase();
-    if (allowedMimeTypes.has(file.mimetype) && allowedExtensions.has(ext)) {
+    const mime = String(file.mimetype || '').toLowerCase();
+    // Akzeptiere, wenn die Endung bekannt ist ODER der MIME-Type passt ODER
+    // es sich generell um ein Bild handelt. So werden auch HEIC/HEIF von
+    // iPhones (oft ohne sauberen MIME-Type) und Formate von Samsung, Xiaomi,
+    // Oppo etc. zuverlässig angenommen.
+    if (allowedExtensions.has(ext) || allowedMimeTypes.has(mime) || mime.startsWith('image/')) {
       return cb(null, true);
     }
     return cb(new multer.MulterError('LIMIT_UNEXPECTED_FILE', file.fieldname));
