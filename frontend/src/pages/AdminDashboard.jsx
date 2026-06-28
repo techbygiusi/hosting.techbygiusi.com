@@ -703,6 +703,13 @@ function ResourceCard({ resource, onEdit, onDelete, actionLoading }) {
       <Metric label="CPU" percent={cpuPercent} detail={`${cpuPercent.toFixed(1)} %`} />
       <Metric label="RAM" percent={memPercent} detail={`${formatBytes(resource.mem)} / ${formatBytes(resource.maxmem)}`} />
 
+      {(publicUrl || resource.adminUrl) && (
+        <div className="service-link-row">
+          {publicUrl && <a className="btn-secondary full-button" href={publicUrl} target="_blank" rel="noreferrer">Öffentliche Seite</a>}
+          {resource.adminUrl && <a className="btn-secondary full-button" href={resource.adminUrl} target="_blank" rel="noreferrer">Verwaltungsseite</a>}
+        </div>
+      )}
+
       <button type="button" className="btn-secondary full-button service-detail-toggle" onClick={() => setDetailsOpen(value => !value)}>
         {detailsOpen ? 'Details ausblenden' : 'Details anzeigen'}
       </button>
@@ -716,8 +723,6 @@ function ResourceCard({ resource, onEdit, onDelete, actionLoading }) {
           </div>
           <DiskDetails resource={resource} />
           <div className="button-stack">
-            {publicUrl && <a className="btn-secondary full-button" href={publicUrl} target="_blank" rel="noreferrer">Öffentliche Seite</a>}
-            {resource.adminUrl && <a className="btn-secondary full-button" href={resource.adminUrl} target="_blank" rel="noreferrer">Verwaltungsseite</a>}
             <button type="button" className="btn-secondary full-button" onClick={() => onEdit(resource)}>Bearbeiten</button>
             <button type="button" className="btn-danger full-button" onClick={() => onDelete(resource.id)} disabled={actionLoading}>Entfernen</button>
           </div>

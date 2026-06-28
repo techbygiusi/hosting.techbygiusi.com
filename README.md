@@ -1,5 +1,16 @@
 # Hosting Portal - Changelog
 
+## v1.0.21 - 2026-06-28
+
+**Commit:** `fix: show service links outside details`
+
+- Shows configured service website links directly on admin service cards again.
+- Keeps technical metadata, disks and admin actions behind **Details anzeigen** so the service overview stays compact.
+- Keeps the existing user dashboard behavior where the public website link is visible directly on the card.
+- Preserves the German-only frontend wording and current TechByGiusi styling.
+
+---
+
 ## v1.0.20 - 2026-06-28
 
 **Commit:** `feat: rename resources to services and collapse details`

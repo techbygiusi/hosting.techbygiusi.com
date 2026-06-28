@@ -696,6 +696,12 @@ tr:hover td { background: rgba(122, 135, 111, 0.06); }
 .service-detail-toggle {
   margin-top: 2px;
 }
+
+.service-link-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
+}
 .resource-details {
   display: grid;
   gap: var(--spacing-md);
