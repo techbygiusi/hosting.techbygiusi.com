@@ -38,7 +38,6 @@ export default function Login() {
         <header className="auth-header">
           <p className="eyebrow">Hosting Portal</p>
           <h1>Anmelden</h1>
-          <p>Melde dich mit deinem Portal-Benutzer an.</p>
         </header>
 
         {error && <div className="alert alert-danger">{error}</div>}

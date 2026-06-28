@@ -1,5 +1,18 @@
 # Hosting Portal - Changelog
 
+## v1.0.8 - 2026-06-28
+
+**Commit:** `fix: clean ui and add proxmox test action`
+
+- Removed helper/comment-style frontend text from the admin panels, login page and setup sections so the UI stays cleaner and more direct.
+- Removed the logged-in user chip from the top-right header on admin and user pages; only the logout action remains.
+- Added a Proxmox connection test button to the admin cluster creation dialog.
+- Reset the Proxmox test result when cluster fields are changed or the dialog is closed.
+- Reduced remaining heavy font weights across headings, buttons and table headers.
+- Kept all visible frontend labels and messages in German and mobile locked to light mode.
+
+---
+
 ## v1.0.7 - 2026-06-28
 
 **Commit:** `feat: add monitored resources tab`

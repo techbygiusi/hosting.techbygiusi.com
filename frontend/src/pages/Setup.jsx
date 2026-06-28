@@ -195,7 +195,6 @@ export default function Setup() {
         <header className="auth-header setup-header">
           <p className="eyebrow">Erstkonfiguration</p>
           <h1>Hosting Portal einrichten</h1>
-          <p>Lege den Administrator an und speichere Proxmox sowie SMTP, bevor das Portal genutzt wird.</p>
         </header>
 
         <nav className="setup-tabs" aria-label="Einrichtungsschritte">
@@ -223,7 +222,6 @@ export default function Setup() {
             <section className="setup-panel">
               <div className="section-title">
                 <h2>Administrator anlegen</h2>
-                <p>Das erste Konto wird automatisch Administrator.</p>
               </div>
               {adminConfigured ? (
                 <div className="alert alert-success">Administrator ist bereits vorhanden.</div>
@@ -254,7 +252,6 @@ export default function Setup() {
             <section className="setup-panel">
               <div className="section-title">
                 <h2>Proxmox API speichern</h2>
-                <p>Der API-Zugriff wird getestet, bevor die Einrichtung fortgesetzt wird.</p>
               </div>
               {proxmoxConfigured ? (
                 <div className="alert alert-success">Proxmox API ist bereits konfiguriert.</div>
@@ -287,7 +284,6 @@ export default function Setup() {
             <section className="setup-panel">
               <div className="section-title">
                 <h2>SMTP speichern</h2>
-                <p>Damit System-Mails funktionieren, muss die SMTP-Verbindung erfolgreich getestet werden.</p>
               </div>
               {smtpConfigured ? (
                 <div className="alert alert-success">SMTP ist bereits konfiguriert.</div>

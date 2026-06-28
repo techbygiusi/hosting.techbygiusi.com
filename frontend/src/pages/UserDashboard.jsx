@@ -4,7 +4,7 @@ import { userApi, getErrorMessage } from '../services/api';
 import '../styles/globals.css';
 
 export default function UserDashboard() {
-  const { user, logout } = useAuth();
+  const { logout } = useAuth();
   const [resources, setResources] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -38,7 +38,6 @@ export default function UserDashboard() {
             </div>
           </div>
           <div className="site-actions">
-            <span className="user-chip">{user?.name || user?.email}</span>
             <button type="button" className="btn-secondary" onClick={logout}>Abmelden</button>
           </div>
         </div>

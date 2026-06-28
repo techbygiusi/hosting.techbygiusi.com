@@ -20,6 +20,7 @@ export default function AdminDashboard() {
   const [newCluster, setNewCluster] = useState(emptyCluster);
   const [newResource, setNewResource] = useState(emptyResource);
   const [smtpTestResult, setSmtpTestResult] = useState(null);
+  const [clusterTestResult, setClusterTestResult] = useState(null);
   const [showUserModal, setShowUserModal] = useState(false);
   const [showClusterModal, setShowClusterModal] = useState(false);
   const [showResourceModal, setShowResourceModal] = useState(false);
@@ -131,6 +132,30 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleClusterChange = (field, value) => {
+    setNewCluster(prev => ({ ...prev, [field]: value }));
+    setClusterTestResult(null);
+    setError('');
+  };
+
+  const handleTestCluster = async () => {
+    if (!newCluster.url || !newCluster.apiToken) {
+      setClusterTestResult({ success: false, message: 'Bitte URL und API-Token eingeben.' });
+      return;
+    }
+
+    try {
+      setActionLoading(true);
+      setError('');
+      const res = await adminApi.testProxmox(newCluster);
+      setClusterTestResult(res.data);
+    } catch (err) {
+      setClusterTestResult({ success: false, message: getErrorMessage(err, 'Proxmox-Test fehlgeschlagen.') });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const handleCreateCluster = async (e) => {
     e.preventDefault();
     if (!newCluster.name || !newCluster.url || !newCluster.apiToken) {
@@ -143,6 +168,7 @@ export default function AdminDashboard() {
       setError('');
       await adminApi.createCluster(newCluster);
       setNewCluster(emptyCluster);
+      setClusterTestResult(null);
       setShowClusterModal(false);
       showSuccess('Proxmox-Cluster wurde gespeichert.');
       await loadData(activeTab);
@@ -285,7 +311,6 @@ export default function AdminDashboard() {
             </div>
           </div>
           <div className="site-actions">
-            <span className="user-chip">{user?.name || user?.email}</span>
             <button type="button" className="btn-secondary" onClick={logout}>Abmelden</button>
           </div>
         </div>
@@ -305,9 +330,6 @@ export default function AdminDashboard() {
 
         {!loading && activeTab === 'overview' && (
           <>
-            <section className="intro-card">
-              <p>Proxmox Ressourcen verwalten, Benutzer zuordnen und den Status der Container und VMs prüfen.</p>
-            </section>
             <section className="dashboard-grid">
               <MetricCard label="Benutzer" value={userCount} />
               <MetricCard label="Administratoren" value={adminCount} />
@@ -320,7 +342,7 @@ export default function AdminDashboard() {
 
         {!loading && activeTab === 'users' && (
           <section className="panel-card">
-            <PanelHeader title="Benutzer" text="Konten mit Startpasswort und Rolle anlegen." action="Benutzer anlegen" onAction={() => setShowUserModal(true)} />
+            <PanelHeader title="Benutzer" action="Benutzer anlegen" onAction={() => setShowUserModal(true)} />
             <div className="table-responsive">
               <table>
                 <thead><tr><th>Name</th><th>E-Mail</th><th>Rolle</th><th>Aktion</th></tr></thead>
@@ -342,7 +364,7 @@ export default function AdminDashboard() {
 
         {!loading && activeTab === 'clusters' && (
           <section className="panel-card">
-            <PanelHeader title="Proxmox" text="API-Verbindungen zu deinen Proxmox-Clustern." action="Cluster hinzufügen" onAction={() => setShowClusterModal(true)} />
+            <PanelHeader title="Proxmox" action="Cluster hinzufügen" onAction={() => { setClusterTestResult(null); setShowClusterModal(true); }} />
             <div className="table-responsive">
               <table>
                 <thead><tr><th>Name</th><th>URL</th><th>Aktion</th></tr></thead>
@@ -363,7 +385,7 @@ export default function AdminDashboard() {
 
         {!loading && activeTab === 'resources' && (
           <section className="panel-card">
-            <PanelHeader title="Ressourcen" text="Container und VMs als Portal-Ressourcen mit Monitoring und Weblink anlegen." action="Ressource anlegen" onAction={() => setShowResourceModal(true)} />
+            <PanelHeader title="Ressourcen" action="Ressource anlegen" onAction={() => setShowResourceModal(true)} />
             {resources.length === 0 ? (
               <div className="empty-state soft-box"><h2>Keine Ressourcen</h2><p>Lege eine Ressource an, damit Benutzer Status und Weblink sehen.</p></div>
             ) : (
@@ -376,7 +398,7 @@ export default function AdminDashboard() {
 
         {!loading && activeTab === 'settings' && (
           <section className="panel-card settings-card">
-            <PanelHeader title="Einstellungen" text="SMTP-Daten nach der Erstkonfiguration ändern." />
+            <PanelHeader title="Einstellungen" />
             <form className="form-grid" onSubmit={handleSaveSettings}>
               <label className="form-group"><span>SMTP-Host</span><input type="text" name="smtpHost" value={settings.smtpHost} onChange={handleSettingsChange} placeholder="smtp.example.com" /></label>
               <label className="form-group"><span>SMTP-Port</span><input type="text" name="smtpPort" value={settings.smtpPort} onChange={handleSettingsChange} placeholder="587" /></label>
@@ -405,12 +427,14 @@ export default function AdminDashboard() {
       )}
 
       {showClusterModal && (
-        <Modal title="Proxmox-Cluster hinzufügen" onClose={() => setShowClusterModal(false)}>
+        <Modal title="Proxmox-Cluster hinzufügen" onClose={() => { setClusterTestResult(null); setShowClusterModal(false); }}>
           <form className="form-stack" onSubmit={handleCreateCluster}>
-            <label className="form-group"><span>Name</span><input type="text" value={newCluster.name} onChange={e => setNewCluster(prev => ({ ...prev, name: e.target.value }))} placeholder="Home Lab" /></label>
-            <label className="form-group"><span>URL</span><input type="text" value={newCluster.url} onChange={e => setNewCluster(prev => ({ ...prev, url: e.target.value }))} placeholder="https://10.10.0.10:8006" /></label>
-            <label className="form-group"><span>API-Token</span><input type="password" value={newCluster.apiToken} onChange={e => setNewCluster(prev => ({ ...prev, apiToken: e.target.value }))} placeholder="api@pam!hosting=secret" /></label>
-            <div className="form-actions"><button type="button" className="btn-secondary" onClick={() => setShowClusterModal(false)}>Abbrechen</button><button type="submit" className="btn-primary" disabled={actionLoading}>Speichern</button></div>
+            <label className="form-group"><span>Name</span><input type="text" value={newCluster.name} onChange={e => handleClusterChange('name', e.target.value)} placeholder="Home Lab" /></label>
+            <label className="form-group"><span>URL</span><input type="text" value={newCluster.url} onChange={e => handleClusterChange('url', e.target.value)} placeholder="https://10.10.0.10:8006" /></label>
+            <label className="form-group"><span>API-Token</span><input type="password" value={newCluster.apiToken} onChange={e => handleClusterChange('apiToken', e.target.value)} placeholder="api@pam!hosting=secret" /></label>
+            <button type="button" className="btn-secondary full-button" onClick={handleTestCluster} disabled={actionLoading}>Proxmox-Verbindung testen</button>
+            {clusterTestResult && <div className={`test-result ${clusterTestResult.success ? 'success' : 'error'}`}>{translateMessage(clusterTestResult.message)}</div>}
+            <div className="form-actions"><button type="button" className="btn-secondary" onClick={() => { setClusterTestResult(null); setShowClusterModal(false); }}>Abbrechen</button><button type="submit" className="btn-primary" disabled={actionLoading}>Speichern</button></div>
           </form>
         </Modal>
       )}
@@ -435,7 +459,7 @@ export default function AdminDashboard() {
 function PanelHeader({ title, text, action, onAction }) {
   return (
     <div className="panel-header">
-      <div><h2>{title}</h2><p>{text}</p></div>
+      <div><h2>{title}</h2>{text && <p>{text}</p>}</div>
       {action && <button type="button" className="btn-primary" onClick={onAction}>{action}</button>}
     </div>
   );
