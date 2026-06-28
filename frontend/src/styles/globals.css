@@ -880,3 +880,111 @@ label { display: grid; gap: 7px; color: var(--site-muted); font-size: 14px; }
 @media (max-width: 900px) {
   .mobile-album-title { display: block; }
 }
+
+
+/* ===== v0.1.13 Admin readability and compact actions ===== */
+.admin-shell .site-main {
+  --admin-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-family: var(--admin-font);
+}
+.admin-shell .site-main h1,
+.admin-shell .site-main h2,
+.admin-shell .site-main h3,
+.admin-shell .site-main p,
+.admin-shell .site-main span,
+.admin-shell .site-main strong,
+.admin-shell .site-main button,
+.admin-shell .site-main input,
+.admin-shell .site-main label,
+.admin-shell .site-main .eyebrow,
+.admin-shell .site-main .notice,
+.admin-shell .site-main .app-loader {
+  font-family: var(--admin-font) !important;
+}
+.admin-shell .site-main h1,
+.admin-shell .site-main h2,
+.admin-shell .site-main h3 {
+  font-weight: 500;
+  letter-spacing: -0.03em;
+}
+.admin-shell .site-main .eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+}
+.admin-shell .admin-actions {
+  align-items: start;
+  grid-auto-rows: auto;
+}
+.admin-shell .admin-actions > button {
+  width: 100%;
+  height: 44px;
+  min-height: 44px !important;
+  padding: 8px 14px;
+  align-self: start;
+}
+.admin-shell .admin-hero {
+  gap: 12px;
+}
+.admin-shell .dashboard-card,
+.admin-shell .storage-card {
+  align-content: start;
+}
+
+@media (max-width: 720px) {
+  .admin-shell .admin-actions > button {
+    height: 42px;
+    min-height: 42px !important;
+    padding: 8px 10px;
+  }
+}
+
+/* ===== v0.1.14 Mobile admin login width ===== */
+@media (max-width: 900px) {
+  .admin-shell .site-main {
+    width: min(100% - 24px, 900px);
+  }
+
+  .admin-shell .center-stage {
+    width: 100%;
+  }
+
+  .admin-shell .login-card {
+    width: 100%;
+    max-width: none;
+  }
+}
+
+/* ===== v0.1.15 Mobile gallery uses full width ===== */
+@media (max-width: 600px) {
+  .admin-shell .gallery-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .admin-shell .image-card {
+    width: 100%;
+  }
+
+  .admin-shell .image-thumb {
+    aspect-ratio: 1 / 0.72;
+  }
+
+  .viewer-nav {
+    display: none;
+  }
+
+  .viewer-img-wrap {
+    inset: 50px 0 calc(58px + env(safe-area-inset-bottom));
+  }
+
+  .viewer-img {
+    max-width: 100vw;
+    max-height: calc(100vh - 108px - env(safe-area-inset-bottom));
+    border-radius: 0;
+  }
+
+  .viewer-infobar {
+    min-height: 58px;
+  }
+}

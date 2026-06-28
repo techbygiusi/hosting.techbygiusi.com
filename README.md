@@ -1,5 +1,29 @@
 # Picly - Changelog
 
+## v0.1.15 - 2026-06-28
+
+**Commit:** `style: optimize mobile gallery viewer`
+
+- Mobile gallery cards now use one full-width column so uploaded images get as much horizontal space as possible.
+- The full-screen image viewer now uses the full phone width on mobile.
+- Previous and next arrow buttons are hidden on mobile because users can swipe between images.
+- Desktop gallery and viewer controls stay unchanged.
+
+## v0.1.14 - 2026-06-28
+
+- Mobile Admin-Login-Karte auf dieselbe Breite wie die mobile Upload-Karte gebracht.
+- Galerie-öffnen-Box nutzt auf Mobile jetzt die volle verfügbare Kartenbreite.
+- README/Changelog aktualisiert.
+
+## v0.1.13 - 2026-06-28
+
+**Commit:** `style: compact admin controls and improve readability`
+
+- Reduced the admin action buttons back to normal compact button height on desktop and mobile.
+- Kept the wedding-style typography only for the top bar and footer.
+- Switched the admin page content, cards, buttons and dialogs to a normal readable system font.
+- Kept the existing upload flow, admin password dialog, gallery and storage display unchanged.
+
 ## v0.1.12 - 2026-06-28
 
 **Commit:** `feat: add admin password change dialog`
