@@ -1,5 +1,14 @@
 # Picly - Changelog
 
+## v0.1.18 - 2026-06-28
+
+**Commit:** `style: compact desktop admin actions and clean login copy`
+
+- Reduced the desktop admin action buttons back to compact button sizing.
+- Stopped stretching the admin action buttons across the full desktop width.
+- Removed **Hochzeitsalbum · Admin** from the admin login card.
+- Kept the wedding typography in the top bar and footer unchanged.
+
 ## v0.1.17 - 2026-06-28
 
 **Commit:** `style: convert admin gallery to dense photo grid`

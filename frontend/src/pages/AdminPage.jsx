@@ -88,7 +88,6 @@ function AdminLogin({ onSuccess }) {
   return (
     <section className="center-stage">
       <form className="card login-card" onSubmit={handleSubmit}>
-        <p className="eyebrow">Hochzeitsalbum · Admin</p>
         <h1>Galerie öffnen</h1>
         <p>Hier liegen alle Fotos eurer Gäste gesammelt bereit.</p>
         <label>

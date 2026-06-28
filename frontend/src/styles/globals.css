@@ -1184,3 +1184,32 @@ label { display: grid; gap: 7px; color: var(--site-muted); font-size: 14px; }
     display: none !important;
   }
 }
+
+
+/* ===== v0.1.18 Compact desktop admin controls ===== */
+@media (min-width: 721px) {
+  .admin-shell .admin-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    width: auto;
+  }
+
+  .admin-shell .admin-actions > button {
+    width: auto !important;
+    min-width: 148px;
+    height: 38px;
+    min-height: 38px !important;
+    padding: 7px 16px;
+    align-self: center;
+  }
+
+  .admin-shell .admin-actions .btn-primary {
+    min-width: 160px;
+  }
+}
+
+.admin-shell .login-card > h1:first-child {
+  margin-top: 0;
+}
