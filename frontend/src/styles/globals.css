@@ -3,7 +3,7 @@
    Global stylesheet, aligned to the techbygiusi.com design language.
 
    Design language (single source of truth):
-   - Warm off-white "paper" background (#F7F5F3)
+   - White page background, neutral light-grey cards (#f1f1f1)
    - Muted sage / olive green accent (#7A876F)
    - Near-black editorial text, light font weights
    - Flat surfaces, hairline borders, gentle rounding (8–14px)
@@ -17,8 +17,8 @@
 body.theme-light {
   /* Brand palette */
   --site-bg:        #ffffff;   /* page background (white) */
-  --site-surface:   #ECEAE7;   /* cards / panels */
-  --site-inset:     #F7F5F3;   /* nested boxes inside cards */
+  --site-surface:   #f1f1f1;   /* cards / panels (neutral grey) */
+  --site-inset:     #f7f7f7;   /* nested boxes / raised resource cards */
   --site-text:      #111111;
   --site-muted:     #6B7280;
   --site-accent:    #7A876F;   /* sage green */
@@ -896,14 +896,14 @@ body.theme-dark .icon-button {
   /* Mobile is light-only to mirror the site's mobile behaviour. */
   body, body.theme-dark, body.theme-light {
     --site-bg:      #ffffff;
-    --site-surface: #ECEAE7;
-    --site-inset:   #F7F5F3;
+    --site-surface: #f1f1f1;
+    --site-inset:   #f7f7f7;
     --site-text:    #111111;
     --site-muted:   #6B7280;
     --site-border:  rgba(17, 17, 17, 0.10);
     --color-bg:         #ffffff;
-    --color-bg-alt:     #F7F5F3;
-    --color-surface:    #ECEAE7;
+    --color-bg-alt:     #f7f7f7;
+    --color-surface:    #f1f1f1;
     --color-text:       #111111;
     --color-text-light: #6B7280;
     --color-border:     rgba(17, 17, 17, 0.10);
@@ -911,7 +911,14 @@ body.theme-dark .icon-button {
 
   .auth-theme-action, .theme-toggle { display: none !important; }
 
-  .site-header { position: static; }
+  /* backdrop-filter creates a containing block for fixed children, which would
+     trap the logout FAB inside the header. The header is static on mobile, so
+     drop the blur and use a solid background instead. */
+  .site-header {
+    position: static;
+    backdrop-filter: none;
+    background: var(--color-bg);
+  }
   .site-header-inner, .app-container { width: 100%; }
   .site-header-inner {
     min-height: auto;
