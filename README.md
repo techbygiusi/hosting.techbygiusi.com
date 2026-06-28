@@ -1,5 +1,32 @@
 # Hosting Portal - Changelog
 
+## v1.0.4 - 2026-06-28
+
+**Commit:** `fix: localize frontend and force mobile light mode`
+
+- Forced the mobile frontend to always use light mode and hide the lamp light/dark toggle on mobile screens.
+- Kept the desktop light/dark lamp toggle intact.
+- Translated visible frontend UI texts to German across login, setup, admin dashboard, user dashboard, status messages, confirmations, and fallback error messages.
+- Removed the unfinished password reset link from the login UI until a matching frontend page exists.
+- Added frontend-side translation for common backend/API response messages so errors shown in the UI stay German.
+- Cleaned visible setup text so the interface no longer shows random English helper comments.
+
+---
+
+## v1.0.3 - 2026-06-28
+
+**Commit:** `feat: require complete first setup wizard`
+
+- Changed initial setup so it is only complete when all required parts are saved: administrator, Proxmox API, and SMTP.
+- Added setup status detection for missing admin, Proxmox, or SMTP configuration. The portal now redirects to setup on every start until all required parts exist.
+- Reworked the setup wizard into three tabs: Administrator, Proxmox API, and SMTP Mail.
+- Added public first-setup-only test endpoints for Proxmox and SMTP, so both can be tested before the first login.
+- Fixed Proxmox connection tests so HTTP errors like 401/403 are treated as failed tests instead of false success.
+- Matched the portal light and dark mode colors to the WordPress site theme: white/black base, soft card surfaces, muted text, green link accent, dark mode surfaces, and the lamp-style theme toggle.
+- Improved frontend API URL detection so a localhost build value no longer breaks access from another device on the network.
+
+---
+
 ## v1.0.2 - 2026-06-28
 
 **Commit:** `fix: use node based docker healthchecks`

@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { authApi } from '../services/api';
+import { authApi, getErrorMessage } from '../services/api';
 
 const AuthContext = createContext();
 
@@ -9,8 +9,15 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [setupRequired, setSetupRequired] = useState(false);
+  const [setupStatus, setSetupStatus] = useState(null);
 
-  // Check setup requirement and verify token on mount
+  const refreshSetupStatus = async () => {
+    const setupRes = await authApi.setupRequired();
+    setSetupStatus(setupRes.data);
+    setSetupRequired(Boolean(setupRes.data.setupRequired));
+    return setupRes.data;
+  };
+
   useEffect(() => {
     const initAuth = async () => {
       try {
@@ -22,11 +29,8 @@ export function AuthProvider({ children }) {
           setUser(JSON.parse(storedUser));
         }
 
-        // Check if setup is required
-        const setupRes = await authApi.setupRequired();
-        setSetupRequired(setupRes.data.setupRequired);
+        const setupState = await refreshSetupStatus();
 
-        // Verify token if exists
         if (storedToken) {
           try {
             await authApi.verify();
@@ -37,8 +41,15 @@ export function AuthProvider({ children }) {
             setUser(null);
           }
         }
+
+        if (setupState.setupRequired) {
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          setToken(null);
+          setUser(null);
+        }
       } catch (err) {
-        console.error('Auth init error:', err);
+        console.error('Fehler beim Initialisieren der Anmeldung:', err);
         setError(err.message);
       } finally {
         setLoading(false);
@@ -51,6 +62,12 @@ export function AuthProvider({ children }) {
   const login = async (email, password) => {
     try {
       setError(null);
+      const setupState = await refreshSetupStatus();
+
+      if (setupState.setupRequired) {
+        throw new Error('Die Erstkonfiguration ist noch nicht abgeschlossen.');
+      }
+
       const response = await authApi.login(email, password);
       const { token: newToken, user: userData } = response.data;
 
@@ -62,20 +79,26 @@ export function AuthProvider({ children }) {
       setSetupRequired(false);
       return userData;
     } catch (err) {
-      const message = err.response?.data?.message || 'Login failed';
+      const message = getErrorMessage(err, 'Anmeldung fehlgeschlagen.');
       setError(message);
       throw new Error(message);
     }
   };
 
-  const setup = async (adminData, smtpData) => {
+  const setup = async (adminData, proxmoxData, smtpData) => {
     try {
       setError(null);
       const response = await authApi.setup({
         adminName: adminData.name,
         adminEmail: adminData.email,
         adminPassword: adminData.password,
-        ...smtpData
+        proxmoxName: proxmoxData.name,
+        proxmoxUrl: proxmoxData.url,
+        proxmoxApiToken: proxmoxData.apiToken,
+        smtpHost: smtpData.smtpHost,
+        smtpPort: smtpData.smtpPort,
+        smtpUser: smtpData.smtpUser,
+        smtpPassword: smtpData.smtpPassword
       });
 
       const { token: newToken, user: userData } = response.data;
@@ -85,10 +108,10 @@ export function AuthProvider({ children }) {
 
       setToken(newToken);
       setUser(userData);
-      setSetupRequired(false);
+      await refreshSetupStatus();
       return userData;
     } catch (err) {
-      const message = err.response?.data?.message || 'Setup failed';
+      const message = getErrorMessage(err, 'Erstkonfiguration fehlgeschlagen.');
       setError(message);
       throw new Error(message);
     }
@@ -98,7 +121,7 @@ export function AuthProvider({ children }) {
     try {
       await authApi.logout();
     } catch (err) {
-      console.error('Logout error:', err);
+      console.error('Fehler beim Abmelden:', err);
     } finally {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
@@ -114,7 +137,7 @@ export function AuthProvider({ children }) {
       await authApi.changePassword(currentPassword, newPassword);
       return true;
     } catch (err) {
-      const message = err.response?.data?.message || 'Password change failed';
+      const message = getErrorMessage(err, 'Passwortänderung fehlgeschlagen.');
       setError(message);
       throw new Error(message);
     }
@@ -126,6 +149,8 @@ export function AuthProvider({ children }) {
     loading,
     error,
     setupRequired,
+    setupStatus,
+    refreshSetupStatus,
     login,
     setup,
     logout,
@@ -140,7 +165,7 @@ export function AuthProvider({ children }) {
 export function useAuth() {
   const context = useContext(AuthContext);
   if (!context) {
-    throw new Error('useAuth must be used within AuthProvider');
+    throw new Error('useAuth muss innerhalb des AuthProviders verwendet werden.');
   }
   return context;
 }

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { userApi } from '../services/api';
+import { userApi, getErrorMessage } from '../services/api';
 import '../styles/globals.css';
 
 export default function UserDashboard() {
@@ -19,7 +19,7 @@ export default function UserDashboard() {
       const response = await userApi.getContainers();
       setContainers(response.data.containers || []);
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to load containers');
+      setError(getErrorMessage(err, 'Container konnten nicht geladen werden.'));
     } finally {
       setLoading(false);
     }
@@ -36,6 +36,21 @@ export default function UserDashboard() {
     }
   };
 
+  const renderStatus = (status) => {
+    switch (status) {
+      case 'running':
+        return 'LÄUFT';
+      case 'stopped':
+        return 'GESTOPPT';
+      case 'paused':
+        return 'PAUSIERT';
+      case 'suspended':
+        return 'ANGEHALTEN';
+      default:
+        return status ? status.toUpperCase() : 'UNBEKANNT';
+    }
+  };
+
   const formatBytes = (bytes) => {
     if (bytes === 0) return '0 B';
     const k = 1024;
@@ -48,7 +63,7 @@ export default function UserDashboard() {
     <div style={{ minHeight: '100vh', backgroundColor: 'var(--color-bg-alt)' }}>
       <style>{`
         .dashboard-header {
-          background: white;
+          background: var(--color-surface);
           border-bottom: 1px solid var(--color-border);
           padding: var(--spacing-lg);
           display: flex;
@@ -125,7 +140,7 @@ export default function UserDashboard() {
         }
         
         .container-card {
-          background: white;
+          background: var(--color-surface);
           border-radius: var(--radius-lg);
           overflow: hidden;
           box-shadow: var(--shadow-md);
@@ -141,8 +156,8 @@ export default function UserDashboard() {
         }
         
         .container-header {
-          background: linear-gradient(135deg, #0066cc 0%, #004fa3 100%);
-          color: white;
+          background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
+          color: var(--button-primary-text);
           padding: var(--spacing-md);
           display: flex;
           justify-content: space-between;
@@ -212,7 +227,7 @@ export default function UserDashboard() {
         
         .progress-fill {
           height: 100%;
-          background: linear-gradient(90deg, #0066cc, #004fa3);
+          background: linear-gradient(90deg, var(--color-primary), var(--color-primary-dark));
           transition: width 0.3s ease;
         }
         
@@ -249,7 +264,7 @@ export default function UserDashboard() {
           width: 100%;
           padding: var(--spacing-md);
           background: var(--color-primary);
-          color: white;
+          color: var(--button-primary-text);
           border: none;
           border-radius: var(--radius-md);
           cursor: pointer;
@@ -303,12 +318,12 @@ export default function UserDashboard() {
 
       <div className="dashboard-header">
         <div className="dashboard-title">
-          <h1>🖥️ My Containers</h1>
+          <h1>🖥️ Meine Container</h1>
         </div>
         <div className="user-info">
           <span>{user?.name} ({user?.email})</span>
           <button className="logout-btn" onClick={logout}>
-            Logout
+            Abmelden
           </button>
         </div>
       </div>
@@ -323,12 +338,12 @@ export default function UserDashboard() {
         {loading ? (
           <div className="loading-spinner">
             <div className="spinner"></div>
-            <span>Loading containers...</span>
+            <span>Container werden geladen...</span>
           </div>
         ) : containers.length === 0 ? (
           <div className="empty-state">
-            <h2>No Containers Assigned</h2>
-            <p>You don't have any containers assigned yet. Please contact your administrator.</p>
+            <h2>Keine Container zugewiesen</h2>
+            <p>Dir sind noch keine Container zugewiesen. Bitte wende dich an deinen Administrator.</p>
           </div>
         ) : (
           <div className="container-grid">
@@ -342,7 +357,7 @@ export default function UserDashboard() {
                   <div className="container-header">
                     <h3 className="container-name">{container.name}</h3>
                     <div className="status-badge" style={{ backgroundColor: getStatusColor(container.status) }}>
-                      {container.status.toUpperCase()}
+                      {renderStatus(container.status)}
                     </div>
                   </div>
 
@@ -350,7 +365,7 @@ export default function UserDashboard() {
                     <div className="info-group">
                       <div>
                         <div className="info-item">
-                          <span className="info-label">Type:</span>
+                          <span className="info-label">Typ:</span>
                           <span className="info-value">{container.type.toUpperCase()}</span>
                         </div>
                         <div className="info-item">
@@ -369,12 +384,12 @@ export default function UserDashboard() {
                           <div className="progress-fill" style={{ width: `${Math.min(cpuPercent, 100)}%` }}></div>
                         </div>
                         <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-light)' }}>
-                          {container.cpu}/{container.maxcpu} cores
+                          {container.cpu}/{container.maxcpu} Kerne
                         </div>
                       </div>
 
                       <div>
-                        <div className="info-label">Memory: {memPercent.toFixed(1)}%</div>
+                        <div className="info-label">Arbeitsspeicher: {memPercent.toFixed(1)}%</div>
                         <div className="progress-bar">
                           <div className="progress-fill" style={{ width: `${Math.min(memPercent, 100)}%` }}></div>
                         </div>
@@ -384,7 +399,7 @@ export default function UserDashboard() {
                       </div>
 
                       <div>
-                        <div className="info-label">Disk: {diskPercent.toFixed(1)}%</div>
+                        <div className="info-label">Datenträger: {diskPercent.toFixed(1)}%</div>
                         <div className="progress-bar">
                           <div className="progress-fill" style={{ width: `${Math.min(diskPercent, 100)}%` }}></div>
                         </div>
@@ -396,10 +411,10 @@ export default function UserDashboard() {
 
                     {container.ips && container.ips.length > 0 && (
                       <div className="ips-section">
-                        <div className="ips-label">IP Addresses:</div>
+                        <div className="ips-label">IP-Adressen:</div>
                         {container.ips.map((ip, idx) => (
                           <div key={idx} className="ip-item">
-                            {ip.ipv4 || ip.ipv6 || 'N/A'}
+                            {ip.ipv4 || ip.ipv6 || 'k. A.'}
                           </div>
                         ))}
                       </div>
@@ -416,7 +431,7 @@ export default function UserDashboard() {
                       }}
                       disabled={container.status !== 'running'}
                     >
-                      {container.status === 'running' ? 'Open WebUI' : 'Container Offline'}
+                      {container.status === 'running' ? 'Weboberfläche öffnen' : 'Container offline'}
                     </button>
                   </div>
                 </div>

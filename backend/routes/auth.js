@@ -6,78 +6,213 @@ const { get, run, all } = require('../config/database');
 const { generateToken, authMiddleware } = require('../middleware/auth');
 const { AppError } = require('../middleware/errorHandler');
 const { HTTP_STATUS, ERROR_MESSAGES, ROLES } = require('../config/constants');
-const { sendEmail } = require('../services/emailService');
+const { sendEmail, testSmtpConnection, initializeEmailService, encryptString } = require('../services/emailService');
+const { testConnection } = require('../services/proxmoxService');
+
+const SETUP_KEYS = ['smtp_host', 'smtp_port', 'smtp_user', 'smtp_password'];
+
+async function getSetupState() {
+  const adminUser = await get('SELECT id, email, name, role FROM users WHERE role = ? ORDER BY id ASC LIMIT 1', [ROLES.ADMIN]);
+  const proxmoxCluster = await get('SELECT id FROM proxmox_clusters ORDER BY id ASC LIMIT 1');
+  const smtpRows = await all(`SELECT key, value FROM settings WHERE key IN (${SETUP_KEYS.map(() => '?').join(',')})`, SETUP_KEYS);
+
+  const smtpSettings = smtpRows.reduce((acc, row) => {
+    acc[row.key] = row.value;
+    return acc;
+  }, {});
+
+  const adminConfigured = !!adminUser;
+  const proxmoxConfigured = !!proxmoxCluster;
+  const smtpConfigured = SETUP_KEYS.every(key => typeof smtpSettings[key] === 'string' && smtpSettings[key].trim() !== '');
+
+  const missing = [];
+  if (!adminConfigured) missing.push('admin');
+  if (!proxmoxConfigured) missing.push('proxmox');
+  if (!smtpConfigured) missing.push('smtp');
+
+  return {
+    setupRequired: missing.length > 0,
+    setupComplete: missing.length === 0,
+    adminConfigured,
+    proxmoxConfigured,
+    smtpConfigured,
+    missing,
+    adminUser: adminUser ? {
+      id: adminUser.id,
+      email: adminUser.email,
+      name: adminUser.name,
+      role: adminUser.role
+    } : null
+  };
+}
+
+async function assertSetupOpen() {
+  const state = await getSetupState();
+  if (state.setupComplete) {
+    throw new AppError(ERROR_MESSAGES.SETUP_ALREADY_COMPLETED, HTTP_STATUS.CONFLICT);
+  }
+  return state;
+}
+
+function normalizeUrl(url) {
+  if (!url || typeof url !== 'string') return '';
+  return url.trim().replace(/\/$/, '');
+}
+
+function validateSmtp({ smtpHost, smtpPort, smtpUser, smtpPassword }) {
+  if (!smtpHost || !smtpPort || !smtpUser || !smtpPassword) {
+    throw new AppError('SMTP host, port, user, and password are required', HTTP_STATUS.BAD_REQUEST);
+  }
+}
+
+function validateProxmox({ proxmoxName, proxmoxUrl, proxmoxApiToken }) {
+  if (!proxmoxName || !proxmoxUrl || !proxmoxApiToken) {
+    throw new AppError('Proxmox name, URL, and API token are required', HTTP_STATUS.BAD_REQUEST);
+  }
+  if (!/^https?:\/\//i.test(proxmoxUrl)) {
+    throw new AppError('Proxmox URL must start with http:// or https://', HTTP_STATUS.BAD_REQUEST);
+  }
+}
 
 /**
  * Check if setup is required
  */
 router.get('/setup-required', async (req, res, next) => {
   try {
-    const adminUser = await get('SELECT id FROM users WHERE role = ?', [ROLES.ADMIN]);
-    res.json({ setupRequired: !adminUser });
+    const state = await getSetupState();
+    res.json(state);
   } catch (err) {
     next(err);
   }
 });
 
 /**
- * Initial setup - create admin user and configure settings
+ * Public SMTP test during first setup. This is only available until setup is complete.
+ */
+router.post('/setup/test-smtp', async (req, res, next) => {
+  try {
+    await assertSetupOpen();
+    const { smtpHost, smtpPort, smtpUser, smtpPassword } = req.body;
+    validateSmtp({ smtpHost, smtpPort, smtpUser, smtpPassword });
+
+    const result = await testSmtpConnection(smtpHost, smtpPort, smtpUser, smtpPassword);
+    res.status(result.success ? HTTP_STATUS.OK : HTTP_STATUS.BAD_REQUEST).json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * Public Proxmox test during first setup. This is only available until setup is complete.
+ */
+router.post('/setup/test-proxmox', async (req, res, next) => {
+  try {
+    await assertSetupOpen();
+    const proxmoxName = req.body.proxmoxName || 'Proxmox';
+    const proxmoxUrl = normalizeUrl(req.body.proxmoxUrl);
+    const proxmoxApiToken = req.body.proxmoxApiToken;
+    validateProxmox({ proxmoxName, proxmoxUrl, proxmoxApiToken });
+
+    const result = await testConnection(proxmoxUrl, proxmoxApiToken);
+    res.status(result.success ? HTTP_STATUS.OK : HTTP_STATUS.BAD_REQUEST).json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * Initial setup - create admin user, configure Proxmox and SMTP.
+ * Setup is complete only when all three parts are present.
  */
 router.post('/setup', async (req, res, next) => {
   try {
-    const { adminName, adminEmail, adminPassword, smtpHost, smtpPort, smtpUser, smtpPassword } = req.body;
+    const state = await assertSetupOpen();
+    const {
+      adminName,
+      adminEmail,
+      adminPassword,
+      proxmoxName,
+      proxmoxUrl,
+      proxmoxApiToken,
+      smtpHost,
+      smtpPort,
+      smtpUser,
+      smtpPassword
+    } = req.body;
 
-    // Check if setup already done
-    const existingAdmin = await get('SELECT id FROM users WHERE role = ?', [ROLES.ADMIN]);
-    if (existingAdmin) {
-      throw new AppError(ERROR_MESSAGES.SETUP_ALREADY_COMPLETED, HTTP_STATUS.CONFLICT);
-    }
+    let adminUser = state.adminUser;
 
-    // Validate input
-    if (!adminName || !adminEmail || !adminPassword) {
-      throw new AppError('Missing required fields', HTTP_STATUS.BAD_REQUEST);
-    }
+    if (!state.adminConfigured) {
+      if (!adminName || !adminEmail || !adminPassword) {
+        throw new AppError('Admin name, email, and password are required', HTTP_STATUS.BAD_REQUEST);
+      }
+      if (adminPassword.length < 6) {
+        throw new AppError('Admin password must be at least 6 characters', HTTP_STATUS.BAD_REQUEST);
+      }
 
-    // Hash password
-    const saltRounds = 10;
-    const password_hash = await bcryptjs.hash(adminPassword, saltRounds);
+      const existingUser = await get('SELECT id FROM users WHERE email = ?', [adminEmail]);
+      if (existingUser) {
+        throw new AppError(ERROR_MESSAGES.USER_EXISTS, HTTP_STATUS.CONFLICT);
+      }
 
-    // Create admin user
-    const result = await run(
-      `INSERT INTO users (email, name, password_hash, role) VALUES (?, ?, ?, ?)`,
-      [adminEmail, adminName, password_hash, ROLES.ADMIN]
-    );
+      const passwordHash = await bcryptjs.hash(adminPassword, 10);
+      const result = await run(
+        'INSERT INTO users (email, name, password_hash, role) VALUES (?, ?, ?, ?)',
+        [adminEmail, adminName, passwordHash, ROLES.ADMIN]
+      );
 
-    // Save SMTP settings
-    if (smtpHost && smtpPort) {
-      await run('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', 
-        ['smtp_host', smtpHost]);
-      await run('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', 
-        ['smtp_port', smtpPort]);
-      await run('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', 
-        ['smtp_user', smtpUser || '']);
-      
-      // Encrypt and save SMTP password
-      const encrypted = encryptString(smtpPassword || '');
-      await run('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', 
-        ['smtp_password', encrypted]);
-    }
-
-    // Mark setup as complete
-    await run('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', 
-      ['setup_complete', 'true']);
-
-    const token = generateToken(result.lastID, adminEmail, ROLES.ADMIN);
-
-    res.status(HTTP_STATUS.CREATED).json({
-      message: 'Setup completed successfully',
-      token,
-      user: {
+      adminUser = {
         id: result.lastID,
         email: adminEmail,
         name: adminName,
         role: ROLES.ADMIN
+      };
+    }
+
+    if (!state.proxmoxConfigured) {
+      const normalizedProxmoxUrl = normalizeUrl(proxmoxUrl);
+      validateProxmox({ proxmoxName, proxmoxUrl: normalizedProxmoxUrl, proxmoxApiToken });
+
+      const proxmoxTest = await testConnection(normalizedProxmoxUrl, proxmoxApiToken);
+      if (!proxmoxTest.success) {
+        throw new AppError(`Proxmox test failed: ${proxmoxTest.message}`, HTTP_STATUS.BAD_REQUEST);
       }
+
+      await run(
+        'INSERT INTO proxmox_clusters (name, url, api_token) VALUES (?, ?, ?)',
+        [proxmoxName.trim(), normalizedProxmoxUrl, proxmoxApiToken.trim()]
+      );
+    }
+
+    if (!state.smtpConfigured) {
+      validateSmtp({ smtpHost, smtpPort, smtpUser, smtpPassword });
+
+      const smtpTest = await testSmtpConnection(smtpHost.trim(), smtpPort, smtpUser.trim(), smtpPassword);
+      if (!smtpTest.success) {
+        throw new AppError(`SMTP test failed: ${smtpTest.message}`, HTTP_STATUS.BAD_REQUEST);
+      }
+
+      await run('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', ['smtp_host', smtpHost.trim()]);
+      await run('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', ['smtp_port', String(smtpPort).trim()]);
+      await run('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', ['smtp_user', smtpUser.trim()]);
+      await run('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', ['smtp_password', encryptString(smtpPassword)]);
+      await initializeEmailService();
+    }
+
+    const finalState = await getSetupState();
+    if (finalState.setupRequired) {
+      throw new AppError(`Setup incomplete. Missing: ${finalState.missing.join(', ')}`, HTTP_STATUS.BAD_REQUEST);
+    }
+
+    await run('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', ['setup_complete', 'true']);
+
+    const token = generateToken(adminUser.id, adminUser.email, adminUser.role);
+
+    res.status(HTTP_STATUS.CREATED).json({
+      message: 'Setup completed successfully',
+      setupComplete: true,
+      token,
+      user: adminUser
     });
   } catch (err) {
     next(err);
@@ -93,6 +228,11 @@ router.post('/login', async (req, res, next) => {
 
     if (!email || !password) {
       throw new AppError('Email and password required', HTTP_STATUS.BAD_REQUEST);
+    }
+
+    const setupState = await getSetupState();
+    if (setupState.setupRequired) {
+      throw new AppError(ERROR_MESSAGES.SETUP_REQUIRED, HTTP_STATUS.FORBIDDEN);
     }
 
     const user = await get('SELECT * FROM users WHERE email = ?', [email]);
@@ -126,8 +266,13 @@ router.post('/login', async (req, res, next) => {
 /**
  * Verify token
  */
-router.get('/verify', authMiddleware, (req, res) => {
-  res.json({ valid: true, user: req.user });
+router.get('/verify', authMiddleware, async (req, res, next) => {
+  try {
+    const setupState = await getSetupState();
+    res.json({ valid: true, user: req.user, setupRequired: setupState.setupRequired });
+  } catch (err) {
+    next(err);
+  }
 });
 
 /**
@@ -153,8 +298,7 @@ router.post('/change-password', authMiddleware, async (req, res, next) => {
       throw new AppError('Current password is incorrect', HTTP_STATUS.UNAUTHORIZED);
     }
 
-    const saltRounds = 10;
-    const newPasswordHash = await bcryptjs.hash(newPassword, saltRounds);
+    const newPasswordHash = await bcryptjs.hash(newPassword, 10);
 
     await run(
       'UPDATE users SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
@@ -181,13 +325,10 @@ router.post('/forgot-password', async (req, res, next) => {
     const user = await get('SELECT * FROM users WHERE email = ?', [email]);
 
     if (!user) {
-      // Don't reveal if email exists
       return res.json({ message: 'If email exists, password reset link has been sent' });
     }
 
-    // Generate reset token
     const resetToken = generateToken(user.id, user.email, user.role);
-
     const resetLink = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${resetToken}`;
 
     await sendEmail(
@@ -220,8 +361,7 @@ router.post('/reset-password', async (req, res, next) => {
       throw new AppError(ERROR_MESSAGES.USER_NOT_FOUND, HTTP_STATUS.NOT_FOUND);
     }
 
-    const saltRounds = 10;
-    const newPasswordHash = await bcryptjs.hash(newPassword, saltRounds);
+    const newPasswordHash = await bcryptjs.hash(newPassword, 10);
 
     await run(
       'UPDATE users SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
@@ -240,15 +380,5 @@ router.post('/reset-password', async (req, res, next) => {
 router.post('/logout', authMiddleware, (req, res) => {
   res.json({ message: 'Logged out successfully' });
 });
-
-// Encryption utility
-function encryptString(str) {
-  // Simple encryption for now - in production use proper encryption
-  return Buffer.from(str).toString('base64');
-}
-
-function decryptString(str) {
-  return Buffer.from(str, 'base64').toString('utf-8');
-}
 
 module.exports = router;

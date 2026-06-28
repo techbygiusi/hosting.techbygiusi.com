@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { adminApi } from '../services/api';
+import { adminApi, getErrorMessage } from '../services/api';
 import '../styles/globals.css';
 
 export default function AdminDashboard() {
@@ -14,17 +14,18 @@ export default function AdminDashboard() {
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
 
-  // Modal states
   const [showUserModal, setShowUserModal] = useState(false);
   const [showGroupModal, setShowGroupModal] = useState(false);
   const [showClusterModal, setShowClusterModal] = useState(false);
   const [showAssignmentModal, setShowAssignmentModal] = useState(false);
 
-  // Form states
   const [newUser, setNewUser] = useState({ email: '', name: '' });
   const [newGroup, setNewGroup] = useState({ name: '' });
   const [newCluster, setNewCluster] = useState({ name: '', url: '', apiToken: '' });
   const [newAssignment, setNewAssignment] = useState({ containerId: '', clusterId: '', assignedToType: 'user', assignedToId: '' });
+
+  const renderRole = (role) => role === 'admin' ? 'Administrator' : 'Benutzer';
+  const renderAssignmentType = (type) => type === 'group' ? 'Gruppe' : 'Benutzer';
 
   useEffect(() => {
     loadData();
@@ -55,7 +56,7 @@ export default function AdminDashboard() {
         setAssignments(res.data.assignments || []);
       }
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to load data');
+      setError(getErrorMessage(err, 'Daten konnten nicht geladen werden.'));
     } finally {
       setLoading(false);
     }
@@ -65,25 +66,25 @@ export default function AdminDashboard() {
     try {
       setError('');
       await adminApi.createUser(newUser);
-      setSuccessMsg('User created successfully');
+      setSuccessMsg('Benutzer erfolgreich angelegt.');
       setNewUser({ email: '', name: '' });
       setShowUserModal(false);
       loadData();
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to create user');
+      setError(getErrorMessage(err, 'Benutzer konnte nicht angelegt werden.'));
     }
   };
 
   const handleDeleteUser = async (userId) => {
-    if (!window.confirm('Are you sure you want to delete this user?')) return;
+    if (!window.confirm('Diesen Benutzer wirklich löschen?')) return;
 
     try {
       setError('');
       await adminApi.deleteUser(userId);
-      setSuccessMsg('User deleted successfully');
+      setSuccessMsg('Benutzer erfolgreich gelöscht.');
       loadData();
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to delete user');
+      setError(getErrorMessage(err, 'Benutzer konnte nicht gelöscht werden.'));
     }
   };
 
@@ -91,25 +92,25 @@ export default function AdminDashboard() {
     try {
       setError('');
       await adminApi.createGroup(newGroup);
-      setSuccessMsg('Group created successfully');
+      setSuccessMsg('Gruppe erfolgreich angelegt.');
       setNewGroup({ name: '' });
       setShowGroupModal(false);
       loadData();
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to create group');
+      setError(getErrorMessage(err, 'Gruppe konnte nicht angelegt werden.'));
     }
   };
 
   const handleDeleteGroup = async (groupId) => {
-    if (!window.confirm('Are you sure you want to delete this group?')) return;
+    if (!window.confirm('Diese Gruppe wirklich löschen?')) return;
 
     try {
       setError('');
       await adminApi.deleteGroup(groupId);
-      setSuccessMsg('Group deleted successfully');
+      setSuccessMsg('Gruppe erfolgreich gelöscht.');
       loadData();
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to delete group');
+      setError(getErrorMessage(err, 'Gruppe konnte nicht gelöscht werden.'));
     }
   };
 
@@ -117,25 +118,25 @@ export default function AdminDashboard() {
     try {
       setError('');
       await adminApi.createCluster(newCluster);
-      setSuccessMsg('Cluster added successfully');
+      setSuccessMsg('Cluster erfolgreich hinzugefügt.');
       setNewCluster({ name: '', url: '', apiToken: '' });
       setShowClusterModal(false);
       loadData();
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to add cluster');
+      setError(getErrorMessage(err, 'Cluster konnte nicht hinzugefügt werden.'));
     }
   };
 
   const handleDeleteCluster = async (clusterId) => {
-    if (!window.confirm('Are you sure you want to delete this cluster?')) return;
+    if (!window.confirm('Diesen Cluster wirklich löschen?')) return;
 
     try {
       setError('');
       await adminApi.deleteCluster(clusterId);
-      setSuccessMsg('Cluster deleted successfully');
+      setSuccessMsg('Cluster erfolgreich gelöscht.');
       loadData();
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to delete cluster');
+      setError(getErrorMessage(err, 'Cluster konnte nicht gelöscht werden.'));
     }
   };
 
@@ -143,25 +144,25 @@ export default function AdminDashboard() {
     try {
       setError('');
       await adminApi.createAssignment(newAssignment);
-      setSuccessMsg('Assignment created successfully');
+      setSuccessMsg('Zuweisung erfolgreich angelegt.');
       setNewAssignment({ containerId: '', clusterId: '', assignedToType: 'user', assignedToId: '' });
       setShowAssignmentModal(false);
       loadData();
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to create assignment');
+      setError(getErrorMessage(err, 'Zuweisung konnte nicht angelegt werden.'));
     }
   };
 
   const handleDeleteAssignment = async (assignmentId) => {
-    if (!window.confirm('Are you sure you want to delete this assignment?')) return;
+    if (!window.confirm('Diese Zuweisung wirklich löschen?')) return;
 
     try {
       setError('');
       await adminApi.deleteAssignment(assignmentId);
-      setSuccessMsg('Assignment deleted successfully');
+      setSuccessMsg('Zuweisung erfolgreich gelöscht.');
       loadData();
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to delete assignment');
+      setError(getErrorMessage(err, 'Zuweisung konnte nicht gelöscht werden.'));
     }
   };
 
@@ -169,7 +170,7 @@ export default function AdminDashboard() {
     <div style={{ minHeight: '100vh', backgroundColor: 'var(--color-bg-alt)' }}>
       <style>{`
         .admin-header {
-          background: white;
+          background: var(--color-surface);
           border-bottom: 1px solid var(--color-border);
           padding: var(--spacing-lg);
           display: flex;
@@ -273,7 +274,7 @@ export default function AdminDashboard() {
 
         .btn-primary {
           background: var(--color-primary);
-          color: white;
+          color: var(--button-primary-text);
           border: none;
           padding: var(--spacing-sm) var(--spacing-md);
           border-radius: var(--radius-md);
@@ -305,7 +306,7 @@ export default function AdminDashboard() {
 
         .table-responsive {
           overflow-x: auto;
-          background: white;
+          background: var(--color-surface);
           border-radius: var(--radius-lg);
           box-shadow: var(--shadow-sm);
         }
@@ -351,7 +352,7 @@ export default function AdminDashboard() {
         }
 
         .modal-content {
-          background: white;
+          background: var(--color-surface);
           border-radius: var(--radius-lg);
           padding: var(--spacing-lg);
           max-width: 500px;
@@ -405,7 +406,7 @@ export default function AdminDashboard() {
         .form-group textarea:focus {
           outline: none;
           border-color: var(--color-primary);
-          box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.1);
+          box-shadow: 0 0 0 3px rgba(122, 135, 111, 0.16);
         }
 
         .modal-actions {
@@ -442,23 +443,18 @@ export default function AdminDashboard() {
           }
         }
       `}</style>
-
-      {/* Header */}
       <div className="admin-header">
         <div className="admin-title">
-          <h1>⚙️ Admin Panel</h1>
+          <h1>⚙️ Administration</h1>
         </div>
         <div className="user-info">
           <span>{user?.name}</span>
           <button className="logout-btn" onClick={logout}>
-            Logout
+            Abmelden
           </button>
         </div>
       </div>
-
-      {/* Main Content */}
       <div className="admin-container">
-        {/* Messages */}
         {error && (
           <div className="alert alert-danger">
             {error}
@@ -481,92 +477,86 @@ export default function AdminDashboard() {
             </button>
           </div>
         )}
-
-        {/* Tabs */}
         <div className="admin-tabs">
           <button
             className={`admin-tab ${activeTab === 'overview' ? 'active' : ''}`}
             onClick={() => setActiveTab('overview')}
           >
-            Overview
+            Übersicht
           </button>
           <button
             className={`admin-tab ${activeTab === 'users' ? 'active' : ''}`}
             onClick={() => setActiveTab('users')}
           >
-            Users
+            Benutzer
           </button>
           <button
             className={`admin-tab ${activeTab === 'groups' ? 'active' : ''}`}
             onClick={() => setActiveTab('groups')}
           >
-            Groups
+            Gruppen
           </button>
           <button
             className={`admin-tab ${activeTab === 'clusters' ? 'active' : ''}`}
             onClick={() => setActiveTab('clusters')}
           >
-            Clusters
+            Cluster
           </button>
           <button
             className={`admin-tab ${activeTab === 'assignments' ? 'active' : ''}`}
             onClick={() => setActiveTab('assignments')}
           >
-            Assignments
+            Zuweisungen
           </button>
         </div>
-
-        {/* Overview Tab */}
         {activeTab === 'overview' && (
           <div>
-            <h2>Dashboard Overview</h2>
+            <h2>Übersicht</h2>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 'var(--spacing-md)', marginTop: 'var(--spacing-lg)' }}>
-              <div style={{ background: 'white', padding: 'var(--spacing-lg)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-sm)' }}>
+              <div style={{ background: 'var(--color-surface)', padding: 'var(--spacing-lg)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-sm)' }}>
                 <h3 style={{ margin: '0 0 var(--spacing-md) 0', color: 'var(--color-primary)', fontSize: 'var(--font-size-2xl)' }}>{users.length}</h3>
-                <p style={{ margin: 0, color: 'var(--color-text-light)' }}>Total Users</p>
+                <p style={{ margin: 0, color: 'var(--color-text-light)' }}>Benutzer gesamt</p>
               </div>
-              <div style={{ background: 'white', padding: 'var(--spacing-lg)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-sm)' }}>
+              <div style={{ background: 'var(--color-surface)', padding: 'var(--spacing-lg)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-sm)' }}>
                 <h3 style={{ margin: '0 0 var(--spacing-md) 0', color: 'var(--color-primary)', fontSize: 'var(--font-size-2xl)' }}>{groups.length}</h3>
-                <p style={{ margin: 0, color: 'var(--color-text-light)' }}>Customer Groups</p>
+                <p style={{ margin: 0, color: 'var(--color-text-light)' }}>Kundengruppen</p>
               </div>
-              <div style={{ background: 'white', padding: 'var(--spacing-lg)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-sm)' }}>
+              <div style={{ background: 'var(--color-surface)', padding: 'var(--spacing-lg)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-sm)' }}>
                 <h3 style={{ margin: '0 0 var(--spacing-md) 0', color: 'var(--color-primary)', fontSize: 'var(--font-size-2xl)' }}>{clusters.length}</h3>
-                <p style={{ margin: 0, color: 'var(--color-text-light)' }}>Proxmox Clusters</p>
+                <p style={{ margin: 0, color: 'var(--color-text-light)' }}>Proxmox-Cluster</p>
               </div>
-              <div style={{ background: 'white', padding: 'var(--spacing-lg)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-sm)' }}>
+              <div style={{ background: 'var(--color-surface)', padding: 'var(--spacing-lg)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-sm)' }}>
                 <h3 style={{ margin: '0 0 var(--spacing-md) 0', color: 'var(--color-primary)', fontSize: 'var(--font-size-2xl)' }}>{assignments.length}</h3>
-                <p style={{ margin: 0, color: 'var(--color-text-light)' }}>Assignments</p>
+                <p style={{ margin: 0, color: 'var(--color-text-light)' }}>Zuweisungen</p>
               </div>
             </div>
           </div>
         )}
-
-        {/* Users Tab */}
         {activeTab === 'users' && (
           <div>
             <div className="admin-actions">
               <button className="btn-primary" onClick={() => setShowUserModal(true)}>
-                + Add User
+                + Benutzer hinzufügen
               </button>
             </div>
 
             {loading ? (
-              <div style={{ textAlign: 'center', padding: 'var(--spacing-xl)' }}>Loading...</div>
+              <div style={{ textAlign: 'center', padding: 'var(--spacing-xl)' }}>Lädt...</div>
             ) : users.length === 0 ? (
               <div className="empty-state">
-                <h3>No users yet</h3>
-                <p>Create your first user to get started</p>
+                <h3>Noch keine Benutzer</h3>
+                <p>Lege den ersten Benutzer an, um zu starten.</p>
               </div>
             ) : (
               <div className="table-responsive">
                 <table>
                   <thead>
                     <tr>
-                      <th>Email</th>
+                      <th>E-Mail</th>
                       <th>Name</th>
-                      <th>Role</th>
-                      <th>Created</th>
-                      <th>Actions</th>
+                      <th>Rolle</th>
+                      <th>Erstellt</th>
+                      <th>Aktionen</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -574,14 +564,14 @@ export default function AdminDashboard() {
                       <tr key={u.id}>
                         <td>{u.email}</td>
                         <td>{u.name}</td>
-                        <td><strong>{u.role}</strong></td>
-                        <td>{new Date(u.created_at).toLocaleDateString()}</td>
+                        <td><strong>{renderRole(u.role)}</strong></td>
+                        <td>{new Date(u.created_at).toLocaleDateString('de-DE')}</td>
                         <td>
                           <button
                             className="btn-danger"
                             onClick={() => handleDeleteUser(u.id)}
                           >
-                            Delete
+                            Löschen
                           </button>
                         </td>
                       </tr>
@@ -590,16 +580,14 @@ export default function AdminDashboard() {
                 </table>
               </div>
             )}
-
-            {/* Add User Modal */}
             <div className={`modal-overlay ${showUserModal ? 'show' : ''}`}>
               <div className="modal-content">
                 <div className="modal-header">
-                  <h2>Add New User</h2>
+                  <h2>Neuen Benutzer hinzufügen</h2>
                   <button className="close-btn" onClick={() => setShowUserModal(false)}>✕</button>
                 </div>
                 <div className="form-group">
-                  <label>Email</label>
+                  <label>E-Mail</label>
                   <input
                     type="email"
                     value={newUser.email}
@@ -613,42 +601,40 @@ export default function AdminDashboard() {
                     type="text"
                     value={newUser.name}
                     onChange={e => setNewUser({...newUser, name: e.target.value})}
-                    placeholder="Full Name"
+                    placeholder="Vollständiger Name"
                   />
                 </div>
                 <div className="modal-actions">
-                  <button className="btn-secondary" onClick={() => setShowUserModal(false)}>Cancel</button>
-                  <button className="btn-primary" onClick={handleCreateUser}>Create User</button>
+                  <button className="btn-secondary" onClick={() => setShowUserModal(false)}>Abbrechen</button>
+                  <button className="btn-primary" onClick={handleCreateUser}>Benutzer anlegen</button>
                 </div>
               </div>
             </div>
           </div>
         )}
-
-        {/* Groups Tab */}
         {activeTab === 'groups' && (
           <div>
             <div className="admin-actions">
               <button className="btn-primary" onClick={() => setShowGroupModal(true)}>
-                + Add Group
+                + Gruppe hinzufügen
               </button>
             </div>
 
             {loading ? (
-              <div style={{ textAlign: 'center', padding: 'var(--spacing-xl)' }}>Loading...</div>
+              <div style={{ textAlign: 'center', padding: 'var(--spacing-xl)' }}>Lädt...</div>
             ) : groups.length === 0 ? (
               <div className="empty-state">
-                <h3>No groups yet</h3>
+                <h3>Noch keine Gruppen</h3>
               </div>
             ) : (
               <div className="table-responsive">
                 <table>
                   <thead>
                     <tr>
-                      <th>Group Name</th>
-                      <th>Users</th>
-                      <th>Created</th>
-                      <th>Actions</th>
+                      <th>Gruppenname</th>
+                      <th>Benutzer</th>
+                      <th>Erstellt</th>
+                      <th>Aktionen</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -656,13 +642,13 @@ export default function AdminDashboard() {
                       <tr key={g.id}>
                         <td>{g.name}</td>
                         <td>{g.userCount || 0}</td>
-                        <td>{new Date(g.created_at).toLocaleDateString()}</td>
+                        <td>{new Date(g.created_at).toLocaleDateString('de-DE')}</td>
                         <td>
                           <button
                             className="btn-danger"
                             onClick={() => handleDeleteGroup(g.id)}
                           >
-                            Delete
+                            Löschen
                           </button>
                         </td>
                       </tr>
@@ -671,47 +657,43 @@ export default function AdminDashboard() {
                 </table>
               </div>
             )}
-
-            {/* Add Group Modal */}
             <div className={`modal-overlay ${showGroupModal ? 'show' : ''}`}>
               <div className="modal-content">
                 <div className="modal-header">
-                  <h2>Add New Group</h2>
+                  <h2>Neue Gruppe hinzufügen</h2>
                   <button className="close-btn" onClick={() => setShowGroupModal(false)}>✕</button>
                 </div>
                 <div className="form-group">
-                  <label>Group Name</label>
+                  <label>Gruppenname</label>
                   <input
                     type="text"
                     value={newGroup.name}
                     onChange={e => setNewGroup({...newGroup, name: e.target.value})}
-                    placeholder="e.g., Team A"
+                    placeholder="z. B. Team A"
                   />
                 </div>
                 <div className="modal-actions">
-                  <button className="btn-secondary" onClick={() => setShowGroupModal(false)}>Cancel</button>
-                  <button className="btn-primary" onClick={handleCreateGroup}>Create Group</button>
+                  <button className="btn-secondary" onClick={() => setShowGroupModal(false)}>Abbrechen</button>
+                  <button className="btn-primary" onClick={handleCreateGroup}>Gruppe anlegen</button>
                 </div>
               </div>
             </div>
           </div>
         )}
-
-        {/* Clusters Tab */}
         {activeTab === 'clusters' && (
           <div>
             <div className="admin-actions">
               <button className="btn-primary" onClick={() => setShowClusterModal(true)}>
-                + Add Cluster
+                + Cluster hinzufügen
               </button>
             </div>
 
             {loading ? (
-              <div style={{ textAlign: 'center', padding: 'var(--spacing-xl)' }}>Loading...</div>
+              <div style={{ textAlign: 'center', padding: 'var(--spacing-xl)' }}>Lädt...</div>
             ) : clusters.length === 0 ? (
               <div className="empty-state">
-                <h3>No clusters configured</h3>
-                <p>Add your first Proxmox cluster</p>
+                <h3>Keine Cluster konfiguriert</h3>
+                <p>Füge deinen ersten Proxmox-Cluster hinzu.</p>
               </div>
             ) : (
               <div className="table-responsive">
@@ -720,8 +702,8 @@ export default function AdminDashboard() {
                     <tr>
                       <th>Name</th>
                       <th>URL</th>
-                      <th>Created</th>
-                      <th>Actions</th>
+                      <th>Erstellt</th>
+                      <th>Aktionen</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -729,13 +711,13 @@ export default function AdminDashboard() {
                       <tr key={c.id}>
                         <td>{c.name}</td>
                         <td style={{ fontSize: 'var(--font-size-sm)', fontFamily: 'monospace', overflow: 'auto' }}>{c.url}</td>
-                        <td>{new Date(c.created_at).toLocaleDateString()}</td>
+                        <td>{new Date(c.created_at).toLocaleDateString('de-DE')}</td>
                         <td>
                           <button
                             className="btn-danger"
                             onClick={() => handleDeleteCluster(c.id)}
                           >
-                            Delete
+                            Löschen
                           </button>
                         </td>
                       </tr>
@@ -744,21 +726,19 @@ export default function AdminDashboard() {
                 </table>
               </div>
             )}
-
-            {/* Add Cluster Modal */}
             <div className={`modal-overlay ${showClusterModal ? 'show' : ''}`}>
               <div className="modal-content">
                 <div className="modal-header">
-                  <h2>Add Proxmox Cluster</h2>
+                  <h2>Proxmox-Cluster hinzufügen</h2>
                   <button className="close-btn" onClick={() => setShowClusterModal(false)}>✕</button>
                 </div>
                 <div className="form-group">
-                  <label>Cluster Name</label>
+                  <label>Cluster-Name</label>
                   <input
                     type="text"
                     value={newCluster.name}
                     onChange={e => setNewCluster({...newCluster, name: e.target.value})}
-                    placeholder="e.g., Cluster 1"
+                    placeholder="z. B. Cluster 1"
                   />
                 </div>
                 <div className="form-group">
@@ -771,7 +751,7 @@ export default function AdminDashboard() {
                   />
                 </div>
                 <div className="form-group">
-                  <label>API Token</label>
+                  <label>API-Token</label>
                   <textarea
                     value={newCluster.apiToken}
                     onChange={e => setNewCluster({...newCluster, apiToken: e.target.value})}
@@ -780,41 +760,39 @@ export default function AdminDashboard() {
                   ></textarea>
                 </div>
                 <div className="modal-actions">
-                  <button className="btn-secondary" onClick={() => setShowClusterModal(false)}>Cancel</button>
-                  <button className="btn-primary" onClick={handleCreateCluster}>Add Cluster</button>
+                  <button className="btn-secondary" onClick={() => setShowClusterModal(false)}>Abbrechen</button>
+                  <button className="btn-primary" onClick={handleCreateCluster}>Cluster hinzufügen</button>
                 </div>
               </div>
             </div>
           </div>
         )}
-
-        {/* Assignments Tab */}
         {activeTab === 'assignments' && (
           <div>
             <div className="admin-actions">
               <button className="btn-primary" onClick={() => setShowAssignmentModal(true)}>
-                + Create Assignment
+                + Zuweisung erstellen
               </button>
             </div>
 
             {loading ? (
-              <div style={{ textAlign: 'center', padding: 'var(--spacing-xl)' }}>Loading...</div>
+              <div style={{ textAlign: 'center', padding: 'var(--spacing-xl)' }}>Lädt...</div>
             ) : assignments.length === 0 ? (
               <div className="empty-state">
-                <h3>No assignments</h3>
-                <p>Assign containers to users or groups</p>
+                <h3>Keine Zuweisungen</h3>
+                <p>Weise Container Benutzern oder Gruppen zu.</p>
               </div>
             ) : (
               <div className="table-responsive">
                 <table>
                   <thead>
                     <tr>
-                      <th>Container ID</th>
+                      <th>Container-ID</th>
                       <th>Cluster</th>
-                      <th>Assigned To</th>
-                      <th>Type</th>
-                      <th>Created</th>
-                      <th>Actions</th>
+                      <th>Zugewiesen an</th>
+                      <th>Typ</th>
+                      <th>Erstellt</th>
+                      <th>Aktionen</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -823,14 +801,14 @@ export default function AdminDashboard() {
                         <td>{a.container_id}</td>
                         <td>{a.cluster_name}</td>
                         <td>{a.assigned_to_name}</td>
-                        <td>{a.assigned_to_type}</td>
-                        <td>{new Date(a.created_at).toLocaleDateString()}</td>
+                        <td>{renderAssignmentType(a.assigned_to_type)}</td>
+                        <td>{new Date(a.created_at).toLocaleDateString('de-DE')}</td>
                         <td>
                           <button
                             className="btn-danger"
                             onClick={() => handleDeleteAssignment(a.id)}
                           >
-                            Delete
+                            Löschen
                           </button>
                         </td>
                       </tr>
@@ -839,16 +817,14 @@ export default function AdminDashboard() {
                 </table>
               </div>
             )}
-
-            {/* Create Assignment Modal */}
             <div className={`modal-overlay ${showAssignmentModal ? 'show' : ''}`}>
               <div className="modal-content">
                 <div className="modal-header">
-                  <h2>Create Assignment</h2>
+                  <h2>Zuweisung erstellen</h2>
                   <button className="close-btn" onClick={() => setShowAssignmentModal(false)}>✕</button>
                 </div>
                 <div className="form-group">
-                  <label>Container ID</label>
+                  <label>Container-ID</label>
                   <input
                     type="text"
                     value={newAssignment.containerId}
@@ -862,29 +838,29 @@ export default function AdminDashboard() {
                     value={newAssignment.clusterId}
                     onChange={e => setNewAssignment({...newAssignment, clusterId: e.target.value})}
                   >
-                    <option value="">Select Cluster</option>
+                    <option value="">Cluster auswählen</option>
                     {clusters.map(c => (
                       <option key={c.id} value={c.id}>{c.name}</option>
                     ))}
                   </select>
                 </div>
                 <div className="form-group">
-                  <label>Assign To Type</label>
+                  <label>Zuweisen an</label>
                   <select
                     value={newAssignment.assignedToType}
                     onChange={e => setNewAssignment({...newAssignment, assignedToType: e.target.value})}
                   >
-                    <option value="user">User</option>
-                    <option value="group">Group</option>
+                    <option value="user">Benutzer</option>
+                    <option value="group">Gruppe</option>
                   </select>
                 </div>
                 <div className="form-group">
-                  <label>{newAssignment.assignedToType === 'user' ? 'User' : 'Group'}</label>
+                  <label>{newAssignment.assignedToType === 'user' ? 'Benutzer' : 'Gruppe'}</label>
                   <select
                     value={newAssignment.assignedToId}
                     onChange={e => setNewAssignment({...newAssignment, assignedToId: e.target.value})}
                   >
-                    <option value="">Select {newAssignment.assignedToType}</option>
+                    <option value="">{newAssignment.assignedToType === 'user' ? 'Benutzer auswählen' : 'Gruppe auswählen'}</option>
                     {newAssignment.assignedToType === 'user' ? (
                       users.map(u => (
                         <option key={u.id} value={u.id}>{u.email}</option>
@@ -897,8 +873,8 @@ export default function AdminDashboard() {
                   </select>
                 </div>
                 <div className="modal-actions">
-                  <button className="btn-secondary" onClick={() => setShowAssignmentModal(false)}>Cancel</button>
-                  <button className="btn-primary" onClick={handleCreateAssignment}>Create Assignment</button>
+                  <button className="btn-secondary" onClick={() => setShowAssignmentModal(false)}>Abbrechen</button>
+                  <button className="btn-primary" onClick={handleCreateAssignment}>Zuweisung erstellen</button>
                 </div>
               </div>
             </div>

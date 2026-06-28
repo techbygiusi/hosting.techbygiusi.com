@@ -118,6 +118,21 @@ async function testConnection(clusterUrl, apiToken) {
   try {
     const client = createProxmoxClient(clusterUrl, apiToken);
     const response = await client.get('/api2/json/cluster/resources');
+
+    if (response.status < 200 || response.status >= 300) {
+      return {
+        success: false,
+        message: `Connection failed with HTTP ${response.status}${response.statusText ? ` ${response.statusText}` : ''}`
+      };
+    }
+
+    if (!response.data || !Array.isArray(response.data.data)) {
+      return {
+        success: false,
+        message: 'Connection failed: unexpected Proxmox API response'
+      };
+    }
+
     return {
       success: true,
       message: 'Connection successful'
@@ -141,7 +156,8 @@ function createProxmoxClient(baseURL, token) {
       'Content-Type': 'application/json'
     },
     httpsAgent,
-    validateStatus: () => true // Don't throw on any status
+    timeout: 10000,
+    validateStatus: () => true // Return HTTP errors to callers so tests can show clean messages
   });
 }
 
