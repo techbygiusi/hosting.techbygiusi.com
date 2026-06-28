@@ -1,5 +1,16 @@
 # Hosting Portal - Changelog
 
+## v1.0.17 - 2026-06-28
+
+**Commit:** `feat: add setup check in settings`
+
+- Added an **Einrichtung prüfen** action to the admin settings area so the initial configuration can be checked again after setup has already been completed.
+- Added a setup check dialog showing administrator, Proxmox and SMTP status without deleting or changing existing configuration.
+- Added direct Proxmox and SMTP test actions inside the setup check dialog; both reuse the already stored credentials where possible.
+- Kept the existing setup route protected for incomplete setup only and kept the UI German-only.
+
+---
+
 ## v1.0.16 - 2026-06-28
 
 **Commit:** `fix: use solid surfaces for readable dialogs`
