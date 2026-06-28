@@ -5,9 +5,9 @@ services:
       dockerfile: Dockerfile
     container_name: hosting-portal-backend
     ports:
-      - "3001:3001"
+      - "127.0.0.1:3001:3001"
     environment:
-      NODE_ENV: development
+      NODE_ENV: production
       BACKEND_PORT: 3001
       JWT_SECRET: ${JWT_SECRET:-dev-secret-key-change-in-production}
       JWT_EXPIRATION: 24h
@@ -15,8 +15,6 @@ services:
       DB_PATH: ./data/hosting.db
     volumes:
       - ./backend/data:/app/data
-      - ./backend:/app
-      - /app/node_modules
     networks:
       - hosting-network
     restart: unless-stopped
@@ -36,25 +34,22 @@ services:
       dockerfile: Dockerfile
     container_name: hosting-portal-frontend
     ports:
-      - "3000:3000"
-    environment:
-      REACT_APP_API_URL: http://localhost:3001/api
-      NODE_ENV: development
-    volumes:
-      - ./frontend/src:/app/src
-      - ./frontend/public:/app/public
-      - /app/node_modules
+      - "3000:80"
     networks:
       - hosting-network
     depends_on:
       backend:
         condition: service_healthy
     restart: unless-stopped
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - wget -qO- http://127.0.0.1/ >/dev/null || exit 1
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
 
 networks:
   hosting-network:
     driver: bridge
-
-volumes:
-  backend-data:
-    driver: local

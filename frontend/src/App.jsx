@@ -84,6 +84,18 @@ function FullscreenLoader({ text }) {
   );
 }
 
+function FullscreenError({ title, text }) {
+  return (
+    <div className="app-loader app-error">
+      <div className="app-error-card">
+        <p className="eyebrow">Hosting Portal</p>
+        <h1>{title}</h1>
+        <p>{text}</p>
+      </div>
+    </div>
+  );
+}
+
 function PrivateRoute({ children, requiredRole = null }) {
   const { isAuthenticated, user, loading, setupRequired } = useAuth();
 
@@ -107,10 +119,14 @@ function PrivateRoute({ children, requiredRole = null }) {
 }
 
 export default function App() {
-  const { setupRequired, loading, isAuthenticated, user } = useAuth();
+  const { setupRequired, loading, isAuthenticated, user, error } = useAuth();
 
   if (loading) {
     return <FullscreenLoader text="Initialisierung..." />;
+  }
+
+  if (error && !isAuthenticated && error.includes('Backend')) {
+    return <FullscreenError title="Backend nicht erreichbar" text={error} />;
   }
 
   return (

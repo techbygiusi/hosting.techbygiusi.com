@@ -1,4 +1,3 @@
-/* ========== CSS Variables ========== */
 :root {
   --site-bg: #ffffff;
   --site-text: #111111;
@@ -88,7 +87,7 @@ body.theme-light {
   --button-primary-text: #ffffff;
 }
 
-/* ========== RESET & BASE ========== */
+
 * {
   margin: 0;
   padding: 0;
@@ -113,7 +112,7 @@ body {
   line-height: 1.5;
 }
 
-/* ========== Typography ========== */
+
 h1, h2, h3, h4, h5, h6 {
   font-weight: 600;
   line-height: 1.2;
@@ -139,7 +138,7 @@ a:hover {
   color: var(--color-primary-dark);
 }
 
-/* ========== Forms ========== */
+
 input, select, textarea, button {
   font-family: inherit;
   font-size: var(--font-size-base);
@@ -159,7 +158,7 @@ textarea {
   background-color: var(--color-surface);
   color: var(--color-text);
   transition: var(--transition);
-  min-height: 44px; /* Touch-friendly */
+  min-height: 44px; 
 }
 
 input:focus,
@@ -175,13 +174,13 @@ textarea {
   min-height: 100px;
 }
 
-/* ========== Buttons ========== */
+
 button {
   cursor: pointer;
   border: none;
   border-radius: var(--radius-md);
   padding: var(--spacing-sm) var(--spacing-md);
-  min-height: 44px; /* Touch-friendly */
+  min-height: 44px; 
   font-weight: 500;
   transition: var(--transition);
   display: inline-flex;
@@ -249,7 +248,7 @@ button:disabled {
   cursor: not-allowed;
 }
 
-/* ========== Containers ========== */
+
 .container {
   width: 100%;
   padding: 0 var(--spacing-md);
@@ -257,33 +256,33 @@ button:disabled {
   margin-right: auto;
 }
 
-/* Mobile: 320px+ */
+
 .container {
   max-width: 100%;
 }
 
-/* Tablet: 768px+ */
+
 @media (min-width: 768px) {
   .container {
     max-width: 750px;
   }
 }
 
-/* Desktop: 1024px+ */
+
 @media (min-width: 1024px) {
   .container {
     max-width: 960px;
   }
 }
 
-/* Large Desktop: 1200px+ */
+
 @media (min-width: 1200px) {
   .container {
     max-width: 1140px;
   }
 }
 
-/* ========== Cards ========== */
+
 .card {
   background-color: var(--color-surface);
   border: 1px solid var(--color-border);
@@ -316,25 +315,25 @@ button:disabled {
   border-radius: 0 0 var(--radius-lg) var(--radius-lg);
 }
 
-/* ========== Grid ========== */
+
 .grid {
   display: grid;
   gap: var(--spacing-md);
 }
 
-/* Mobile: 1 column */
+
 .grid {
   grid-template-columns: 1fr;
 }
 
-/* Tablet: 2 columns (480px+) */
+
 @media (min-width: 480px) {
   .grid-2 {
     grid-template-columns: 1fr 1fr;
   }
 }
 
-/* Tablet: 2 columns (768px+) */
+
 @media (min-width: 768px) {
   .grid-2,
   .grid-auto {
@@ -346,7 +345,7 @@ button:disabled {
   }
 }
 
-/* Desktop: 3+ columns (1024px+) */
+
 @media (min-width: 1024px) {
   .grid-auto {
     grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
@@ -357,7 +356,7 @@ button:disabled {
   }
 }
 
-/* ========== Flexbox ========== */
+
 .flex {
   display: flex;
   gap: var(--spacing-md);
@@ -378,7 +377,7 @@ button:disabled {
   flex-wrap: wrap;
 }
 
-/* ========== Spacing ========== */
+
 .mt { margin-top: var(--spacing-md); }
 .mb { margin-bottom: var(--spacing-md); }
 .mr { margin-right: var(--spacing-md); }
@@ -393,7 +392,7 @@ button:disabled {
 .px { padding: 0 var(--spacing-md); }
 .py { padding: var(--spacing-md) 0; }
 
-/* ========== Tables ========== */
+
 table {
   width: 100%;
   border-collapse: collapse;
@@ -420,7 +419,7 @@ tbody tr:hover {
   background-color: var(--color-bg-alt);
 }
 
-/* Mobile table: horizontal scroll */
+
 @media (max-width: 767px) {
   .table-responsive {
     overflow-x: auto;
@@ -435,7 +434,7 @@ tbody tr:hover {
   }
 }
 
-/* ========== Alerts & Messages ========== */
+
 .alert {
   padding: var(--spacing-md);
   border-radius: var(--radius-md);
@@ -467,7 +466,7 @@ tbody tr:hover {
   color: #856404;
 }
 
-/* ========== Modals ========== */
+
 .modal {
   display: none;
   position: fixed;
@@ -545,7 +544,7 @@ tbody tr:hover {
   color: var(--color-text);
 }
 
-/* ========== Loading & Spinners ========== */
+
 .spinner {
   display: inline-block;
   width: 20px;
@@ -574,7 +573,7 @@ tbody tr:hover {
   padding: var(--spacing-lg);
 }
 
-/* ========== Animations ========== */
+
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
@@ -602,7 +601,7 @@ tbody tr:hover {
   }
 }
 
-/* ========== Utility Classes ========== */
+
 .text-center { text-align: center; }
 .text-right { text-align: right; }
 .text-left { text-align: left; }
@@ -626,14 +625,14 @@ tbody tr:hover {
 
 .rounded { border-radius: var(--radius-lg); }
 
-/* ========== Responsive Images ========== */
+
 img {
   max-width: 100%;
   height: auto;
   display: block;
 }
 
-/* ========== Scrollbar ========== */
+
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -653,7 +652,7 @@ img {
 }
 
 
-/* ========== WordPress matching theme polish ========== */
+
 .app-loader {
   min-height: 100vh;
   display: flex;
@@ -777,7 +776,7 @@ body.theme-dark .lamp-bulb {
   .lamp-toggle { display: none !important; }
 }
 
-/* ========== Setup wizard ========== */
+
 .setup-shell,
 .login-container {
   min-height: 100vh;
@@ -966,5 +965,110 @@ body.theme-dark .lamp-bulb {
 
   .setup-actions button {
     width: 100%;
+  }
+}
+
+body {
+  min-height: 100vh;
+}
+
+.login-card {
+  max-width: 520px;
+}
+
+.setup-card-wide {
+  max-width: 940px;
+}
+
+.login-container,
+.setup-shell {
+  align-items: center;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.login-card form,
+.setup-panel {
+  width: 100%;
+}
+
+.login-button {
+  width: 100%;
+  background: var(--color-primary);
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius-md);
+  color: var(--button-primary-text);
+  font-weight: 700;
+  margin-top: var(--spacing-sm);
+}
+
+.login-button:hover:not(:disabled) {
+  background: var(--color-primary-dark);
+  border-color: var(--color-primary-dark);
+}
+
+.app-error {
+  padding: var(--spacing-lg);
+}
+
+.app-error-card {
+  width: 100%;
+  max-width: 560px;
+  text-align: center;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  padding: var(--spacing-xl);
+}
+
+.app-error-card h1 {
+  margin-bottom: var(--spacing-sm);
+}
+
+.app-error-card p:last-child {
+  margin-bottom: 0;
+  color: var(--color-text-light);
+}
+
+@media (max-width: 767px) {
+  body,
+  body.theme-dark,
+  body.theme-light {
+    --site-bg: #ffffff;
+    --site-text: #111111;
+    --site-card: #f3f4f6;
+    --site-link: #7a876f;
+    --site-border: #e5e7eb;
+    --site-muted: #6b7280;
+    --color-bg: #ffffff;
+    --color-bg-alt: #f3f4f6;
+    --color-surface: #ffffff;
+    --color-border: #e5e7eb;
+    --color-text: #111111;
+    --color-text-light: #6b7280;
+    --button-primary-text: #ffffff;
+  }
+
+  .login-container,
+  .setup-shell {
+    min-height: 100dvh;
+    align-items: flex-start;
+    padding: var(--spacing-md);
+  }
+
+  .login-card,
+  .setup-card {
+    max-width: none;
+    padding: var(--spacing-md);
+  }
+
+  .setup-content {
+    padding: var(--spacing-md);
   }
 }

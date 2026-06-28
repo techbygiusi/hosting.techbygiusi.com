@@ -1,5 +1,20 @@
 # Hosting Portal - Changelog
 
+## v1.0.5 - 2026-06-28
+
+**Commit:** `fix: serve frontend through nginx api proxy`
+
+- Changed the frontend container from the React development server to a production Nginx build. This removes the React development WebSocket errors and prevents the browser from trying to connect to `:3000/ws`.
+- Added an internal Nginx proxy for `/api/` so the browser now calls the same domain instead of `https://domain:3001`. This fixes the API timeout that prevented the first setup wizard from opening.
+- Updated Docker Compose so only the frontend is publicly exposed on port `3000`; the backend remains reachable locally on the server and internally inside the Docker network.
+- Changed the frontend API default to `/api` and updated the frontend environment example.
+- Fixed the login card layout so it no longer stretches across the whole screen.
+- Added a clear backend-unreachable screen instead of silently falling back to the login page when the API cannot be reached.
+- Reset Proxmox and SMTP test results when the related input values are changed.
+- Removed leftover frontend styling comments and fixed an invalid extra brace in the admin dashboard CSS.
+
+---
+
 ## v1.0.4 - 2026-06-28
 
 **Commit:** `fix: localize frontend and force mobile light mode`

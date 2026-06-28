@@ -49,8 +49,7 @@ export function AuthProvider({ children }) {
           setUser(null);
         }
       } catch (err) {
-        console.error('Fehler beim Initialisieren der Anmeldung:', err);
-        setError(err.message);
+        setError('Das Backend ist aktuell nicht erreichbar. Bitte prüfe Docker Compose und den Reverse Proxy.');
       } finally {
         setLoading(false);
       }
@@ -121,7 +120,6 @@ export function AuthProvider({ children }) {
     try {
       await authApi.logout();
     } catch (err) {
-      console.error('Fehler beim Abmelden:', err);
     } finally {
       localStorage.removeItem('token');
       localStorage.removeItem('user');

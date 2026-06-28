@@ -1,15 +1,7 @@
 import axios from 'axios';
 
 const configuredApiUrl = process.env.REACT_APP_API_URL || '';
-const isBrowser = typeof window !== 'undefined';
-const browserHost = isBrowser ? window.location.hostname : 'localhost';
-const browserProtocol = isBrowser ? window.location.protocol : 'http:';
-const configuredUsesLocalhost = configuredApiUrl.includes('localhost') || configuredApiUrl.includes('127.0.0.1');
-const browserIsLocalhost = browserHost === 'localhost' || browserHost === '127.0.0.1';
-
-const API_URL = configuredApiUrl && !(configuredUsesLocalhost && !browserIsLocalhost)
-  ? configuredApiUrl
-  : `${browserProtocol}//${browserHost}:3001/api`;
+const API_URL = configuredApiUrl.trim() || '/api';
 
 const MESSAGE_TRANSLATIONS = {
   'Invalid email or password': 'E-Mail-Adresse oder Passwort ist falsch.',
