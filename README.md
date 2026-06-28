@@ -1,5 +1,25 @@
 # Hosting Portal - Changelog
 
+## v1.0.23 - 2026-06-28
+
+**Commit:** `style: widen desktop admin layout`
+
+- Increased the desktop app and header width so the admin area uses more available screen space.
+- Let the **Dienste** grid use wider desktop layouts while keeping the mobile layout unchanged.
+- Kept login and setup pages visually centered and preserved the existing light/dark theme behavior.
+
+---
+
+## v1.0.22 - 2026-06-28
+
+**Commit:** `fix: increase light mode service card contrast`
+
+- Increased the visual contrast of inner boxes on light-mode **Dienste** cards so Benutzer/Cluster and detail boxes stand out more clearly from the outer card.
+- Kept the dark-mode card styling unchanged because that view already had good contrast.
+- Preserved the compact Dienste overview, the direct website links and the German-only frontend wording.
+
+---
+
 ## v1.0.21 - 2026-06-28
 
 **Commit:** `fix: show service links outside details`
