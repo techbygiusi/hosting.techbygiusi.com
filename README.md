@@ -1,5 +1,22 @@
 # Hosting Portal - Changelog
 
+## v1.1 - 2026-06-28
+
+**Commit:** `feat: hosting portal v1.1 - user management & settings overhaul`
+
+- Add password input on user creation (instead of auto-generated)
+- Add role dropdown (user/admin) - changeable anytime
+- Enable SMTP configuration in settings tab (not just setup)
+- Add dark/light mode toggle with dropdown (desktop only, mobile locked to light)
+- Redesign AdminDashboard with 5 tabs (overview, users, clusters, assignments, settings)
+- Rewrite globals.css with modern design system, responsive grid, animations
+- Add stat-cards on overview tab
+- Improve alerts with animations and auto-dismiss
+- Support role changes without deleting user
+- Mobile-first responsive design (320px+)
+
+---
+
 ## v1.0.5 - 2026-06-28
 
 **Commit:** `fix: serve frontend through nginx api proxy`

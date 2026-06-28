@@ -31,31 +31,34 @@ router.get('/users', async (req, res, next) => {
  */
 router.post('/users', async (req, res, next) => {
   try {
-    const { email, name, role = ROLES.USER } = req.body;
+    const { email, name, password, role = ROLES.USER } = req.body;
 
-    if (!email || !name) {
-      throw new AppError('Email and name are required', HTTP_STATUS.BAD_REQUEST);
+    if (!email || !name || !password) {
+      throw new AppError('Email, name, and password are required', HTTP_STATUS.BAD_REQUEST);
+    }
+
+    if (password.length < 6) {
+      throw new AppError('Password must be at least 6 characters', HTTP_STATUS.BAD_REQUEST);
     }
 
     if (!Object.values(ROLES).includes(role)) {
       throw new AppError('Invalid role', HTTP_STATUS.BAD_REQUEST);
     }
 
-    // Generate temporary password
-    const tempPassword = Math.random().toString(36).slice(-8);
+    // Hash the provided password
     const saltRounds = 10;
-    const password_hash = await bcryptjs.hash(tempPassword, saltRounds);
+    const password_hash = await bcryptjs.hash(password, saltRounds);
 
     const result = await run(
       'INSERT INTO users (email, name, password_hash, role) VALUES (?, ?, ?, ?)',
       [email, name, password_hash, role]
     );
 
-    // Send welcome email with temp password
+    // Send welcome email
     await sendEmail(
       email,
       'Welcome to Hosting Portal',
-      `Hi ${name},\n\nYour account has been created.\nEmail: ${email}\nTemporary Password: ${tempPassword}\n\nPlease change your password after first login.`
+      `Hi ${name},\n\nYour account has been created.\nEmail: ${email}\nRole: ${role === ROLES.ADMIN ? 'Administrator' : 'User'}\n\nYou can now log in with your credentials.`
     );
 
     res.status(HTTP_STATUS.CREATED).json({
