@@ -1,5 +1,15 @@
 # Hosting Portal - Changelog
 
+## v1.0.24 - 2026-06-28
+
+**Commit:** `style: restore neutral gray light cards`
+
+- Changed the light-mode container and service card surfaces back to a neutral gray palette instead of the warmer beige tones.
+- Kept the stronger separation between outer cards and inner boxes so the Dienste overview remains readable.
+- Left the dark-mode styling unchanged.
+
+---
+
 ## v1.0.23 - 2026-06-28
 
 **Commit:** `style: widen desktop admin layout`
