@@ -1357,3 +1357,158 @@ label { display: grid; gap: 7px; color: var(--site-muted); font-size: 14px; }
     grid-template-columns: 1fr;
   }
 }
+
+
+/* ===== v0.1.21 Tighten admin layout spacing ===== */
+.admin-shell .site-main {
+  padding-top: 28px;
+  padding-bottom: 28px;
+}
+
+.admin-shell .admin-layout {
+  gap: 12px;
+  align-content: start;
+}
+
+.admin-shell .admin-hero {
+  gap: 8px;
+  padding-bottom: 0;
+}
+
+.admin-shell .admin-actions {
+  display: flex;
+  width: 100%;
+  gap: 10px;
+  align-items: stretch;
+  justify-content: stretch;
+}
+
+.admin-shell .admin-actions > button {
+  flex: 1 1 0;
+  width: 100% !important;
+  min-width: 0 !important;
+  height: 42px;
+  min-height: 42px !important;
+  padding: 8px 12px;
+}
+
+.admin-shell .admin-dashboard {
+  align-items: start;
+  gap: 10px;
+}
+
+.admin-shell .dashboard-card,
+.admin-shell .storage-card {
+  min-height: 0 !important;
+  padding: 12px 14px;
+  gap: 6px;
+  align-content: start;
+}
+
+.admin-shell .dashboard-card h3,
+.admin-shell .storage-card h3 {
+  font-size: 18px;
+  line-height: 1.1;
+}
+
+.admin-shell .dashboard-card span,
+.admin-shell .storage-card span,
+.admin-shell .storage-card small {
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.admin-shell .dashboard-card-head strong {
+  font-size: 18px;
+}
+
+.admin-shell .notice {
+  margin: 0;
+}
+
+@media (min-width: 721px) {
+  .admin-shell .admin-actions {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    width: 100%;
+  }
+}
+
+@media (max-width: 720px) {
+  .admin-shell .admin-layout {
+    gap: 10px;
+  }
+
+  .admin-shell .admin-actions,
+  .admin-shell .gallery-grid,
+  .admin-shell .admin-dashboard {
+    width: 100%;
+  }
+
+  .admin-shell .admin-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .admin-shell .admin-actions > button {
+    height: 40px;
+    min-height: 40px !important;
+    padding: 7px 8px;
+  }
+
+  .admin-shell .admin-dashboard {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .admin-shell .dashboard-card,
+  .admin-shell .storage-card {
+    padding: 11px 12px;
+    gap: 5px;
+    border-radius: 13px;
+  }
+}
+
+
+/* ===== v0.1.22 Equal-height admin stats cards ===== */
+.admin-shell .admin-dashboard {
+  align-items: stretch !important;
+}
+
+.admin-shell .dashboard-card,
+.admin-shell .storage-card {
+  height: 100%;
+}
+
+@media (min-width: 721px) {
+  .admin-shell .admin-dashboard {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-items: stretch !important;
+  }
+
+  .admin-shell .storage-card-wide {
+    grid-column: auto;
+  }
+
+  .admin-shell .dashboard-card,
+  .admin-shell .storage-card {
+    min-height: 108px;
+  }
+}
+
+@media (max-width: 720px) {
+  .admin-shell .admin-dashboard {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    align-items: stretch !important;
+  }
+
+  .admin-shell .storage-card-wide {
+    grid-column: 1 / -1;
+  }
+
+  .admin-shell .dashboard-card,
+  .admin-shell .storage-card {
+    min-height: 104px;
+  }
+}

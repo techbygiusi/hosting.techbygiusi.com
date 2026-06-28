@@ -1,5 +1,23 @@
 # Picly - Changelog
 
+## v0.1.22 - 2026-06-28
+
+**Commit:** `style: equalize admin stats card heights`
+
+- Made the mobile **Galerie** and **Upload-Last** cards share the same height.
+- Kept the storage card full width below them on mobile.
+- Made all three admin stats cards use the same height on desktop.
+- Kept the previously tightened admin spacing and button layout unchanged.
+
+## v0.1.21 - 2026-06-28
+
+**Commit:** `style: tighten admin layout spacing`
+
+- Tightened the admin layout so the action row, dashboard cards and notices no longer stretch so tall.
+- Distributed the desktop admin action buttons evenly across the full available width.
+- Kept the mobile admin action row aligned to the same full content width as the gallery below.
+- Centered the **Galerie öffnen** login title and kept the removed helper sentence out.
+
 ## v0.1.20 - 2026-06-28
 
 **Commit:** `style: compact mobile admin dashboard`
