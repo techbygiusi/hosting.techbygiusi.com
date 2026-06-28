@@ -16,7 +16,7 @@
 :root,
 body.theme-light {
   /* Brand palette */
-  --site-bg:        #F7F5F3;   /* warm paper */
+  --site-bg:        #ffffff;   /* page background (white) */
   --site-surface:   #ECEAE7;   /* cards / panels */
   --site-inset:     #F7F5F3;   /* nested boxes inside cards */
   --site-text:      #111111;
@@ -310,6 +310,21 @@ body.theme-dark .resource-meta,
 body.theme-dark .disk-row {
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid var(--color-border);
+}
+
+/* Resource cards sit inside a same-toned panel, so in light mode they would
+   blend in. Lift them onto the lighter "paper" surface with a hairline border
+   so each reads as a distinct container (mirrors the dark-mode tiles). The
+   dark-mode rule above wins by specificity, so dark stays untouched. */
+.resource-card {
+  background: var(--color-bg-alt);
+  border: 1px solid var(--color-border);
+}
+/* Inner detail boxes recede onto the panel tone so they stay visible inside
+   the now-lighter card. var() keeps this theme-aware and harmless in dark. */
+.resource-card .resource-meta,
+.resource-card .disk-row {
+  background: var(--color-surface);
 }
 
 .auth-card, .setup-card { width: 100%; padding: clamp(20px, 4vw, 32px); }
@@ -727,22 +742,42 @@ body.theme-dark .progress-bar {
   inset: 0;
   z-index: 1000;
   display: flex;
-  align-items: flex-start;
-  justify-content: center;
+  align-items: center;          /* desktop: vertically centered */
+  justify-content: center;      /* desktop: horizontally centered */
   overflow-y: auto;
   padding: clamp(24px, 6vh, 72px) 16px;
   background: rgba(17, 17, 17, 0.46);
   backdrop-filter: none;
+  animation: modalOverlayIn 0.18s ease;
 }
 .modal-card {
   width: min(560px, calc(100vw - 32px));
-  max-height: none;
-  overflow: visible;
+  max-height: calc(100dvh - 48px);
+  overflow-y: auto;
   padding: 24px;
   background: var(--color-bg);
   border: 1px solid var(--color-border);
   border-radius: 18px;
   box-shadow: var(--shadow-lg);
+  animation: modalPopIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes modalOverlayIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+/* Desktop: gentle rise into the centre + scale (the "pop"). */
+@keyframes modalPopIn {
+  from { opacity: 0; transform: translateY(16px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+/* Mobile bottom-sheet: slide up from the bottom edge. */
+@keyframes modalSheetUp {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .modal-overlay, .modal-card { animation: none; }
 }
 body.theme-dark .modal-card {
   background: var(--color-bg-alt);
@@ -860,13 +895,13 @@ body.theme-dark .icon-button {
 @media (max-width: 767px) {
   /* Mobile is light-only to mirror the site's mobile behaviour. */
   body, body.theme-dark, body.theme-light {
-    --site-bg:      #F7F5F3;
+    --site-bg:      #ffffff;
     --site-surface: #ECEAE7;
     --site-inset:   #F7F5F3;
     --site-text:    #111111;
     --site-muted:   #6B7280;
     --site-border:  rgba(17, 17, 17, 0.10);
-    --color-bg:         #F7F5F3;
+    --color-bg:         #ffffff;
     --color-bg-alt:     #F7F5F3;
     --color-surface:    #ECEAE7;
     --color-text:       #111111;
@@ -937,14 +972,24 @@ body.theme-dark .icon-button {
   .logout-button .logout-icon { display: block; }
   .logout-button .logout-label { display: none; }
 
-  .modal-overlay { padding: 12px; background: rgba(17, 17, 17, 0.38); }
+  /* Mobile: full-width bottom sheet, anchored to the bottom edge,
+     sliding up from below. */
+  .modal-overlay {
+    align-items: flex-end;
+    justify-content: stretch;
+    padding: 0;
+    background: rgba(17, 17, 17, 0.38);
+  }
   .modal-card {
     width: 100%;
-    max-height: calc(100dvh - 24px);
+    max-width: 100%;
+    max-height: 92dvh;
     overflow-y: auto;
-    padding: 20px;
-    border-radius: 16px;
+    padding: 22px 18px calc(22px + env(safe-area-inset-bottom));
+    border-radius: 18px 18px 0 0;
+    border-bottom: 0;
     background: var(--color-bg);
+    animation: modalSheetUp 0.26s cubic-bezier(0.16, 1, 0.3, 1);
   }
   .modal-card .form-actions { display: grid; grid-template-columns: 1fr; }
 }
