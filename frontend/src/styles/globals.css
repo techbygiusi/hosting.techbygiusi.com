@@ -1255,3 +1255,66 @@ h1, h2, h3, strong, b, th, button, .btn-primary, .btn-secondary, .btn-danger, .b
     align-items: stretch;
   }
 }
+
+/* v1.0.10 header, settings width and disk details */
+.site-brand h1 {
+  font-size: clamp(18px, 2.4vw, 24px);
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+
+.site-brand p {
+  display: none;
+}
+
+.settings-card {
+  max-width: none;
+  width: 100%;
+}
+
+.disk-details {
+  display: grid;
+  gap: 8px;
+}
+
+.disk-section-title {
+  color: var(--color-text-light);
+  font-size: var(--font-size-sm);
+}
+
+.disk-row {
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-alt);
+}
+
+.disk-row-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.disk-row-header span {
+  color: var(--color-text);
+}
+
+.disk-row-header small,
+.disk-row small {
+  color: var(--color-text-light);
+  font-size: var(--font-size-sm);
+}
+
+.disk-source {
+  word-break: break-all;
+}
+
+@media (max-width: 767px) {
+  .site-brand h1 {
+    font-size: 20px;
+    white-space: normal;
+  }
+}

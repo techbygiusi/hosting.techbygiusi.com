@@ -1,5 +1,19 @@
 # Hosting Portal - Changelog
 
+## v1.0.10 - 2026-06-28
+
+**Commit:** `fix: improve resource disk reporting`
+
+- Changed the admin and user header brand text to `TechByGiusi - Hosting`.
+- Expanded Proxmox disk reporting for VMs and LXCs so configured disks are shown individually instead of only showing a single zero value.
+- Added optional QEMU guest-agent filesystem usage detection. If the guest agent reports filesystem usage, the portal shows used and total values; otherwise it shows configured disk size and clearly marks usage as not reported.
+- Added support for multiple configured VM disks such as SCSI, SATA, IDE and VirtIO disks.
+- Kept LXC root disk and mount point detection based on Proxmox config and live status values.
+- Changed the Einstellungen panel to use the same width as Benutzer, Proxmox and Ressourcen.
+- Updated resource cards to display disk details in German with a cleaner layout.
+
+---
+
 ## v1.0.9 - 2026-06-28
 
 **Commit:** `fix: modernize header and remove tg mark`

@@ -1,7 +1,9 @@
-const { getClusterResources } = require('./proxmoxService');
+const { getClusterResources, getResourceDiskDetails } = require('./proxmoxService');
 
-function normalizeResourceRow(row, liveResource = null, error = null) {
+function normalizeResourceRow(row, liveResource = null, error = null, diskInfo = null) {
   const liveName = liveResource?.name || liveResource?.id || liveResource?.vmid;
+  const disks = Array.isArray(diskInfo?.disks) ? diskInfo.disks : [];
+  const filesystems = Array.isArray(diskInfo?.filesystems) ? diskInfo.filesystems : [];
 
   return {
     id: row.id,
@@ -15,8 +17,10 @@ function normalizeResourceRow(row, liveResource = null, error = null) {
     maxcpu: Number(liveResource?.maxcpu || 0),
     mem: Number(liveResource?.mem || 0),
     maxmem: Number(liveResource?.maxmem || 0),
-    disk: Number(liveResource?.disk || 0),
-    maxdisk: Number(liveResource?.maxdisk || 0),
+    disk: Number(diskInfo?.disk ?? liveResource?.disk ?? 0),
+    maxdisk: Number(diskInfo?.maxdisk ?? liveResource?.maxdisk ?? 0),
+    disks,
+    filesystems,
     uptime: Number(liveResource?.uptime || 0),
     clusterId: row.cluster_id,
     clusterName: row.cluster_name || '',
@@ -58,7 +62,18 @@ async function enrichResources(rows) {
 
     for (const row of group.rows) {
       const liveResource = liveResources.find(item => String(item.vmid) === String(row.container_id));
-      result.push(normalizeResourceRow(row, liveResource, clusterError));
+      let diskInfo = null;
+      let rowError = clusterError;
+
+      if (liveResource && !clusterError) {
+        try {
+          diskInfo = await getResourceDiskDetails(group.clusterUrl, group.apiToken, liveResource);
+        } catch (err) {
+          rowError = err.message || 'Disk-Informationen konnten nicht geladen werden.';
+        }
+      }
+
+      result.push(normalizeResourceRow(row, liveResource, rowError, diskInfo));
     }
   }
 

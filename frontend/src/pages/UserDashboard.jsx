@@ -32,8 +32,7 @@ export default function UserDashboard() {
       <header className="site-header">
         <div className="site-header-inner">
           <div className="site-brand">
-            <p>Hosting Portal</p>
-            <h1>Meine Ressourcen</h1>
+            <h1>TechByGiusi - Hosting</h1>
           </div>
           <div className="site-actions">
             <ThemeButton />
@@ -65,7 +64,6 @@ export default function UserDashboard() {
 function ResourceCard({ resource }) {
   const cpuPercent = getCpuPercent(resource);
   const memPercent = getPercent(resource.mem, resource.maxmem);
-  const diskPercent = getPercent(resource.disk, resource.maxdisk);
 
   return (
     <article className="resource-card">
@@ -84,7 +82,7 @@ function ResourceCard({ resource }) {
 
       <Metric label="CPU" percent={cpuPercent} detail={`${cpuPercent.toFixed(1)} %`} />
       <Metric label="RAM" percent={memPercent} detail={`${formatBytes(resource.mem)} / ${formatBytes(resource.maxmem)}`} />
-      <Metric label="Disk" percent={diskPercent} detail={`${formatBytes(resource.disk)} / ${formatBytes(resource.maxdisk)}`} />
+      <DiskDetails resource={resource} />
 
       {resource.webUrl ? (
         <a className="btn-primary full-button" href={resource.webUrl} target="_blank" rel="noreferrer">Webseite öffnen</a>
@@ -94,6 +92,49 @@ function ResourceCard({ resource }) {
 
       {resource.monitorError && <p className="hint-text">Monitoring ist gerade nicht erreichbar.</p>}
     </article>
+  );
+}
+
+
+function DiskDetails({ resource }) {
+  const filesystems = Array.isArray(resource.filesystems) ? resource.filesystems : [];
+  const disks = Array.isArray(resource.disks) ? resource.disks : [];
+
+  if (filesystems.length > 0 || disks.length > 0) {
+    return (
+      <div className="disk-details">
+        {filesystems.length > 0 && <span className="disk-section-title">Dateisysteme</span>}
+        {filesystems.map((disk) => <DiskMetric key={`fs-${disk.id || disk.name}`} disk={disk} />)}
+        {disks.length > 0 && <span className="disk-section-title">Datenträger</span>}
+        {disks.map((disk) => <DiskMetric key={`disk-${disk.id || disk.name}`} disk={disk} />)}
+      </div>
+    );
+  }
+
+  const diskPercent = getPercent(resource.disk, resource.maxdisk);
+  return <Metric label="Datenträger" percent={diskPercent} detail={`${formatBytes(resource.disk)} / ${formatBytes(resource.maxdisk)}`} />;
+}
+
+function DiskMetric({ disk }) {
+  const hasUsed = disk.used !== null && disk.used !== undefined && Number.isFinite(Number(disk.used));
+  const maxdisk = Number(disk.maxdisk || 0);
+  const percent = hasUsed && maxdisk ? getPercent(disk.used, maxdisk) : 0;
+  const title = disk.name || disk.id || 'Disk';
+  const subtitle = [disk.storage, disk.volume].filter(Boolean).join(' · ');
+  const detail = hasUsed && maxdisk
+    ? `${formatBytes(disk.used)} / ${formatBytes(maxdisk)}`
+    : maxdisk ? `Größe ${formatBytes(maxdisk)}` : 'Größe nicht gemeldet';
+
+  return (
+    <div className="disk-row">
+      <div className="disk-row-header">
+        <span>{title}</span>
+        <small>{hasUsed ? `${percent.toFixed(1)}%` : 'Belegung nicht gemeldet'}</small>
+      </div>
+      {hasUsed && <div className="progress-bar"><span style={{ width: `${percent}%` }}></span></div>}
+      <small>{detail}</small>
+      {subtitle && <small className="disk-source">{subtitle}</small>}
+    </div>
   );
 }
 
