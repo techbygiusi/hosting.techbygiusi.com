@@ -1,5 +1,23 @@
 # Picly - Changelog
 
+## v0.1.6 - 2026-06-28
+
+**Commit:** `fix: clear completed upload progress`
+
+- Raised the default parallel upload limit from `12` to `24`.
+- Existing `.env` files that still contain the old default `MAX_PARALLEL_UPLOADS=12` are migrated to `24` during deploy.
+- Fixed the upload progress panel so it no longer stays visible forever after reaching `100%`.
+- The finished `100%` state remains visible briefly, then clears automatically while keeping the success message visible.
+
+## v0.1.5 - 2026-06-28
+
+**Commit:** `style: compact admin dashboard stats`
+
+- Reworked the admin dashboard so the mobile view is much more compact and easier to read.
+- Removed the duplicate LXC/data storage card from the admin view and now shows only **Docker-Speicher**.
+- Changed the upload load display from `0 / 12` to clearer wording: active uploads now show as `0 aktiv`, with the configured parallel upload limit shown below.
+- Kept the gallery, ZIP download and logout actions available, but arranged them more cleanly on small screens.
+
 ## v0.1.4 - 2026-06-28
 
 **Commit:** `chore: simplify mobile upload copy`
@@ -126,7 +144,7 @@ JWT_EXPIRATION=24h
 PICLY_HTTP_PORT=3002
 MAX_UPLOAD_MB=25
 MAX_UPLOAD_FILES=30
-MAX_PARALLEL_UPLOADS=12
+MAX_PARALLEL_UPLOADS=24
 MIN_FREE_SPACE_MB=250
 UPLOAD_REQUEST_TIMEOUT_MS=600000
 ```
@@ -136,15 +154,15 @@ UPLOAD_REQUEST_TIMEOUT_MS=600000
 Picly is designed to handle multiple public uploads in parallel. These values can be adjusted in `.env`:
 
 ```env
-MAX_PARALLEL_UPLOADS=12
+MAX_PARALLEL_UPLOADS=24
 MIN_FREE_SPACE_MB=250
 UPLOAD_REQUEST_TIMEOUT_MS=600000
 ```
 
 Recommended defaults:
 
-- Keep `MAX_PARALLEL_UPLOADS=12` for a small VPS or homelab server.
-- Increase it only when CPU, RAM and disk I/O are comfortable.
+- Keep `MAX_PARALLEL_UPLOADS=24` for a small VPS or homelab server.
+- Increase it further only when CPU, RAM and disk I/O are comfortable.
 - Keep `MIN_FREE_SPACE_MB` high enough so the server does not run into a full disk during large uploads.
 
 

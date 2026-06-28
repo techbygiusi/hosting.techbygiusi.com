@@ -43,18 +43,21 @@ function StorageCard({ item }) {
   const usedPercent = item?.available ? Math.min(100, Math.max(0, Number(item.usedPercent || 0))) : 0;
 
   return (
-    <article className="storage-card">
-      <div>
-        <p className="eyebrow">Speicher</p>
-        <h3>{item?.label || 'Speicher'}</h3>
-        <span>{storageStatusText(item)}</span>
+    <article className="storage-card dashboard-card storage-card-wide">
+      <div className="dashboard-card-head">
+        <div>
+          <p className="eyebrow">Speicher</p>
+          <h3>{item?.label || 'Docker-Speicher'}</h3>
+        </div>
+        {item?.available && <strong>{usedPercent}%</strong>}
       </div>
+      <span>{storageStatusText(item)}</span>
       {item?.available && (
         <>
           <div className="storage-bar" aria-label={`${item.label} Nutzung`}>
             <span style={{ width: `${usedPercent}%` }} />
           </div>
-          <small>{usedPercent}% belegt · Pfad: {item.path}</small>
+          <small>Container-Pfad: {item.path}</small>
         </>
       )}
     </article>
@@ -219,17 +222,20 @@ export default function AdminPage() {
       </div>
 
       {stats && (
-        <div className="storage-grid" aria-label="Speicherstatus">
-          {(stats.storage || []).map((item) => (
+        <div className="admin-dashboard" aria-label="Admin Status">
+          <article className="dashboard-card">
+            <p className="eyebrow">Galerie</p>
+            <h3>{images.length}</h3>
+            <span>{images.length === 1 ? 'Bild gespeichert' : 'Bilder gespeichert'} · {formatSize(totalSize)}</span>
+          </article>
+          <article className="dashboard-card">
+            <p className="eyebrow">Upload-Last</p>
+            <h3>{stats.activeUploads || 0} aktiv</h3>
+            <span>bis zu {stats.maxParallelUploads || 0} Uploads parallel erlaubt</span>
+          </article>
+          {(stats.storage || []).slice(0, 1).map((item) => (
             <StorageCard key={item.label} item={item} />
           ))}
-          <article className="storage-card compact">
-            <div>
-              <p className="eyebrow">Upload Last</p>
-              <h3>{stats.activeUploads || 0} / {stats.maxParallelUploads || 0}</h3>
-              <span>Aktive Uploads im Moment</span>
-            </div>
-          </article>
         </div>
       )}
 

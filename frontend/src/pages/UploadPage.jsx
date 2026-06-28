@@ -29,11 +29,16 @@ export default function UploadPage() {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const inputRef = useRef(null);
+  const progressTimerRef = useRef(null);
 
   const previews = useMemo(() => files.map((file) => ({ file, url: URL.createObjectURL(file) })), [files]);
   const showProgress = uploading || progress > 0;
 
   useEffect(() => () => previews.forEach((preview) => URL.revokeObjectURL(preview.url)), [previews]);
+
+  useEffect(() => () => {
+    if (progressTimerRef.current) window.clearTimeout(progressTimerRef.current);
+  }, []);
 
   function addFiles(fileList) {
     const selected = Array.from(fileList || []).filter((file) => file.type.startsWith('image/'));
@@ -55,6 +60,10 @@ export default function UploadPage() {
     }
 
     try {
+      if (progressTimerRef.current) {
+        window.clearTimeout(progressTimerRef.current);
+        progressTimerRef.current = null;
+      }
       setUploading(true);
       setProgress(1);
       setError('');
@@ -64,7 +73,15 @@ export default function UploadPage() {
       setMessage(result.message || 'Upload abgeschlossen.');
       setFiles([]);
       if (inputRef.current) inputRef.current.value = '';
+      progressTimerRef.current = window.setTimeout(() => {
+        setProgress(0);
+        progressTimerRef.current = null;
+      }, 1400);
     } catch (err) {
+      if (progressTimerRef.current) {
+        window.clearTimeout(progressTimerRef.current);
+        progressTimerRef.current = null;
+      }
       setProgress(0);
       setError(err.response?.data?.message || 'Der Upload konnte nicht abgeschlossen werden.');
     } finally {

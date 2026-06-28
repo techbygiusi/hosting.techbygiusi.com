@@ -28,6 +28,15 @@ ensure_env_value() {
   fi
 }
 
+replace_env_value_if_current() {
+  local key="$1"
+  local old_value="$2"
+  local new_value="$3"
+  if grep -q "^${key}=${old_value}$" "$ENV_FILE"; then
+    sed -i "s/^${key}=${old_value}$/${key}=${new_value}/" "$ENV_FILE"
+  fi
+}
+
 require_command openssl
 require_command docker
 
@@ -44,7 +53,7 @@ if [ ! -f "$ENV_FILE" ]; then
   PICLY_HTTP_PORT="${PICLY_HTTP_PORT:-3002}"
   MAX_UPLOAD_MB="${MAX_UPLOAD_MB:-25}"
   MAX_UPLOAD_FILES="${MAX_UPLOAD_FILES:-30}"
-  MAX_PARALLEL_UPLOADS="${MAX_PARALLEL_UPLOADS:-12}"
+  MAX_PARALLEL_UPLOADS="${MAX_PARALLEL_UPLOADS:-24}"
   MIN_FREE_SPACE_MB="${MIN_FREE_SPACE_MB:-250}"
   UPLOAD_REQUEST_TIMEOUT_MS="${UPLOAD_REQUEST_TIMEOUT_MS:-600000}"
 
@@ -68,7 +77,8 @@ ensure_env_value "JWT_EXPIRATION" "24h"
 ensure_env_value "PICLY_HTTP_PORT" "${PICLY_HTTP_PORT:-3002}"
 ensure_env_value "MAX_UPLOAD_MB" "${MAX_UPLOAD_MB:-25}"
 ensure_env_value "MAX_UPLOAD_FILES" "${MAX_UPLOAD_FILES:-30}"
-ensure_env_value "MAX_PARALLEL_UPLOADS" "${MAX_PARALLEL_UPLOADS:-12}"
+ensure_env_value "MAX_PARALLEL_UPLOADS" "${MAX_PARALLEL_UPLOADS:-24}"
+replace_env_value_if_current "MAX_PARALLEL_UPLOADS" "12" "24"
 ensure_env_value "MIN_FREE_SPACE_MB" "${MIN_FREE_SPACE_MB:-250}"
 ensure_env_value "UPLOAD_REQUEST_TIMEOUT_MS" "${UPLOAD_REQUEST_TIMEOUT_MS:-600000}"
 

@@ -24,7 +24,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'change-me';
 const JWT_EXPIRATION = process.env.JWT_EXPIRATION || '24h';
 const MAX_UPLOAD_MB = Number(process.env.MAX_UPLOAD_MB || 25);
 const MAX_UPLOAD_FILES = Number(process.env.MAX_UPLOAD_FILES || 30);
-const MAX_PARALLEL_UPLOADS = Number(process.env.MAX_PARALLEL_UPLOADS || 12);
+const MAX_PARALLEL_UPLOADS = Number(process.env.MAX_PARALLEL_UPLOADS || 24);
 const MIN_FREE_SPACE_MB = Number(process.env.MIN_FREE_SPACE_MB || 250);
 const UPLOAD_REQUEST_TIMEOUT_MS = Number(process.env.UPLOAD_REQUEST_TIMEOUT_MS || 600000);
 const MAX_UPLOAD_BYTES = MAX_UPLOAD_MB * 1024 * 1024;
@@ -215,8 +215,7 @@ async function getAdminStats() {
       totalImageBytes
     },
     storage: [
-      await getStorageInfo('LXC / Daten-Speicher', DATA_DIR),
-      await getStorageInfo('Docker / Container-Speicher', '/')
+      await getStorageInfo('Docker-Speicher', '/')
     ]
   };
 }
