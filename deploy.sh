@@ -38,8 +38,8 @@ replace_env_value_if_current() {
 }
 
 migrate_parallel_uploads_default() {
-  if grep -Eq '^MAX_PARALLEL_UPLOADS=\"?12\"?([[:space:]]*#.*)?$' "$ENV_FILE"; then
-    sed -i -E 's/^MAX_PARALLEL_UPLOADS=\"?12\"?([[:space:]]*#.*)?$/MAX_PARALLEL_UPLOADS=24/' "$ENV_FILE"
+  if grep -Eq '^MAX_PARALLEL_UPLOADS=\"?24\"?([[:space:]]*#.*)?$' "$ENV_FILE"; then
+    sed -i -E 's/^MAX_PARALLEL_UPLOADS=\"?24\"?([[:space:]]*#.*)?$/MAX_PARALLEL_UPLOADS=12/' "$ENV_FILE"
   fi
 }
 
@@ -59,7 +59,7 @@ if [ ! -f "$ENV_FILE" ]; then
   PICLY_HTTP_PORT="${PICLY_HTTP_PORT:-3002}"
   MAX_UPLOAD_MB="${MAX_UPLOAD_MB:-25}"
   MAX_UPLOAD_FILES="${MAX_UPLOAD_FILES:-30}"
-  MAX_PARALLEL_UPLOADS="${MAX_PARALLEL_UPLOADS:-24}"
+  MAX_PARALLEL_UPLOADS="${MAX_PARALLEL_UPLOADS:-12}"
   MIN_FREE_SPACE_MB="${MIN_FREE_SPACE_MB:-250}"
   UPLOAD_REQUEST_TIMEOUT_MS="${UPLOAD_REQUEST_TIMEOUT_MS:-600000}"
 
@@ -83,8 +83,8 @@ ensure_env_value "JWT_EXPIRATION" "24h"
 ensure_env_value "PICLY_HTTP_PORT" "${PICLY_HTTP_PORT:-3002}"
 ensure_env_value "MAX_UPLOAD_MB" "${MAX_UPLOAD_MB:-25}"
 ensure_env_value "MAX_UPLOAD_FILES" "${MAX_UPLOAD_FILES:-30}"
-ensure_env_value "MAX_PARALLEL_UPLOADS" "${MAX_PARALLEL_UPLOADS:-24}"
-replace_env_value_if_current "MAX_PARALLEL_UPLOADS" "12" "24"
+ensure_env_value "MAX_PARALLEL_UPLOADS" "${MAX_PARALLEL_UPLOADS:-12}"
+replace_env_value_if_current "MAX_PARALLEL_UPLOADS" "24" "12"
 migrate_parallel_uploads_default
 ensure_env_value "MIN_FREE_SPACE_MB" "${MIN_FREE_SPACE_MB:-250}"
 ensure_env_value "UPLOAD_REQUEST_TIMEOUT_MS" "${UPLOAD_REQUEST_TIMEOUT_MS:-600000}"
@@ -102,8 +102,11 @@ echo "========================================"
 echo "${APP_NAME} Deployment"
 echo "========================================"
 echo "Port: ${PICLY_HTTP_PORT:-3002}"
-echo "Parallel Uploads: ${MAX_PARALLEL_UPLOADS:-24}"
+echo "Parallel Uploads: ${MAX_PARALLEL_UPLOADS:-12}"
 echo "Daten: ./data"
+if [ -f data/admin.json ]; then
+  echo "Admin-Kennwort: persistent in ./data/admin.json"
+fi
 echo ""
 
 if [ "$FIRST_DEPLOY" = true ]; then
@@ -117,7 +120,10 @@ else
   echo "Vorhandene .env gefunden. Admin-Zugangsdaten bleiben unverändert."
   echo "Admin-Link: http://SERVER-IP:${PICLY_HTTP_PORT:-3002}/admin"
   echo "Benutzer: ${ADMIN_USERNAME:-admin}"
-  if [ "${PICLY_SHOW_ADMIN_PASSWORD:-false}" = "true" ]; then
+  if [ -f data/admin.json ]; then
+    echo "Kennwort wird aus ./data/admin.json verwendet. Es bleibt bei Container-Updates erhalten."
+    echo "Ändern kannst du es im Admin-Portal über Kennwort ändern."
+  elif [ "${PICLY_SHOW_ADMIN_PASSWORD:-false}" = "true" ]; then
     echo "Passwort: ${ADMIN_PASSWORD}"
   else
     echo "Passwort wird bei Updates nicht erneut ausgegeben. Anzeigen mit: PICLY_SHOW_ADMIN_PASSWORD=true ./deploy.sh"

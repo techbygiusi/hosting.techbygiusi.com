@@ -33,6 +33,11 @@ export async function adminLogin(username, password) {
   return response.data;
 }
 
+export async function changeAdminPassword(currentPassword, newPassword) {
+  const response = await api.post('/admin/password', { currentPassword, newPassword });
+  return response.data;
+}
+
 export async function getImages() {
   const response = await api.get('/admin/images');
   return response.data.images || [];

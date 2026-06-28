@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { adminLogin, deleteImage, downloadAll, downloadImage, getAdminStats, getImageBlob, getImages, setAuthToken } from '../services/api.js';
+import { adminLogin, changeAdminPassword, deleteImage, downloadAll, downloadImage, getAdminStats, getImageBlob, getImages, setAuthToken } from '../services/api.js';
 
 const TOKEN_KEY = 'picly-admin-token';
 
@@ -89,9 +89,9 @@ function AdminLogin({ onSuccess }) {
   return (
     <section className="center-stage">
       <form className="card login-card" onSubmit={handleSubmit}>
-        <p className="eyebrow">Picly Admin</p>
+        <p className="eyebrow">Hochzeitsalbum · Admin</p>
         <h1>Galerie öffnen</h1>
-        <p>Hier liegen alle hochgeladenen Bilder gesammelt bereit.</p>
+        <p>Hier liegen alle Fotos eurer Gäste gesammelt bereit.</p>
         <label>
           Benutzer
           <input value={username} onChange={(event) => setUsername(event.target.value)} autoComplete="username" />
@@ -104,6 +104,72 @@ function AdminLogin({ onSuccess }) {
         <button className="btn-primary full-width" type="submit" disabled={loading}>{loading ? 'Prüfe...' : 'Anmelden'}</button>
       </form>
     </section>
+  );
+}
+
+function PasswordDialog({ onClose, onChanged }) {
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [repeatPassword, setRepeatPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+
+  async function handleSubmit(event) {
+    event.preventDefault();
+
+    if (newPassword !== repeatPassword) {
+      setError('Die neuen Kennwörter stimmen nicht überein.');
+      setSuccess('');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError('');
+      setSuccess('');
+      const result = await changeAdminPassword(currentPassword, newPassword);
+      onChanged(result);
+      setCurrentPassword('');
+      setNewPassword('');
+      setRepeatPassword('');
+      setSuccess(result.message || 'Admin-Kennwort wurde geändert.');
+    } catch (err) {
+      setError(err.response?.data?.message || 'Kennwort konnte nicht geändert werden.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="modal-backdrop password-backdrop" onClick={onClose}>
+      <form className="password-modal" onSubmit={handleSubmit} onClick={(event) => event.stopPropagation()}>
+        <button className="modal-close" type="button" onClick={onClose} aria-label="Schließen">×</button>
+        <div className="password-modal-head">
+          <p className="eyebrow">Admin</p>
+          <h2>Kennwort ändern</h2>
+          <p>Das neue Kennwort wird dauerhaft im Datenordner gespeichert und bleibt bei Container-Updates erhalten.</p>
+        </div>
+        <label>
+          Aktuelles Kennwort
+          <input type="password" value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} autoComplete="current-password" />
+        </label>
+        <label>
+          Neues Kennwort
+          <input type="password" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} autoComplete="new-password" />
+        </label>
+        <label>
+          Neues Kennwort wiederholen
+          <input type="password" value={repeatPassword} onChange={(event) => setRepeatPassword(event.target.value)} autoComplete="new-password" />
+        </label>
+        {error && <div className="notice danger">{error}</div>}
+        {success && <div className="notice success">{success}</div>}
+        <div className="password-modal-actions">
+          <button className="btn-outline" type="button" onClick={onClose}>Abbrechen</button>
+          <button className="btn-primary" type="submit" disabled={loading}>{loading ? 'Speichere...' : 'Speichern'}</button>
+        </div>
+      </form>
+    </div>
   );
 }
 
@@ -163,6 +229,8 @@ export default function AdminPage() {
   const [error, setError] = useState('');
   const [selected, setSelected] = useState(null);
   const [deletingId, setDeletingId] = useState('');
+  const [passwordOpen, setPasswordOpen] = useState(false);
+  const [success, setSuccess] = useState('');
 
   useEffect(() => {
     const token = window.localStorage.getItem(TOKEN_KEY);
@@ -226,6 +294,16 @@ export default function AdminPage() {
     }
   }
 
+
+  function handlePasswordChanged(result) {
+    if (result?.token) {
+      window.localStorage.setItem(TOKEN_KEY, result.token);
+      setAuthToken(result.token);
+    }
+    setSuccess(result?.message || 'Admin-Kennwort wurde geändert.');
+    window.setTimeout(() => setSuccess(''), 5000);
+  }
+
   if (!authenticated) {
     return <AdminLogin onSuccess={() => setAuthenticated(true)} />;
   }
@@ -234,11 +312,11 @@ export default function AdminPage() {
     <section className="admin-layout">
       <div className="admin-hero">
         <div>
-          <p className="eyebrow">Admin Galerie</p>
           <h1>Alle Uploads</h1>
           <p>{images.length} Bilder · {formatSize(totalSize)}</p>
         </div>
         <div className="admin-actions">
+          <button className="btn-secondary" type="button" onClick={() => setPasswordOpen(true)}>Kennwort ändern</button>
           <button className="btn-secondary" type="button" onClick={loadImages} disabled={loading}>Aktualisieren</button>
           <button className="btn-primary" type="button" onClick={handleDownloadAll} disabled={!images.length}>Alle als ZIP</button>
           <button className="btn-outline" type="button" onClick={logout}>Abmelden</button>
@@ -255,7 +333,7 @@ export default function AdminPage() {
           <article className="dashboard-card">
             <p className="eyebrow">Upload-Last</p>
             <h3>{stats.activeUploads || 0} aktiv</h3>
-            <span>bis zu {stats.maxParallelUploads || 24} Upload-Vorgänge parallel erlaubt</span>
+            <span>bis zu {stats.maxParallelUploads || 12} Upload-Vorgänge parallel erlaubt</span>
           </article>
           {(stats.storage || []).slice(0, 1).map((item) => (
             <StorageCard key={item.label} item={item} />
@@ -264,13 +342,14 @@ export default function AdminPage() {
       )}
 
       {error && <div className="notice danger">{error}</div>}
+      {success && <div className="notice success">{success}</div>}
       {loading && <div className="app-loader inline"><span className="spinner" /> Lädt Galerie und Speicherstatus...</div>}
 
       {!loading && images.length === 0 && (
         <div className="empty-state card">
           <p className="eyebrow">Noch leer</p>
-          <h2>Es wurden noch keine Bilder hochgeladen.</h2>
-          <p>Sobald jemand über die Startseite Bilder hochlädt, erscheinen sie hier.</p>
+          <h2>Noch keine Fotos hochgeladen.</h2>
+          <p>Sobald eure Gäste über die Startseite Fotos teilen, erscheinen sie hier.</p>
         </div>
       )}
 
@@ -279,6 +358,8 @@ export default function AdminPage() {
           <GalleryImage key={image.id} image={image} onOpen={setSelected} onDelete={handleDeleteImage} deleting={deletingId === image.id} />
         ))}
       </div>
+
+      {passwordOpen && <PasswordDialog onClose={() => setPasswordOpen(false)} onChanged={handlePasswordChanged} />}
 
       {selected && (
         <div className="modal-backdrop" onClick={() => setSelected(null)}>

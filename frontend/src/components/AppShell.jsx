@@ -5,13 +5,13 @@ export default function AppShell({ children }) {
   const isAdmin = location.pathname.startsWith('/admin');
 
   return (
-    <div className="site-shell">
+    <div className={`site-shell ${isAdmin ? 'admin-shell' : 'upload-shell'}`}>
       <header className="site-header">
-        <Link className="brand" to="/" aria-label="Picly Startseite">
-          <span className="brand-text">Picly by TechByGiusi</span>
+        <Link className="brand" to="/" aria-label="Startseite">
+          <span className="brand-text">Florian &amp; Alexandra</span>
         </Link>
         <nav className="site-nav" aria-label="Navigation">
-          <Link className={isAdmin ? 'nav-link' : 'nav-link active'} to="/">Upload</Link>
+          <Link className={isAdmin ? 'nav-link' : 'nav-link active'} to="/">Fotos teilen</Link>
           <Link className={isAdmin ? 'nav-link active desktop-admin-link' : 'nav-link desktop-admin-link'} to="/admin">Admin</Link>
         </nav>
       </header>
@@ -19,9 +19,9 @@ export default function AppShell({ children }) {
       <main className="site-main">{children}</main>
 
       <footer className="site-footer">
-        <span>TechByGiusi</span>
+        <span>Florian &amp; Alexandra · Hochzeit</span>
         <Link className={isAdmin ? 'footer-admin-link active' : 'footer-admin-link'} to="/admin">Admin</Link>
-        <span>AGPL-3.0</span>
+        <span>Picly by TechByGiusi</span>
       </footer>
     </div>
   );

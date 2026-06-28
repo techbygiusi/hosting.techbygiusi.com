@@ -14,11 +14,11 @@ function formatSize(bytes) {
 }
 
 function uploadText(progress) {
-  if (progress >= 100) return 'Fertig gelandet. Die Bilder sind angekommen.';
-  if (progress >= 75) return 'Fast da. Die letzten Pixel rutschen noch durch.';
-  if (progress >= 45) return 'Halbzeit. Picly sortiert die Pixel ordentlich ein.';
-  if (progress >= 15) return 'Upload läuft. Der kleine Pixel-Kurier ist unterwegs.';
-  return 'Startklar. Picly hebt die Bilder gleich an.';
+  if (progress >= 100) return 'Angekommen. Eure Fotos sind im Album gelandet. Danke!';
+  if (progress >= 75) return 'Gleich geschafft. Die letzten Momente gleiten herein.';
+  if (progress >= 45) return 'Halbzeit. Wir sortieren eure Erinnerungen ein.';
+  if (progress >= 15) return 'Upload läuft. Die Schwäne tragen eure Bilder herüber.';
+  return 'Startklar. Eure schönsten Augenblicke heben gleich ab.';
 }
 
 export default function UploadPage() {
@@ -92,23 +92,27 @@ export default function UploadPage() {
   return (
     <section className="hero-grid">
       <div className="hero-copy">
-        <h1>Bilder hochladen. Schnell, sauber, mobil.</h1>
+        <p className="eyebrow">Zur Hochzeit · Alles Gute</p>
+        <h1>Florian &amp; Alexandra</h1>
         <p>
-          Picly nimmt Bilder direkt entgegen und legt sie sicher auf dem Server ab. Nutzer brauchen
-          keine Zugangsdaten - einfach auswählen, Fortschritt sehen und fertig.
+          Teilt eure schönsten Momente unseres großen Tages mit uns. Einfach Fotos auswählen,
+          hochladen, fertig - ganz ohne Anmeldung. So entsteht aus euren Blickwinkeln unser
+          gemeinsames Hochzeitsalbum.
         </p>
+        <div className="ornament" aria-hidden="true">❦</div>
         <div className="hero-pills" aria-label="Eigenschaften">
-          <span>Ohne User-Login</span>
-          <span>Mobile Friendly</span>
-          <span>Animierter Upload</span>
+          <span>Ohne Anmeldung</span>
+          <span>Für alle Gäste</span>
+          <span>Eure Perspektive</span>
         </div>
       </div>
 
-      <div className="card upload-card">
+      <div className="upload-column">
+        <div className="card upload-card">
         <div className="card-heading">
           <div>
-            <p className="eyebrow">Upload</p>
-            <h2>Neue Bilder</h2>
+            <p className="eyebrow">Hochzeitsalbum</p>
+            <h2>Eure Fotos</h2>
           </div>
           <span className="soft-badge">PNG · JPG · WebP · GIF</span>
         </div>
@@ -127,7 +131,7 @@ export default function UploadPage() {
           disabled={uploading}
         >
           <span className="drop-icon">+</span>
-          <strong>Bilder auswählen oder hier ablegen</strong>
+          <strong>Fotos auswählen oder hier ablegen</strong>
         </button>
 
         <input
@@ -159,7 +163,7 @@ export default function UploadPage() {
           <div className={`upload-progress-card ${progress >= 100 ? 'done' : ''}`} aria-live="polite">
             <div className="upload-progress-head">
               <div className="pixel-courier" aria-hidden="true">
-                <span className="courier-box">▣</span>
+                <span className="courier-box">❤</span>
                 <span className="courier-face">•‿•</span>
               </div>
               <div>
@@ -177,8 +181,18 @@ export default function UploadPage() {
         {error && <div className="notice danger">{error}</div>}
 
         <button className="btn-primary full-width" type="button" onClick={handleUpload} disabled={uploading || files.length === 0}>
-          {uploading ? 'Pixel werden verschickt...' : 'Bilder hochladen'}
+          {uploading ? 'Eure Fotos werden geteilt...' : 'Fotos hochladen'}
         </button>
+        </div>
+
+        <aside className="demo-info-card" aria-label="Hinweis">
+          <p className="eyebrow">Danke</p>
+          <h2>Eure Erinnerungen</h2>
+          <p>
+            Jedes Foto zählt - egal ob Schnappschuss oder perfekter Moment. Ladet gern alles hoch,
+            was ihr von unserem Tag festgehalten habt. Wir freuen uns auf eure Sichtweise!
+          </p>
+        </aside>
       </div>
     </section>
   );

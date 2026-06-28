@@ -1,5 +1,40 @@
 # Picly - Changelog
 
+## v0.1.12 - 2026-06-28
+
+**Commit:** `feat: add admin password change dialog`
+
+- Added an admin action to change the admin password directly inside the protected admin portal.
+- Added a centered password dialog on desktop.
+- Added a full-width bottom sheet password dialog on mobile.
+- Stores the changed admin password in `./data/admin.json`, so it stays available after container updates.
+- Keeps the admin session active by issuing a fresh token after a successful password change.
+
+## v0.1.11 - 2026-06-28
+
+**Commit:** `chore: simplify admin and upload copy`
+
+- Removed the **Admin Galerie** eyebrow from the admin page on desktop and mobile.
+- Changed the public hero headline to **Bilder teilen, leicht gemacht.**
+- Kept the existing upload flow, admin gallery and demo notice unchanged.
+
+## v0.1.10 - 2026-06-28
+
+**Commit:** `chore: add demo proof of concept notice`
+
+- Added a separate demo notice below the public upload card.
+- The notice uses the same width as the upload card and is visible on desktop and mobile.
+- Marked the installation as a demo and proof of concept so test users understand the purpose.
+
+## v0.1.9 - 2026-06-28
+
+**Commit:** `style: clean mobile admin header and restore upload limit`
+
+- Hid the mobile-only top **Upload** navigation link on the admin page.
+- Hid the **Admin Galerie** eyebrow on mobile so the admin view starts cleaner.
+- Restored the default parallel upload limit from `24` back to `12`.
+- Existing `.env` files that still contain `MAX_PARALLEL_UPLOADS=24` are migrated back to `12` during deploy.
+
 ## v0.1.8 - 2026-06-28
 
 **Commit:** `chore: simplify upload hero copy`
@@ -119,11 +154,13 @@ On first deployment, `deploy.sh` prints the admin URL, username and generated pa
 
 Normal upload users do **not** need credentials. Only the admin gallery at `/admin` is protected.
 
-To show the saved admin password again manually:
+To show the original `.env` admin password again manually:
 
 ```bash
 cd /opt/picly.techbygiusi.com && PICLY_SHOW_ADMIN_PASSWORD=true ./deploy.sh
 ```
+
+If the password was changed inside the admin portal, Picly uses the persistent value from `./data/admin.json`. That value stays in place during container updates and is not printed by `deploy.sh`.
 
 ## Default URLs
 
@@ -146,9 +183,11 @@ Picly stores all runtime data below:
 ./data/tmp
 ./data/metadata.json
 ./data/metadata.json.bak
+./data/admin.json
+./data/admin.json.bak
 ```
 
-`./data/tmp` is used only while uploads are being processed. Picly cleans old temporary upload files on startup. Keep the whole `./data` folder when updating the application. Deleting `./data` removes uploaded images and metadata.
+`./data/tmp` is used only while uploads are being processed. Picly cleans old temporary upload files on startup. Keep the whole `./data` folder when updating the application. Deleting `./data` removes uploaded images, metadata and the changed admin password.
 
 ## Configuration
 
@@ -162,7 +201,7 @@ JWT_EXPIRATION=24h
 PICLY_HTTP_PORT=3002
 MAX_UPLOAD_MB=25
 MAX_UPLOAD_FILES=30
-MAX_PARALLEL_UPLOADS=24
+MAX_PARALLEL_UPLOADS=12
 MIN_FREE_SPACE_MB=250
 UPLOAD_REQUEST_TIMEOUT_MS=600000
 ```
@@ -172,14 +211,14 @@ UPLOAD_REQUEST_TIMEOUT_MS=600000
 Picly is designed to handle multiple public uploads in parallel. These values can be adjusted in `.env`:
 
 ```env
-MAX_PARALLEL_UPLOADS=24
+MAX_PARALLEL_UPLOADS=12
 MIN_FREE_SPACE_MB=250
 UPLOAD_REQUEST_TIMEOUT_MS=600000
 ```
 
 Recommended defaults:
 
-- Keep `MAX_PARALLEL_UPLOADS=24` for a small VPS or homelab server.
+- Keep `MAX_PARALLEL_UPLOADS=12` for a small VPS or homelab server.
 - Increase it further only when CPU, RAM and disk I/O are comfortable.
 - Keep `MIN_FREE_SPACE_MB` high enough so the server does not run into a full disk during large uploads.
 

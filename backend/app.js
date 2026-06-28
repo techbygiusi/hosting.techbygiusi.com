@@ -18,13 +18,16 @@ const UPLOAD_DIR = path.join(DATA_DIR, 'uploads');
 const TEMP_UPLOAD_DIR = path.join(DATA_DIR, 'tmp');
 const METADATA_FILE = path.join(DATA_DIR, 'metadata.json');
 const METADATA_BACKUP_FILE = path.join(DATA_DIR, 'metadata.json.bak');
-const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin';
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin';
+const ADMIN_CONFIG_FILE = path.join(DATA_DIR, 'admin.json');
+const ADMIN_CONFIG_BACKUP_FILE = path.join(DATA_DIR, 'admin.json.bak');
+const DEFAULT_ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin';
+const DEFAULT_ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin';
+const ADMIN_PASSWORD_MIN_LENGTH = Number(process.env.ADMIN_PASSWORD_MIN_LENGTH || 8);
 const JWT_SECRET = process.env.JWT_SECRET || 'change-me';
 const JWT_EXPIRATION = process.env.JWT_EXPIRATION || '24h';
 const MAX_UPLOAD_MB = Number(process.env.MAX_UPLOAD_MB || 25);
 const MAX_UPLOAD_FILES = Number(process.env.MAX_UPLOAD_FILES || 30);
-const MAX_PARALLEL_UPLOADS = Number(process.env.MAX_PARALLEL_UPLOADS || 24);
+const MAX_PARALLEL_UPLOADS = Number(process.env.MAX_PARALLEL_UPLOADS || 12);
 const MIN_FREE_SPACE_MB = Number(process.env.MIN_FREE_SPACE_MB || 250);
 const UPLOAD_REQUEST_TIMEOUT_MS = Number(process.env.UPLOAD_REQUEST_TIMEOUT_MS || 600000);
 const MAX_UPLOAD_BYTES = MAX_UPLOAD_MB * 1024 * 1024;
@@ -33,6 +36,7 @@ const TMP_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
 let activeUploads = 0;
 let metadataQueue = Promise.resolve();
+let adminConfigQueue = Promise.resolve();
 
 const allowedMimeTypes = new Set([
   'image/jpeg',
@@ -121,6 +125,136 @@ async function writeMetadataUnlocked(items) {
     await fsp.rm(tempFile, { force: true }).catch(() => {});
     throw error;
   }
+}
+
+function createHttpError(statusCode, message) {
+  const error = new Error(message);
+  error.statusCode = statusCode;
+  return error;
+}
+
+function scryptAsync(password, salt) {
+  return new Promise((resolve, reject) => {
+    crypto.scrypt(String(password), salt, 64, (error, derivedKey) => {
+      if (error) reject(error);
+      else resolve(derivedKey);
+    });
+  });
+}
+
+async function hashPassword(password) {
+  const salt = crypto.randomBytes(16).toString('hex');
+  const derivedKey = await scryptAsync(password, salt);
+
+  return {
+    algorithm: 'scrypt',
+    salt,
+    hash: derivedKey.toString('hex')
+  };
+}
+
+async function verifyPassword(password, storedPassword) {
+  if (!storedPassword || storedPassword.algorithm !== 'scrypt' || !storedPassword.salt || !storedPassword.hash) {
+    return false;
+  }
+
+  const expected = Buffer.from(storedPassword.hash, 'hex');
+  const actual = await scryptAsync(password, storedPassword.salt);
+
+  if (expected.length !== actual.length) {
+    return false;
+  }
+
+  return crypto.timingSafeEqual(expected, actual);
+}
+
+function normalizeAdminUsername(username) {
+  const value = String(username || '').trim();
+  return value || 'admin';
+}
+
+function normalizeAdminConfig(config) {
+  if (!config || !config.password || !config.password.hash || !config.password.salt) {
+    return null;
+  }
+
+  return {
+    username: normalizeAdminUsername(config.username),
+    password: {
+      algorithm: String(config.password.algorithm || 'scrypt'),
+      salt: String(config.password.salt),
+      hash: String(config.password.hash)
+    },
+    createdAt: config.createdAt || new Date().toISOString(),
+    updatedAt: config.updatedAt || config.createdAt || new Date().toISOString()
+  };
+}
+
+async function createDefaultAdminConfig() {
+  const now = new Date().toISOString();
+  return {
+    username: normalizeAdminUsername(DEFAULT_ADMIN_USERNAME),
+    password: await hashPassword(DEFAULT_ADMIN_PASSWORD),
+    createdAt: now,
+    updatedAt: now
+  };
+}
+
+async function readAdminConfigFile(file) {
+  const raw = await fsp.readFile(file, 'utf8');
+  const parsed = JSON.parse(raw || '{}');
+  const normalized = normalizeAdminConfig(parsed);
+
+  if (!normalized) {
+    throw createHttpError(500, 'Admin-Konfiguration ist ungueltig.');
+  }
+
+  return normalized;
+}
+
+async function writeAdminConfigUnlocked(config) {
+  await ensureDataFiles();
+
+  const tempFile = path.join(DATA_DIR, `admin.${process.pid}.${Date.now()}.${crypto.randomUUID()}.tmp`);
+  const data = `${JSON.stringify(normalizeAdminConfig(config), null, 2)}\n`;
+
+  try {
+    await fsp.writeFile(tempFile, data, { encoding: 'utf8', mode: 0o600 });
+    await fsp.copyFile(ADMIN_CONFIG_FILE, ADMIN_CONFIG_BACKUP_FILE).catch(() => {});
+    await fsp.rename(tempFile, ADMIN_CONFIG_FILE);
+    await fsp.chmod(ADMIN_CONFIG_FILE, 0o600).catch(() => {});
+  } catch (error) {
+    await fsp.rm(tempFile, { force: true }).catch(() => {});
+    throw error;
+  }
+}
+
+async function readAdminConfigUnlocked() {
+  await ensureDataFiles();
+
+  try {
+    return await readAdminConfigFile(ADMIN_CONFIG_FILE);
+  } catch (primaryError) {
+    try {
+      const backup = await readAdminConfigFile(ADMIN_CONFIG_BACKUP_FILE);
+      console.warn('Picly admin.json was invalid, admin.json.bak was used instead.', primaryError.message);
+      return backup;
+    } catch {
+      const config = await createDefaultAdminConfig();
+      await writeAdminConfigUnlocked(config);
+      return config;
+    }
+  }
+}
+
+async function readAdminConfig() {
+  return readAdminConfigUnlocked();
+}
+
+function withAdminConfigLock(task) {
+  const run = adminConfigQueue.then(task, task);
+  adminConfigQueue = run.catch(() => {});
+  return run;
 }
 
 function withMetadataLock(task) {
@@ -267,8 +401,8 @@ function publicImageInfo(item) {
   };
 }
 
-function createToken() {
-  return jwt.sign({ sub: ADMIN_USERNAME, role: 'admin' }, JWT_SECRET, { expiresIn: JWT_EXPIRATION });
+function createToken(username) {
+  return jwt.sign({ sub: username || DEFAULT_ADMIN_USERNAME, role: 'admin' }, JWT_SECRET, { expiresIn: JWT_EXPIRATION });
 }
 
 function requireAdmin(req, res, next) {
@@ -428,14 +562,66 @@ app.post('/api/upload', withUploadSlot, requireUploadSpace, (req, res, next) => 
   });
 });
 
-app.post('/api/admin/login', (req, res) => {
-  const { username, password } = req.body || {};
+app.post('/api/admin/login', async (req, res, next) => {
+  try {
+    const { username, password } = req.body || {};
+    const config = await readAdminConfig();
+    const usernameMatches = String(username || '') === config.username;
+    const passwordMatches = await verifyPassword(String(password || ''), config.password);
 
-  if (String(username || '') === ADMIN_USERNAME && String(password || '') === ADMIN_PASSWORD) {
-    return res.json({ token: createToken(), username: ADMIN_USERNAME });
+    if (usernameMatches && passwordMatches) {
+      return res.json({ token: createToken(config.username), username: config.username });
+    }
+
+    return res.status(401).json({ message: 'Benutzername oder Passwort ist falsch.' });
+  } catch (error) {
+    return next(error);
   }
+});
 
-  return res.status(401).json({ message: 'Benutzername oder Passwort ist falsch.' });
+app.post('/api/admin/password', requireAdmin, async (req, res, next) => {
+  try {
+    const currentPassword = String(req.body?.currentPassword || '');
+    const newPassword = String(req.body?.newPassword || '');
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ message: 'Bitte aktuelles und neues Kennwort eintragen.' });
+    }
+
+    if (newPassword.length < ADMIN_PASSWORD_MIN_LENGTH) {
+      return res.status(400).json({ message: `Das neue Kennwort muss mindestens ${ADMIN_PASSWORD_MIN_LENGTH} Zeichen haben.` });
+    }
+
+    const result = await withAdminConfigLock(async () => {
+      const config = await readAdminConfigUnlocked();
+      const passwordMatches = await verifyPassword(currentPassword, config.password);
+
+      if (!passwordMatches) {
+        throw createHttpError(401, 'Aktuelles Kennwort ist falsch.');
+      }
+
+      const nextConfig = {
+        ...config,
+        password: await hashPassword(newPassword),
+        updatedAt: new Date().toISOString()
+      };
+
+      await writeAdminConfigUnlocked(nextConfig);
+
+      return {
+        username: nextConfig.username,
+        token: createToken(nextConfig.username)
+      };
+    });
+
+    return res.json({
+      message: 'Admin-Kennwort wurde geändert.',
+      username: result.username,
+      token: result.token
+    });
+  } catch (error) {
+    return next(error);
+  }
 });
 
 
@@ -578,10 +764,12 @@ app.get('/api/admin/download-all', requireAdmin, async (req, res, next) => {
 app.use((err, _req, res, _next) => {
   console.error(err);
   if (res.headersSent) return;
-  res.status(500).json({ message: err.message || 'Interner Serverfehler.' });
+  const statusCode = Number(err.statusCode || err.status || 500);
+  res.status(statusCode >= 400 && statusCode < 600 ? statusCode : 500).json({ message: err.message || 'Interner Serverfehler.' });
 });
 
 ensureDataFiles()
+  .then(readAdminConfig)
   .then(cleanupStaleTempUploads)
   .then(() => {
     const server = app.listen(PORT, () => {
