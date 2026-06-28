@@ -988,3 +988,199 @@ label { display: grid; gap: 7px; color: var(--site-muted); font-size: 14px; }
     min-height: 58px;
   }
 }
+
+/* ===== v0.1.16 Softer admin Helvetica typography ===== */
+.admin-shell .site-main {
+  --admin-font: Helvetica, Arial, sans-serif;
+  font-family: var(--admin-font) !important;
+  font-weight: 400;
+}
+
+.admin-shell .site-main,
+.admin-shell .site-main h1,
+.admin-shell .site-main h2,
+.admin-shell .site-main h3,
+.admin-shell .site-main h4,
+.admin-shell .site-main p,
+.admin-shell .site-main span,
+.admin-shell .site-main strong,
+.admin-shell .site-main button,
+.admin-shell .site-main input,
+.admin-shell .site-main label,
+.admin-shell .site-main small,
+.admin-shell .site-main .eyebrow,
+.admin-shell .site-main .notice,
+.admin-shell .site-main .app-loader {
+  font-family: var(--admin-font) !important;
+}
+
+.admin-shell .site-main h1,
+.admin-shell .site-main h2,
+.admin-shell .site-main h3,
+.admin-shell .site-main .dashboard-card h3,
+.admin-shell .site-main .storage-card h3,
+.admin-shell .site-main .login-card h1,
+.admin-shell .site-main .password-modal-head h2,
+.admin-shell .site-main .empty-state h2 {
+  font-weight: 400 !important;
+  letter-spacing: -0.015em;
+}
+
+.admin-shell .site-main h1 {
+  font-weight: 400 !important;
+}
+
+.admin-shell .site-main strong,
+.admin-shell .site-main b,
+.admin-shell .site-main .image-meta strong,
+.admin-shell .site-main .dashboard-card-head strong {
+  font-weight: 500 !important;
+}
+
+.admin-shell .site-main button,
+.admin-shell .site-main .btn-primary,
+.admin-shell .site-main .btn-secondary,
+.admin-shell .site-main .btn-outline,
+.admin-shell .site-main .btn-danger,
+.admin-shell .site-main .viewer-btn {
+  font-weight: 400 !important;
+}
+
+.admin-shell .site-main .eyebrow {
+  font-weight: 500 !important;
+  letter-spacing: 0.18em;
+}
+
+.admin-shell .site-main .dashboard-card-head strong {
+  font-size: 21px;
+}
+
+/* ===== v0.1.17 Dense gallery tiles ===== */
+.admin-shell .gallery-grid {
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 2px;
+  align-items: start;
+}
+
+.admin-shell .image-card.image-tile {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  aspect-ratio: 1 / 0.78;
+}
+
+.admin-shell .image-tile .image-thumb {
+  width: 100%;
+  height: 100%;
+  aspect-ratio: auto;
+  border: 0;
+  border-radius: 0;
+  background: rgba(255, 255, 255, 0.22);
+  display: block;
+  cursor: zoom-in;
+}
+
+.admin-shell .image-tile .image-thumb img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  transition: transform 0.22s ease, filter 0.22s ease;
+}
+
+.admin-shell .image-tile:hover .image-thumb img {
+  transform: scale(1.025);
+  filter: brightness(0.86);
+}
+
+.admin-shell .image-tile .spinner {
+  position: absolute;
+  inset: 50%;
+  margin: -11px 0 0 -11px;
+}
+
+.admin-shell .image-meta,
+.admin-shell .image-tile .card-actions,
+.admin-shell .image-tile .split-actions {
+  display: none !important;
+}
+
+.admin-shell .image-tile-actions {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  display: inline-flex;
+  gap: 6px;
+  opacity: 0;
+  transform: translateY(6px);
+  pointer-events: none;
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+.admin-shell .image-tile:hover .image-tile-actions,
+.admin-shell .image-tile:focus-within .image-tile-actions {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.admin-shell .image-icon-btn {
+  width: 36px;
+  height: 36px;
+  border: 1px solid rgba(255, 255, 255, 0.32);
+  border-radius: 999px;
+  background: rgba(20, 24, 27, 0.58);
+  color: #ffffff;
+  display: inline-grid;
+  place-items: center;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.18);
+}
+
+.admin-shell .image-icon-btn:hover:not(:disabled) {
+  background: rgba(20, 24, 27, 0.78);
+}
+
+.admin-shell .image-icon-danger {
+  color: #ffd4cd;
+}
+
+.admin-shell .image-icon-danger:hover:not(:disabled) {
+  background: rgba(180, 35, 24, 0.76);
+  color: #ffffff;
+}
+
+@media (max-width: 900px) {
+  .admin-shell .gallery-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 2px;
+  }
+}
+
+@media (max-width: 600px) {
+  .admin-shell .gallery-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 2px;
+  }
+
+  .admin-shell .image-card.image-tile {
+    aspect-ratio: 1 / 1;
+  }
+
+  .admin-shell .image-tile .image-thumb {
+    aspect-ratio: auto;
+  }
+
+  .admin-shell .image-tile:hover .image-thumb img {
+    transform: none;
+    filter: none;
+  }
+
+  .admin-shell .image-tile-actions {
+    display: none !important;
+  }
+}

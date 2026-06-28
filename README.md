@@ -1,5 +1,25 @@
 # Picly - Changelog
 
+## v0.1.17 - 2026-06-28
+
+**Commit:** `style: convert admin gallery to dense photo grid`
+
+- Changed the admin gallery to a dense photo-grid layout similar to common phone photo galleries.
+- Mobile gallery now uses three columns so photos use the available width better.
+- Removed the visible **Ansehen** button from image cards because clicking the image opens the viewer.
+- Hid image names, dates and sizes from the gallery grid; those details are now shown only in the image viewer.
+- Added small SVG download and delete buttons on desktop image hover.
+- Hidden grid action buttons on mobile so download/delete actions are only available after opening the image.
+
+## v0.1.16 - 2026-06-28
+
+**Commit:** `style: soften admin typography`
+
+- Switched the protected admin content area to Helvetica/Arial for cleaner readability.
+- Reduced admin headline, card, button and metadata font weights so the dashboard no longer looks too bold.
+- Kept the decorative wedding typography only outside the admin content area, especially in the top bar and footer.
+- Kept the existing gallery, upload, ZIP download and password-change behavior unchanged.
+
 ## v0.1.15 - 2026-06-28
 
 **Commit:** `style: optimize mobile gallery viewer`

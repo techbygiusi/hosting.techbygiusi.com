@@ -194,25 +194,29 @@ function GalleryImage({ image, index, onOpen, onDelete, deleting, onUrlLoaded })
     };
   }, [image.id]);
 
-  async function handleDownload() {
+  async function handleDownload(event) {
+    event.stopPropagation();
     const blob = await downloadImage(image.id);
     saveBlob(blob, image.originalName || `${image.id}.jpg`);
   }
 
+  function handleDelete(event) {
+    event.stopPropagation();
+    onDelete(image);
+  }
+
   return (
-    <article className="image-card">
-      <button className="image-thumb" type="button" onClick={() => onOpen(index)}>
-        {url ? <img src={url} alt={image.originalName} /> : <span className="spinner" />}
+    <article className="image-card image-tile">
+      <button className="image-thumb" type="button" onClick={() => onOpen(index)} aria-label={`${image.originalName || 'Bild'} öffnen`}>
+        {url ? <img src={url} alt={image.originalName || 'Upload'} /> : <span className="spinner" />}
       </button>
-      <div className="image-meta">
-        <strong>{image.originalName}</strong>
-        <span>{formatDate(image.createdAt)}</span>
-        <span>{formatSize(image.size)}</span>
-      </div>
-      <div className="card-actions split-actions">
-        <button className="btn-secondary" type="button" onClick={() => onOpen(index)}>Ansehen</button>
-        <button className="btn-primary" type="button" onClick={handleDownload}>Download</button>
-        <button className="btn-danger" type="button" onClick={() => onDelete(image)} disabled={deleting}>{deleting ? 'Lösche...' : 'Löschen'}</button>
+      <div className="image-tile-actions" aria-label="Bild-Aktionen">
+        <button className="image-icon-btn" type="button" onClick={handleDownload} aria-label={`${image.originalName || 'Bild'} herunterladen`}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        </button>
+        <button className="image-icon-btn image-icon-danger" type="button" onClick={handleDelete} disabled={deleting} aria-label={`${image.originalName || 'Bild'} löschen`}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+        </button>
       </div>
     </article>
   );
