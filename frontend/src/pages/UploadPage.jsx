@@ -98,6 +98,11 @@ export default function UploadPage() {
       <div className="hero-copy">
         <p className="eyebrow">Wir haben geheiratet!</p>
         <h1>Florian &amp; Alexandra</h1>
+        {/* Mobile-only heading */}
+        <p className="mobile-album-title">
+          <span className="mobile-album-names">Florian &amp; Alexandra's</span>{' '}
+          <span className="mobile-album-word">Hochzeitsalbum</span>
+        </p>
         <p>
           Schön, dass ihr dabei wart! Haltet eure schönsten Momente fest und ladet eure Fotos
           hier hoch - so entsteht unser gemeinsames Hochzeitsalbum aus allen Blickwinkeln.
@@ -136,7 +141,7 @@ export default function UploadPage() {
           ref={inputRef}
           className="sr-only"
           type="file"
-          accept="image/*,.heic,.heif,.heics,.heifs,.avif,.jpg,.jpeg,.jfif,.png,.bmp,.tif,.tiff,.dng"
+          accept="image/*"
           multiple
           disabled={uploading}
           onChange={(event) => addFiles(event.target.files)}
