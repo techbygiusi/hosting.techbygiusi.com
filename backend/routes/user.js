@@ -128,7 +128,7 @@ router.put('/profile', async (req, res, next) => {
 router.get('/resources', async (req, res, next) => {
   try {
     const rows = await getResourceRowsForUser(req.user.id);
-    const resources = await enrichResources(rows);
+    const resources = (await enrichResources(rows)).map(resource => ({ ...resource, adminUrl: '' }));
     res.json({ resources });
   } catch (err) {
     next(err);
@@ -142,7 +142,7 @@ router.get('/resources/:id', async (req, res, next) => {
       throw new AppError('Resource not accessible', HTTP_STATUS.FORBIDDEN);
     }
 
-    const resources = await enrichResources(rows);
+    const resources = (await enrichResources(rows)).map(resource => ({ ...resource, adminUrl: '' }));
     res.json({ resource: resources[0] });
   } catch (err) {
     next(err);
@@ -153,7 +153,7 @@ router.get('/containers', async (req, res, next) => {
   try {
     const rows = await getResourceRowsForUser(req.user.id);
     if (rows.length > 0) {
-      const resources = await enrichResources(rows);
+      const resources = (await enrichResources(rows)).map(resource => ({ ...resource, adminUrl: '' }));
       res.json({ containers: resources });
       return;
     }

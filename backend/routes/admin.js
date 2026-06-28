@@ -67,13 +67,31 @@ function resolveSmtpSettings(input, stored = {}) {
   };
 }
 
-function validateWebUrl(webUrl) {
+function validateWebUrl(webUrl, label = 'Link') {
   if (!webUrl) return '';
   const normalized = String(webUrl).trim();
   if (!/^https?:\/\//i.test(normalized)) {
-    throw new AppError('Web link must start with http:// or https://', HTTP_STATUS.BAD_REQUEST);
+    throw new AppError(`${label} must start with http:// or https://`, HTTP_STATUS.BAD_REQUEST);
   }
   return normalized;
+}
+
+async function resolveClusterTestData(input) {
+  const clusterId = input.clusterId || input.id;
+  if (clusterId) {
+    const cluster = await get('SELECT * FROM proxmox_clusters WHERE id = ?', [clusterId]);
+    if (!cluster) throw new AppError('Cluster not found', HTTP_STATUS.NOT_FOUND);
+
+    return {
+      url: normalizeUrl(input.url || cluster.url),
+      apiToken: String(input.apiToken || cluster.api_token || '').trim()
+    };
+  }
+
+  return {
+    url: normalizeUrl(input.url),
+    apiToken: String(input.apiToken || '').trim()
+  };
 }
 
 async function getResourceRows(where = '', params = []) {
@@ -136,7 +154,7 @@ router.post('/users', async (req, res, next) => {
 router.put('/users/:id', async (req, res, next) => {
   try {
     const userId = req.params.id;
-    const { name, role, password } = req.body;
+    const { email, name, role, password } = req.body;
 
     const user = await get('SELECT * FROM users WHERE id = ?', [userId]);
     if (!user) {
@@ -146,17 +164,38 @@ router.put('/users/:id', async (req, res, next) => {
     if (role) validateRole(role);
     if (password) validatePassword(password, false);
 
-    if (name) {
-      await run('UPDATE users SET name = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [String(name).trim(), userId]);
+    const updates = [];
+    const params = [];
+
+    if (email !== undefined) {
+      const normalizedEmail = normalizeEmail(email);
+      if (!normalizedEmail) throw new AppError('Email and name are required', HTTP_STATUS.BAD_REQUEST);
+      updates.push('email = ?');
+      params.push(normalizedEmail);
+    }
+
+    if (name !== undefined) {
+      const cleanName = String(name || '').trim();
+      if (!cleanName) throw new AppError('Email and name are required', HTTP_STATUS.BAD_REQUEST);
+      updates.push('name = ?');
+      params.push(cleanName);
     }
 
     if (role) {
-      await run('UPDATE users SET role = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [role, userId]);
+      updates.push('role = ?');
+      params.push(role);
     }
 
     if (password) {
       const passwordHash = await bcryptjs.hash(password, 10);
-      await run('UPDATE users SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [passwordHash, userId]);
+      updates.push('password_hash = ?');
+      params.push(passwordHash);
+    }
+
+    if (updates.length > 0) {
+      updates.push('updated_at = CURRENT_TIMESTAMP');
+      params.push(userId);
+      await run(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`, params);
     }
 
     const updated = await get('SELECT id, email, name, role, created_at FROM users WHERE id = ?', [userId]);
@@ -226,6 +265,40 @@ router.post('/clusters', async (req, res, next) => {
   }
 });
 
+router.put('/clusters/:id', async (req, res, next) => {
+  try {
+    const clusterId = req.params.id;
+    const { name, url, apiToken } = req.body;
+    const cluster = await get('SELECT * FROM proxmox_clusters WHERE id = ?', [clusterId]);
+
+    if (!cluster) {
+      throw new AppError('Cluster not found', HTTP_STATUS.NOT_FOUND);
+    }
+
+    const nextName = String(name || cluster.name).trim();
+    const nextUrl = normalizeUrl(url || cluster.url);
+    const nextToken = String(apiToken || cluster.api_token).trim();
+
+    if (!nextName || !nextUrl || !nextToken) {
+      throw new AppError('Name, URL, and API token are required', HTTP_STATUS.BAD_REQUEST);
+    }
+
+    const testResult = await testConnection(nextUrl, nextToken);
+    if (!testResult.success) {
+      throw new AppError(`Failed to connect to Proxmox: ${testResult.message}`, HTTP_STATUS.BAD_REQUEST);
+    }
+
+    await run(
+      'UPDATE proxmox_clusters SET name = ?, url = ?, api_token = ? WHERE id = ?',
+      [nextName, nextUrl, nextToken, clusterId]
+    );
+
+    res.json({ cluster: { id: Number(clusterId), name: nextName, url: nextUrl } });
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.delete('/clusters/:id', async (req, res, next) => {
   try {
     const clusterId = req.params.id;
@@ -270,7 +343,7 @@ router.get('/resources', async (req, res, next) => {
 
 router.post('/resources', async (req, res, next) => {
   try {
-    const { name, containerId, clusterId, userId, webUrl } = req.body;
+    const { name, containerId, clusterId, userId, webUrl, publicUrl, adminUrl } = req.body;
 
     if (!containerId || !clusterId || !userId) {
       throw new AppError('Resource, cluster, and user are required', HTTP_STATUS.BAD_REQUEST);
@@ -299,9 +372,12 @@ router.post('/resources', async (req, res, next) => {
       if (!resourceName) resourceName = `Ressource ${containerId}`;
     }
 
+    const cleanPublicUrl = validateWebUrl(publicUrl || webUrl, 'Public link');
+    const cleanAdminUrl = validateWebUrl(adminUrl, 'Admin link');
+
     const result = await run(
-      'INSERT INTO resources (name, container_id, cluster_id, user_id, web_url) VALUES (?, ?, ?, ?, ?)',
-      [resourceName, String(containerId), clusterId, userId, validateWebUrl(webUrl)]
+      'INSERT INTO resources (name, container_id, cluster_id, user_id, web_url, public_url, admin_url) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [resourceName, String(containerId), clusterId, userId, cleanPublicUrl, cleanPublicUrl, cleanAdminUrl]
     );
 
     const rows = await getResourceRows('WHERE r.id = ?', [result.lastID]);
@@ -315,21 +391,32 @@ router.post('/resources', async (req, res, next) => {
 router.put('/resources/:id', async (req, res, next) => {
   try {
     const resourceId = req.params.id;
-    const { name, userId, webUrl } = req.body;
+    const { name, containerId, clusterId, userId, webUrl, publicUrl, adminUrl } = req.body;
     const resource = await get('SELECT * FROM resources WHERE id = ?', [resourceId]);
 
     if (!resource) {
       throw new AppError('Resource not found', HTTP_STATUS.NOT_FOUND);
     }
 
-    if (userId) {
-      const user = await get('SELECT id FROM users WHERE id = ?', [userId]);
-      if (!user) throw new AppError('User not found', HTTP_STATUS.NOT_FOUND);
-    }
+    const nextClusterId = clusterId || resource.cluster_id;
+    const nextContainerId = String(containerId || resource.container_id);
+    const nextUserId = userId || resource.user_id;
+
+    const cluster = await get('SELECT * FROM proxmox_clusters WHERE id = ?', [nextClusterId]);
+    if (!cluster) throw new AppError('Cluster not found', HTTP_STATUS.NOT_FOUND);
+
+    const user = await get('SELECT id FROM users WHERE id = ?', [nextUserId]);
+    if (!user) throw new AppError('User not found', HTTP_STATUS.NOT_FOUND);
+
+    let nextName = String(name || resource.name || '').trim();
+    if (!nextName) nextName = `Ressource ${nextContainerId}`;
+
+    const cleanPublicUrl = validateWebUrl(publicUrl ?? webUrl ?? resource.public_url ?? resource.web_url, 'Public link');
+    const cleanAdminUrl = validateWebUrl(adminUrl ?? resource.admin_url, 'Admin link');
 
     await run(
-      'UPDATE resources SET name = ?, user_id = ?, web_url = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-      [String(name || resource.name || '').trim(), userId || resource.user_id, validateWebUrl(webUrl), resourceId]
+      'UPDATE resources SET name = ?, container_id = ?, cluster_id = ?, user_id = ?, web_url = ?, public_url = ?, admin_url = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+      [nextName, nextContainerId, nextClusterId, nextUserId, cleanPublicUrl, cleanPublicUrl, cleanAdminUrl, resourceId]
     );
 
     const rows = await getResourceRows('WHERE r.id = ?', [resourceId]);
@@ -488,8 +575,8 @@ router.post('/settings/test-smtp', async (req, res, next) => {
 
 router.post('/settings/test-proxmox', async (req, res, next) => {
   try {
-    const { url, apiToken } = req.body;
-    const result = await testConnection(normalizeUrl(url), String(apiToken || '').trim());
+    const { url, apiToken } = await resolveClusterTestData(req.body);
+    const result = await testConnection(url, apiToken);
     res.status(result.success ? HTTP_STATUS.OK : HTTP_STATUS.BAD_REQUEST).json(result);
   } catch (err) {
     next(err);

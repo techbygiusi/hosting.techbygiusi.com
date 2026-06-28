@@ -84,10 +84,10 @@ function ResourceCard({ resource }) {
       <Metric label="RAM" percent={memPercent} detail={`${formatBytes(resource.mem)} / ${formatBytes(resource.maxmem)}`} />
       <DiskDetails resource={resource} />
 
-      {resource.webUrl ? (
-        <a className="btn-primary full-button" href={resource.webUrl} target="_blank" rel="noreferrer">Webseite öffnen</a>
+      {resource.publicUrl || resource.webUrl ? (
+        <a className="btn-primary full-button" href={resource.publicUrl || resource.webUrl} target="_blank" rel="noreferrer">Öffentliche Seite</a>
       ) : (
-        <button type="button" className="btn-secondary full-button" disabled>Kein Weblink</button>
+        <button type="button" className="btn-secondary full-button" disabled>Keine öffentliche Seite</button>
       )}
 
       {resource.monitorError && <p className="hint-text">Monitoring ist gerade nicht erreichbar.</p>}

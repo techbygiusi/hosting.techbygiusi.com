@@ -27,7 +27,9 @@ function normalizeResourceRow(row, liveResource = null, error = null, diskInfo =
     userId: row.user_id,
     userName: row.user_name || '',
     userEmail: row.user_email || '',
-    webUrl: row.web_url || '',
+    webUrl: row.public_url || row.web_url || '',
+    publicUrl: row.public_url || row.web_url || '',
+    adminUrl: row.admin_url || '',
     monitorError: error || null,
     createdAt: row.created_at,
     updatedAt: row.updated_at

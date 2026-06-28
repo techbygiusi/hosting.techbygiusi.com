@@ -1,5 +1,19 @@
 # Hosting Portal - Changelog
 
+## v1.0.14 - 2026-06-28
+
+**Commit:** `feat: add resource links and edit flows`
+
+- Changed the light mode card surfaces to the simpler `#cccccc45` style from the TechByGiusi reference while keeping the page background `#F7F5F3`.
+- Added separate resource links for public pages and management pages.
+- Added edit dialogs for Benutzer, Proxmox clusters and Ressourcen.
+- Added Proxmox cluster editing with optional token reuse when no new API token is entered.
+- Added resource editing for name, assigned user, cluster, VM/CT ID, public page and management page.
+- Made the overview cards clickable so they open the related admin areas.
+- Kept mobile locked to light mode and preserved the German-only frontend labels.
+
+---
+
 ## v1.0.13 - 2026-06-28
 
 **Commit:** `fix: reuse saved smtp password for tests`

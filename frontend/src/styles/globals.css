@@ -1372,3 +1372,261 @@ h1, h2, h3, strong, b, th, button, .btn-primary, .btn-secondary, .btn-danger, .b
     white-space: normal;
   }
 }
+
+body.theme-light,
+:root {
+  --color-bg: #F7F5F3;
+  --color-bg-alt: #cccccc45;
+  --color-surface: #cccccc45;
+  --color-border: rgba(17, 17, 17, 0.08);
+}
+
+body.theme-light input,
+body.theme-light select,
+body.theme-light textarea,
+:root input,
+:root select,
+:root textarea {
+  background: rgba(255, 255, 255, 0.78);
+  border-color: rgba(17, 17, 17, 0.08);
+}
+
+body.theme-dark input,
+body.theme-dark select,
+body.theme-dark textarea {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: var(--color-border);
+}
+
+.site-header {
+  border-bottom: 0;
+  background: color-mix(in srgb, var(--color-bg) 94%, transparent);
+}
+
+.site-header-inner,
+.app-container {
+  width: min(900px, 100%);
+}
+
+.site-header-inner {
+  min-height: 74px;
+}
+
+.site-brand h1 {
+  font-size: clamp(17px, 2.1vw, 22px);
+}
+
+.auth-card,
+.setup-card,
+.panel-card,
+.metric-card,
+.resource-card,
+.modal-card,
+.app-error-card,
+.intro-card,
+.soft-box,
+.setup-content,
+.list-card,
+.disk-row,
+.resource-meta {
+  background: var(--color-surface);
+  border: 0;
+  border-radius: 10px;
+  box-shadow: none;
+}
+
+body.theme-dark .auth-card,
+body.theme-dark .setup-card,
+body.theme-dark .panel-card,
+body.theme-dark .metric-card,
+body.theme-dark .resource-card,
+body.theme-dark .modal-card,
+body.theme-dark .app-error-card,
+body.theme-dark .intro-card,
+body.theme-dark .soft-box,
+body.theme-dark .setup-content,
+body.theme-dark .list-card,
+body.theme-dark .disk-row,
+body.theme-dark .resource-meta {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--color-border);
+}
+
+.panel-card,
+.metric-card,
+.resource-card,
+.list-card {
+  padding: 20px;
+}
+
+.dashboard-grid {
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+}
+
+.metric-link-card {
+  width: 100%;
+  border: 0;
+  color: var(--color-text);
+  text-align: left;
+  transition: transform 0.14s ease, background 0.14s ease;
+}
+
+.metric-link-card:hover,
+.metric-link-card:focus-visible {
+  transform: translateY(-1px);
+  outline: none;
+  text-decoration: none;
+}
+
+.metric-card span,
+.metric-card small,
+.list-card p,
+.resource-meta span:nth-child(odd),
+.metric-line span:first-child,
+.metric-line small,
+.hint-text,
+.disk-section-title,
+.disk-row-header small,
+.disk-row small {
+  color: var(--color-text-light);
+}
+
+.metric-value {
+  font-size: clamp(24px, 4vw, 34px);
+}
+
+.list-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: var(--spacing-md);
+}
+
+.list-card {
+  display: grid;
+  gap: 16px;
+}
+
+.list-card h2 {
+  margin: 4px 0 4px;
+  font-size: 18px;
+}
+
+.list-card p {
+  word-break: break-word;
+}
+
+.card-actions,
+.button-stack {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.button-stack {
+  flex-direction: column;
+}
+
+.card-actions .btn-small {
+  flex: 1 1 auto;
+}
+
+.btn-primary,
+.btn-secondary,
+.btn-danger,
+.btn-outline,
+.theme-toggle,
+input,
+select,
+textarea {
+  border-radius: 10px;
+}
+
+.btn-primary {
+  background: var(--color-text);
+  border-color: var(--color-text);
+  color: var(--color-bg);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--button-primary-text);
+}
+
+.btn-secondary {
+  background: transparent;
+}
+
+.theme-toggle-thumb {
+  background: var(--color-surface);
+}
+
+body.theme-light .theme-toggle-thumb {
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.app-tabs {
+  border-bottom-color: rgba(17, 17, 17, 0.08);
+}
+
+body.theme-dark .app-tabs {
+  border-bottom-color: var(--color-border);
+}
+
+.resource-grid {
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+}
+
+.admin-resource-grid {
+  grid-template-columns: repeat(auto-fill, minmax(285px, 1fr));
+}
+
+.status-badge,
+.progress-bar {
+  background: rgba(255, 255, 255, 0.38);
+  border: 0;
+}
+
+body.theme-dark .status-badge,
+body.theme-dark .progress-bar {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--color-border);
+}
+
+@media (max-width: 767px) {
+  body,
+  body.theme-dark,
+  body.theme-light {
+    --color-bg: #F7F5F3;
+    --color-bg-alt: #cccccc45;
+    --color-surface: #cccccc45;
+    --color-border: rgba(17, 17, 17, 0.08);
+  }
+
+  .site-header-inner,
+  .app-container {
+    width: 100%;
+  }
+
+  .site-header-inner {
+    min-height: auto;
+  }
+
+  .site-brand h1 {
+    font-size: 18px;
+  }
+
+  .list-grid,
+  .resource-grid,
+  .admin-resource-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .card-actions {
+    flex-direction: column;
+  }
+
+  .card-actions .btn-small {
+    width: 100%;
+  }
+}

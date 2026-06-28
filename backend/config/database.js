@@ -107,12 +107,17 @@ async function initDatabase() {
           cluster_id INTEGER NOT NULL,
           user_id INTEGER NOT NULL,
           web_url TEXT,
+          public_url TEXT,
+          admin_url TEXT,
           created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
           updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
           FOREIGN KEY (cluster_id) REFERENCES proxmox_clusters(id) ON DELETE CASCADE,
           FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
         )
       `);
+
+      database.run(`ALTER TABLE resources ADD COLUMN public_url TEXT`, () => {});
+      database.run(`ALTER TABLE resources ADD COLUMN admin_url TEXT`, () => {});
 
       // Settings (key-value store)
       database.run(`

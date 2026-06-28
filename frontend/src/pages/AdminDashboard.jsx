@@ -6,7 +6,7 @@ import ThemeButton from '../components/ThemeButton';
 
 const emptyUser = { email: '', name: '', password: '', role: 'user' };
 const emptyCluster = { name: '', url: '', apiToken: '' };
-const emptyResource = { name: '', containerId: '', clusterId: '', userId: '', webUrl: '' };
+const emptyResource = { name: '', containerId: '', clusterId: '', userId: '', publicUrl: '', adminUrl: '' };
 const emptySmtp = { smtpHost: '', smtpPort: '587', smtpUser: '', smtpPassword: '' };
 
 export default function AdminDashboard() {
@@ -20,6 +20,9 @@ export default function AdminDashboard() {
   const [newUser, setNewUser] = useState(emptyUser);
   const [newCluster, setNewCluster] = useState(emptyCluster);
   const [newResource, setNewResource] = useState(emptyResource);
+  const [editUserId, setEditUserId] = useState(null);
+  const [editClusterId, setEditClusterId] = useState(null);
+  const [editResourceId, setEditResourceId] = useState(null);
   const [smtpTestResult, setSmtpTestResult] = useState(null);
   const [clusterTestResult, setClusterTestResult] = useState(null);
   const [showUserModal, setShowUserModal] = useState(false);
@@ -88,16 +91,38 @@ export default function AdminDashboard() {
 
   const showSuccess = (message) => {
     setSuccessMsg(message);
-    setTimeout(() => setSuccessMsg(''), 4000);
+    setTimeout(() => setSuccessMsg(''), 3500);
   };
 
-  const handleCreateUser = async (e) => {
+  const openCreateUser = () => {
+    setEditUserId(null);
+    setNewUser(emptyUser);
+    setShowUserModal(true);
+  };
+
+  const openEditUser = (item) => {
+    setEditUserId(item.id);
+    setNewUser({ email: item.email || '', name: item.name || '', password: '', role: item.role || 'user' });
+    setShowUserModal(true);
+  };
+
+  const closeUserModal = () => {
+    setShowUserModal(false);
+    setEditUserId(null);
+    setNewUser(emptyUser);
+  };
+
+  const handleSaveUser = async (e) => {
     e.preventDefault();
-    if (!newUser.email || !newUser.name || !newUser.password) {
-      setError('Bitte Name, E-Mail-Adresse und Passwort eingeben.');
+    if (!newUser.email || !newUser.name) {
+      setError('Bitte Name und E-Mail-Adresse eingeben.');
       return;
     }
-    if (newUser.password.length < 6) {
+    if (!editUserId && !newUser.password) {
+      setError('Bitte ein Startpasswort eingeben.');
+      return;
+    }
+    if (newUser.password && newUser.password.length < 6) {
       setError('Das Passwort muss mindestens 6 Zeichen lang sein.');
       return;
     }
@@ -105,20 +130,26 @@ export default function AdminDashboard() {
     try {
       setActionLoading(true);
       setError('');
-      await adminApi.createUser(newUser);
-      setNewUser(emptyUser);
-      setShowUserModal(false);
-      showSuccess('Benutzer wurde angelegt.');
+      if (editUserId) {
+        const payload = { email: newUser.email, name: newUser.name, role: newUser.role };
+        if (newUser.password) payload.password = newUser.password;
+        await adminApi.updateUser(editUserId, payload);
+        showSuccess('Benutzer wurde gespeichert.');
+      } else {
+        await adminApi.createUser(newUser);
+        showSuccess('Benutzer wurde angelegt.');
+      }
+      closeUserModal();
       await loadData(activeTab);
     } catch (err) {
-      setError(getErrorMessage(err, 'Benutzer konnte nicht angelegt werden.'));
+      setError(getErrorMessage(err, 'Benutzer konnte nicht gespeichert werden.'));
     } finally {
       setActionLoading(false);
     }
   };
 
   const handleDeleteUser = async (userId) => {
-    if (!window.confirm('Diesen Benutzer wirklich löschen?')) return;
+    if (!window.confirm('Diesen Benutzer löschen?')) return;
 
     try {
       setActionLoading(true);
@@ -133,6 +164,27 @@ export default function AdminDashboard() {
     }
   };
 
+  const openCreateCluster = () => {
+    setEditClusterId(null);
+    setNewCluster(emptyCluster);
+    setClusterTestResult(null);
+    setShowClusterModal(true);
+  };
+
+  const openEditCluster = (item) => {
+    setEditClusterId(item.id);
+    setNewCluster({ name: item.name || '', url: item.url || '', apiToken: '' });
+    setClusterTestResult(null);
+    setShowClusterModal(true);
+  };
+
+  const closeClusterModal = () => {
+    setShowClusterModal(false);
+    setEditClusterId(null);
+    setNewCluster(emptyCluster);
+    setClusterTestResult(null);
+  };
+
   const handleClusterChange = (field, value) => {
     setNewCluster(prev => ({ ...prev, [field]: value }));
     setClusterTestResult(null);
@@ -140,7 +192,7 @@ export default function AdminDashboard() {
   };
 
   const handleTestCluster = async () => {
-    if (!newCluster.url || !newCluster.apiToken) {
+    if (!newCluster.url || (!newCluster.apiToken && !editClusterId)) {
       setClusterTestResult({ success: false, message: 'Bitte URL und API-Token eingeben.' });
       return;
     }
@@ -148,7 +200,7 @@ export default function AdminDashboard() {
     try {
       setActionLoading(true);
       setError('');
-      const res = await adminApi.testProxmox(newCluster);
+      const res = await adminApi.testProxmox({ ...newCluster, clusterId: editClusterId || undefined });
       setClusterTestResult(res.data);
     } catch (err) {
       setClusterTestResult({ success: false, message: getErrorMessage(err, 'Proxmox-Test fehlgeschlagen.') });
@@ -157,9 +209,9 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleCreateCluster = async (e) => {
+  const handleSaveCluster = async (e) => {
     e.preventDefault();
-    if (!newCluster.name || !newCluster.url || !newCluster.apiToken) {
+    if (!newCluster.name || !newCluster.url || (!newCluster.apiToken && !editClusterId)) {
       setError('Bitte Cluster-Name, URL und API-Token eingeben.');
       return;
     }
@@ -167,21 +219,24 @@ export default function AdminDashboard() {
     try {
       setActionLoading(true);
       setError('');
-      await adminApi.createCluster(newCluster);
-      setNewCluster(emptyCluster);
-      setClusterTestResult(null);
-      setShowClusterModal(false);
-      showSuccess('Proxmox-Cluster wurde gespeichert.');
+      if (editClusterId) {
+        await adminApi.updateCluster(editClusterId, newCluster);
+        showSuccess('Proxmox-Cluster wurde gespeichert.');
+      } else {
+        await adminApi.createCluster(newCluster);
+        showSuccess('Proxmox-Cluster wurde angelegt.');
+      }
+      closeClusterModal();
       await loadData(activeTab);
     } catch (err) {
-      setError(getErrorMessage(err, 'Cluster konnte nicht hinzugefügt werden.'));
+      setError(getErrorMessage(err, 'Cluster konnte nicht gespeichert werden.'));
     } finally {
       setActionLoading(false);
     }
   };
 
   const handleDeleteCluster = async (clusterId) => {
-    if (!window.confirm('Diesen Cluster wirklich löschen?')) return;
+    if (!window.confirm('Diesen Cluster löschen?')) return;
 
     try {
       setActionLoading(true);
@@ -196,6 +251,34 @@ export default function AdminDashboard() {
     }
   };
 
+  const openCreateResource = () => {
+    setEditResourceId(null);
+    setNewResource(emptyResource);
+    setClusterContainers([]);
+    setShowResourceModal(true);
+  };
+
+  const openEditResource = (item) => {
+    setEditResourceId(item.id);
+    setNewResource({
+      name: item.name || '',
+      containerId: item.containerId || '',
+      clusterId: item.clusterId || '',
+      userId: item.userId || '',
+      publicUrl: item.publicUrl || item.webUrl || '',
+      adminUrl: item.adminUrl || ''
+    });
+    setClusterContainers([]);
+    setShowResourceModal(true);
+  };
+
+  const closeResourceModal = () => {
+    setShowResourceModal(false);
+    setEditResourceId(null);
+    setNewResource(emptyResource);
+    setClusterContainers([]);
+  };
+
   const handleLoadClusterContainers = async () => {
     if (!newResource.clusterId) {
       setError('Bitte zuerst einen Cluster auswählen.');
@@ -208,7 +291,7 @@ export default function AdminDashboard() {
       const res = await adminApi.getClusterContainers(newResource.clusterId);
       setClusterContainers(res.data.containers || []);
       if (!res.data.containers?.length) {
-        showSuccess('Der Cluster hat keine Container oder VMs zurückgegeben.');
+        showSuccess('Keine Container oder VMs gefunden.');
       }
     } catch (err) {
       setError(getErrorMessage(err, 'Ressourcen konnten nicht geladen werden.'));
@@ -226,7 +309,7 @@ export default function AdminDashboard() {
     }));
   };
 
-  const handleCreateResource = async (e) => {
+  const handleSaveResource = async (e) => {
     e.preventDefault();
     if (!newResource.clusterId || !newResource.containerId || !newResource.userId) {
       setError('Bitte Cluster, Ressource und Benutzer auswählen.');
@@ -236,21 +319,24 @@ export default function AdminDashboard() {
     try {
       setActionLoading(true);
       setError('');
-      await adminApi.createResource(newResource);
-      setNewResource(emptyResource);
-      setClusterContainers([]);
-      setShowResourceModal(false);
-      showSuccess('Ressource wurde angelegt.');
+      if (editResourceId) {
+        await adminApi.updateResource(editResourceId, newResource);
+        showSuccess('Ressource wurde gespeichert.');
+      } else {
+        await adminApi.createResource(newResource);
+        showSuccess('Ressource wurde angelegt.');
+      }
+      closeResourceModal();
       await loadData(activeTab);
     } catch (err) {
-      setError(getErrorMessage(err, 'Ressource konnte nicht angelegt werden.'));
+      setError(getErrorMessage(err, 'Ressource konnte nicht gespeichert werden.'));
     } finally {
       setActionLoading(false);
     }
   };
 
   const handleDeleteResource = async (resourceId) => {
-    if (!window.confirm('Diese Ressource wirklich löschen?')) return;
+    if (!window.confirm('Diese Ressource löschen?')) return;
 
     try {
       setActionLoading(true);
@@ -304,13 +390,8 @@ export default function AdminDashboard() {
     <div className="app-page">
       <header className="site-header">
         <div className="site-header-inner">
-          <div className="site-brand">
-            <h1>TechByGiusi - Hosting</h1>
-          </div>
-          <div className="site-actions">
-            <ThemeButton />
-            <button type="button" className="btn-secondary" onClick={logout}>Abmelden</button>
-          </div>
+          <div className="site-brand"><h1>TechByGiusi - Hosting</h1></div>
+          <div className="site-actions"><ThemeButton /><button type="button" className="btn-secondary" onClick={logout}>Abmelden</button></div>
         </div>
       </header>
 
@@ -327,68 +408,59 @@ export default function AdminDashboard() {
         {loading && <div className="loading"><span className="spinner"></span><span>Daten werden geladen...</span></div>}
 
         {!loading && activeTab === 'overview' && (
-          <>
-            <section className="dashboard-grid">
-              <MetricCard label="Benutzer" value={userCount} />
-              <MetricCard label="Administratoren" value={adminCount} />
-              <MetricCard label="Cluster" value={clusters.length} />
-              <MetricCard label="Ressourcen" value={resources.length} />
-              <MetricCard label="Online" value={onlineCount} />
-            </section>
-          </>
+          <section className="dashboard-grid">
+            <MetricCard label="Benutzer" value={userCount} onClick={() => setActiveTab('users')} />
+            <MetricCard label="Administratoren" value={adminCount} onClick={() => setActiveTab('users')} />
+            <MetricCard label="Cluster" value={clusters.length} onClick={() => setActiveTab('clusters')} />
+            <MetricCard label="Ressourcen" value={resources.length} onClick={() => setActiveTab('resources')} />
+            <MetricCard label="Online" value={onlineCount} onClick={() => setActiveTab('resources')} />
+          </section>
         )}
 
         {!loading && activeTab === 'users' && (
           <section className="panel-card">
-            <PanelHeader title="Benutzer" action="Benutzer anlegen" onAction={() => setShowUserModal(true)} />
-            <div className="table-responsive">
-              <table>
-                <thead><tr><th>Name</th><th>E-Mail</th><th>Rolle</th><th>Aktion</th></tr></thead>
-                <tbody>
-                  {users.map(item => (
-                    <tr key={item.id}>
-                      <td>{item.name}</td>
-                      <td>{item.email}</td>
-                      <td>{item.role === 'admin' ? 'Administrator' : 'Benutzer'}</td>
-                      <td><button type="button" className="btn-danger btn-small" onClick={() => handleDeleteUser(item.id)} disabled={actionLoading || item.id === user?.id}>Löschen</button></td>
-                    </tr>
-                  ))}
-                  {users.length === 0 && <tr><td colSpan="4" className="empty-cell">Keine Benutzer vorhanden.</td></tr>}
-                </tbody>
-              </table>
-            </div>
+            <PanelHeader title="Benutzer" action="Benutzer anlegen" onAction={openCreateUser} />
+            {users.length === 0 ? (
+              <div className="empty-state soft-box"><h2>Keine Benutzer</h2></div>
+            ) : (
+              <div className="list-grid">
+                {users.map(item => (
+                  <article key={item.id} className="list-card">
+                    <div><span className="resource-id">{item.role === 'admin' ? 'Administrator' : 'Benutzer'}</span><h2>{item.name}</h2><p>{item.email}</p></div>
+                    <div className="card-actions"><button type="button" className="btn-secondary btn-small" onClick={() => openEditUser(item)}>Bearbeiten</button><button type="button" className="btn-danger btn-small" onClick={() => handleDeleteUser(item.id)} disabled={actionLoading || item.id === user?.id}>Löschen</button></div>
+                  </article>
+                ))}
+              </div>
+            )}
           </section>
         )}
 
         {!loading && activeTab === 'clusters' && (
           <section className="panel-card">
-            <PanelHeader title="Proxmox" action="Cluster hinzufügen" onAction={() => { setClusterTestResult(null); setShowClusterModal(true); }} />
-            <div className="table-responsive">
-              <table>
-                <thead><tr><th>Name</th><th>URL</th><th>Aktion</th></tr></thead>
-                <tbody>
-                  {clusters.map(item => (
-                    <tr key={item.id}>
-                      <td>{item.name}</td>
-                      <td>{item.url}</td>
-                      <td><button type="button" className="btn-danger btn-small" onClick={() => handleDeleteCluster(item.id)} disabled={actionLoading}>Löschen</button></td>
-                    </tr>
-                  ))}
-                  {clusters.length === 0 && <tr><td colSpan="3" className="empty-cell">Kein Cluster gespeichert.</td></tr>}
-                </tbody>
-              </table>
-            </div>
+            <PanelHeader title="Proxmox" action="Cluster hinzufügen" onAction={openCreateCluster} />
+            {clusters.length === 0 ? (
+              <div className="empty-state soft-box"><h2>Kein Cluster</h2></div>
+            ) : (
+              <div className="list-grid">
+                {clusters.map(item => (
+                  <article key={item.id} className="list-card">
+                    <div><span className="resource-id">Proxmox</span><h2>{item.name}</h2><p>{item.url}</p></div>
+                    <div className="card-actions"><button type="button" className="btn-secondary btn-small" onClick={() => openEditCluster(item)}>Bearbeiten</button><button type="button" className="btn-danger btn-small" onClick={() => handleDeleteCluster(item.id)} disabled={actionLoading}>Löschen</button></div>
+                  </article>
+                ))}
+              </div>
+            )}
           </section>
         )}
 
         {!loading && activeTab === 'resources' && (
           <section className="panel-card">
-            <PanelHeader title="Ressourcen" action="Ressource anlegen" onAction={() => setShowResourceModal(true)} />
+            <PanelHeader title="Ressourcen" action="Ressource anlegen" onAction={openCreateResource} />
             {resources.length === 0 ? (
-              <div className="empty-state soft-box"><h2>Keine Ressourcen</h2><p>Lege eine Ressource an, damit Benutzer Status und Weblink sehen.</p></div>
+              <div className="empty-state soft-box"><h2>Keine Ressourcen</h2></div>
             ) : (
               <div className="resource-grid admin-resource-grid">
-                {resources.map(item => <ResourceCard key={item.id} resource={item} onDelete={handleDeleteResource} actionLoading={actionLoading} />)}
+                {resources.map(item => <ResourceCard key={item.id} resource={item} onEdit={openEditResource} onDelete={handleDeleteResource} actionLoading={actionLoading} />)}
               </div>
             )}
           </section>
@@ -402,10 +474,7 @@ export default function AdminDashboard() {
               <label className="form-group"><span>SMTP-Port</span><input type="text" name="smtpPort" value={settings.smtpPort} onChange={handleSettingsChange} placeholder="587" /></label>
               <label className="form-group"><span>SMTP-Benutzer</span><input type="email" name="smtpUser" value={settings.smtpUser} onChange={handleSettingsChange} placeholder="noreply@example.com" /></label>
               <label className="form-group"><span>SMTP-Passwort</span><input type="password" name="smtpPassword" value={settings.smtpPassword} onChange={handleSettingsChange} placeholder="Leer lassen, vorhandenes Passwort verwenden" /></label>
-              <div className="form-actions full-width">
-                <button type="button" className="btn-secondary" onClick={handleTestSmtp} disabled={actionLoading}>SMTP testen</button>
-                <button type="submit" className="btn-primary" disabled={actionLoading}>Speichern</button>
-              </div>
+              <div className="form-actions full-width"><button type="button" className="btn-secondary" onClick={handleTestSmtp} disabled={actionLoading}>SMTP testen</button><button type="submit" className="btn-primary" disabled={actionLoading}>Speichern</button></div>
             </form>
             {smtpTestResult && <div className={`test-result ${smtpTestResult.success ? 'success' : 'error'}`}>{translateMessage(smtpTestResult.message)}</div>}
           </section>
@@ -413,40 +482,41 @@ export default function AdminDashboard() {
       </main>
 
       {showUserModal && (
-        <Modal title="Benutzer anlegen" onClose={() => setShowUserModal(false)}>
-          <form className="form-stack" onSubmit={handleCreateUser}>
+        <Modal title={editUserId ? 'Benutzer bearbeiten' : 'Benutzer anlegen'} onClose={closeUserModal}>
+          <form className="form-stack" onSubmit={handleSaveUser}>
             <label className="form-group"><span>Name</span><input type="text" value={newUser.name} onChange={e => setNewUser(prev => ({ ...prev, name: e.target.value }))} placeholder="Max Mustermann" /></label>
             <label className="form-group"><span>E-Mail-Adresse</span><input type="email" value={newUser.email} onChange={e => setNewUser(prev => ({ ...prev, email: e.target.value }))} placeholder="max@example.com" /></label>
-            <label className="form-group"><span>Startpasswort</span><input type="text" value={newUser.password} onChange={e => setNewUser(prev => ({ ...prev, password: e.target.value }))} placeholder="Passwort für den Benutzer" /></label>
+            <label className="form-group"><span>{editUserId ? 'Neues Passwort' : 'Startpasswort'}</span><input type="text" value={newUser.password} onChange={e => setNewUser(prev => ({ ...prev, password: e.target.value }))} placeholder={editUserId ? 'Leer lassen, wenn unverändert' : 'Passwort für den Benutzer'} /></label>
             <label className="form-group"><span>Rolle</span><select value={newUser.role} onChange={e => setNewUser(prev => ({ ...prev, role: e.target.value }))}><option value="user">Benutzer</option><option value="admin">Administrator</option></select></label>
-            <div className="form-actions"><button type="button" className="btn-secondary" onClick={() => setShowUserModal(false)}>Abbrechen</button><button type="submit" className="btn-primary" disabled={actionLoading}>Anlegen</button></div>
+            <div className="form-actions"><button type="button" className="btn-secondary" onClick={closeUserModal}>Abbrechen</button><button type="submit" className="btn-primary" disabled={actionLoading}>{editUserId ? 'Speichern' : 'Anlegen'}</button></div>
           </form>
         </Modal>
       )}
 
       {showClusterModal && (
-        <Modal title="Proxmox-Cluster hinzufügen" onClose={() => { setClusterTestResult(null); setShowClusterModal(false); }}>
-          <form className="form-stack" onSubmit={handleCreateCluster}>
+        <Modal title={editClusterId ? 'Proxmox bearbeiten' : 'Proxmox hinzufügen'} onClose={closeClusterModal}>
+          <form className="form-stack" onSubmit={handleSaveCluster}>
             <label className="form-group"><span>Name</span><input type="text" value={newCluster.name} onChange={e => handleClusterChange('name', e.target.value)} placeholder="Home Lab" /></label>
             <label className="form-group"><span>URL</span><input type="text" value={newCluster.url} onChange={e => handleClusterChange('url', e.target.value)} placeholder="https://10.10.0.10:8006" /></label>
-            <label className="form-group"><span>API-Token</span><input type="password" value={newCluster.apiToken} onChange={e => handleClusterChange('apiToken', e.target.value)} placeholder="api@pam!hosting=secret" /></label>
+            <label className="form-group"><span>API-Token</span><input type="password" value={newCluster.apiToken} onChange={e => handleClusterChange('apiToken', e.target.value)} placeholder={editClusterId ? 'Leer lassen, vorhandenen Token verwenden' : 'api@pam!hosting=secret'} /></label>
             <button type="button" className="btn-secondary full-button" onClick={handleTestCluster} disabled={actionLoading}>Proxmox-Verbindung testen</button>
             {clusterTestResult && <div className={`test-result ${clusterTestResult.success ? 'success' : 'error'}`}>{translateMessage(clusterTestResult.message)}</div>}
-            <div className="form-actions"><button type="button" className="btn-secondary" onClick={() => { setClusterTestResult(null); setShowClusterModal(false); }}>Abbrechen</button><button type="submit" className="btn-primary" disabled={actionLoading}>Speichern</button></div>
+            <div className="form-actions"><button type="button" className="btn-secondary" onClick={closeClusterModal}>Abbrechen</button><button type="submit" className="btn-primary" disabled={actionLoading}>Speichern</button></div>
           </form>
         </Modal>
       )}
 
       {showResourceModal && (
-        <Modal title="Ressource anlegen" onClose={() => setShowResourceModal(false)}>
-          <form className="form-stack" onSubmit={handleCreateResource}>
-            <label className="form-group"><span>Cluster</span><select value={newResource.clusterId} onChange={e => { setNewResource(prev => ({ ...prev, clusterId: e.target.value, containerId: '', name: '' })); setClusterContainers([]); }}><option value="">Bitte auswählen</option>{clusters.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+        <Modal title={editResourceId ? 'Ressource bearbeiten' : 'Ressource anlegen'} onClose={closeResourceModal}>
+          <form className="form-stack" onSubmit={handleSaveResource}>
+            <label className="form-group"><span>Cluster</span><select value={newResource.clusterId} onChange={e => { setNewResource(prev => ({ ...prev, clusterId: e.target.value, containerId: '', name: editResourceId ? prev.name : '' })); setClusterContainers([]); }}><option value="">Bitte auswählen</option>{clusters.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
             <button type="button" className="btn-secondary" onClick={handleLoadClusterContainers} disabled={actionLoading || !newResource.clusterId}>{currentClusterName ? `Ressourcen von ${currentClusterName} laden` : 'Ressourcen laden'}</button>
             <label className="form-group"><span>Container oder VM</span>{clusterContainers.length > 0 ? <select value={newResource.containerId} onChange={e => handleResourceContainerChange(e.target.value)}><option value="">Bitte auswählen</option>{clusterContainers.map(item => <option key={`${item.type}-${item.vmid}`} value={item.vmid}>{item.vmid} · {item.name || item.type} · {renderType(item.type)} · {renderStatus(item.status)}</option>)}</select> : <input type="text" value={newResource.containerId} onChange={e => setNewResource(prev => ({ ...prev, containerId: e.target.value }))} placeholder="VMID oder CTID" />}</label>
             <label className="form-group"><span>Anzeigename</span><input type="text" value={newResource.name} onChange={e => setNewResource(prev => ({ ...prev, name: e.target.value }))} placeholder="Optional" /></label>
             <label className="form-group"><span>Benutzer</span><select value={newResource.userId} onChange={e => setNewResource(prev => ({ ...prev, userId: e.target.value }))}><option value="">Bitte auswählen</option>{users.map(item => <option key={item.id} value={item.id}>{item.name} · {item.email}</option>)}</select></label>
-            <label className="form-group"><span>Weblink</span><input type="url" value={newResource.webUrl} onChange={e => setNewResource(prev => ({ ...prev, webUrl: e.target.value }))} placeholder="https://app.example.com" /></label>
-            <div className="form-actions"><button type="button" className="btn-secondary" onClick={() => setShowResourceModal(false)}>Abbrechen</button><button type="submit" className="btn-primary" disabled={actionLoading}>Anlegen</button></div>
+            <label className="form-group"><span>Öffentliche Seite</span><input type="url" value={newResource.publicUrl} onChange={e => setNewResource(prev => ({ ...prev, publicUrl: e.target.value }))} placeholder="https://app.example.com" /></label>
+            <label className="form-group"><span>Verwaltungsseite</span><input type="url" value={newResource.adminUrl} onChange={e => setNewResource(prev => ({ ...prev, adminUrl: e.target.value }))} placeholder="https://admin.example.com" /></label>
+            <div className="form-actions"><button type="button" className="btn-secondary" onClick={closeResourceModal}>Abbrechen</button><button type="submit" className="btn-primary" disabled={actionLoading}>{editResourceId ? 'Speichern' : 'Anlegen'}</button></div>
           </form>
         </Modal>
       )}
@@ -454,30 +524,22 @@ export default function AdminDashboard() {
   );
 }
 
-function PanelHeader({ title, text, action, onAction }) {
-  return (
-    <div className="panel-header">
-      <div><h2>{title}</h2>{text && <p>{text}</p>}</div>
-      {action && <button type="button" className="btn-primary" onClick={onAction}>{action}</button>}
-    </div>
-  );
+function PanelHeader({ title, action, onAction }) {
+  return <div className="panel-header"><h2>{title}</h2>{action && <button type="button" className="btn-primary" onClick={onAction}>{action}</button>}</div>;
 }
 
-function MetricCard({ label, value }) {
-  return <article className="metric-card"><span>{label}</span><div className="metric-value">{value}</div></article>;
+function MetricCard({ label, value, onClick }) {
+  return <button type="button" className="metric-card metric-link-card" onClick={onClick}><span>{label}</span><div className="metric-value">{value}</div></button>;
 }
 
-function ResourceCard({ resource, onDelete, actionLoading }) {
+function ResourceCard({ resource, onEdit, onDelete, actionLoading }) {
   const cpuPercent = getCpuPercent(resource);
   const memPercent = getPercent(resource.mem, resource.maxmem);
 
   return (
     <article className="resource-card">
       <div className="resource-card-header">
-        <div>
-          <span className="resource-id">{renderType(resource.type)} · {resource.containerId}</span>
-          <h2>{resource.name}</h2>
-        </div>
+        <div><span className="resource-id">{renderType(resource.type)} · {resource.containerId}</span><h2>{resource.name}</h2></div>
         <span className={`status-badge status-${resource.status || 'unknown'}`}>{renderStatus(resource.status)}</span>
       </div>
       <div className="resource-meta">
@@ -488,13 +550,16 @@ function ResourceCard({ resource, onDelete, actionLoading }) {
       <Metric label="CPU" percent={cpuPercent} detail={`${cpuPercent.toFixed(1)} %`} />
       <Metric label="RAM" percent={memPercent} detail={`${formatBytes(resource.mem)} / ${formatBytes(resource.maxmem)}`} />
       <DiskDetails resource={resource} />
-      {resource.webUrl && <a className="btn-secondary full-button" href={resource.webUrl} target="_blank" rel="noreferrer">Webseite öffnen</a>}
+      <div className="button-stack">
+        {resource.publicUrl && <a className="btn-secondary full-button" href={resource.publicUrl} target="_blank" rel="noreferrer">Öffentliche Seite</a>}
+        {resource.adminUrl && <a className="btn-secondary full-button" href={resource.adminUrl} target="_blank" rel="noreferrer">Verwaltungsseite</a>}
+        <button type="button" className="btn-secondary full-button" onClick={() => onEdit(resource)}>Bearbeiten</button>
+        <button type="button" className="btn-danger full-button" onClick={() => onDelete(resource.id)} disabled={actionLoading}>Entfernen</button>
+      </div>
       {resource.monitorError && <p className="hint-text">Monitoring nicht erreichbar.</p>}
-      <button type="button" className="btn-danger full-button" onClick={() => onDelete(resource.id)} disabled={actionLoading}>Entfernen</button>
     </article>
   );
 }
-
 
 function DiskDetails({ resource }) {
   const filesystems = Array.isArray(resource.filesystems) ? resource.filesystems : [];
@@ -521,16 +586,11 @@ function DiskMetric({ disk }) {
   const percent = hasUsed && maxdisk ? getPercent(disk.used, maxdisk) : 0;
   const title = disk.name || disk.id || 'Disk';
   const subtitle = [disk.storage, disk.volume].filter(Boolean).join(' · ');
-  const detail = hasUsed && maxdisk
-    ? `${formatBytes(disk.used)} / ${formatBytes(maxdisk)}`
-    : maxdisk ? `Größe ${formatBytes(maxdisk)}` : 'Größe nicht gemeldet';
+  const detail = hasUsed && maxdisk ? `${formatBytes(disk.used)} / ${formatBytes(maxdisk)}` : maxdisk ? `Größe ${formatBytes(maxdisk)}` : 'Größe nicht gemeldet';
 
   return (
     <div className="disk-row">
-      <div className="disk-row-header">
-        <span>{title}</span>
-        <small>{hasUsed ? `${percent.toFixed(1)}%` : 'Belegung nicht gemeldet'}</small>
-      </div>
+      <div className="disk-row-header"><span>{title}</span><small>{hasUsed ? `${percent.toFixed(1)}%` : 'Belegung nicht gemeldet'}</small></div>
       {hasUsed && <div className="progress-bar"><span style={{ width: `${percent}%` }}></span></div>}
       <small>{detail}</small>
       {subtitle && <small className="disk-source">{subtitle}</small>}
@@ -540,27 +600,11 @@ function DiskMetric({ disk }) {
 
 function Metric({ label, percent, detail }) {
   const safePercent = Math.min(Math.max(Number(percent) || 0, 0), 100);
-  return (
-    <div className="metric-line">
-      <div><span>{label}</span><span>{safePercent.toFixed(1)}%</span></div>
-      <div className="progress-bar"><span style={{ width: `${safePercent}%` }}></span></div>
-      <small>{detail}</small>
-    </div>
-  );
+  return <div className="metric-line"><div><span>{label}</span><span>{safePercent.toFixed(1)}%</span></div><div className="progress-bar"><span style={{ width: `${safePercent}%` }}></span></div><small>{detail}</small></div>;
 }
 
 function Modal({ title, children, onClose }) {
-  return (
-    <div className="modal-overlay active" role="dialog" aria-modal="true">
-      <div className="modal-card">
-        <div className="modal-header">
-          <h2>{title}</h2>
-          <button type="button" className="icon-button" onClick={onClose} aria-label="Schließen">×</button>
-        </div>
-        {children}
-      </div>
-    </div>
-  );
+  return <div className="modal-overlay active" role="dialog" aria-modal="true"><div className="modal-card"><div className="modal-header"><h2>{title}</h2><button type="button" className="icon-button" onClick={onClose} aria-label="Schließen">×</button></div>{children}</div></div>;
 }
 
 function getPercent(value, max) {
