@@ -1,5 +1,24 @@
 # Picly - Changelog
 
+## v0.1.4 - 2026-06-28
+
+**Commit:** `chore: simplify mobile upload copy`
+
+- Removed the extra mobile helper sentence from the upload drop zone because phones already open the image picker/gallery directly.
+- Kept the public upload flow unchanged: users still need no login and can upload directly from mobile.
+
+## v0.1.3 - 2026-06-28
+
+**Commit:** `feat: refine mobile navigation and admin storage stats`
+
+- Removed the standalone **P** mark from the header so the top bar stays cleaner.
+- Changed the browser tab title to **Tech By Giusi | Picly**.
+- Simplified the mobile header so only the **Upload** action stays at the top.
+- Moved the **Admin** link into the mobile footer while keeping it in the desktop header.
+- Hid the large intro copy on mobile so users land directly on the upload card.
+- Added protected admin storage stats showing free/used storage for the mounted data path and the Docker container filesystem.
+- Added current active upload count in the admin dashboard.
+
 ## v0.1.2 - 2026-06-28
 
 **Commit:** `fix: harden concurrent uploads`

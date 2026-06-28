@@ -8,12 +8,11 @@ export default function AppShell({ children }) {
     <div className="site-shell">
       <header className="site-header">
         <Link className="brand" to="/" aria-label="Picly Startseite">
-          <span className="brand-mark">P</span>
           <span className="brand-text">Picly by TechByGiusi</span>
         </Link>
         <nav className="site-nav" aria-label="Navigation">
           <Link className={isAdmin ? 'nav-link' : 'nav-link active'} to="/">Upload</Link>
-          <Link className={isAdmin ? 'nav-link active' : 'nav-link'} to="/admin">Admin</Link>
+          <Link className={isAdmin ? 'nav-link active desktop-admin-link' : 'nav-link desktop-admin-link'} to="/admin">Admin</Link>
         </nav>
       </header>
 
@@ -21,6 +20,7 @@ export default function AppShell({ children }) {
 
       <footer className="site-footer">
         <span>TechByGiusi</span>
+        <Link className={isAdmin ? 'footer-admin-link active' : 'footer-admin-link'} to="/admin">Admin</Link>
         <span>AGPL-3.0</span>
       </footer>
     </div>

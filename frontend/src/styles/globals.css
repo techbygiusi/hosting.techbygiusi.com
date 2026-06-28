@@ -68,18 +68,10 @@ label { display: grid; gap: 7px; color: var(--site-muted); font-size: 14px; }
 .site-header { padding-top: 10px; }
 .site-footer { margin-top: auto; color: var(--site-muted); font-size: 13px; border-top: 1px solid var(--site-border); }
 .brand { display: inline-flex; align-items: center; gap: 10px; min-width: 0; }
-.brand-mark {
-  width: 32px;
-  height: 32px;
-  border-radius: 10px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--site-text);
-  color: var(--site-bg);
-  flex: 0 0 auto;
-}
 .brand-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.footer-admin-link { display: none; color: var(--site-muted); border: 1px solid transparent; border-radius: 999px; padding: 6px 10px; }
+.footer-admin-link.active,
+.footer-admin-link:hover { color: var(--site-text); border-color: var(--site-border); }
 .site-nav { display: inline-flex; align-items: center; gap: 8px; }
 .nav-link,
 .btn-primary,
@@ -266,6 +258,34 @@ label { display: grid; gap: 7px; color: var(--site-muted); font-size: 14px; }
 .admin-hero h1 { font-size: clamp(40px, 7vw, 72px); }
 .admin-actions,
 .card-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.storage-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.storage-card {
+  display: grid;
+  gap: 12px;
+  background: var(--site-surface);
+  border: 1px solid var(--site-border);
+  border-radius: var(--radius-xl);
+  padding: 16px;
+  min-width: 0;
+}
+.storage-card h3 { font-size: 22px; letter-spacing: -0.02em; }
+.storage-card span,
+.storage-card small { color: var(--site-muted); }
+.storage-card small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.storage-card.compact { align-content: center; }
+.storage-bar {
+  height: 10px;
+  background: var(--site-inset);
+  border: 1px solid var(--site-border);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.storage-bar span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--site-accent), var(--site-accent-strong));
+  border-radius: inherit;
+}
 .gallery-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
 .image-card {
   background: var(--site-surface);
@@ -317,6 +337,7 @@ label { display: grid; gap: 7px; color: var(--site-muted); font-size: 14px; }
 @media (max-width: 980px) {
   .hero-grid { grid-template-columns: 1fr; min-height: auto; padding-top: 18px; }
   .hero-copy h1 { max-width: 10ch; }
+  .storage-grid,
   .gallery-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 
@@ -324,14 +345,15 @@ label { display: grid; gap: 7px; color: var(--site-muted); font-size: 14px; }
   .site-header,
   .site-footer,
   .site-main { width: min(100% - 22px, 1180px); }
-  .site-header { min-height: 60px; gap: 10px; }
-  .brand-text { max-width: 46vw; }
+  .site-header { min-height: 60px; gap: 10px; justify-content: flex-end; }
+  .brand,
+  .desktop-admin-link { display: none; }
+  .footer-admin-link { display: inline-flex; align-items: center; justify-content: center; }
   .site-nav { gap: 6px; }
-  .nav-link { padding: 8px 9px; font-size: 14px; }
-  .site-main { padding: 28px 0 28px; }
-  .hero-copy { text-align: left; gap: 16px; }
-  .hero-copy h1 { font-size: clamp(38px, 14vw, 58px); max-width: 9ch; }
-  .hero-copy p { font-size: 16px; }
+  .nav-link { padding: 8px 13px; font-size: 14px; }
+  .site-main { padding: 18px 0 28px; }
+  .hero-grid { display: block; padding-top: 0; }
+  .hero-copy { display: none; }
   .card { padding: 16px; border-radius: 14px; }
   .card-heading { display: grid; }
   .soft-badge { width: fit-content; }
@@ -341,6 +363,7 @@ label { display: grid; gap: 7px; color: var(--site-muted); font-size: 14px; }
   .admin-hero { display: grid; align-items: start; }
   .admin-actions { display: grid; grid-template-columns: 1fr 1fr; width: 100%; }
   .admin-actions .btn-outline { grid-column: 1 / -1; }
+  .storage-grid { grid-template-columns: 1fr; gap: 10px; }
   .gallery-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
   .image-card { border-radius: 14px; }
   .split-actions { display: grid; grid-template-columns: 1fr; }
@@ -348,8 +371,6 @@ label { display: grid; gap: 7px; color: var(--site-muted); font-size: 14px; }
 }
 
 @media (max-width: 420px) {
-  .brand-mark { width: 30px; height: 30px; border-radius: 9px; }
-  .brand-text { max-width: 38vw; font-size: 14px; }
   .nav-link { padding: 8px; }
   .gallery-grid { grid-template-columns: 1fr; }
   .admin-actions { grid-template-columns: 1fr; }

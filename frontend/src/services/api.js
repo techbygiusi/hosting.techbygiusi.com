@@ -38,6 +38,11 @@ export async function getImages() {
   return response.data.images || [];
 }
 
+export async function getAdminStats() {
+  const response = await api.get('/admin/stats');
+  return response.data;
+}
+
 export async function getImageBlob(id) {
   const response = await api.get(`/admin/images/${id}/view`, { responseType: 'blob' });
   return response.data;

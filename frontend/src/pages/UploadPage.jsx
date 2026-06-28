@@ -112,7 +112,6 @@ export default function UploadPage() {
         >
           <span className="drop-icon">+</span>
           <strong>Bilder auswählen oder hier ablegen</strong>
-          <small>Mehrere Bilder sind möglich. Auf dem Handy öffnet sich direkt deine Galerie.</small>
         </button>
 
         <input

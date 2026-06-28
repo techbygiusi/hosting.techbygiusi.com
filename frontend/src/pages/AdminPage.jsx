@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
-import { adminLogin, downloadAll, downloadImage, getImageBlob, getImages, setAuthToken } from '../services/api.js';
+import { adminLogin, downloadAll, downloadImage, getAdminStats, getImageBlob, getImages, setAuthToken } from '../services/api.js';
 
 const TOKEN_KEY = 'picly-admin-token';
 
 function formatSize(bytes) {
   if (!bytes) return '0 B';
-  const units = ['B', 'KB', 'MB', 'GB'];
+  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
   let value = bytes;
   let index = 0;
   while (value >= 1024 && index < units.length - 1) {
@@ -32,6 +32,33 @@ function saveBlob(blob, filename) {
   link.click();
   link.remove();
   URL.revokeObjectURL(url);
+}
+
+function storageStatusText(item) {
+  if (!item?.available) return item?.message || 'Speicherwerte nicht verfügbar.';
+  return `${formatSize(item.availableBytes)} frei von ${formatSize(item.totalBytes)}`;
+}
+
+function StorageCard({ item }) {
+  const usedPercent = item?.available ? Math.min(100, Math.max(0, Number(item.usedPercent || 0))) : 0;
+
+  return (
+    <article className="storage-card">
+      <div>
+        <p className="eyebrow">Speicher</p>
+        <h3>{item?.label || 'Speicher'}</h3>
+        <span>{storageStatusText(item)}</span>
+      </div>
+      {item?.available && (
+        <>
+          <div className="storage-bar" aria-label={`${item.label} Nutzung`}>
+            <span style={{ width: `${usedPercent}%` }} />
+          </div>
+          <small>{usedPercent}% belegt · Pfad: {item.path}</small>
+        </>
+      )}
+    </article>
+  );
 }
 
 function AdminLogin({ onSuccess }) {
@@ -123,6 +150,7 @@ function GalleryImage({ image, onOpen }) {
 export default function AdminPage() {
   const [authenticated, setAuthenticated] = useState(Boolean(window.localStorage.getItem(TOKEN_KEY)));
   const [images, setImages] = useState([]);
+  const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [selected, setSelected] = useState(null);
@@ -136,8 +164,9 @@ export default function AdminPage() {
     try {
       setLoading(true);
       setError('');
-      const result = await getImages();
-      setImages(result);
+      const [imageResult, statsResult] = await Promise.all([getImages(), getAdminStats()]);
+      setImages(imageResult);
+      setStats(statsResult);
     } catch (err) {
       if (err.response?.status === 401) {
         window.localStorage.removeItem(TOKEN_KEY);
@@ -162,6 +191,7 @@ export default function AdminPage() {
     setAuthToken(null);
     setAuthenticated(false);
     setImages([]);
+    setStats(null);
   }
 
   async function handleDownloadAll() {
@@ -188,8 +218,23 @@ export default function AdminPage() {
         </div>
       </div>
 
+      {stats && (
+        <div className="storage-grid" aria-label="Speicherstatus">
+          {(stats.storage || []).map((item) => (
+            <StorageCard key={item.label} item={item} />
+          ))}
+          <article className="storage-card compact">
+            <div>
+              <p className="eyebrow">Upload Last</p>
+              <h3>{stats.activeUploads || 0} / {stats.maxParallelUploads || 0}</h3>
+              <span>Aktive Uploads im Moment</span>
+            </div>
+          </article>
+        </div>
+      )}
+
       {error && <div className="notice danger">{error}</div>}
-      {loading && <div className="app-loader inline"><span className="spinner" /> Lädt Galerie...</div>}
+      {loading && <div className="app-loader inline"><span className="spinner" /> Lädt Galerie und Speicherstatus...</div>}
 
       {!loading && images.length === 0 && (
         <div className="empty-state card">

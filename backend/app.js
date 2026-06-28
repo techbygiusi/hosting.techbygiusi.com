@@ -164,6 +164,63 @@ async function cleanupStaleTempUploads() {
   }));
 }
 
+
+async function getStorageInfo(label, targetPath) {
+  await ensureDataFiles();
+
+  if (typeof fsp.statfs !== 'function') {
+    return {
+      label,
+      path: targetPath,
+      available: false,
+      message: 'Storage stats are not supported by this Node.js runtime.'
+    };
+  }
+
+  const stat = await fsp.statfs(targetPath);
+  const blockSize = Number(stat.bsize || 0);
+  const totalBytes = Number(stat.blocks || 0) * blockSize;
+  const freeBytes = Number(stat.bfree || 0) * blockSize;
+  const availableBytes = Number(stat.bavail || 0) * blockSize;
+  const usedBytes = Math.max(0, totalBytes - freeBytes);
+  const usedPercent = totalBytes > 0 ? Math.round((usedBytes / totalBytes) * 1000) / 10 : 0;
+
+  return {
+    label,
+    path: targetPath,
+    available: true,
+    totalBytes,
+    freeBytes,
+    availableBytes,
+    usedBytes,
+    usedPercent
+  };
+}
+
+async function getAdminStats() {
+  const images = await readMetadata();
+  const totalImageBytes = images.reduce((sum, item) => sum + Number(item.size || 0), 0);
+
+  return {
+    generatedAt: new Date().toISOString(),
+    activeUploads,
+    maxParallelUploads: MAX_PARALLEL_UPLOADS,
+    uploadLimits: {
+      maxUploadMb: MAX_UPLOAD_MB,
+      maxUploadFiles: MAX_UPLOAD_FILES,
+      minFreeSpaceMb: MIN_FREE_SPACE_MB
+    },
+    gallery: {
+      totalImages: images.length,
+      totalImageBytes
+    },
+    storage: [
+      await getStorageInfo('LXC / Daten-Speicher', DATA_DIR),
+      await getStorageInfo('Docker / Container-Speicher', '/')
+    ]
+  };
+}
+
 async function hasEnoughFreeSpace(req) {
   if (typeof fsp.statfs !== 'function') return true;
 
@@ -354,6 +411,12 @@ app.post('/api/admin/login', (req, res) => {
   }
 
   return res.status(401).json({ message: 'Benutzername oder Passwort ist falsch.' });
+});
+
+
+app.get('/api/admin/stats', requireAdmin, async (_req, res) => {
+  const stats = await getAdminStats();
+  res.json(stats);
 });
 
 app.get('/api/admin/images', requireAdmin, async (_req, res) => {
