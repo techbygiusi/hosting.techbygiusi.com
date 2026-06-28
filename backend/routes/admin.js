@@ -6,7 +6,8 @@ const { get, run, all } = require('../config/database');
 const { adminMiddleware } = require('../middleware/auth');
 const { AppError } = require('../middleware/errorHandler');
 const { HTTP_STATUS, ROLES } = require('../config/constants');
-const { getAllContainers, testConnection } = require('../services/proxmoxService');
+const { getClusterResources, testConnection } = require('../services/proxmoxService');
+const { enrichResources } = require('../services/resourceService');
 const { testSmtpConnection, initializeEmailService, encryptString } = require('../services/emailService');
 
 router.use(adminMiddleware);
@@ -41,6 +42,32 @@ function validateSmtp({ smtpHost, smtpPort, smtpUser, smtpPassword }, passwordRe
   if (!Number.isInteger(parsedPort) || parsedPort < 1 || parsedPort > 65535) {
     throw new AppError('SMTP port is invalid', HTTP_STATUS.BAD_REQUEST);
   }
+}
+
+function validateWebUrl(webUrl) {
+  if (!webUrl) return '';
+  const normalized = String(webUrl).trim();
+  if (!/^https?:\/\//i.test(normalized)) {
+    throw new AppError('Web link must start with http:// or https://', HTTP_STATUS.BAD_REQUEST);
+  }
+  return normalized;
+}
+
+async function getResourceRows(where = '', params = []) {
+  return all(`
+    SELECT
+      r.*,
+      pc.name as cluster_name,
+      pc.url as cluster_url,
+      pc.api_token,
+      u.name as user_name,
+      u.email as user_email
+    FROM resources r
+    JOIN proxmox_clusters pc ON r.cluster_id = pc.id
+    JOIN users u ON r.user_id = u.id
+    ${where}
+    ORDER BY r.created_at DESC
+  `, params);
 }
 
 router.get('/users', async (req, res, next) => {
@@ -201,8 +228,106 @@ router.get('/clusters/:id/containers', async (req, res, next) => {
       throw new AppError('Cluster not found', HTTP_STATUS.NOT_FOUND);
     }
 
-    const containers = await getAllContainers(cluster.url, cluster.api_token);
+    const containers = await getClusterResources(cluster.url, cluster.api_token);
     res.json({ containers });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get('/resources', async (req, res, next) => {
+  try {
+    const rows = await getResourceRows();
+    const resources = await enrichResources(rows);
+    res.json({ resources });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/resources', async (req, res, next) => {
+  try {
+    const { name, containerId, clusterId, userId, webUrl } = req.body;
+
+    if (!containerId || !clusterId || !userId) {
+      throw new AppError('Resource, cluster, and user are required', HTTP_STATUS.BAD_REQUEST);
+    }
+
+    const cluster = await get('SELECT * FROM proxmox_clusters WHERE id = ?', [clusterId]);
+    if (!cluster) {
+      throw new AppError('Cluster not found', HTTP_STATUS.NOT_FOUND);
+    }
+
+    const user = await get('SELECT id FROM users WHERE id = ?', [userId]);
+    if (!user) {
+      throw new AppError('User not found', HTTP_STATUS.NOT_FOUND);
+    }
+
+    let resourceName = String(name || '').trim();
+    try {
+      const containers = await getClusterResources(cluster.url, cluster.api_token);
+      const selected = containers.find(item => String(item.vmid) === String(containerId));
+      if (!selected) {
+        throw new AppError('Selected Proxmox resource was not found', HTTP_STATUS.BAD_REQUEST);
+      }
+      if (!resourceName) resourceName = selected.name || `Ressource ${containerId}`;
+    } catch (err) {
+      if (err instanceof AppError) throw err;
+      if (!resourceName) resourceName = `Ressource ${containerId}`;
+    }
+
+    const result = await run(
+      'INSERT INTO resources (name, container_id, cluster_id, user_id, web_url) VALUES (?, ?, ?, ?, ?)',
+      [resourceName, String(containerId), clusterId, userId, validateWebUrl(webUrl)]
+    );
+
+    const rows = await getResourceRows('WHERE r.id = ?', [result.lastID]);
+    const resources = await enrichResources(rows);
+    res.status(HTTP_STATUS.CREATED).json({ resource: resources[0] });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.put('/resources/:id', async (req, res, next) => {
+  try {
+    const resourceId = req.params.id;
+    const { name, userId, webUrl } = req.body;
+    const resource = await get('SELECT * FROM resources WHERE id = ?', [resourceId]);
+
+    if (!resource) {
+      throw new AppError('Resource not found', HTTP_STATUS.NOT_FOUND);
+    }
+
+    if (userId) {
+      const user = await get('SELECT id FROM users WHERE id = ?', [userId]);
+      if (!user) throw new AppError('User not found', HTTP_STATUS.NOT_FOUND);
+    }
+
+    await run(
+      'UPDATE resources SET name = ?, user_id = ?, web_url = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+      [String(name || resource.name || '').trim(), userId || resource.user_id, validateWebUrl(webUrl), resourceId]
+    );
+
+    const rows = await getResourceRows('WHERE r.id = ?', [resourceId]);
+    const resources = await enrichResources(rows);
+    res.json({ resource: resources[0] });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.delete('/resources/:id', async (req, res, next) => {
+  try {
+    const resourceId = req.params.id;
+    const resource = await get('SELECT * FROM resources WHERE id = ?', [resourceId]);
+
+    if (!resource) {
+      throw new AppError('Resource not found', HTTP_STATUS.NOT_FOUND);
+    }
+
+    await run('DELETE FROM resources WHERE id = ?', [resourceId]);
+    res.json({ message: 'Resource deleted successfully' });
   } catch (err) {
     next(err);
   }

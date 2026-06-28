@@ -5,7 +5,7 @@ import '../styles/globals.css';
 
 const emptyUser = { email: '', name: '', password: '', role: 'user' };
 const emptyCluster = { name: '', url: '', apiToken: '' };
-const emptyAssignment = { containerId: '', clusterId: '', assignedToId: '' };
+const emptyResource = { name: '', containerId: '', clusterId: '', userId: '', webUrl: '' };
 const emptySmtp = { smtpHost: '', smtpPort: '587', smtpUser: '', smtpPassword: '' };
 
 export default function AdminDashboard() {
@@ -13,29 +13,36 @@ export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState('overview');
   const [users, setUsers] = useState([]);
   const [clusters, setClusters] = useState([]);
-  const [assignments, setAssignments] = useState([]);
+  const [resources, setResources] = useState([]);
   const [clusterContainers, setClusterContainers] = useState([]);
   const [settings, setSettings] = useState(emptySmtp);
   const [newUser, setNewUser] = useState(emptyUser);
   const [newCluster, setNewCluster] = useState(emptyCluster);
-  const [newAssignment, setNewAssignment] = useState(emptyAssignment);
+  const [newResource, setNewResource] = useState(emptyResource);
   const [smtpTestResult, setSmtpTestResult] = useState(null);
   const [showUserModal, setShowUserModal] = useState(false);
   const [showClusterModal, setShowClusterModal] = useState(false);
-  const [showAssignmentModal, setShowAssignmentModal] = useState(false);
+  const [showResourceModal, setShowResourceModal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
 
-  const renderRole = (role) => role === 'admin' ? 'Administrator' : 'Benutzer';
+  const tabs = [
+    ['overview', 'Übersicht'],
+    ['users', 'Benutzer'],
+    ['clusters', 'Proxmox'],
+    ['resources', 'Ressourcen'],
+    ['settings', 'Einstellungen']
+  ];
+
   const adminCount = users.filter(item => item.role === 'admin').length;
   const userCount = users.filter(item => item.role === 'user').length;
-
+  const onlineCount = resources.filter(item => item.status === 'running').length;
   const currentClusterName = useMemo(() => {
-    const cluster = clusters.find(item => String(item.id) === String(newAssignment.clusterId));
+    const cluster = clusters.find(item => String(item.id) === String(newResource.clusterId));
     return cluster?.name || '';
-  }, [clusters, newAssignment.clusterId]);
+  }, [clusters, newResource.clusterId]);
 
   useEffect(() => {
     loadData(activeTab);
@@ -47,14 +54,14 @@ export default function AdminDashboard() {
       setError('');
 
       const requests = [];
-      const needsUsers = ['overview', 'users', 'assignments'].includes(tab);
-      const needsClusters = ['overview', 'clusters', 'assignments'].includes(tab);
-      const needsAssignments = ['overview', 'assignments'].includes(tab);
+      const needsUsers = ['overview', 'users', 'resources'].includes(tab);
+      const needsClusters = ['overview', 'clusters', 'resources'].includes(tab);
+      const needsResources = ['overview', 'resources'].includes(tab);
       const needsSettings = tab === 'settings';
 
       if (needsUsers) requests.push(adminApi.getUsers().then(res => setUsers(res.data.users || [])));
       if (needsClusters) requests.push(adminApi.getClusters().then(res => setClusters(res.data.clusters || [])));
-      if (needsAssignments) requests.push(adminApi.getAssignments().then(res => setAssignments(res.data.assignments || [])));
+      if (needsResources) requests.push(adminApi.getResources().then(res => setResources(res.data.resources || [])));
       if (needsSettings) requests.push(loadSettings());
 
       await Promise.all(requests);
@@ -99,8 +106,8 @@ export default function AdminDashboard() {
       await adminApi.createUser(newUser);
       setNewUser(emptyUser);
       setShowUserModal(false);
-      showSuccess('Benutzer erfolgreich angelegt.');
-      await loadData('users');
+      showSuccess('Benutzer wurde angelegt.');
+      await loadData(activeTab);
     } catch (err) {
       setError(getErrorMessage(err, 'Benutzer konnte nicht angelegt werden.'));
     } finally {
@@ -115,7 +122,7 @@ export default function AdminDashboard() {
       setActionLoading(true);
       setError('');
       await adminApi.deleteUser(userId);
-      showSuccess('Benutzer erfolgreich gelöscht.');
+      showSuccess('Benutzer wurde gelöscht.');
       await loadData(activeTab);
     } catch (err) {
       setError(getErrorMessage(err, 'Benutzer konnte nicht gelöscht werden.'));
@@ -137,8 +144,8 @@ export default function AdminDashboard() {
       await adminApi.createCluster(newCluster);
       setNewCluster(emptyCluster);
       setShowClusterModal(false);
-      showSuccess('Proxmox-Cluster erfolgreich gespeichert.');
-      await loadData('clusters');
+      showSuccess('Proxmox-Cluster wurde gespeichert.');
+      await loadData(activeTab);
     } catch (err) {
       setError(getErrorMessage(err, 'Cluster konnte nicht hinzugefügt werden.'));
     } finally {
@@ -153,7 +160,7 @@ export default function AdminDashboard() {
       setActionLoading(true);
       setError('');
       await adminApi.deleteCluster(clusterId);
-      showSuccess('Cluster erfolgreich gelöscht.');
+      showSuccess('Cluster wurde gelöscht.');
       await loadData(activeTab);
     } catch (err) {
       setError(getErrorMessage(err, 'Cluster konnte nicht gelöscht werden.'));
@@ -163,7 +170,7 @@ export default function AdminDashboard() {
   };
 
   const handleLoadClusterContainers = async () => {
-    if (!newAssignment.clusterId) {
+    if (!newResource.clusterId) {
       setError('Bitte zuerst einen Cluster auswählen.');
       return;
     }
@@ -171,52 +178,61 @@ export default function AdminDashboard() {
     try {
       setActionLoading(true);
       setError('');
-      const res = await adminApi.getClusterContainers(newAssignment.clusterId);
+      const res = await adminApi.getClusterContainers(newResource.clusterId);
       setClusterContainers(res.data.containers || []);
       if (!res.data.containers?.length) {
         showSuccess('Der Cluster hat keine Container oder VMs zurückgegeben.');
       }
     } catch (err) {
-      setError(getErrorMessage(err, 'Container konnten nicht geladen werden.'));
+      setError(getErrorMessage(err, 'Ressourcen konnten nicht geladen werden.'));
     } finally {
       setActionLoading(false);
     }
   };
 
-  const handleCreateAssignment = async (e) => {
+  const handleResourceContainerChange = (containerId) => {
+    const selected = clusterContainers.find(item => String(item.vmid) === String(containerId));
+    setNewResource(prev => ({
+      ...prev,
+      containerId,
+      name: prev.name || selected?.name || ''
+    }));
+  };
+
+  const handleCreateResource = async (e) => {
     e.preventDefault();
-    if (!newAssignment.containerId || !newAssignment.clusterId || !newAssignment.assignedToId) {
-      setError('Bitte Cluster, Container/VM und Benutzer auswählen.');
+    if (!newResource.clusterId || !newResource.containerId || !newResource.userId) {
+      setError('Bitte Cluster, Ressource und Benutzer auswählen.');
       return;
     }
 
     try {
       setActionLoading(true);
       setError('');
-      await adminApi.createAssignment(newAssignment);
-      setNewAssignment(emptyAssignment);
+      await adminApi.createResource(newResource);
+      setNewResource(emptyResource);
       setClusterContainers([]);
-      setShowAssignmentModal(false);
-      showSuccess('Zuweisung erfolgreich angelegt.');
-      await loadData('assignments');
+      setShowResourceModal(false);
+      showSuccess('Ressource wurde angelegt.');
+      await loadData(activeTab);
     } catch (err) {
-      setError(getErrorMessage(err, 'Zuweisung konnte nicht angelegt werden.'));
+      setError(getErrorMessage(err, 'Ressource konnte nicht angelegt werden.'));
     } finally {
       setActionLoading(false);
     }
   };
 
-  const handleDeleteAssignment = async (assignmentId) => {
-    if (!window.confirm('Diese Zuweisung wirklich löschen?')) return;
+  const handleDeleteResource = async (resourceId) => {
+    if (!window.confirm('Diese Ressource wirklich löschen?')) return;
 
     try {
       setActionLoading(true);
       setError('');
-      await adminApi.deleteAssignment(assignmentId);
-      showSuccess('Zuweisung erfolgreich gelöscht.');
-      await loadData('assignments');
+      await adminApi.deleteResource(resourceId);
+      showSuccess('Ressource wurde gelöscht.');
+      await loadData(activeTab);
     } catch (err) {
-      setError(getErrorMessage(err, 'Zuweisung konnte nicht gelöscht werden.'));
+      setError(getErrorMessage(err, 'Ressource konnte nicht gelöscht werden.'));
     } finally {
       setActionLoading(false);
     }
@@ -230,11 +246,6 @@ export default function AdminDashboard() {
   };
 
   const handleTestSmtp = async () => {
-    if (!settings.smtpHost || !settings.smtpPort || !settings.smtpUser || !settings.smtpPassword) {
-      setError('Für den SMTP-Test bitte auch das SMTP-Passwort eingeben.');
-      return;
-    }
-
     try {
       setActionLoading(true);
       setError('');
@@ -249,19 +260,14 @@ export default function AdminDashboard() {
 
   const handleSaveSettings = async (e) => {
     e.preventDefault();
-    if (!settings.smtpHost || !settings.smtpPort || !settings.smtpUser) {
-      setError('Bitte SMTP-Host, Port und Benutzer eingeben.');
-      return;
-    }
-
     try {
       setActionLoading(true);
       setError('');
       await adminApi.updateSettings(settings);
       setSettings(prev => ({ ...prev, smtpPassword: '' }));
-      showSuccess('SMTP-Einstellungen erfolgreich gespeichert.');
+      showSuccess('SMTP wurde gespeichert.');
     } catch (err) {
-      setError(getErrorMessage(err, 'SMTP-Einstellungen konnten nicht gespeichert werden.'));
+      setError(getErrorMessage(err, 'SMTP konnte nicht gespeichert werden.'));
     } finally {
       setActionLoading(false);
     }
@@ -269,70 +275,61 @@ export default function AdminDashboard() {
 
   return (
     <div className="app-page">
-      <header className="app-topbar">
-        <div>
-          <p className="eyebrow">Hosting Portal</p>
-          <h1>Administration</h1>
-        </div>
-        <div className="topbar-actions">
-          <span className="user-chip">{user?.name || user?.email}</span>
-          <button type="button" className="btn-secondary" onClick={logout}>Abmelden</button>
+      <header className="site-header">
+        <div className="site-header-inner">
+          <div className="site-brand">
+            <span className="site-mark">TG</span>
+            <div>
+              <p>Hosting Portal</p>
+              <h1>Verwaltung</h1>
+            </div>
+          </div>
+          <div className="site-actions">
+            <span className="user-chip">{user?.name || user?.email}</span>
+            <button type="button" className="btn-secondary" onClick={logout}>Abmelden</button>
+          </div>
         </div>
       </header>
 
-      <main className="app-container">
-        <nav className="app-tabs" aria-label="Administration">
-          <button type="button" className={activeTab === 'overview' ? 'active' : ''} onClick={() => setActiveTab('overview')}>Übersicht</button>
-          <button type="button" className={activeTab === 'users' ? 'active' : ''} onClick={() => setActiveTab('users')}>Benutzer</button>
-          <button type="button" className={activeTab === 'clusters' ? 'active' : ''} onClick={() => setActiveTab('clusters')}>Proxmox</button>
-          <button type="button" className={activeTab === 'assignments' ? 'active' : ''} onClick={() => setActiveTab('assignments')}>Zuweisungen</button>
-          <button type="button" className={activeTab === 'settings' ? 'active' : ''} onClick={() => setActiveTab('settings')}>Einstellungen</button>
-        </nav>
-
+      <main className="app-container compact-container">
         {error && <div className="alert alert-danger">{error}</div>}
         {successMsg && <div className="alert alert-success">{successMsg}</div>}
-        {loading && <div className="loading"><span className="spinner"></span><span>Lädt...</span></div>}
+
+        <nav className="app-tabs" aria-label="Admin-Bereiche">
+          {tabs.map(([key, label]) => (
+            <button key={key} type="button" className={activeTab === key ? 'active' : ''} onClick={() => setActiveTab(key)}>{label}</button>
+          ))}
+        </nav>
+
+        {loading && <div className="loading"><span className="spinner"></span><span>Daten werden geladen...</span></div>}
 
         {!loading && activeTab === 'overview' && (
-          <section className="dashboard-grid">
-            <article className="metric-card">
-              <span>Benutzer</span>
-              <strong>{users.length}</strong>
-              <small>{adminCount} Administratoren · {userCount} Benutzer</small>
-            </article>
-            <article className="metric-card">
-              <span>Proxmox-Cluster</span>
-              <strong>{clusters.length}</strong>
-              <small>Gespeicherte API-Verbindungen</small>
-            </article>
-            <article className="metric-card">
-              <span>Zuweisungen</span>
-              <strong>{assignments.length}</strong>
-              <small>Direkte Benutzerzuweisungen</small>
-            </article>
-          </section>
+          <>
+            <section className="intro-card">
+              <p>Proxmox Ressourcen verwalten, Benutzer zuordnen und den Status der Container und VMs prüfen.</p>
+            </section>
+            <section className="dashboard-grid">
+              <MetricCard label="Benutzer" value={userCount} />
+              <MetricCard label="Administratoren" value={adminCount} />
+              <MetricCard label="Cluster" value={clusters.length} />
+              <MetricCard label="Ressourcen" value={resources.length} />
+              <MetricCard label="Online" value={onlineCount} />
+            </section>
+          </>
         )}
 
         {!loading && activeTab === 'users' && (
           <section className="panel-card">
-            <div className="panel-header">
-              <div>
-                <h2>Benutzer</h2>
-                <p>Lege Benutzer mit festem Startpasswort und Rolle an.</p>
-              </div>
-              <button type="button" className="btn-primary" onClick={() => setShowUserModal(true)}>Benutzer anlegen</button>
-            </div>
+            <PanelHeader title="Benutzer" text="Konten mit Startpasswort und Rolle anlegen." action="Benutzer anlegen" onAction={() => setShowUserModal(true)} />
             <div className="table-responsive">
               <table>
-                <thead>
-                  <tr><th>Name</th><th>E-Mail</th><th>Rolle</th><th>Aktion</th></tr>
-                </thead>
+                <thead><tr><th>Name</th><th>E-Mail</th><th>Rolle</th><th>Aktion</th></tr></thead>
                 <tbody>
                   {users.map(item => (
                     <tr key={item.id}>
                       <td>{item.name}</td>
                       <td>{item.email}</td>
-                      <td><span className="badge">{renderRole(item.role)}</span></td>
+                      <td>{item.role === 'admin' ? 'Administrator' : 'Benutzer'}</td>
                       <td><button type="button" className="btn-danger btn-small" onClick={() => handleDeleteUser(item.id)} disabled={actionLoading || item.id === user?.id}>Löschen</button></td>
                     </tr>
                   ))}
@@ -345,18 +342,10 @@ export default function AdminDashboard() {
 
         {!loading && activeTab === 'clusters' && (
           <section className="panel-card">
-            <div className="panel-header">
-              <div>
-                <h2>Proxmox</h2>
-                <p>Verwalte die API-Verbindungen zu deinen Clustern.</p>
-              </div>
-              <button type="button" className="btn-primary" onClick={() => setShowClusterModal(true)}>Cluster hinzufügen</button>
-            </div>
+            <PanelHeader title="Proxmox" text="API-Verbindungen zu deinen Proxmox-Clustern." action="Cluster hinzufügen" onAction={() => setShowClusterModal(true)} />
             <div className="table-responsive">
               <table>
-                <thead>
-                  <tr><th>Name</th><th>URL</th><th>Aktion</th></tr>
-                </thead>
+                <thead><tr><th>Name</th><th>URL</th><th>Aktion</th></tr></thead>
                 <tbody>
                   {clusters.map(item => (
                     <tr key={item.id}>
@@ -372,64 +361,30 @@ export default function AdminDashboard() {
           </section>
         )}
 
-        {!loading && activeTab === 'assignments' && (
+        {!loading && activeTab === 'resources' && (
           <section className="panel-card">
-            <div className="panel-header">
-              <div>
-                <h2>Zuweisungen</h2>
-                <p>Weise Container oder VMs direkt einem Benutzer zu.</p>
+            <PanelHeader title="Ressourcen" text="Container und VMs als Portal-Ressourcen mit Monitoring und Weblink anlegen." action="Ressource anlegen" onAction={() => setShowResourceModal(true)} />
+            {resources.length === 0 ? (
+              <div className="empty-state soft-box"><h2>Keine Ressourcen</h2><p>Lege eine Ressource an, damit Benutzer Status und Weblink sehen.</p></div>
+            ) : (
+              <div className="resource-grid admin-resource-grid">
+                {resources.map(item => <ResourceCard key={item.id} resource={item} onDelete={handleDeleteResource} actionLoading={actionLoading} />)}
               </div>
-              <button type="button" className="btn-primary" onClick={() => setShowAssignmentModal(true)}>Zuweisung anlegen</button>
-            </div>
-            <div className="table-responsive">
-              <table>
-                <thead>
-                  <tr><th>Container/VM</th><th>Cluster</th><th>Benutzer</th><th>Aktion</th></tr>
-                </thead>
-                <tbody>
-                  {assignments.map(item => (
-                    <tr key={item.id}>
-                      <td>{item.container_id}</td>
-                      <td>{item.cluster_name}</td>
-                      <td>{item.assigned_user_name ? `${item.assigned_user_name} (${item.assigned_to_name})` : item.assigned_to_name}</td>
-                      <td><button type="button" className="btn-danger btn-small" onClick={() => handleDeleteAssignment(item.id)} disabled={actionLoading}>Löschen</button></td>
-                    </tr>
-                  ))}
-                  {assignments.length === 0 && <tr><td colSpan="4" className="empty-cell">Keine Zuweisungen vorhanden.</td></tr>}
-                </tbody>
-              </table>
-            </div>
+            )}
           </section>
         )}
 
         {!loading && activeTab === 'settings' && (
           <section className="panel-card settings-card">
-            <div className="panel-header">
-              <div>
-                <h2>Einstellungen</h2>
-                <p>Ändere SMTP-Daten auch nach der Erstkonfiguration.</p>
-              </div>
-            </div>
+            <PanelHeader title="Einstellungen" text="SMTP-Daten nach der Erstkonfiguration ändern." />
             <form className="form-grid" onSubmit={handleSaveSettings}>
-              <label className="form-group">
-                <span>SMTP-Host</span>
-                <input type="text" name="smtpHost" value={settings.smtpHost} onChange={handleSettingsChange} placeholder="smtp.example.com" />
-              </label>
-              <label className="form-group">
-                <span>SMTP-Port</span>
-                <input type="text" name="smtpPort" value={settings.smtpPort} onChange={handleSettingsChange} placeholder="587" />
-              </label>
-              <label className="form-group">
-                <span>SMTP-Benutzer</span>
-                <input type="email" name="smtpUser" value={settings.smtpUser} onChange={handleSettingsChange} placeholder="noreply@example.com" />
-              </label>
-              <label className="form-group">
-                <span>SMTP-Passwort</span>
-                <input type="password" name="smtpPassword" value={settings.smtpPassword} onChange={handleSettingsChange} placeholder="Leer lassen, um es nicht zu ändern" />
-              </label>
+              <label className="form-group"><span>SMTP-Host</span><input type="text" name="smtpHost" value={settings.smtpHost} onChange={handleSettingsChange} placeholder="smtp.example.com" /></label>
+              <label className="form-group"><span>SMTP-Port</span><input type="text" name="smtpPort" value={settings.smtpPort} onChange={handleSettingsChange} placeholder="587" /></label>
+              <label className="form-group"><span>SMTP-Benutzer</span><input type="email" name="smtpUser" value={settings.smtpUser} onChange={handleSettingsChange} placeholder="noreply@example.com" /></label>
+              <label className="form-group"><span>SMTP-Passwort</span><input type="password" name="smtpPassword" value={settings.smtpPassword} onChange={handleSettingsChange} placeholder="Leer lassen, wenn unverändert" /></label>
               <div className="form-actions full-width">
                 <button type="button" className="btn-secondary" onClick={handleTestSmtp} disabled={actionLoading}>SMTP testen</button>
-                <button type="submit" className="btn-primary" disabled={actionLoading}>SMTP speichern</button>
+                <button type="submit" className="btn-primary" disabled={actionLoading}>Speichern</button>
               </div>
             </form>
             {smtpTestResult && <div className={`test-result ${smtpTestResult.success ? 'success' : 'error'}`}>{translateMessage(smtpTestResult.message)}</div>}
@@ -454,23 +409,78 @@ export default function AdminDashboard() {
           <form className="form-stack" onSubmit={handleCreateCluster}>
             <label className="form-group"><span>Name</span><input type="text" value={newCluster.name} onChange={e => setNewCluster(prev => ({ ...prev, name: e.target.value }))} placeholder="Home Lab" /></label>
             <label className="form-group"><span>URL</span><input type="text" value={newCluster.url} onChange={e => setNewCluster(prev => ({ ...prev, url: e.target.value }))} placeholder="https://10.10.0.10:8006" /></label>
-            <label className="form-group"><span>API-Token</span><input type="password" value={newCluster.apiToken} onChange={e => setNewCluster(prev => ({ ...prev, apiToken: e.target.value }))} placeholder="user@pam!tokenid=secret" /></label>
+            <label className="form-group"><span>API-Token</span><input type="password" value={newCluster.apiToken} onChange={e => setNewCluster(prev => ({ ...prev, apiToken: e.target.value }))} placeholder="api@pam!hosting=secret" /></label>
             <div className="form-actions"><button type="button" className="btn-secondary" onClick={() => setShowClusterModal(false)}>Abbrechen</button><button type="submit" className="btn-primary" disabled={actionLoading}>Speichern</button></div>
           </form>
         </Modal>
       )}
 
-      {showAssignmentModal && (
-        <Modal title="Zuweisung anlegen" onClose={() => setShowAssignmentModal(false)}>
-          <form className="form-stack" onSubmit={handleCreateAssignment}>
-            <label className="form-group"><span>Cluster</span><select value={newAssignment.clusterId} onChange={e => { setNewAssignment(prev => ({ ...prev, clusterId: e.target.value, containerId: '' })); setClusterContainers([]); }}><option value="">Bitte auswählen</option>{clusters.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
-            <button type="button" className="btn-secondary" onClick={handleLoadClusterContainers} disabled={actionLoading || !newAssignment.clusterId}>{currentClusterName ? `Container von ${currentClusterName} laden` : 'Container laden'}</button>
-            <label className="form-group"><span>Container/VM</span>{clusterContainers.length > 0 ? <select value={newAssignment.containerId} onChange={e => setNewAssignment(prev => ({ ...prev, containerId: e.target.value }))}><option value="">Bitte auswählen</option>{clusterContainers.map(item => <option key={`${item.type}-${item.vmid}`} value={item.vmid}>{item.vmid} · {item.name || item.type} · {item.status}</option>)}</select> : <input type="text" value={newAssignment.containerId} onChange={e => setNewAssignment(prev => ({ ...prev, containerId: e.target.value }))} placeholder="VMID oder CTID" />}</label>
-            <label className="form-group"><span>Benutzer</span><select value={newAssignment.assignedToId} onChange={e => setNewAssignment(prev => ({ ...prev, assignedToId: e.target.value }))}><option value="">Bitte auswählen</option>{users.map(item => <option key={item.id} value={item.id}>{item.name} · {item.email}</option>)}</select></label>
-            <div className="form-actions"><button type="button" className="btn-secondary" onClick={() => setShowAssignmentModal(false)}>Abbrechen</button><button type="submit" className="btn-primary" disabled={actionLoading}>Zuweisen</button></div>
+      {showResourceModal && (
+        <Modal title="Ressource anlegen" onClose={() => setShowResourceModal(false)}>
+          <form className="form-stack" onSubmit={handleCreateResource}>
+            <label className="form-group"><span>Cluster</span><select value={newResource.clusterId} onChange={e => { setNewResource(prev => ({ ...prev, clusterId: e.target.value, containerId: '', name: '' })); setClusterContainers([]); }}><option value="">Bitte auswählen</option>{clusters.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+            <button type="button" className="btn-secondary" onClick={handleLoadClusterContainers} disabled={actionLoading || !newResource.clusterId}>{currentClusterName ? `Ressourcen von ${currentClusterName} laden` : 'Ressourcen laden'}</button>
+            <label className="form-group"><span>Container oder VM</span>{clusterContainers.length > 0 ? <select value={newResource.containerId} onChange={e => handleResourceContainerChange(e.target.value)}><option value="">Bitte auswählen</option>{clusterContainers.map(item => <option key={`${item.type}-${item.vmid}`} value={item.vmid}>{item.vmid} · {item.name || item.type} · {renderType(item.type)} · {renderStatus(item.status)}</option>)}</select> : <input type="text" value={newResource.containerId} onChange={e => setNewResource(prev => ({ ...prev, containerId: e.target.value }))} placeholder="VMID oder CTID" />}</label>
+            <label className="form-group"><span>Anzeigename</span><input type="text" value={newResource.name} onChange={e => setNewResource(prev => ({ ...prev, name: e.target.value }))} placeholder="Optional" /></label>
+            <label className="form-group"><span>Benutzer</span><select value={newResource.userId} onChange={e => setNewResource(prev => ({ ...prev, userId: e.target.value }))}><option value="">Bitte auswählen</option>{users.map(item => <option key={item.id} value={item.id}>{item.name} · {item.email}</option>)}</select></label>
+            <label className="form-group"><span>Weblink</span><input type="url" value={newResource.webUrl} onChange={e => setNewResource(prev => ({ ...prev, webUrl: e.target.value }))} placeholder="https://app.example.com" /></label>
+            <div className="form-actions"><button type="button" className="btn-secondary" onClick={() => setShowResourceModal(false)}>Abbrechen</button><button type="submit" className="btn-primary" disabled={actionLoading}>Anlegen</button></div>
           </form>
         </Modal>
       )}
+    </div>
+  );
+}
+
+function PanelHeader({ title, text, action, onAction }) {
+  return (
+    <div className="panel-header">
+      <div><h2>{title}</h2><p>{text}</p></div>
+      {action && <button type="button" className="btn-primary" onClick={onAction}>{action}</button>}
+    </div>
+  );
+}
+
+function MetricCard({ label, value }) {
+  return <article className="metric-card"><span>{label}</span><div className="metric-value">{value}</div></article>;
+}
+
+function ResourceCard({ resource, onDelete, actionLoading }) {
+  const cpuPercent = getCpuPercent(resource);
+  const memPercent = getPercent(resource.mem, resource.maxmem);
+  const diskPercent = getPercent(resource.disk, resource.maxdisk);
+
+  return (
+    <article className="resource-card">
+      <div className="resource-card-header">
+        <div>
+          <span className="resource-id">{renderType(resource.type)} · {resource.containerId}</span>
+          <h2>{resource.name}</h2>
+        </div>
+        <span className={`status-badge status-${resource.status || 'unknown'}`}>{renderStatus(resource.status)}</span>
+      </div>
+      <div className="resource-meta">
+        <span>Benutzer</span><span>{resource.userName || resource.userEmail || 'Nicht gesetzt'}</span>
+        <span>Cluster</span><span>{resource.clusterName}</span>
+        <span>Node</span><span>{resource.node || 'Unbekannt'}</span>
+      </div>
+      <Metric label="CPU" percent={cpuPercent} detail={`${cpuPercent.toFixed(1)} %`} />
+      <Metric label="RAM" percent={memPercent} detail={`${formatBytes(resource.mem)} / ${formatBytes(resource.maxmem)}`} />
+      <Metric label="Disk" percent={diskPercent} detail={`${formatBytes(resource.disk)} / ${formatBytes(resource.maxdisk)}`} />
+      {resource.webUrl && <a className="btn-secondary full-button" href={resource.webUrl} target="_blank" rel="noreferrer">Webseite öffnen</a>}
+      {resource.monitorError && <p className="hint-text">Monitoring nicht erreichbar.</p>}
+      <button type="button" className="btn-danger full-button" onClick={() => onDelete(resource.id)} disabled={actionLoading}>Entfernen</button>
+    </article>
+  );
+}
+
+function Metric({ label, percent, detail }) {
+  const safePercent = Math.min(Math.max(Number(percent) || 0, 0), 100);
+  return (
+    <div className="metric-line">
+      <div><span>{label}</span><span>{safePercent.toFixed(1)}%</span></div>
+      <div className="progress-bar"><span style={{ width: `${safePercent}%` }}></span></div>
+      <small>{detail}</small>
     </div>
   );
 }
@@ -487,4 +497,39 @@ function Modal({ title, children, onClose }) {
       </div>
     </div>
   );
+}
+
+function getPercent(value, max) {
+  if (!max) return 0;
+  return Math.min(Math.max((Number(value) / Number(max)) * 100, 0), 100);
+}
+
+function getCpuPercent(resource) {
+  const cpu = Number(resource.cpu || 0);
+  if (cpu <= 1) return Math.min(Math.max(cpu * 100, 0), 100);
+  return Math.min(Math.max(cpu, 0), 100);
+}
+
+function formatBytes(bytes) {
+  if (!bytes) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+  const i = Math.min(Math.floor(Math.log(bytes) / Math.log(k)), sizes.length - 1);
+  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
+}
+
+function renderStatus(status) {
+  switch (status) {
+    case 'running': return 'Online';
+    case 'stopped': return 'Offline';
+    case 'paused': return 'Pausiert';
+    case 'suspended': return 'Angehalten';
+    default: return 'Unbekannt';
+  }
+}
+
+function renderType(type) {
+  if (type === 'lxc') return 'LXC';
+  if (type === 'qemu') return 'VM';
+  return 'Ressource';
 }

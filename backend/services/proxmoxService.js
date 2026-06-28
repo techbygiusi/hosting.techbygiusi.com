@@ -1,168 +1,119 @@
 const axios = require('axios');
 const https = require('https');
 
-// Disable SSL validation for self-signed certificates (careful in production!)
 const httpsAgent = new https.Agent({
   rejectUnauthorized: false
 });
 
-/**
- * Get all containers from a Proxmox cluster
- */
-async function getAllContainers(clusterUrl, apiToken) {
-  try {
-    const client = createProxmoxClient(clusterUrl, apiToken);
-    
-    // Get nodes
-    const nodesResponse = await client.get('/api2/json/nodes');
-    const nodes = nodesResponse.data.data || [];
-
-    let allContainers = [];
-
-    // For each node, get LXCs and VMs
-    for (const node of nodes) {
-      const nodeName = node.node;
-
-      // Get LXCs
-      try {
-        const lxcResponse = await client.get(`/api2/json/nodes/${nodeName}/lxc`);
-        const lxcs = (lxcResponse.data.data || []).map(container => ({
-          ...container,
-          type: 'lxc',
-          node: nodeName
-        }));
-        allContainers = allContainers.concat(lxcs);
-      } catch (err) {
-        console.warn(`Failed to get LXCs from node ${nodeName}:`, err.message);
-      }
-
-      // Get VMs (QEMU)
-      try {
-        const qemuResponse = await client.get(`/api2/json/nodes/${nodeName}/qemu`);
-        const vms = (qemuResponse.data.data || []).map(container => ({
-          ...container,
-          type: 'qemu',
-          node: nodeName
-        }));
-        allContainers = allContainers.concat(vms);
-      } catch (err) {
-        console.warn(`Failed to get VMs from node ${nodeName}:`, err.message);
-      }
-    }
-
-    return allContainers;
-  } catch (error) {
-    console.error('Error fetching containers from Proxmox:', error.message);
-    throw error;
-  }
-}
-
-/**
- * Get container details
- */
-async function getContainerDetails(clusterUrl, apiToken, node, type, vmid) {
-  try {
-    const client = createProxmoxClient(clusterUrl, apiToken);
-    const endpoint = type === 'lxc' 
-      ? `/api2/json/nodes/${node}/lxc/${vmid}/status/current`
-      : `/api2/json/nodes/${node}/qemu/${vmid}/status/current`;
-
-    const response = await client.get(endpoint);
-    return response.data.data || {};
-  } catch (error) {
-    console.error(`Error fetching container details:`, error.message);
-    throw error;
-  }
-}
-
-/**
- * Get container IP addresses
- */
-async function getContainerIps(clusterUrl, apiToken, node, type, vmid) {
-  try {
-    const client = createProxmoxClient(clusterUrl, apiToken);
-    
-    if (type === 'lxc') {
-      const response = await client.get(`/api2/json/nodes/${node}/lxc/${vmid}/interfaces`);
-      const interfaces = response.data.data || {};
-      
-      const ips = [];
-      for (const [name, iface] of Object.entries(interfaces)) {
-        if (iface.inet) {
-          ips.push({
-            interface: name,
-            ipv4: iface.inet
-          });
-        }
-        if (iface.inet6) {
-          ips.push({
-            interface: name,
-            ipv6: iface.inet6
-          });
-        }
-      }
-      return ips;
-    }
-    
-    return [];
-  } catch (error) {
-    console.error(`Error fetching container IPs:`, error.message);
-    return [];
-  }
-}
-
-/**
- * Test Proxmox connection
- */
-async function testConnection(clusterUrl, apiToken) {
-  try {
-    const client = createProxmoxClient(clusterUrl, apiToken);
-    const response = await client.get('/api2/json/cluster/resources');
-
-    if (response.status < 200 || response.status >= 300) {
-      return {
-        success: false,
-        message: `Connection failed with HTTP ${response.status}${response.statusText ? ` ${response.statusText}` : ''}`
-      };
-    }
-
-    if (!response.data || !Array.isArray(response.data.data)) {
-      return {
-        success: false,
-        message: 'Connection failed: unexpected Proxmox API response'
-      };
-    }
-
-    return {
-      success: true,
-      message: 'Connection successful'
-    };
-  } catch (error) {
-    return {
-      success: false,
-      message: `Connection failed: ${error.message}`
-    };
-  }
-}
-
-/**
- * Create Proxmox API client
- */
 function createProxmoxClient(baseURL, token) {
   return axios.create({
     baseURL,
     headers: {
-      'Authorization': `PVEAPIToken=${token}`,
+      Authorization: `PVEAPIToken=${token}`,
       'Content-Type': 'application/json'
     },
     httpsAgent,
     timeout: 10000,
-    validateStatus: () => true // Return HTTP errors to callers so tests can show clean messages
+    validateStatus: () => true
   });
+}
+
+function ensureSuccess(response, fallbackMessage) {
+  if (response.status >= 200 && response.status < 300) return;
+  throw new Error(`${fallbackMessage} HTTP ${response.status}${response.statusText ? ` ${response.statusText}` : ''}`);
+}
+
+function normalizeClusterResource(item) {
+  return {
+    ...item,
+    vmid: item.vmid,
+    id: String(item.vmid),
+    name: item.name || item.id || `${item.type || 'vm'}-${item.vmid}`,
+    type: item.type,
+    node: item.node || '',
+    status: item.status || 'unknown',
+    cpu: Number(item.cpu || 0),
+    maxcpu: Number(item.maxcpu || 0),
+    mem: Number(item.mem || 0),
+    maxmem: Number(item.maxmem || 0),
+    disk: Number(item.disk || 0),
+    maxdisk: Number(item.maxdisk || 0),
+    uptime: Number(item.uptime || 0)
+  };
+}
+
+async function getClusterResources(clusterUrl, apiToken) {
+  const client = createProxmoxClient(clusterUrl, apiToken);
+  const response = await client.get('/api2/json/cluster/resources?type=vm');
+  ensureSuccess(response, 'Proxmox Ressourcenabfrage fehlgeschlagen:');
+
+  const resources = response.data?.data || [];
+  if (!Array.isArray(resources)) {
+    throw new Error('Proxmox hat eine unerwartete Antwort geliefert.');
+  }
+
+  return resources
+    .filter(item => item.type === 'lxc' || item.type === 'qemu')
+    .map(normalizeClusterResource)
+    .sort((a, b) => Number(a.vmid) - Number(b.vmid));
+}
+
+async function getAllContainers(clusterUrl, apiToken) {
+  return getClusterResources(clusterUrl, apiToken);
+}
+
+async function getContainerDetails(clusterUrl, apiToken, node, type, vmid) {
+  const client = createProxmoxClient(clusterUrl, apiToken);
+  const endpoint = type === 'lxc'
+    ? `/api2/json/nodes/${node}/lxc/${vmid}/status/current`
+    : `/api2/json/nodes/${node}/qemu/${vmid}/status/current`;
+
+  const response = await client.get(endpoint);
+  ensureSuccess(response, 'Proxmox Detailabfrage fehlgeschlagen:');
+  return response.data?.data || {};
+}
+
+async function getContainerIps(clusterUrl, apiToken, node, type, vmid) {
+  try {
+    const client = createProxmoxClient(clusterUrl, apiToken);
+
+    if (type === 'lxc') {
+      const response = await client.get(`/api2/json/nodes/${node}/lxc/${vmid}/interfaces`);
+      if (response.status < 200 || response.status >= 300) return [];
+      const interfaces = response.data?.data || {};
+
+      const ips = [];
+      for (const [name, iface] of Object.entries(interfaces)) {
+        if (iface.inet) ips.push({ interface: name, ipv4: iface.inet });
+        if (iface.inet6) ips.push({ interface: name, ipv6: iface.inet6 });
+      }
+      return ips;
+    }
+
+    return [];
+  } catch (error) {
+    return [];
+  }
+}
+
+async function testConnection(clusterUrl, apiToken) {
+  try {
+    const resources = await getClusterResources(clusterUrl, apiToken);
+    return {
+      success: true,
+      message: `Verbindung erfolgreich. ${resources.length} Ressourcen gefunden.`
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: `Verbindung fehlgeschlagen: ${error.message}`
+    };
+  }
 }
 
 module.exports = {
   getAllContainers,
+  getClusterResources,
   getContainerDetails,
   getContainerIps,
   testConnection,

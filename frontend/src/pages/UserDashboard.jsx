@@ -5,112 +5,58 @@ import '../styles/globals.css';
 
 export default function UserDashboard() {
   const { user, logout } = useAuth();
-  const [containers, setContainers] = useState([]);
+  const [resources, setResources] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    fetchContainers();
+    fetchResources();
   }, []);
 
-  const fetchContainers = async () => {
+  const fetchResources = async () => {
     try {
       setLoading(true);
       setError('');
-      const response = await userApi.getContainers();
-      setContainers(response.data.containers || []);
+      const response = await userApi.getResources();
+      setResources(response.data.resources || []);
     } catch (err) {
-      setError(getErrorMessage(err, 'Container konnten nicht geladen werden.'));
+      setError(getErrorMessage(err, 'Ressourcen konnten nicht geladen werden.'));
     } finally {
       setLoading(false);
     }
   };
 
-  const renderStatus = (status) => {
-    switch (status) {
-      case 'running': return 'Läuft';
-      case 'stopped': return 'Gestoppt';
-      case 'paused': return 'Pausiert';
-      case 'suspended': return 'Angehalten';
-      default: return status || 'Unbekannt';
-    }
-  };
-
-  const formatBytes = (bytes) => {
-    if (!bytes) return '0 B';
-    const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
-    const i = Math.min(Math.floor(Math.log(bytes) / Math.log(k)), sizes.length - 1);
-    return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
-  };
-
   return (
     <div className="app-page">
-      <header className="app-topbar">
-        <div>
-          <p className="eyebrow">Hosting Portal</p>
-          <h1>Meine Systeme</h1>
-        </div>
-        <div className="topbar-actions">
-          <span className="user-chip">{user?.name || user?.email}</span>
-          <button type="button" className="btn-secondary" onClick={logout}>Abmelden</button>
+      <header className="site-header">
+        <div className="site-header-inner">
+          <div className="site-brand">
+            <span className="site-mark">TG</span>
+            <div>
+              <p>Hosting Portal</p>
+              <h1>Meine Ressourcen</h1>
+            </div>
+          </div>
+          <div className="site-actions">
+            <span className="user-chip">{user?.name || user?.email}</span>
+            <button type="button" className="btn-secondary" onClick={logout}>Abmelden</button>
+          </div>
         </div>
       </header>
 
-      <main className="app-container">
+      <main className="app-container compact-container">
         {error && <div className="alert alert-danger">{error}</div>}
 
         {loading ? (
-          <div className="loading"><span className="spinner"></span><span>Container werden geladen...</span></div>
-        ) : containers.length === 0 ? (
+          <div className="loading"><span className="spinner"></span><span>Ressourcen werden geladen...</span></div>
+        ) : resources.length === 0 ? (
           <section className="empty-state panel-card">
-            <h2>Keine Systeme zugewiesen</h2>
+            <h2>Keine Ressourcen</h2>
             <p>Dir sind noch keine Container oder VMs zugewiesen.</p>
           </section>
         ) : (
           <section className="resource-grid">
-            {containers.map(container => {
-              const memPercent = container.maxmem ? (container.mem / container.maxmem) * 100 : 0;
-              const cpuPercent = container.maxcpu ? (container.cpu / container.maxcpu) * 100 : 0;
-              const diskPercent = container.maxdisk ? (container.disk / container.maxdisk) * 100 : 0;
-
-              return (
-                <article key={`${container.clusterId}-${container.id}`} className="resource-card">
-                  <div className="resource-card-header">
-                    <div>
-                      <span className="resource-id">{container.type?.toUpperCase()} · {container.id}</span>
-                      <h2>{container.name || 'Ohne Namen'}</h2>
-                    </div>
-                    <span className={`status-badge status-${container.status || 'unknown'}`}>{renderStatus(container.status)}</span>
-                  </div>
-
-                  <div className="resource-meta">
-                    <span>Node</span><strong>{container.node}</strong>
-                    <span>Cluster</span><strong>{container.clusterName}</strong>
-                  </div>
-
-                  <Metric label="CPU" percent={cpuPercent} detail={`${container.cpu || 0}/${container.maxcpu || 0} Kerne`} />
-                  <Metric label="Arbeitsspeicher" percent={memPercent} detail={`${formatBytes(container.mem)} / ${formatBytes(container.maxmem)}`} />
-                  <Metric label="Datenträger" percent={diskPercent} detail={`${formatBytes(container.disk)} / ${formatBytes(container.maxdisk)}`} />
-
-                  {container.ips?.length > 0 && (
-                    <div className="ip-list">
-                      <span>IP-Adressen</span>
-                      {container.ips.map((ip, idx) => <code key={idx}>{ip.ipv4 || ip.ipv6 || 'k. A.'}</code>)}
-                    </div>
-                  )}
-
-                  <button
-                    type="button"
-                    className="btn-primary full-button"
-                    onClick={() => container.webUiUrl && window.open(container.webUiUrl, '_blank')}
-                    disabled={container.status !== 'running'}
-                  >
-                    {container.status === 'running' ? 'Konsole öffnen' : 'System offline'}
-                  </button>
-                </article>
-              );
-            })}
+            {resources.map(resource => <ResourceCard key={resource.id} resource={resource} />)}
           </section>
         )}
       </main>
@@ -118,13 +64,83 @@ export default function UserDashboard() {
   );
 }
 
+function ResourceCard({ resource }) {
+  const cpuPercent = getCpuPercent(resource);
+  const memPercent = getPercent(resource.mem, resource.maxmem);
+  const diskPercent = getPercent(resource.disk, resource.maxdisk);
+
+  return (
+    <article className="resource-card">
+      <div className="resource-card-header">
+        <div>
+          <span className="resource-id">{renderType(resource.type)} · {resource.containerId}</span>
+          <h2>{resource.name}</h2>
+        </div>
+        <span className={`status-badge status-${resource.status || 'unknown'}`}>{renderStatus(resource.status)}</span>
+      </div>
+
+      <div className="resource-meta">
+        <span>Cluster</span><span>{resource.clusterName}</span>
+        <span>Node</span><span>{resource.node || 'Unbekannt'}</span>
+      </div>
+
+      <Metric label="CPU" percent={cpuPercent} detail={`${cpuPercent.toFixed(1)} %`} />
+      <Metric label="RAM" percent={memPercent} detail={`${formatBytes(resource.mem)} / ${formatBytes(resource.maxmem)}`} />
+      <Metric label="Disk" percent={diskPercent} detail={`${formatBytes(resource.disk)} / ${formatBytes(resource.maxdisk)}`} />
+
+      {resource.webUrl ? (
+        <a className="btn-primary full-button" href={resource.webUrl} target="_blank" rel="noreferrer">Webseite öffnen</a>
+      ) : (
+        <button type="button" className="btn-secondary full-button" disabled>Kein Weblink</button>
+      )}
+
+      {resource.monitorError && <p className="hint-text">Monitoring ist gerade nicht erreichbar.</p>}
+    </article>
+  );
+}
+
 function Metric({ label, percent, detail }) {
   const safePercent = Math.min(Math.max(Number(percent) || 0, 0), 100);
   return (
     <div className="metric-line">
-      <div><span>{label}</span><strong>{safePercent.toFixed(1)}%</strong></div>
+      <div><span>{label}</span><span>{safePercent.toFixed(1)}%</span></div>
       <div className="progress-bar"><span style={{ width: `${safePercent}%` }}></span></div>
       <small>{detail}</small>
     </div>
   );
+}
+
+function getPercent(value, max) {
+  if (!max) return 0;
+  return Math.min(Math.max((Number(value) / Number(max)) * 100, 0), 100);
+}
+
+function getCpuPercent(resource) {
+  const cpu = Number(resource.cpu || 0);
+  if (cpu <= 1) return Math.min(Math.max(cpu * 100, 0), 100);
+  return Math.min(Math.max(cpu, 0), 100);
+}
+
+function formatBytes(bytes) {
+  if (!bytes) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+  const i = Math.min(Math.floor(Math.log(bytes) / Math.log(k)), sizes.length - 1);
+  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
+}
+
+function renderStatus(status) {
+  switch (status) {
+    case 'running': return 'Online';
+    case 'stopped': return 'Offline';
+    case 'paused': return 'Pausiert';
+    case 'suspended': return 'Angehalten';
+    default: return 'Unbekannt';
+  }
+}
+
+function renderType(type) {
+  if (type === 'lxc') return 'LXC';
+  if (type === 'qemu') return 'VM';
+  return 'Ressource';
 }

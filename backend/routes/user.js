@@ -6,6 +6,83 @@ const { get, run, all } = require('../config/database');
 const { HTTP_STATUS } = require('../config/constants');
 const { AppError } = require('../middleware/errorHandler');
 const { getAllContainers, getContainerIps } = require('../services/proxmoxService');
+const { enrichResources } = require('../services/resourceService');
+
+async function getResourceRowsForUser(userId, resourceId = null) {
+  const params = [userId];
+  let filter = 'WHERE r.user_id = ?';
+
+  if (resourceId) {
+    filter += ' AND r.id = ?';
+    params.push(resourceId);
+  }
+
+  return all(`
+    SELECT
+      r.*,
+      pc.name as cluster_name,
+      pc.url as cluster_url,
+      pc.api_token,
+      u.name as user_name,
+      u.email as user_email
+    FROM resources r
+    JOIN proxmox_clusters pc ON r.cluster_id = pc.id
+    JOIN users u ON r.user_id = u.id
+    ${filter}
+    ORDER BY r.created_at DESC
+  `, params);
+}
+
+async function getAssignedContainersFallback(userId) {
+  const assignments = await all(`
+    SELECT ca.*, pc.url, pc.api_token, pc.name as cluster_name
+    FROM container_assignments ca
+    JOIN proxmox_clusters pc ON ca.cluster_id = pc.id
+    WHERE ca.assigned_to_type = 'user' AND ca.assigned_to_id = ?
+  `, [userId]);
+
+  const containers = [];
+
+  for (const assignment of assignments) {
+    try {
+      const allContainers = await getAllContainers(assignment.url, assignment.api_token);
+      const container = allContainers.find(c => String(c.vmid) === String(assignment.container_id));
+
+      if (container) {
+        const ips = await getContainerIps(
+          assignment.url,
+          assignment.api_token,
+          container.node,
+          container.type,
+          container.vmid
+        );
+
+        containers.push({
+          id: container.vmid,
+          name: container.name,
+          containerId: String(container.vmid),
+          type: container.type,
+          status: container.status,
+          node: container.node,
+          cpu: container.cpu || 0,
+          maxcpu: container.maxcpu || 0,
+          mem: container.mem || 0,
+          maxmem: container.maxmem || 0,
+          disk: container.disk || 0,
+          maxdisk: container.maxdisk || 0,
+          ips,
+          clusterId: assignment.cluster_id,
+          clusterName: assignment.cluster_name,
+          webUrl: ''
+        });
+      }
+    } catch (error) {
+      console.error(`Error fetching container ${assignment.container_id}:`, error.message);
+    }
+  }
+
+  return containers;
+}
 
 router.get('/profile', async (req, res, next) => {
   try {
@@ -48,55 +125,40 @@ router.put('/profile', async (req, res, next) => {
   }
 });
 
-router.get('/containers', async (req, res, next) => {
+router.get('/resources', async (req, res, next) => {
   try {
-    const assignments = await all(`
-      SELECT ca.*, pc.url, pc.api_token, pc.name as cluster_name
-      FROM container_assignments ca
-      JOIN proxmox_clusters pc ON ca.cluster_id = pc.id
-      WHERE ca.assigned_to_type = 'user' AND ca.assigned_to_id = ?
-    `, [req.user.id]);
+    const rows = await getResourceRowsForUser(req.user.id);
+    const resources = await enrichResources(rows);
+    res.json({ resources });
+  } catch (err) {
+    next(err);
+  }
+});
 
-    const containers = [];
-
-    for (const assignment of assignments) {
-      try {
-        const allContainers = await getAllContainers(assignment.url, assignment.api_token);
-        const container = allContainers.find(c => String(c.vmid) === String(assignment.container_id));
-
-        if (container) {
-          const ips = await getContainerIps(
-            assignment.url,
-            assignment.api_token,
-            container.node,
-            container.type,
-            container.vmid
-          );
-
-          containers.push({
-            id: container.vmid,
-            name: container.name,
-            type: container.type,
-            status: container.status,
-            node: container.node,
-            cpu: container.cpus || 0,
-            maxcpu: container.maxcpu || 0,
-            mem: container.mem || 0,
-            maxmem: container.maxmem || 0,
-            disk: container.disk || 0,
-            maxdisk: container.maxdisk || 0,
-            ips,
-            clusterId: assignment.cluster_id,
-            clusterName: assignment.cluster_name,
-            clusterUrl: assignment.url,
-            webUiUrl: `${assignment.url.replace(':8006', '')}:8006/?console=${container.type}_${container.node}_${container.vmid}`
-          });
-        }
-      } catch (error) {
-        console.error(`Error fetching container ${assignment.container_id}:`, error.message);
-      }
+router.get('/resources/:id', async (req, res, next) => {
+  try {
+    const rows = await getResourceRowsForUser(req.user.id, req.params.id);
+    if (rows.length === 0) {
+      throw new AppError('Resource not accessible', HTTP_STATUS.FORBIDDEN);
     }
 
+    const resources = await enrichResources(rows);
+    res.json({ resource: resources[0] });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get('/containers', async (req, res, next) => {
+  try {
+    const rows = await getResourceRowsForUser(req.user.id);
+    if (rows.length > 0) {
+      const resources = await enrichResources(rows);
+      res.json({ containers: resources });
+      return;
+    }
+
+    const containers = await getAssignedContainersFallback(req.user.id);
     res.json({ containers });
   } catch (err) {
     next(err);
@@ -141,7 +203,7 @@ router.get('/containers/:id', async (req, res, next) => {
         type: container.type,
         status: container.status,
         node: container.node,
-        cpu: container.cpus || 0,
+        cpu: container.cpu || 0,
         maxcpu: container.maxcpu || 0,
         mem: container.mem || 0,
         maxmem: container.maxmem || 0,

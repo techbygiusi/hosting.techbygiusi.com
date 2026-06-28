@@ -22,6 +22,12 @@ const MESSAGE_TRANSLATIONS = {
   'User deleted successfully': 'Benutzer erfolgreich gelöscht.',
   'Cluster deleted successfully': 'Cluster erfolgreich gelöscht.',
   'Assignment deleted successfully': 'Zuweisung erfolgreich gelöscht.',
+  'Resource deleted successfully': 'Ressource erfolgreich gelöscht.',
+  'Resource, cluster, and user are required': 'Ressource, Cluster und Benutzer sind erforderlich.',
+  'Resource not found': 'Ressource wurde nicht gefunden.',
+  'Resource not accessible': 'Diese Ressource ist nicht freigegeben.',
+  'Selected Proxmox resource was not found': 'Die ausgewählte Proxmox-Ressource wurde nicht gefunden.',
+  'Web link must start with http:// or https://': 'Der Weblink muss mit http:// oder https:// beginnen.',
   'Settings updated successfully': 'Einstellungen erfolgreich gespeichert.',
   'Email service not configured': 'Der E-Mail-Dienst ist noch nicht konfiguriert.',
   'Connection successful': 'Verbindung erfolgreich.',
@@ -132,6 +138,10 @@ export const adminApi = {
   getAssignments: () => apiClient.get('/admin/assignments'),
   createAssignment: (data) => apiClient.post('/admin/assignments', data),
   deleteAssignment: (assignmentId) => apiClient.delete(`/admin/assignments/${assignmentId}`),
+  getResources: () => apiClient.get('/admin/resources'),
+  createResource: (data) => apiClient.post('/admin/resources', data),
+  updateResource: (resourceId, data) => apiClient.put(`/admin/resources/${resourceId}`, data),
+  deleteResource: (resourceId) => apiClient.delete(`/admin/resources/${resourceId}`),
   getSettings: () => apiClient.get('/admin/settings'),
   updateSettings: (data) => apiClient.put('/admin/settings', data),
   testSmtp: (data) => apiClient.post('/admin/settings/test-smtp', data),
@@ -139,6 +149,8 @@ export const adminApi = {
 };
 
 export const userApi = {
+  getResources: () => apiClient.get('/user/resources'),
+  getResourceDetails: (resourceId) => apiClient.get(`/user/resources/${resourceId}`),
   getContainers: () => apiClient.get('/user/containers'),
   getContainerDetails: (containerId) => apiClient.get(`/user/containers/${containerId}`),
   getProfile: () => apiClient.get('/user/profile'),

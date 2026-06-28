@@ -1,5 +1,20 @@
 # Hosting Portal - Changelog
 
+## v1.0.7 - 2026-06-28
+
+**Commit:** `feat: add monitored resources tab`
+
+- Added a new admin tab named Ressourcen for managed Proxmox containers and VMs.
+- Added resource creation with cluster selection, Proxmox resource loading, user assignment and optional web link.
+- Added backend API routes for creating, listing, updating and deleting resources.
+- Added a new resources database table while keeping the old assignment routes for compatibility.
+- Switched Proxmox monitoring to the read-friendly cluster resources endpoint so PVEAuditor-style API tokens can show live status, CPU, RAM and disk values.
+- Updated the user dashboard so users see their assigned resources with online/offline state, utilization and the configured web link.
+- Cleaned the frontend wording to German-only visible text and reduced heavy font weights and oversized headings.
+- Refined the layout toward the Tech by Giusi design, kept desktop light/dark mode and forced mobile to light mode only.
+
+---
+
 ## v1.0.6 - 2026-06-28
 
 **Commit:** `feat: simplify admin settings and polish responsive ui`

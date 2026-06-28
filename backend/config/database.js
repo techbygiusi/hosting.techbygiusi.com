@@ -96,6 +96,24 @@ async function initDatabase() {
         )
       `);
 
+
+
+      // Managed resources shown in the portal
+      database.run(`
+        CREATE TABLE IF NOT EXISTS resources (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          name TEXT,
+          container_id TEXT NOT NULL,
+          cluster_id INTEGER NOT NULL,
+          user_id INTEGER NOT NULL,
+          web_url TEXT,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (cluster_id) REFERENCES proxmox_clusters(id) ON DELETE CASCADE,
+          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        )
+      `);
+
       // Settings (key-value store)
       database.run(`
         CREATE TABLE IF NOT EXISTS settings (
