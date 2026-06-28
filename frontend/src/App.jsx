@@ -20,7 +20,7 @@ function FullscreenError({ title, text }) {
   return (
     <div className="app-loader app-error">
       <div className="app-error-card">
-        <p className="eyebrow">Hosting Portal</p>
+        <p className="eyebrow">Hosting by TechByGiusi</p>
         <h1>{title}</h1>
         <p>{text}</p>
       </div>

@@ -4,6 +4,16 @@ import { adminApi, getErrorMessage, translateMessage } from '../services/api';
 import '../styles/globals.css';
 import ThemeButton from '../components/ThemeButton';
 
+function LogoutIcon() {
+  return (
+    <svg className="logout-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M10 6H5v12h5" />
+      <path d="M14 8l4 4-4 4" />
+      <path d="M8 12h10" />
+    </svg>
+  );
+}
+
 const emptyUser = { email: '', name: '', password: '', role: 'user' };
 const emptyCluster = { name: '', url: '', apiToken: '' };
 const emptyResource = { name: '', containerId: '', clusterId: '', userId: '', publicUrl: '', adminUrl: '' };
@@ -390,8 +400,8 @@ export default function AdminDashboard() {
     <div className="app-page">
       <header className="site-header">
         <div className="site-header-inner">
-          <div className="site-brand"><h1>TechByGiusi - Hosting</h1></div>
-          <div className="site-actions"><ThemeButton /><button type="button" className="btn-secondary" onClick={logout}>Abmelden</button></div>
+          <div className="site-brand"><h1>Hosting by TechByGiusi</h1></div>
+          <div className="site-actions"><ThemeButton /><button type="button" className="btn-secondary logout-button" onClick={logout} aria-label="Abmelden"><LogoutIcon /><span className="logout-label">Abmelden</span></button></div>
         </div>
       </header>
 

@@ -38,7 +38,7 @@ export default function Login() {
       <div className="auth-theme-action"><ThemeButton /></div>
       <section className="auth-card login-card">
         <header className="auth-header">
-          <p className="eyebrow">TechByGiusi - Hosting</p>
+          <p className="eyebrow">Hosting by TechByGiusi</p>
           <h1>Anmelden</h1>
         </header>
 

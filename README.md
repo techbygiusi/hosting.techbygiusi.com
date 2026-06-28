@@ -1,5 +1,28 @@
 # Hosting Portal - Changelog
 
+## v1.0.16 - 2026-06-28
+
+**Commit:** `fix: use solid surfaces for readable dialogs`
+
+- Replaced transparent light-mode surfaces with solid `#ebe9e6` cards so nested elements no longer bleed through each other.
+- Kept the page background at `#F7F5F3` and kept forms on solid white input fields for readable contrast.
+- Reworked modal dialogs with a solid panel, clear overlay, better spacing and mobile scrolling so background cards no longer overlap visually with form fields.
+- Preserved the reduced TechByGiusi-style layout, German-only frontend labels and mobile-only light mode.
+
+---
+
+## v1.0.15 - 2026-06-28
+
+**Commit:** `fix: update brand title and mobile logout action`
+
+- Changed the header brand text to `Hosting by TechByGiusi`.
+- Changed the browser tab title to `Tech by Giusi | Hosting`.
+- Changed the mobile logout action to a floating bottom-right SVG icon button.
+- Kept the desktop logout button as a normal text action in the header.
+- Kept mobile locked to light mode and preserved the German-only frontend labels.
+
+---
+
 ## v1.0.14 - 2026-06-28
 
 **Commit:** `feat: add resource links and edit flows`
