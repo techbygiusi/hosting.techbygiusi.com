@@ -19,8 +19,9 @@ export default function AppShell({ children }) {
       <main className="site-main">{children}</main>
 
       <footer className="site-footer">
-        <a className="footer-host" href="https://techbygiusi.com" target="_blank" rel="noopener noreferrer">Gehosted by TechByGiusi</a>
+        <span>Florian &amp; Alexandra · Hochzeit</span>
         <Link className={isAdmin ? 'footer-admin-link active' : 'footer-admin-link'} to="/admin">Admin</Link>
+        <span>Picly by TechByGiusi</span>
       </footer>
     </div>
   );

@@ -3,7 +3,7 @@
   --site-surface: #fbf8f1;
   --site-inset: #f1ebdf;
   --site-text: #463f38;
-  --site-muted: #79705f;
+  --site-muted: #8c8275;
   --site-accent: #7e8b6b;
   --site-accent-strong: #5e6a4c;
   --site-gold: #9c7c43;
@@ -78,9 +78,7 @@ label { display: grid; gap: 7px; color: var(--site-muted); font-size: 14px; }
   gap: 16px;
 }
 .site-header { padding-top: 10px; }
-.site-footer { margin-top: auto; color: var(--site-muted); font-size: 13px; border-top: 1px solid var(--site-border); justify-content: center; }
-.footer-host { color: var(--site-muted); transition: color 0.16s ease; }
-.footer-host:hover { color: var(--site-gold); }
+.site-footer { margin-top: auto; color: var(--site-muted); font-size: 13px; border-top: 1px solid var(--site-border); }
 .brand { display: inline-flex; align-items: center; gap: 10px; min-width: 0; }
 .brand-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: var(--font-script); font-size: 30px; line-height: 1; color: var(--site-gold); padding-bottom: 4px; }
 .footer-admin-link { display: none; color: var(--site-muted); border: 1px solid transparent; border-radius: 999px; padding: 6px 10px; }
@@ -283,13 +281,16 @@ label { display: grid; gap: 7px; color: var(--site-muted); font-size: 14px; }
 
 .admin-layout { display: grid; gap: 18px; }
 .admin-hero {
-  display: grid;
-  gap: 14px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 18px;
   padding-bottom: 4px;
 }
 .admin-hero h1 { font-size: clamp(38px, 6vw, 58px); }
+.admin-actions,
 .card-actions { display: flex; flex-wrap: wrap; gap: 8px; }
-.admin-actions { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; width: 100%; }
+.admin-actions { justify-content: flex-end; }
 .admin-dashboard {
   display: grid;
   grid-template-columns: 0.8fr 1fr 1.35fr;
@@ -393,18 +394,15 @@ label { display: grid; gap: 7px; color: var(--site-muted); font-size: 14px; }
   .site-header { min-height: 60px; gap: 10px; justify-content: flex-end; }
   .admin-shell .site-header { min-height: 16px; padding-top: 0; }
   .admin-shell .site-nav,
-  .upload-shell .site-nav,
   .brand,
   .desktop-admin-link { display: none; }
+  .footer-admin-link { display: inline-flex; align-items: center; justify-content: center; }
   .site-nav { gap: 6px; }
   .nav-link { padding: 8px 13px; font-size: 14px; }
   .site-main { padding: 18px 0 28px; }
-  .hero-grid { display: flex; flex-direction: column; gap: 16px; padding-top: 0; }
-  .upload-column { gap: 12px; order: 1; }
-  .hero-copy { display: grid; order: 2; gap: 10px; text-align: center; }
-  .hero-copy h1, .hero-copy .ornament { display: none; }
-  .site-footer { justify-content: space-between; }
-  .footer-admin-link { display: inline-flex; align-items: center; justify-content: center; border-color: var(--site-border); }
+  .hero-grid { display: block; padding-top: 0; }
+  .hero-copy { display: none; }
+  .upload-column { gap: 12px; }
   .card { padding: 16px; border-radius: 14px; }
   .demo-info-card { padding: 15px 16px; border-radius: 14px; }
   .demo-info-card h2 { font-size: 24px; }
@@ -416,7 +414,7 @@ label { display: grid; gap: 7px; color: var(--site-muted); font-size: 14px; }
   .admin-layout { gap: 14px; }
   .admin-hero { display: grid; align-items: start; gap: 12px; }
   .admin-hero h1 { font-size: 38px; }
-  .admin-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; }
+  .admin-actions { display: grid; grid-template-columns: 1fr 1fr 1fr; width: 100%; }
   .admin-actions .btn-secondary,
   .admin-actions .btn-primary,
   .admin-actions .btn-outline { min-height: 42px; padding: 8px 10px; font-size: 14px; }
@@ -436,6 +434,7 @@ label { display: grid; gap: 7px; color: var(--site-muted); font-size: 14px; }
   .nav-link { padding: 8px; }
   .gallery-grid { grid-template-columns: 1fr; }
   .admin-actions { grid-template-columns: 1fr 1fr; }
+  .admin-actions .btn-outline { grid-column: 1 / -1; }
   .admin-dashboard { grid-template-columns: 1fr; }
   .storage-card-wide { grid-column: auto; }
 }
@@ -485,11 +484,20 @@ label { display: grid; gap: 7px; color: var(--site-muted); font-size: 14px; }
 }
 
 @media (max-width: 420px) {
-  .password-modal-actions { grid-template-columns: 1fr; }
+  .admin-actions .btn-outline { grid-column: auto; }
 }
 
 /* ---- Hochzeits-Theme: dekorative Wasserfarben-Akzente ---- */
-.card { position: relative; box-shadow: 0 18px 50px rgba(70, 63, 56, 0.06); }
+.card { position: relative; box-shadow: 0 1px 0 rgba(156, 124, 67, 0.18) inset, 0 18px 50px rgba(70, 63, 56, 0.07); }
+.card::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 3px;
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  background: linear-gradient(90deg, transparent, var(--site-gold) 30%, var(--site-accent) 70%, transparent);
+  opacity: 0.5;
+}
 .demo-info-card { background: #f6efe1; border-color: rgba(156, 124, 67, 0.28); }
 
 /* Weicher Aquarell-Bogen hinter der Upload-Spalte (wie der Laub-Bogen der Karte) */
@@ -538,126 +546,3 @@ label { display: grid; gap: 7px; color: var(--site-muted); font-size: 14px; }
 .pixel-courier { background: #eef2ec; border-color: rgba(126, 139, 107, 0.3); }
 .courier-box { color: var(--site-gold); }
 .courier-face { color: var(--site-accent-strong); font-size: 17px; }
-
-/* ===== Seiten-Hintergründe & Farbwelt ===== */
-/* Gemeinsame Blau-Palette (aus dem Schwanenbild) für Upload + Admin */
-.upload-shell,
-.admin-shell {
-  --site-surface: #eef4f4;
-  --site-inset: #e6eeee;
-  --site-accent: #5f8b97;
-  --site-accent-strong: #4c7480;
-  --site-muted: #67737a;
-  --site-border: rgba(58, 78, 82, 0.16);
-}
-
-/* Upload-Seite: Aquarell-Schwäne als Hintergrund */
-.upload-shell {
-  background-image:
-    linear-gradient(rgba(232, 240, 240, 0.34), rgba(232, 240, 240, 0.20)),
-    url('/hochzeit.jpg');
-  background-size: cover;
-  background-position: center;
-  background-attachment: fixed;
-}
-.upload-shell .upload-column::before { display: none; }
-
-/* Admin-Seite: Blaustich aus dem Bild statt Beige */
-.admin-shell {
-  --site-bg: #d9e4e5;
-  --site-inset: #e1ebeb;
-  background-color: var(--site-bg);
-  background-image:
-    radial-gradient(60% 50% at 0% 0%, rgba(95, 139, 151, 0.22), transparent 70%),
-    radial-gradient(55% 45% at 100% 0%, rgba(156, 178, 172, 0.20), transparent 72%),
-    radial-gradient(70% 55% at 100% 100%, rgba(95, 139, 151, 0.18), transparent 72%),
-    radial-gradient(60% 50% at 0% 100%, rgba(76, 116, 128, 0.12), transparent 70%);
-  background-attachment: fixed;
-}
-
-/* Buttons, Balken & Fokus in Blau (beide Seiten) */
-.upload-shell .btn-secondary:hover:not(:disabled),
-.upload-shell .btn-outline:hover:not(:disabled),
-.admin-shell .btn-secondary:hover:not(:disabled),
-.admin-shell .btn-outline:hover:not(:disabled) { border-color: var(--site-accent); color: var(--site-accent); }
-.upload-shell .progress-bar,
-.admin-shell .storage-bar span,
-.admin-shell .progress-bar { background: linear-gradient(90deg, var(--site-accent), var(--site-accent-strong)); }
-.upload-shell input:focus,
-.admin-shell input:focus { border-color: var(--site-accent); box-shadow: 0 0 0 3px rgba(95, 139, 151, 0.18); }
-.upload-shell .courier-face { color: var(--site-accent-strong); }
-.upload-shell .pixel-courier { background: #e7eeee; border-color: rgba(95, 139, 151, 0.30); }
-
-/* Lesbarkeit über dem Foto: dezentes Frost-Panel hinter dem Text */
-.upload-shell .hero-copy {
-  background: rgba(244, 248, 248, 0.66);
-  border: 1px solid rgba(58, 78, 82, 0.10);
-  border-radius: var(--radius-xl);
-  padding: clamp(18px, 3.5vw, 28px);
-  backdrop-filter: blur(7px);
-  -webkit-backdrop-filter: blur(7px);
-  box-shadow: 0 14px 40px rgba(58, 78, 82, 0.10);
-}
-.upload-shell .hero-copy p { color: #4f4a43; }
-.upload-shell .hero-copy h1 { color: var(--site-gold); }
-
-/* Header/Footer über dem Foto lesbar halten (kein Panel drumherum) */
-.upload-shell .site-header,
-.upload-shell .site-footer { text-shadow: 0 1px 9px rgba(244, 248, 248, 0.9); }
-
-/* Upload-Seite auf Mobile/große Handys: fast volle Breite, vertikal mittig */
-@media (max-width: 900px) {
-  /* Hintergrundbild nach rechts schieben damit Schwäne mittig erscheinen */
-  .upload-shell { background-position: 62% 69%; }
-
-  .upload-shell .site-header,
-  .upload-shell .site-footer,
-  .upload-shell .site-main { width: min(100% - 24px, 900px); }
-  .upload-shell .site-main { display: flex; flex-direction: column; padding: 10px 0 16px; }
-  .upload-shell .hero-grid {
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-    min-height: 0;
-    margin: auto 0;
-    padding-top: 0;
-  }
-  /* Upload-Karte und Danke-Panel gleich breit (beide nehmen volle Spaltenbreite) */
-  .upload-shell .upload-column { order: 1; gap: 12px; width: 100%; }
-  .upload-shell .hero-copy { order: 2; gap: 10px; text-align: center; width: 100%; padding: 18px; }
-  .upload-shell .card { padding: 18px; }
-  .upload-shell .drop-zone { min-height: 230px; }
-  .upload-shell .hero-copy h1,
-  .upload-shell .hero-copy .ornament { display: none; }
-}
-
-/* ===== Custom Scrollbar ===== */
-:root {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(95, 139, 151, 0.45) rgba(200, 218, 220, 0.30);
-}
-::-webkit-scrollbar { width: 8px; height: 8px; }
-::-webkit-scrollbar-track {
-  background: rgba(200, 218, 220, 0.25);
-  border-radius: 999px;
-}
-::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, rgba(95, 139, 151, 0.55), rgba(76, 116, 128, 0.70));
-  border-radius: 999px;
-  border: 2px solid transparent;
-  background-clip: padding-box;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(180deg, rgba(95, 139, 151, 0.80), rgba(76, 116, 128, 0.95));
-  border-radius: 999px;
-  border: 2px solid transparent;
-  background-clip: padding-box;
-}
-::-webkit-scrollbar-corner { background: transparent; }
-
-/* Gleiche Scrollbar für interne Scroll-Container (Bildvorschau-Liste, Galerie) */
-.preview-list,
-.gallery-grid {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(95, 139, 151, 0.40) transparent;
-}
