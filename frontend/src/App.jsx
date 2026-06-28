@@ -1,79 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
 import Setup from './pages/Setup';
 import Login from './pages/Login';
 import UserDashboard from './pages/UserDashboard';
 import AdminDashboard from './pages/AdminDashboard';
-
-function viewportIsMobile() {
-  return window.matchMedia?.('(max-width: 767px)').matches ?? false;
-}
-
-function applyTheme(theme) {
-  document.body.classList.remove('theme-light', 'theme-dark');
-  document.body.classList.add(`theme-${theme}`);
-  localStorage.setItem('site_theme', theme);
-  document.cookie = `site_theme=${theme}; max-age=31536000; path=/`;
-}
-
-function getInitialTheme() {
-  if (viewportIsMobile()) return 'light';
-
-  const saved = localStorage.getItem('site_theme');
-  if (saved === 'dark' || saved === 'light') return saved;
-
-  return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-}
-
-function ThemeToggle() {
-  const [theme, setTheme] = useState(getInitialTheme);
-  const [isMobile, setIsMobile] = useState(viewportIsMobile);
-
-  useEffect(() => {
-    const mediaQuery = window.matchMedia?.('(max-width: 767px)');
-    const handleViewportChange = () => {
-      const mobile = viewportIsMobile();
-      setIsMobile(mobile);
-
-      if (mobile) {
-        setTheme('light');
-        return;
-      }
-
-      const saved = localStorage.getItem('site_theme');
-      setTheme(saved === 'dark' || saved === 'light' ? saved : 'light');
-    };
-
-    mediaQuery?.addEventListener?.('change', handleViewportChange);
-    window.addEventListener('resize', handleViewportChange);
-
-    return () => {
-      mediaQuery?.removeEventListener?.('change', handleViewportChange);
-      window.removeEventListener('resize', handleViewportChange);
-    };
-  }, []);
-
-  useEffect(() => {
-    applyTheme(isMobile ? 'light' : theme);
-  }, [theme, isMobile]);
-
-  if (isMobile) return null;
-
-  const nextTheme = theme === 'dark' ? 'light' : 'dark';
-
-  return (
-    <button
-      type="button"
-      className="lamp-toggle"
-      aria-label={theme === 'dark' ? 'Zum hellen Modus wechseln' : 'Zum dunklen Modus wechseln'}
-      onClick={() => setTheme(nextTheme)}
-    >
-      <span className="lamp-cord" aria-hidden="true"></span>
-      <span className="lamp-bulb" aria-hidden="true"></span>
-    </button>
-  );
-}
+import { useDocumentTheme } from './components/ThemeButton';
 
 function FullscreenLoader({ text }) {
   return (
@@ -119,6 +51,7 @@ function PrivateRoute({ children, requiredRole = null }) {
 }
 
 export default function App() {
+  useDocumentTheme();
   const { setupRequired, loading, isAuthenticated, user, error } = useAuth();
 
   if (loading) {
@@ -131,7 +64,6 @@ export default function App() {
 
   return (
     <BrowserRouter>
-      <ThemeToggle />
       <Routes>
         <Route
           path="/setup"

@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { adminApi, getErrorMessage, translateMessage } from '../services/api';
 import '../styles/globals.css';
+import ThemeButton from '../components/ThemeButton';
 
 const emptyUser = { email: '', name: '', password: '', role: 'user' };
 const emptyCluster = { name: '', url: '', apiToken: '' };
@@ -304,13 +305,11 @@ export default function AdminDashboard() {
       <header className="site-header">
         <div className="site-header-inner">
           <div className="site-brand">
-            <span className="site-mark">TG</span>
-            <div>
-              <p>Hosting Portal</p>
-              <h1>Verwaltung</h1>
-            </div>
+            <p>Hosting Portal</p>
+            <h1>Verwaltung</h1>
           </div>
           <div className="site-actions">
+            <ThemeButton />
             <button type="button" className="btn-secondary" onClick={logout}>Abmelden</button>
           </div>
         </div>

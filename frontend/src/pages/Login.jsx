@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import '../styles/globals.css';
+import ThemeButton from '../components/ThemeButton';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -34,6 +35,7 @@ export default function Login() {
 
   return (
     <main className="auth-shell">
+      <div className="auth-theme-action"><ThemeButton /></div>
       <section className="auth-card login-card">
         <header className="auth-header">
           <p className="eyebrow">Hosting Portal</p>

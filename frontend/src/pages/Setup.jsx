@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { authApi, getErrorMessage, translateMessage } from '../services/api';
 import '../styles/globals.css';
+import ThemeButton from '../components/ThemeButton';
 
 const STEP_ADMIN = 1;
 const STEP_PROXMOX = 2;
@@ -191,6 +192,7 @@ export default function Setup() {
 
   return (
     <main className="auth-shell">
+      <div className="auth-theme-action"><ThemeButton /></div>
       <section className="setup-card setup-card-wide">
         <header className="auth-header setup-header">
           <p className="eyebrow">Erstkonfiguration</p>

@@ -1,5 +1,18 @@
 # Hosting Portal - Changelog
 
+## v1.0.9 - 2026-06-28
+
+**Commit:** `fix: modernize header and remove tg mark`
+
+- Removed the TG mark from the admin and user headers.
+- Replaced the decorative lamp theme switch with a simple desktop-only light/dark button.
+- Moved the theme button into the header next to Abmelden so all header actions are aligned.
+- Kept mobile locked to light mode and hid the theme button on small screens.
+- Reduced visual decoration, heavy borders, large spacing and oversized typography for a cleaner modern layout.
+- Updated login and setup pages to use the same simple desktop theme action without showing anything on mobile.
+
+---
+
 ## v1.0.8 - 2026-06-28
 
 **Commit:** `fix: clean ui and add proxmox test action`
