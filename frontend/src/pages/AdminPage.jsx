@@ -89,7 +89,6 @@ function AdminLogin({ onSuccess }) {
     <section className="center-stage">
       <form className="card login-card" onSubmit={handleSubmit}>
         <h1>Galerie öffnen</h1>
-        <p>Hier liegen alle Fotos eurer Gäste gesammelt bereit.</p>
         <label>
           Benutzer
           <input value={username} onChange={(event) => setUsername(event.target.value)} autoComplete="username" />

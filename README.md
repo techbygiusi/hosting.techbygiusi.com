@@ -1,5 +1,23 @@
 # Picly - Changelog
 
+## v0.1.20 - 2026-06-28
+
+**Commit:** `style: compact mobile admin dashboard`
+
+- Made the mobile admin action buttons use the same available width as the gallery area.
+- Reduced the height and padding of the admin info cards so the dashboard feels more balanced.
+- Removed the extra helper sentence from the admin login card.
+- Centered the **Galerie öffnen** login title.
+
+## v0.1.19 - 2026-06-28
+
+**Commit:** `style: improve mobile wedding intro`
+
+- Reworked the mobile intro panel so the wedding text reads cleaner on small screens.
+- Replaced the awkward mobile album heading with a cleaner three-line layout.
+- Reduced visual clutter in the mobile hero card and tightened spacing for better balance.
+- Kept the desktop wedding hero and the rest of the upload flow unchanged.
+
 ## v0.1.18 - 2026-06-28
 
 **Commit:** `style: compact desktop admin actions and clean login copy`

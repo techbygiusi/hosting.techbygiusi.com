@@ -632,13 +632,51 @@ label { display: grid; gap: 7px; color: var(--site-muted); font-size: 14px; }
     margin: auto 0;
     padding-top: 0;
   }
-  /* Upload-Karte und Danke-Panel gleich breit (beide nehmen volle Spaltenbreite) */
+  /* Upload-Karte und Info-Karte gleich breit */
   .upload-shell .upload-column { order: 1; gap: 12px; width: 100%; }
-  .upload-shell .hero-copy { order: 2; gap: 10px; text-align: center; width: 100%; padding: 18px; }
+  .upload-shell .hero-copy {
+    order: 2;
+    gap: 12px;
+    text-align: center;
+    width: 100%;
+    padding: 18px 16px;
+    background: rgba(244, 248, 248, 0.84);
+    border-color: rgba(58, 78, 82, 0.12);
+    border-radius: 22px;
+    box-shadow: 0 12px 34px rgba(58, 78, 82, 0.08);
+  }
   .upload-shell .card { padding: 18px; }
   .upload-shell .drop-zone { min-height: 230px; }
+  .upload-shell .hero-copy .eyebrow,
   .upload-shell .hero-copy h1,
   .upload-shell .hero-copy .ornament { display: none; }
+  .upload-shell .hero-copy p {
+    max-width: 29ch;
+    margin: 0 auto;
+    font-size: 17px;
+    line-height: 1.5;
+  }
+}
+
+
+@media (max-width: 520px) {
+  .upload-shell .site-main { width: min(100% - 18px, 900px); }
+  .upload-shell .hero-copy {
+    padding: 16px 14px 18px;
+    gap: 10px;
+    border-radius: 20px;
+  }
+  .mobile-topline {
+    font-size: 10px;
+    letter-spacing: 0.22em;
+  }
+  .mobile-album-names { font-size: clamp(34px, 11vw, 44px); }
+  .mobile-album-word { font-size: clamp(20px, 6vw, 26px); }
+  .upload-shell .hero-copy p {
+    max-width: 25ch;
+    font-size: 16px;
+    line-height: 1.45;
+  }
 }
 
 /* ===== Custom Scrollbar ===== */
@@ -855,30 +893,39 @@ label { display: grid; gap: 7px; color: var(--site-muted); font-size: 14px; }
   font-size: 11px;
 }
 
-/* Mobile album title (nur auf Mobile sichtbar) */
+/* Mobile hero title (nur auf Mobile sichtbar) */
 .mobile-album-title {
   display: none;
-  font-family: var(--font-heading);
-  font-size: clamp(22px, 6vw, 28px);
-  font-weight: 400;
-  line-height: 1.25;
-  color: var(--site-text);
   text-align: center;
 }
+.mobile-topline {
+  display: block;
+  font-family: var(--font-heading);
+  text-transform: uppercase;
+  letter-spacing: 0.28em;
+  font-size: 11px;
+  color: var(--site-muted);
+}
 .mobile-album-names {
+  display: block;
   font-family: var(--font-script);
-  font-size: clamp(28px, 8vw, 36px);
+  font-size: clamp(36px, 11vw, 48px);
   color: var(--site-gold);
-  line-height: 1.1;
+  line-height: 0.96;
 }
 .mobile-album-word {
+  display: block;
   font-family: var(--font-heading);
-  font-size: clamp(20px, 5.5vw, 26px);
+  font-size: clamp(22px, 6vw, 30px);
   color: var(--site-text);
   font-weight: 400;
+  line-height: 1.08;
 }
 @media (max-width: 900px) {
-  .mobile-album-title { display: block; }
+  .mobile-album-title {
+    display: grid;
+    gap: 6px;
+  }
 }
 
 
@@ -1212,4 +1259,101 @@ label { display: grid; gap: 7px; color: var(--site-muted); font-size: 14px; }
 
 .admin-shell .login-card > h1:first-child {
   margin-top: 0;
+}
+
+
+/* ===== v0.1.20 Compact mobile admin dashboard ===== */
+.admin-shell .admin-dashboard {
+  align-items: start;
+}
+
+.admin-shell .dashboard-card,
+.admin-shell .storage-card {
+  min-height: 0;
+  padding: 12px 14px;
+  gap: 6px;
+}
+
+.admin-shell .dashboard-card h3,
+.admin-shell .storage-card h3 {
+  font-size: 21px;
+  line-height: 1.15;
+}
+
+.admin-shell .dashboard-card-head strong {
+  font-size: 18px;
+}
+
+.admin-shell .storage-bar {
+  height: 8px;
+}
+
+.admin-shell .login-card h1 {
+  text-align: center;
+}
+
+@media (max-width: 720px) {
+  .admin-shell .admin-actions,
+  .admin-shell .admin-dashboard,
+  .admin-shell .gallery-grid {
+    width: 100%;
+  }
+
+  .admin-shell .admin-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .admin-shell .admin-actions > button {
+    width: 100% !important;
+    min-width: 0;
+    height: 40px;
+    min-height: 40px !important;
+    padding: 7px 8px;
+  }
+
+  .admin-shell .admin-dashboard {
+    align-items: start;
+    gap: 8px;
+  }
+
+  .admin-shell .dashboard-card,
+  .admin-shell .storage-card {
+    padding: 11px 12px;
+    gap: 5px;
+    border-radius: 13px;
+  }
+
+  .admin-shell .dashboard-card h3,
+  .admin-shell .storage-card h3 {
+    font-size: 20px;
+  }
+
+  .admin-shell .dashboard-card span,
+  .admin-shell .storage-card span,
+  .admin-shell .storage-card small {
+    font-size: 13px;
+    line-height: 1.35;
+  }
+
+  .admin-shell .site-main .eyebrow {
+    font-size: 10px;
+    letter-spacing: 0.14em;
+  }
+
+  .admin-shell .storage-bar {
+    height: 7px;
+    margin-top: 2px;
+  }
+}
+
+@media (max-width: 420px) {
+  .admin-shell .admin-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-shell .admin-dashboard {
+    grid-template-columns: 1fr;
+  }
 }

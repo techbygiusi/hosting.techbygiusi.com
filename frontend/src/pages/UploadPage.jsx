@@ -98,11 +98,11 @@ export default function UploadPage() {
       <div className="hero-copy">
         <p className="eyebrow">Wir haben geheiratet!</p>
         <h1>Florian &amp; Alexandra</h1>
-        {/* Mobile-only heading */}
-        <p className="mobile-album-title">
-          <span className="mobile-album-names">Florian &amp; Alexandra's</span>{' '}
+        <div className="mobile-album-title" aria-hidden="true">
+          <span className="mobile-topline">Wir haben geheiratet!</span>
+          <span className="mobile-album-names">Florian &amp; Alexandra</span>
           <span className="mobile-album-word">Hochzeitsalbum</span>
-        </p>
+        </div>
         <p>
           Schön, dass ihr dabei wart! Haltet eure schönsten Momente fest und ladet eure Fotos
           hier hoch - so entsteht unser gemeinsames Hochzeitsalbum aus allen Blickwinkeln.
