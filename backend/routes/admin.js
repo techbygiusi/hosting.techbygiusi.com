@@ -8,7 +8,7 @@ const { AppError } = require('../middleware/errorHandler');
 const { HTTP_STATUS, ROLES } = require('../config/constants');
 const { getClusterResources, testConnection } = require('../services/proxmoxService');
 const { enrichResources } = require('../services/resourceService');
-const { testSmtpConnection, initializeEmailService, encryptString } = require('../services/emailService');
+const { testSmtpConnection, initializeEmailService, encryptString, decryptString } = require('../services/emailService');
 
 router.use(adminMiddleware);
 
@@ -42,6 +42,29 @@ function validateSmtp({ smtpHost, smtpPort, smtpUser, smtpPassword }, passwordRe
   if (!Number.isInteger(parsedPort) || parsedPort < 1 || parsedPort > 65535) {
     throw new AppError('SMTP port is invalid', HTTP_STATUS.BAD_REQUEST);
   }
+}
+
+async function getStoredSmtpSettings() {
+  const rows = await all(
+    "SELECT key, value FROM settings WHERE key IN ('smtp_host', 'smtp_port', 'smtp_user', 'smtp_password')"
+  );
+
+  return rows.reduce((acc, row) => {
+    acc[row.key] = row.value;
+    return acc;
+  }, {});
+}
+
+function resolveSmtpSettings(input, stored = {}) {
+  const providedPassword = String(input.smtpPassword || '').trim();
+  const shouldUseStoredPassword = !providedPassword || providedPassword === '***hidden***';
+
+  return {
+    smtpHost: String(input.smtpHost || stored.smtp_host || '').trim(),
+    smtpPort: String(input.smtpPort || stored.smtp_port || '').trim(),
+    smtpUser: String(input.smtpUser || stored.smtp_user || '').trim(),
+    smtpPassword: shouldUseStoredPassword ? decryptString(stored.smtp_password || '') : input.smtpPassword
+  };
 }
 
 function validateWebUrl(webUrl) {
@@ -447,14 +470,15 @@ router.put('/settings', async (req, res, next) => {
 
 router.post('/settings/test-smtp', async (req, res, next) => {
   try {
-    const { smtpHost, smtpPort, smtpUser, smtpPassword } = req.body;
-    validateSmtp({ smtpHost, smtpPort, smtpUser, smtpPassword }, true);
+    const storedSmtp = await getStoredSmtpSettings();
+    const smtp = resolveSmtpSettings(req.body, storedSmtp);
+    validateSmtp(smtp, true);
 
     const result = await testSmtpConnection(
-      String(smtpHost).trim(),
-      String(smtpPort).trim(),
-      String(smtpUser).trim(),
-      smtpPassword
+      smtp.smtpHost,
+      smtp.smtpPort,
+      smtp.smtpUser,
+      smtp.smtpPassword
     );
     res.status(result.success ? HTTP_STATUS.OK : HTTP_STATUS.BAD_REQUEST).json(result);
   } catch (err) {

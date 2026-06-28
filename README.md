@@ -1,5 +1,35 @@
 # Hosting Portal - Changelog
 
+## v1.0.13 - 2026-06-28
+
+**Commit:** `fix: reuse saved smtp password for tests`
+
+- Changed the admin SMTP test so an empty password field reuses the already saved SMTP password.
+- Kept the current SMTP host, port and user values editable while still falling back to saved values if a field is not submitted.
+- Updated the SMTP password placeholder to make the saved-password behavior clear.
+
+---
+
+## v1.0.12 - 2026-06-28
+
+**Commit:** `style: update light mode background`
+
+- Changed the light mode page background to `#F7F5F3`.
+- Kept cards and input surfaces white so the UI keeps its clean contrast.
+- Kept mobile locked to light mode with the same `#F7F5F3` background.
+
+---
+
+## v1.0.11 - 2026-06-28
+
+**Commit:** `fix: replace theme button with neutral icon toggle`
+
+- Replaced the visible Hell/Dunkel text button with a compact neutral icon toggle.
+- Added simple inline SVG sun and moon icons without colored accent styling.
+- Kept the desktop-only theme toggle behavior unchanged and continued to force light mode on mobile.
+- Kept the switch aligned with the header actions.
+
+---
 ## v1.0.10 - 2026-06-28
 
 **Commit:** `fix: improve resource disk reporting`
