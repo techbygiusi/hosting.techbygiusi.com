@@ -3,20 +3,24 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: hosting-portal-backend
-    ports:
-      - "127.0.0.1:3001:3001"
+    container_name: picly-backend
     environment:
       NODE_ENV: production
       BACKEND_PORT: 3001
-      JWT_SECRET: ${JWT_SECRET:-dev-secret-key-change-in-production}
-      JWT_EXPIRATION: 24h
-      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-dev-encryption-key-32-chars!!!}
-      DB_PATH: ./data/hosting.db
+      DATA_DIR: /app/data
+      ADMIN_USERNAME: ${ADMIN_USERNAME}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRATION: ${JWT_EXPIRATION:-24h}
+      MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-25}
+      MAX_UPLOAD_FILES: ${MAX_UPLOAD_FILES:-30}
+      MAX_PARALLEL_UPLOADS: ${MAX_PARALLEL_UPLOADS:-12}
+      MIN_FREE_SPACE_MB: ${MIN_FREE_SPACE_MB:-250}
+      UPLOAD_REQUEST_TIMEOUT_MS: ${UPLOAD_REQUEST_TIMEOUT_MS:-600000}
     volumes:
-      - ./backend/data:/app/data
+      - ./data:/app/data
     networks:
-      - hosting-network
+      - picly-network
     restart: unless-stopped
     healthcheck:
       test:
@@ -32,11 +36,11 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    container_name: hosting-portal-frontend
+    container_name: picly-frontend
     ports:
-      - "3000:80"
+      - "${PICLY_HTTP_PORT:-3002}:80"
     networks:
-      - hosting-network
+      - picly-network
     depends_on:
       backend:
         condition: service_healthy
@@ -51,5 +55,5 @@ services:
       start_period: 10s
 
 networks:
-  hosting-network:
+  picly-network:
     driver: bridge
