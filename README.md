@@ -1,5 +1,17 @@
 # Hosting Portal - Changelog
 
+## v1.0.18 - 2026-06-28
+
+**Commit:** `fix: enable mobile theme toggle and center login`
+
+- Enabled the same dark/light SVG theme toggle on mobile instead of forcing mobile clients to light mode.
+- Kept the mobile header layout with `Hosting by TechByGiusi` on the left and the theme toggle aligned on the right.
+- Kept the mobile logout action as a floating bottom-right SVG button so it does not disturb the header layout.
+- Centered the mobile login card vertically while keeping setup pages scroll-friendly.
+- Preserved the German-only visible frontend labels and the clean TechByGiusi-style surfaces.
+
+---
+
 ## v1.0.17 - 2026-06-28
 
 **Commit:** `feat: add setup check in settings`

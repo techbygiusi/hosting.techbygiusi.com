@@ -34,7 +34,7 @@ export default function Login() {
   };
 
   return (
-    <main className="auth-shell">
+    <main className="auth-shell login-shell">
       <div className="auth-theme-action"><ThemeButton /></div>
       <section className="auth-card login-card">
         <header className="auth-header">
