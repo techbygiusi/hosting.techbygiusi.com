@@ -607,9 +607,12 @@ label { display: grid; gap: 7px; color: var(--site-muted); font-size: 14px; }
 
 /* Upload-Seite auf Mobile/große Handys: fast volle Breite, vertikal mittig */
 @media (max-width: 900px) {
+  /* Hintergrundbild nach rechts schieben damit Schwäne mittig erscheinen */
+  .upload-shell { background-position: 62% 69%; }
+
   .upload-shell .site-header,
   .upload-shell .site-footer,
-  .upload-shell .site-main { width: min(100% - 12px, 900px); }
+  .upload-shell .site-main { width: min(100% - 24px, 900px); }
   .upload-shell .site-main { display: flex; flex-direction: column; padding: 10px 0 16px; }
   .upload-shell .hero-grid {
     display: flex;
@@ -619,10 +622,42 @@ label { display: grid; gap: 7px; color: var(--site-muted); font-size: 14px; }
     margin: auto 0;
     padding-top: 0;
   }
-  .upload-shell .upload-column { order: 1; gap: 12px; }
-  .upload-shell .hero-copy { order: 2; gap: 10px; text-align: center; }
+  /* Upload-Karte und Danke-Panel gleich breit (beide nehmen volle Spaltenbreite) */
+  .upload-shell .upload-column { order: 1; gap: 12px; width: 100%; }
+  .upload-shell .hero-copy { order: 2; gap: 10px; text-align: center; width: 100%; padding: 18px; }
+  .upload-shell .card { padding: 18px; }
+  .upload-shell .drop-zone { min-height: 230px; }
   .upload-shell .hero-copy h1,
   .upload-shell .hero-copy .ornament { display: none; }
-  .upload-shell .card { padding: 16px; }
-  .upload-shell .drop-zone { min-height: 230px; }
+}
+
+/* ===== Custom Scrollbar ===== */
+:root {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(95, 139, 151, 0.45) rgba(200, 218, 220, 0.30);
+}
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track {
+  background: rgba(200, 218, 220, 0.25);
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(95, 139, 151, 0.55), rgba(76, 116, 128, 0.70));
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, rgba(95, 139, 151, 0.80), rgba(76, 116, 128, 0.95));
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-corner { background: transparent; }
+
+/* Gleiche Scrollbar für interne Scroll-Container (Bildvorschau-Liste, Galerie) */
+.preview-list,
+.gallery-grid {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(95, 139, 151, 0.40) transparent;
 }
