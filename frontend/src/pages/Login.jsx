@@ -23,14 +23,8 @@ export default function Login() {
     try {
       setLoading(true);
       setError('');
-
       const user = await login(email, password);
-
-      if (user.role === 'admin') {
-        navigate('/admin');
-      } else {
-        navigate('/dashboard');
-      }
+      navigate(user.role === 'admin' ? '/admin' : '/dashboard');
     } catch (err) {
       setError(err.message || 'Anmeldung fehlgeschlagen.');
     } finally {
@@ -39,19 +33,19 @@ export default function Login() {
   };
 
   return (
-    <div className="login-container">
-      <div className="login-card">
-        <div className="login-header">
+    <main className="auth-shell">
+      <section className="auth-card login-card">
+        <header className="auth-header">
           <p className="eyebrow">Hosting Portal</p>
           <h1>Anmelden</h1>
           <p>Melde dich mit deinem Portal-Benutzer an.</p>
-        </div>
+        </header>
 
         {error && <div className="alert alert-danger">{error}</div>}
 
-        <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label htmlFor="email">E-Mail-Adresse</label>
+        <form onSubmit={handleSubmit} className="form-stack">
+          <label className="form-group" htmlFor="email">
+            <span>E-Mail-Adresse</span>
             <input
               id="email"
               type="email"
@@ -62,11 +56,12 @@ export default function Login() {
               }}
               placeholder="name@example.com"
               disabled={loading}
+              autoComplete="email"
             />
-          </div>
+          </label>
 
-          <div className="form-group">
-            <label htmlFor="password">Passwort</label>
+          <label className="form-group" htmlFor="password">
+            <span>Passwort</span>
             <input
               id="password"
               type="password"
@@ -77,14 +72,15 @@ export default function Login() {
               }}
               placeholder="Dein Passwort"
               disabled={loading}
+              autoComplete="current-password"
             />
-          </div>
+          </label>
 
-          <button type="submit" className="login-button" disabled={loading}>
+          <button type="submit" className="btn-primary full-button" disabled={loading}>
             {loading ? 'Anmeldung läuft...' : 'Anmelden'}
           </button>
         </form>
-      </div>
-    </div>
+      </section>
+    </main>
   );
 }

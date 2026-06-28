@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { userApi, getErrorMessage } from '../services/api';
 import '../styles/globals.css';
@@ -16,6 +16,7 @@ export default function UserDashboard() {
   const fetchContainers = async () => {
     try {
       setLoading(true);
+      setError('');
       const response = await userApi.getContainers();
       setContainers(response.data.containers || []);
     } catch (err) {
@@ -25,421 +26,105 @@ export default function UserDashboard() {
     }
   };
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'running':
-        return '#28a745';
-      case 'stopped':
-        return '#dc3545';
-      default:
-        return '#6c757d';
-    }
-  };
-
   const renderStatus = (status) => {
     switch (status) {
-      case 'running':
-        return 'LÄUFT';
-      case 'stopped':
-        return 'GESTOPPT';
-      case 'paused':
-        return 'PAUSIERT';
-      case 'suspended':
-        return 'ANGEHALTEN';
-      default:
-        return status ? status.toUpperCase() : 'UNBEKANNT';
+      case 'running': return 'Läuft';
+      case 'stopped': return 'Gestoppt';
+      case 'paused': return 'Pausiert';
+      case 'suspended': return 'Angehalten';
+      default: return status || 'Unbekannt';
     }
   };
 
   const formatBytes = (bytes) => {
-    if (bytes === 0) return '0 B';
+    if (!bytes) return '0 B';
     const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.min(Math.floor(Math.log(bytes) / Math.log(k)), sizes.length - 1);
+    return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
   };
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: 'var(--color-bg-alt)' }}>
-      <style>{`
-        .dashboard-header {
-          background: var(--color-surface);
-          border-bottom: 1px solid var(--color-border);
-          padding: var(--spacing-lg);
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          gap: var(--spacing-md);
-          position: sticky;
-          top: 0;
-          z-index: 100;
-          flex-wrap: wrap;
-        }
-        
-        .dashboard-title {
-          display: flex;
-          align-items: center;
-          gap: var(--spacing-md);
-        }
-        
-        .dashboard-title h1 {
-          margin: 0;
-          font-size: var(--font-size-xl);
-          color: var(--color-primary);
-        }
-        
-        .user-info {
-          display: flex;
-          align-items: center;
-          gap: var(--spacing-md);
-        }
-        
-        .logout-btn {
-          background: var(--color-danger);
-          color: white;
-          border: none;
-          padding: 8px 16px;
-          border-radius: var(--radius-md);
-          cursor: pointer;
-          transition: var(--transition);
-          min-height: auto;
-        }
-        
-        .logout-btn:hover {
-          background: #c82333;
-        }
-        
-        .dashboard-content {
-          padding: var(--spacing-lg);
-          max-width: 1200px;
-          margin: 0 auto;
-        }
-        
-        .container-grid {
-          display: grid;
-          gap: var(--spacing-md);
-          grid-template-columns: 1fr;
-        }
-        
-        @media (min-width: 480px) {
-          .container-grid {
-            grid-template-columns: repeat(2, 1fr);
-          }
-        }
-        
-        @media (min-width: 768px) {
-          .container-grid {
-            grid-template-columns: repeat(2, 1fr);
-          }
-        }
-        
-        @media (min-width: 1024px) {
-          .container-grid {
-            grid-template-columns: repeat(3, 1fr);
-          }
-        }
-        
-        .container-card {
-          background: var(--color-surface);
-          border-radius: var(--radius-lg);
-          overflow: hidden;
-          box-shadow: var(--shadow-md);
-          transition: var(--transition);
-          display: flex;
-          flex-direction: column;
-          height: 100%;
-        }
-        
-        .container-card:hover {
-          box-shadow: var(--shadow-lg);
-          transform: translateY(-2px);
-        }
-        
-        .container-header {
-          background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
-          color: var(--button-primary-text);
-          padding: var(--spacing-md);
-          display: flex;
-          justify-content: space-between;
-          align-items: flex-start;
-          gap: var(--spacing-md);
-        }
-        
-        .container-name {
-          margin: 0;
-          font-size: var(--font-size-lg);
-          font-weight: 600;
-          word-break: break-word;
-        }
-        
-        .status-badge {
-          padding: 4px 12px;
-          border-radius: 20px;
-          background: rgba(255, 255, 255, 0.3);
-          color: white;
-          font-size: var(--font-size-sm);
-          font-weight: 500;
-          flex-shrink: 0;
-        }
-        
-        .container-body {
-          padding: var(--spacing-md);
-          flex: 1;
-          overflow-y: auto;
-        }
-        
-        .info-group {
-          display: grid;
-          gap: var(--spacing-md);
-          margin-bottom: var(--spacing-md);
-        }
-        
-        .info-item {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          font-size: var(--font-size-sm);
-          padding: var(--spacing-sm) 0;
-          border-bottom: 1px solid var(--color-border);
-        }
-        
-        .info-item:last-child {
-          border-bottom: none;
-        }
-        
-        .info-label {
-          color: var(--color-text-light);
-          font-weight: 500;
-        }
-        
-        .info-value {
-          font-weight: 600;
-          color: var(--color-text);
-        }
-        
-        .progress-bar {
-          height: 4px;
-          background: var(--color-border);
-          border-radius: 2px;
-          overflow: hidden;
-          margin-top: 4px;
-        }
-        
-        .progress-fill {
-          height: 100%;
-          background: linear-gradient(90deg, var(--color-primary), var(--color-primary-dark));
-          transition: width 0.3s ease;
-        }
-        
-        .ips-section {
-          margin-top: var(--spacing-md);
-          padding-top: var(--spacing-md);
-          border-top: 1px solid var(--color-border);
-        }
-        
-        .ips-label {
-          font-size: var(--font-size-sm);
-          font-weight: 600;
-          color: var(--color-text-light);
-          margin-bottom: 4px;
-        }
-        
-        .ip-item {
-          font-size: var(--font-size-sm);
-          background: var(--color-bg-alt);
-          padding: 6px 8px;
-          border-radius: 4px;
-          margin-bottom: 4px;
-          font-family: 'Courier New', monospace;
-          word-break: break-all;
-        }
-        
-        .container-footer {
-          padding: var(--spacing-md);
-          border-top: 1px solid var(--color-border);
-          background: var(--color-bg-alt);
-        }
-        
-        .open-webui-btn {
-          width: 100%;
-          padding: var(--spacing-md);
-          background: var(--color-primary);
-          color: var(--button-primary-text);
-          border: none;
-          border-radius: var(--radius-md);
-          cursor: pointer;
-          font-weight: 500;
-          transition: var(--transition);
-          min-height: 40px;
-        }
-        
-        .open-webui-btn:hover {
-          background: var(--color-primary-dark);
-          box-shadow: var(--shadow-md);
-        }
-        
-        .open-webui-btn:disabled {
-          opacity: 0.6;
-          cursor: not-allowed;
-        }
-        
-        .empty-state {
-          text-align: center;
-          padding: var(--spacing-xl);
-          color: var(--color-text-light);
-        }
-        
-        .empty-state h2 {
-          color: var(--color-text);
-          margin-bottom: var(--spacing-md);
-        }
-        
-        .loading-spinner {
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          min-height: 200px;
-          gap: var(--spacing-md);
-        }
-        
-        .spinner {
-          width: 30px;
-          height: 30px;
-          border: 3px solid var(--color-border);
-          border-top-color: var(--color-primary);
-          border-radius: 50%;
-          animation: spin 0.8s linear infinite;
-        }
-        
-        @keyframes spin {
-          to { transform: rotate(360deg); }
-        }
-      `}</style>
-
-      <div className="dashboard-header">
-        <div className="dashboard-title">
-          <h1>🖥️ Meine Container</h1>
+    <div className="app-page">
+      <header className="app-topbar">
+        <div>
+          <p className="eyebrow">Hosting Portal</p>
+          <h1>Meine Systeme</h1>
         </div>
-        <div className="user-info">
-          <span>{user?.name} ({user?.email})</span>
-          <button className="logout-btn" onClick={logout}>
-            Abmelden
-          </button>
+        <div className="topbar-actions">
+          <span className="user-chip">{user?.name || user?.email}</span>
+          <button type="button" className="btn-secondary" onClick={logout}>Abmelden</button>
         </div>
-      </div>
+      </header>
 
-      <div className="dashboard-content">
-        {error && (
-          <div className="alert alert-danger" style={{ marginBottom: 'var(--spacing-lg)' }}>
-            {error}
-          </div>
-        )}
+      <main className="app-container">
+        {error && <div className="alert alert-danger">{error}</div>}
 
         {loading ? (
-          <div className="loading-spinner">
-            <div className="spinner"></div>
-            <span>Container werden geladen...</span>
-          </div>
+          <div className="loading"><span className="spinner"></span><span>Container werden geladen...</span></div>
         ) : containers.length === 0 ? (
-          <div className="empty-state">
-            <h2>Keine Container zugewiesen</h2>
-            <p>Dir sind noch keine Container zugewiesen. Bitte wende dich an deinen Administrator.</p>
-          </div>
+          <section className="empty-state panel-card">
+            <h2>Keine Systeme zugewiesen</h2>
+            <p>Dir sind noch keine Container oder VMs zugewiesen.</p>
+          </section>
         ) : (
-          <div className="container-grid">
-            {containers.map((container) => {
+          <section className="resource-grid">
+            {containers.map(container => {
               const memPercent = container.maxmem ? (container.mem / container.maxmem) * 100 : 0;
               const cpuPercent = container.maxcpu ? (container.cpu / container.maxcpu) * 100 : 0;
               const diskPercent = container.maxdisk ? (container.disk / container.maxdisk) * 100 : 0;
 
               return (
-                <div key={`${container.clusterId}-${container.id}`} className="container-card">
-                  <div className="container-header">
-                    <h3 className="container-name">{container.name}</h3>
-                    <div className="status-badge" style={{ backgroundColor: getStatusColor(container.status) }}>
-                      {renderStatus(container.status)}
+                <article key={`${container.clusterId}-${container.id}`} className="resource-card">
+                  <div className="resource-card-header">
+                    <div>
+                      <span className="resource-id">{container.type?.toUpperCase()} · {container.id}</span>
+                      <h2>{container.name || 'Ohne Namen'}</h2>
                     </div>
+                    <span className={`status-badge status-${container.status || 'unknown'}`}>{renderStatus(container.status)}</span>
                   </div>
 
-                  <div className="container-body">
-                    <div className="info-group">
-                      <div>
-                        <div className="info-item">
-                          <span className="info-label">Typ:</span>
-                          <span className="info-value">{container.type.toUpperCase()}</span>
-                        </div>
-                        <div className="info-item">
-                          <span className="info-label">Node:</span>
-                          <span className="info-value">{container.node}</span>
-                        </div>
-                        <div className="info-item">
-                          <span className="info-label">Cluster:</span>
-                          <span className="info-value">{container.clusterName}</span>
-                        </div>
-                      </div>
+                  <div className="resource-meta">
+                    <span>Node</span><strong>{container.node}</strong>
+                    <span>Cluster</span><strong>{container.clusterName}</strong>
+                  </div>
 
-                      <div>
-                        <div className="info-label">CPU: {cpuPercent.toFixed(1)}%</div>
-                        <div className="progress-bar">
-                          <div className="progress-fill" style={{ width: `${Math.min(cpuPercent, 100)}%` }}></div>
-                        </div>
-                        <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-light)' }}>
-                          {container.cpu}/{container.maxcpu} Kerne
-                        </div>
-                      </div>
+                  <Metric label="CPU" percent={cpuPercent} detail={`${container.cpu || 0}/${container.maxcpu || 0} Kerne`} />
+                  <Metric label="Arbeitsspeicher" percent={memPercent} detail={`${formatBytes(container.mem)} / ${formatBytes(container.maxmem)}`} />
+                  <Metric label="Datenträger" percent={diskPercent} detail={`${formatBytes(container.disk)} / ${formatBytes(container.maxdisk)}`} />
 
-                      <div>
-                        <div className="info-label">Arbeitsspeicher: {memPercent.toFixed(1)}%</div>
-                        <div className="progress-bar">
-                          <div className="progress-fill" style={{ width: `${Math.min(memPercent, 100)}%` }}></div>
-                        </div>
-                        <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-light)' }}>
-                          {formatBytes(container.mem)} / {formatBytes(container.maxmem)}
-                        </div>
-                      </div>
-
-                      <div>
-                        <div className="info-label">Datenträger: {diskPercent.toFixed(1)}%</div>
-                        <div className="progress-bar">
-                          <div className="progress-fill" style={{ width: `${Math.min(diskPercent, 100)}%` }}></div>
-                        </div>
-                        <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-light)' }}>
-                          {formatBytes(container.disk)} / {formatBytes(container.maxdisk)}
-                        </div>
-                      </div>
+                  {container.ips?.length > 0 && (
+                    <div className="ip-list">
+                      <span>IP-Adressen</span>
+                      {container.ips.map((ip, idx) => <code key={idx}>{ip.ipv4 || ip.ipv6 || 'k. A.'}</code>)}
                     </div>
+                  )}
 
-                    {container.ips && container.ips.length > 0 && (
-                      <div className="ips-section">
-                        <div className="ips-label">IP-Adressen:</div>
-                        {container.ips.map((ip, idx) => (
-                          <div key={idx} className="ip-item">
-                            {ip.ipv4 || ip.ipv6 || 'k. A.'}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="container-footer">
-                    <button
-                      className="open-webui-btn"
-                      onClick={() => {
-                        if (container.webUiUrl) {
-                          window.open(container.webUiUrl, '_blank');
-                        }
-                      }}
-                      disabled={container.status !== 'running'}
-                    >
-                      {container.status === 'running' ? 'Weboberfläche öffnen' : 'Container offline'}
-                    </button>
-                  </div>
-                </div>
+                  <button
+                    type="button"
+                    className="btn-primary full-button"
+                    onClick={() => container.webUiUrl && window.open(container.webUiUrl, '_blank')}
+                    disabled={container.status !== 'running'}
+                  >
+                    {container.status === 'running' ? 'Konsole öffnen' : 'System offline'}
+                  </button>
+                </article>
               );
             })}
-          </div>
+          </section>
         )}
-      </div>
+      </main>
+    </div>
+  );
+}
+
+function Metric({ label, percent, detail }) {
+  const safePercent = Math.min(Math.max(Number(percent) || 0, 0), 100);
+  return (
+    <div className="metric-line">
+      <div><span>{label}</span><strong>{safePercent.toFixed(1)}%</strong></div>
+      <div className="progress-bar"><span style={{ width: `${safePercent}%` }}></span></div>
+      <small>{detail}</small>
     </div>
   );
 }

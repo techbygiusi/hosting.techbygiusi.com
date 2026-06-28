@@ -6,17 +6,43 @@ const { get, run, all } = require('../config/database');
 const { adminMiddleware } = require('../middleware/auth');
 const { AppError } = require('../middleware/errorHandler');
 const { HTTP_STATUS, ROLES } = require('../config/constants');
-const { sendEmail } = require('../services/emailService');
 const { getAllContainers, testConnection } = require('../services/proxmoxService');
+const { testSmtpConnection, initializeEmailService, encryptString } = require('../services/emailService');
 
-// Apply admin middleware to all admin routes
 router.use(adminMiddleware);
 
-// ==================== USERS ====================
+function normalizeEmail(email) {
+  return String(email || '').trim().toLowerCase();
+}
 
-/**
- * Get all users
- */
+function normalizeUrl(url) {
+  return String(url || '').trim().replace(/\/+$/, '');
+}
+
+function validateRole(role) {
+  if (!Object.values(ROLES).includes(role)) {
+    throw new AppError('Invalid role', HTTP_STATUS.BAD_REQUEST);
+  }
+}
+
+function validatePassword(password, required = true) {
+  if (!password && !required) return;
+  if (!password || String(password).length < 6) {
+    throw new AppError('Password must be at least 6 characters', HTTP_STATUS.BAD_REQUEST);
+  }
+}
+
+function validateSmtp({ smtpHost, smtpPort, smtpUser, smtpPassword }, passwordRequired = true) {
+  if (!smtpHost || !smtpPort || !smtpUser || (passwordRequired && !smtpPassword)) {
+    throw new AppError('SMTP host, port, user, and password are required', HTTP_STATUS.BAD_REQUEST);
+  }
+
+  const parsedPort = Number(smtpPort);
+  if (!Number.isInteger(parsedPort) || parsedPort < 1 || parsedPort > 65535) {
+    throw new AppError('SMTP port is invalid', HTTP_STATUS.BAD_REQUEST);
+  }
+}
+
 router.get('/users', async (req, res, next) => {
   try {
     const users = await all('SELECT id, email, name, role, created_at FROM users ORDER BY created_at DESC');
@@ -26,46 +52,29 @@ router.get('/users', async (req, res, next) => {
   }
 });
 
-/**
- * Create user
- */
 router.post('/users', async (req, res, next) => {
   try {
     const { email, name, password, role = ROLES.USER } = req.body;
+    const normalizedEmail = normalizeEmail(email);
 
-    if (!email || !name || !password) {
-      throw new AppError('Email, name, and password are required', HTTP_STATUS.BAD_REQUEST);
+    if (!normalizedEmail || !name) {
+      throw new AppError('Email and name are required', HTTP_STATUS.BAD_REQUEST);
     }
 
-    if (password.length < 6) {
-      throw new AppError('Password must be at least 6 characters', HTTP_STATUS.BAD_REQUEST);
-    }
+    validateRole(role);
+    validatePassword(password, true);
 
-    if (!Object.values(ROLES).includes(role)) {
-      throw new AppError('Invalid role', HTTP_STATUS.BAD_REQUEST);
-    }
-
-    // Hash the provided password
-    const saltRounds = 10;
-    const password_hash = await bcryptjs.hash(password, saltRounds);
-
+    const passwordHash = await bcryptjs.hash(password, 10);
     const result = await run(
       'INSERT INTO users (email, name, password_hash, role) VALUES (?, ?, ?, ?)',
-      [email, name, password_hash, role]
-    );
-
-    // Send welcome email
-    await sendEmail(
-      email,
-      'Welcome to Hosting Portal',
-      `Hi ${name},\n\nYour account has been created.\nEmail: ${email}\nRole: ${role === ROLES.ADMIN ? 'Administrator' : 'User'}\n\nYou can now log in with your credentials.`
+      [normalizedEmail, String(name).trim(), passwordHash, role]
     );
 
     res.status(HTTP_STATUS.CREATED).json({
       user: {
         id: result.lastID,
-        email,
-        name,
+        email: normalizedEmail,
+        name: String(name).trim(),
         role
       }
     });
@@ -74,27 +83,30 @@ router.post('/users', async (req, res, next) => {
   }
 });
 
-/**
- * Update user
- */
 router.put('/users/:id', async (req, res, next) => {
   try {
-    const { name, role } = req.body;
     const userId = req.params.id;
+    const { name, role, password } = req.body;
 
     const user = await get('SELECT * FROM users WHERE id = ?', [userId]);
     if (!user) {
       throw new AppError('User not found', HTTP_STATUS.NOT_FOUND);
     }
 
+    if (role) validateRole(role);
+    if (password) validatePassword(password, false);
+
     if (name) {
-      await run('UPDATE users SET name = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', 
-        [name, userId]);
+      await run('UPDATE users SET name = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [String(name).trim(), userId]);
     }
 
-    if (role && Object.values(ROLES).includes(role)) {
-      await run('UPDATE users SET role = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', 
-        [role, userId]);
+    if (role) {
+      await run('UPDATE users SET role = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [role, userId]);
+    }
+
+    if (password) {
+      const passwordHash = await bcryptjs.hash(password, 10);
+      await run('UPDATE users SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [passwordHash, userId]);
     }
 
     const updated = await get('SELECT id, email, name, role, created_at FROM users WHERE id = ?', [userId]);
@@ -104,19 +116,15 @@ router.put('/users/:id', async (req, res, next) => {
   }
 });
 
-/**
- * Delete user
- */
 router.delete('/users/:id', async (req, res, next) => {
   try {
     const userId = req.params.id;
-
     const user = await get('SELECT * FROM users WHERE id = ?', [userId]);
+
     if (!user) {
       throw new AppError('User not found', HTTP_STATUS.NOT_FOUND);
     }
 
-    // Prevent deleting own account
     if (user.id === req.user.id) {
       throw new AppError('Cannot delete your own account', HTTP_STATUS.BAD_REQUEST);
     }
@@ -128,115 +136,6 @@ router.delete('/users/:id', async (req, res, next) => {
   }
 });
 
-// ==================== CUSTOMER GROUPS ====================
-
-/**
- * Get all customer groups
- */
-router.get('/groups', async (req, res, next) => {
-  try {
-    const groups = await all('SELECT * FROM customer_groups ORDER BY created_at DESC');
-    
-    // Get user counts for each group
-    for (let group of groups) {
-      const userCount = await get('SELECT COUNT(*) as count FROM user_groups WHERE group_id = ?', [group.id]);
-      group.userCount = userCount?.count || 0;
-    }
-
-    res.json({ groups });
-  } catch (err) {
-    next(err);
-  }
-});
-
-/**
- * Create customer group
- */
-router.post('/groups', async (req, res, next) => {
-  try {
-    const { name } = req.body;
-
-    if (!name) {
-      throw new AppError('Group name is required', HTTP_STATUS.BAD_REQUEST);
-    }
-
-    const result = await run('INSERT INTO customer_groups (name) VALUES (?)', [name]);
-
-    res.status(HTTP_STATUS.CREATED).json({
-      group: {
-        id: result.lastID,
-        name,
-        userCount: 0
-      }
-    });
-  } catch (err) {
-    next(err);
-  }
-});
-
-/**
- * Delete customer group
- */
-router.delete('/groups/:id', async (req, res, next) => {
-  try {
-    const groupId = req.params.id;
-
-    const group = await get('SELECT * FROM customer_groups WHERE id = ?', [groupId]);
-    if (!group) {
-      throw new AppError('Group not found', HTTP_STATUS.NOT_FOUND);
-    }
-
-    await run('DELETE FROM customer_groups WHERE id = ?', [groupId]);
-    res.json({ message: 'Group deleted successfully' });
-  } catch (err) {
-    next(err);
-  }
-});
-
-/**
- * Add user to group
- */
-router.post('/groups/:groupId/users/:userId', async (req, res, next) => {
-  try {
-    const { groupId, userId } = req.params;
-
-    const group = await get('SELECT * FROM customer_groups WHERE id = ?', [groupId]);
-    const user = await get('SELECT * FROM users WHERE id = ?', [userId]);
-
-    if (!group || !user) {
-      throw new AppError('Group or user not found', HTTP_STATUS.NOT_FOUND);
-    }
-
-    await run('INSERT OR IGNORE INTO user_groups (user_id, group_id) VALUES (?, ?)', 
-      [userId, groupId]);
-
-    res.json({ message: 'User added to group' });
-  } catch (err) {
-    next(err);
-  }
-});
-
-/**
- * Remove user from group
- */
-router.delete('/groups/:groupId/users/:userId', async (req, res, next) => {
-  try {
-    const { groupId, userId } = req.params;
-
-    await run('DELETE FROM user_groups WHERE user_id = ? AND group_id = ?', 
-      [userId, groupId]);
-
-    res.json({ message: 'User removed from group' });
-  } catch (err) {
-    next(err);
-  }
-});
-
-// ==================== PROXMOX CLUSTERS ====================
-
-/**
- * Get all Proxmox clusters
- */
 router.get('/clusters', async (req, res, next) => {
   try {
     const clusters = await all('SELECT id, name, url, created_at FROM proxmox_clusters ORDER BY created_at DESC');
@@ -246,33 +145,30 @@ router.get('/clusters', async (req, res, next) => {
   }
 });
 
-/**
- * Add Proxmox cluster
- */
 router.post('/clusters', async (req, res, next) => {
   try {
     const { name, url, apiToken } = req.body;
+    const normalizedUrl = normalizeUrl(url);
 
-    if (!name || !url || !apiToken) {
+    if (!name || !normalizedUrl || !apiToken) {
       throw new AppError('Name, URL, and API token are required', HTTP_STATUS.BAD_REQUEST);
     }
 
-    // Test connection first
-    const testResult = await testConnection(url, apiToken);
+    const testResult = await testConnection(normalizedUrl, String(apiToken).trim());
     if (!testResult.success) {
       throw new AppError(`Failed to connect to Proxmox: ${testResult.message}`, HTTP_STATUS.BAD_REQUEST);
     }
 
     const result = await run(
       'INSERT INTO proxmox_clusters (name, url, api_token) VALUES (?, ?, ?)',
-      [name, url, apiToken]
+      [String(name).trim(), normalizedUrl, String(apiToken).trim()]
     );
 
     res.status(HTTP_STATUS.CREATED).json({
       cluster: {
         id: result.lastID,
-        name,
-        url
+        name: String(name).trim(),
+        url: normalizedUrl
       }
     });
   } catch (err) {
@@ -280,14 +176,11 @@ router.post('/clusters', async (req, res, next) => {
   }
 });
 
-/**
- * Delete Proxmox cluster
- */
 router.delete('/clusters/:id', async (req, res, next) => {
   try {
     const clusterId = req.params.id;
-
     const cluster = await get('SELECT * FROM proxmox_clusters WHERE id = ?', [clusterId]);
+
     if (!cluster) {
       throw new AppError('Cluster not found', HTTP_STATUS.NOT_FOUND);
     }
@@ -299,45 +192,34 @@ router.delete('/clusters/:id', async (req, res, next) => {
   }
 });
 
-/**
- * Get all containers from a cluster
- */
 router.get('/clusters/:id/containers', async (req, res, next) => {
   try {
     const clusterId = req.params.id;
-
     const cluster = await get('SELECT * FROM proxmox_clusters WHERE id = ?', [clusterId]);
+
     if (!cluster) {
       throw new AppError('Cluster not found', HTTP_STATUS.NOT_FOUND);
     }
 
     const containers = await getAllContainers(cluster.url, cluster.api_token);
-
     res.json({ containers });
   } catch (err) {
     next(err);
   }
 });
 
-// ==================== CONTAINER ASSIGNMENTS ====================
-
-/**
- * Get all assignments
- */
 router.get('/assignments', async (req, res, next) => {
   try {
     const assignments = await all(`
-      SELECT 
+      SELECT
         ca.*,
         pc.name as cluster_name,
-        CASE 
-          WHEN ca.assigned_to_type = 'user' THEN u.email
-          WHEN ca.assigned_to_type = 'group' THEN cg.name
-        END as assigned_to_name
+        u.email as assigned_to_name,
+        u.name as assigned_user_name
       FROM container_assignments ca
       LEFT JOIN proxmox_clusters pc ON ca.cluster_id = pc.id
-      LEFT JOIN users u ON ca.assigned_to_type = 'user' AND ca.assigned_to_id = u.id
-      LEFT JOIN customer_groups cg ON ca.assigned_to_type = 'group' AND ca.assigned_to_id = cg.id
+      LEFT JOIN users u ON ca.assigned_to_id = u.id
+      WHERE ca.assigned_to_type = 'user'
       ORDER BY ca.created_at DESC
     `);
 
@@ -347,28 +229,35 @@ router.get('/assignments', async (req, res, next) => {
   }
 });
 
-/**
- * Assign container to user/group
- */
 router.post('/assignments', async (req, res, next) => {
   try {
-    const { containerId, clusterId, assignedToType, assignedToId } = req.body;
+    const { containerId, clusterId, assignedToId } = req.body;
 
-    if (!containerId || !clusterId || !assignedToType || !assignedToId) {
+    if (!containerId || !clusterId || !assignedToId) {
       throw new AppError('Missing required fields', HTTP_STATUS.BAD_REQUEST);
+    }
+
+    const user = await get('SELECT id FROM users WHERE id = ?', [assignedToId]);
+    if (!user) {
+      throw new AppError('User not found', HTTP_STATUS.NOT_FOUND);
+    }
+
+    const cluster = await get('SELECT id FROM proxmox_clusters WHERE id = ?', [clusterId]);
+    if (!cluster) {
+      throw new AppError('Cluster not found', HTTP_STATUS.NOT_FOUND);
     }
 
     const result = await run(
       'INSERT INTO container_assignments (container_id, cluster_id, assigned_to_type, assigned_to_id) VALUES (?, ?, ?, ?)',
-      [containerId, clusterId, assignedToType, assignedToId]
+      [String(containerId), clusterId, 'user', assignedToId]
     );
 
     res.status(HTTP_STATUS.CREATED).json({
       assignment: {
         id: result.lastID,
-        containerId,
+        containerId: String(containerId),
         clusterId,
-        assignedToType,
+        assignedToType: 'user',
         assignedToId
       }
     });
@@ -377,14 +266,11 @@ router.post('/assignments', async (req, res, next) => {
   }
 });
 
-/**
- * Delete assignment
- */
 router.delete('/assignments/:id', async (req, res, next) => {
   try {
     const assignmentId = req.params.id;
-
     const assignment = await get('SELECT * FROM container_assignments WHERE id = ?', [assignmentId]);
+
     if (!assignment) {
       throw new AppError('Assignment not found', HTTP_STATUS.NOT_FOUND);
     }
@@ -396,22 +282,13 @@ router.delete('/assignments/:id', async (req, res, next) => {
   }
 });
 
-// ==================== SETTINGS ====================
-
-/**
- * Get all settings
- */
 router.get('/settings', async (req, res, next) => {
   try {
     const settings = await all('SELECT key, value FROM settings');
     const settingsObj = {};
-    
-    settings.forEach(s => {
-      if (['smtp_password'].includes(s.key)) {
-        settingsObj[s.key] = '***hidden***';
-      } else {
-        settingsObj[s.key] = s.value;
-      }
+
+    settings.forEach(setting => {
+      settingsObj[setting.key] = setting.key === 'smtp_password' ? '***hidden***' : setting.value;
     });
 
     res.json({ settings: settingsObj });
@@ -420,60 +297,51 @@ router.get('/settings', async (req, res, next) => {
   }
 });
 
-/**
- * Update settings
- */
 router.put('/settings', async (req, res, next) => {
   try {
     const { smtpHost, smtpPort, smtpUser, smtpPassword } = req.body;
+    const currentPassword = await get('SELECT value FROM settings WHERE key = ?', ['smtp_password']);
+    const passwordRequired = !currentPassword?.value || (smtpPassword && smtpPassword !== '***hidden***');
 
-    if (smtpHost) {
-      await run('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', 
-        ['smtp_host', smtpHost]);
-    }
-    if (smtpPort) {
-      await run('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', 
-        ['smtp_port', smtpPort]);
-    }
-    if (smtpUser) {
-      await run('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', 
-        ['smtp_user', smtpUser]);
-    }
+    validateSmtp({ smtpHost, smtpPort, smtpUser, smtpPassword }, passwordRequired);
+
+    await run('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', ['smtp_host', String(smtpHost).trim()]);
+    await run('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', ['smtp_port', String(smtpPort).trim()]);
+    await run('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', ['smtp_user', String(smtpUser).trim()]);
+
     if (smtpPassword && smtpPassword !== '***hidden***') {
-      const encrypted = Buffer.from(smtpPassword).toString('base64');
-      await run('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', 
-        ['smtp_password', encrypted]);
+      await run('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', ['smtp_password', encryptString(smtpPassword)]);
     }
 
+    await initializeEmailService();
     res.json({ message: 'Settings updated successfully' });
   } catch (err) {
     next(err);
   }
 });
 
-/**
- * Test SMTP connection
- */
 router.post('/settings/test-smtp', async (req, res, next) => {
   try {
     const { smtpHost, smtpPort, smtpUser, smtpPassword } = req.body;
-    const { testSmtpConnection } = require('../services/emailService');
+    validateSmtp({ smtpHost, smtpPort, smtpUser, smtpPassword }, true);
 
-    const result = await testSmtpConnection(smtpHost, smtpPort, smtpUser, smtpPassword);
-    res.json(result);
+    const result = await testSmtpConnection(
+      String(smtpHost).trim(),
+      String(smtpPort).trim(),
+      String(smtpUser).trim(),
+      smtpPassword
+    );
+    res.status(result.success ? HTTP_STATUS.OK : HTTP_STATUS.BAD_REQUEST).json(result);
   } catch (err) {
     next(err);
   }
 });
 
-/**
- * Test Proxmox connection
- */
 router.post('/settings/test-proxmox', async (req, res, next) => {
   try {
     const { url, apiToken } = req.body;
-    const result = await testConnection(url, apiToken);
-    res.json(result);
+    const result = await testConnection(normalizeUrl(url), String(apiToken || '').trim());
+    res.status(result.success ? HTTP_STATUS.OK : HTTP_STATUS.BAD_REQUEST).json(result);
   } catch (err) {
     next(err);
   }

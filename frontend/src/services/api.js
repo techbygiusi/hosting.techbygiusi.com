@@ -20,9 +20,6 @@ const MESSAGE_TRANSLATIONS = {
   'If email exists, password reset link has been sent': 'Falls die E-Mail-Adresse existiert, wurde ein Link zum Zurücksetzen versendet.',
   'Logged out successfully': 'Erfolgreich abgemeldet.',
   'User deleted successfully': 'Benutzer erfolgreich gelöscht.',
-  'Group deleted successfully': 'Gruppe erfolgreich gelöscht.',
-  'User added to group': 'Benutzer wurde zur Gruppe hinzugefügt.',
-  'User removed from group': 'Benutzer wurde aus der Gruppe entfernt.',
   'Cluster deleted successfully': 'Cluster erfolgreich gelöscht.',
   'Assignment deleted successfully': 'Zuweisung erfolgreich gelöscht.',
   'Settings updated successfully': 'Einstellungen erfolgreich gespeichert.',
@@ -30,9 +27,19 @@ const MESSAGE_TRANSLATIONS = {
   'Connection successful': 'Verbindung erfolgreich.',
   'Connection failed: unexpected Proxmox API response': 'Verbindung fehlgeschlagen: Unerwartete Antwort der Proxmox API.',
   'Setup is not complete yet. Please finish the initial configuration first.': 'Die Erstkonfiguration ist noch nicht abgeschlossen.',
-  'Login failed': 'Anmeldung fehlgeschlagen.',
-  'Setup failed': 'Erstkonfiguration fehlgeschlagen.',
-  'Password change failed': 'Passwortänderung fehlgeschlagen.'
+  'Email and name are required': 'E-Mail-Adresse und Name sind erforderlich.',
+  'Password must be at least 6 characters': 'Das Passwort muss mindestens 6 Zeichen lang sein.',
+  'Invalid role': 'Ungültige Rolle.',
+  'Cannot delete your own account': 'Du kannst dein eigenes Konto nicht löschen.',
+  'Name, URL, and API token are required': 'Name, URL und API-Token sind erforderlich.',
+  'Missing required fields': 'Pflichtfelder fehlen.',
+  'Cluster not found': 'Cluster wurde nicht gefunden.',
+  'Assignment not found': 'Zuweisung wurde nicht gefunden.',
+  'SMTP host, port, user, and password are required': 'SMTP-Host, Port, Benutzer und Passwort sind erforderlich.',
+  'SMTP port is invalid': 'Der SMTP-Port ist ungültig.',
+  'Current and new password required': 'Aktuelles und neues Passwort sind erforderlich.',
+  'Current password is incorrect': 'Das aktuelle Passwort ist falsch.',
+  'New password must be at least 6 characters': 'Das neue Passwort muss mindestens 6 Zeichen lang sein.'
 };
 
 export function translateMessage(message) {
@@ -42,9 +49,17 @@ export function translateMessage(message) {
   if (message.startsWith('Connection failed with HTTP')) {
     return message.replace('Connection failed with HTTP', 'Verbindung fehlgeschlagen mit HTTP');
   }
-
   if (message.startsWith('Connection failed:')) {
     return message.replace('Connection failed:', 'Verbindung fehlgeschlagen:');
+  }
+  if (message.startsWith('Failed to connect to Proxmox:')) {
+    return message.replace('Failed to connect to Proxmox:', 'Proxmox-Verbindung fehlgeschlagen:');
+  }
+  if (message.startsWith('Proxmox test failed:')) {
+    return message.replace('Proxmox test failed:', 'Proxmox-Test fehlgeschlagen:');
+  }
+  if (message.startsWith('SMTP test failed:')) {
+    return message.replace('SMTP test failed:', 'SMTP-Test fehlgeschlagen:');
   }
 
   return message;
@@ -56,17 +71,13 @@ export function getErrorMessage(error, fallback = 'Ein Fehler ist aufgetreten.')
 
 const apiClient = axios.create({
   baseURL: API_URL,
-  headers: {
-    'Content-Type': 'application/json'
-  }
+  headers: { 'Content-Type': 'application/json' }
 });
 
 apiClient.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
+    if (token) config.headers.Authorization = `Bearer ${token}`;
     return config;
   },
   (error) => Promise.reject(error)
@@ -104,11 +115,9 @@ export const authApi = {
   login: (email, password) => apiClient.post('/auth/login', { email, password }),
   verify: () => apiClient.get('/auth/verify'),
   logout: () => apiClient.post('/auth/logout'),
-  changePassword: (currentPassword, newPassword) =>
-    apiClient.post('/auth/change-password', { currentPassword, newPassword }),
+  changePassword: (currentPassword, newPassword) => apiClient.post('/auth/change-password', { currentPassword, newPassword }),
   forgotPassword: (email) => apiClient.post('/auth/forgot-password', { email }),
-  resetPassword: (token, newPassword) =>
-    apiClient.post('/auth/reset-password', { token, newPassword })
+  resetPassword: (token, newPassword) => apiClient.post('/auth/reset-password', { token, newPassword })
 };
 
 export const adminApi = {
@@ -116,18 +125,10 @@ export const adminApi = {
   createUser: (data) => apiClient.post('/admin/users', data),
   updateUser: (userId, data) => apiClient.put(`/admin/users/${userId}`, data),
   deleteUser: (userId) => apiClient.delete(`/admin/users/${userId}`),
-  getGroups: () => apiClient.get('/admin/groups'),
-  createGroup: (data) => apiClient.post('/admin/groups', data),
-  deleteGroup: (groupId) => apiClient.delete(`/admin/groups/${groupId}`),
-  addUserToGroup: (groupId, userId) =>
-    apiClient.post(`/admin/groups/${groupId}/users/${userId}`),
-  removeUserFromGroup: (groupId, userId) =>
-    apiClient.delete(`/admin/groups/${groupId}/users/${userId}`),
   getClusters: () => apiClient.get('/admin/clusters'),
   createCluster: (data) => apiClient.post('/admin/clusters', data),
   deleteCluster: (clusterId) => apiClient.delete(`/admin/clusters/${clusterId}`),
-  getClusterContainers: (clusterId) =>
-    apiClient.get(`/admin/clusters/${clusterId}/containers`),
+  getClusterContainers: (clusterId) => apiClient.get(`/admin/clusters/${clusterId}/containers`),
   getAssignments: () => apiClient.get('/admin/assignments'),
   createAssignment: (data) => apiClient.post('/admin/assignments', data),
   deleteAssignment: (assignmentId) => apiClient.delete(`/admin/assignments/${assignmentId}`),
@@ -139,7 +140,7 @@ export const adminApi = {
 
 export const userApi = {
   getContainers: () => apiClient.get('/user/containers'),
-  getContainerDetails: (assignmentId) => apiClient.get(`/user/containers/${assignmentId}`),
+  getContainerDetails: (containerId) => apiClient.get(`/user/containers/${containerId}`),
   getProfile: () => apiClient.get('/user/profile'),
   updateProfile: (data) => apiClient.put('/user/profile', data)
 };

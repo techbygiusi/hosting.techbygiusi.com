@@ -1,7 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { adminApi, getErrorMessage } from '../services/api';
+import { adminApi, getErrorMessage, translateMessage } from '../services/api';
 import '../styles/globals.css';
+
+const emptyUser = { email: '', name: '', password: '', role: 'user' };
+const emptyCluster = { name: '', url: '', apiToken: '' };
+const emptyAssignment = { containerId: '', clusterId: '', assignedToId: '' };
+const emptySmtp = { smtpHost: '', smtpPort: '587', smtpUser: '', smtpPassword: '' };
 
 export default function AdminDashboard() {
   const { user, logout } = useAuth();
@@ -9,59 +14,50 @@ export default function AdminDashboard() {
   const [users, setUsers] = useState([]);
   const [clusters, setClusters] = useState([]);
   const [assignments, setAssignments] = useState([]);
-  const [settings, setSettings] = useState({});
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [successMsg, setSuccessMsg] = useState('');
-
+  const [clusterContainers, setClusterContainers] = useState([]);
+  const [settings, setSettings] = useState(emptySmtp);
+  const [newUser, setNewUser] = useState(emptyUser);
+  const [newCluster, setNewCluster] = useState(emptyCluster);
+  const [newAssignment, setNewAssignment] = useState(emptyAssignment);
+  const [smtpTestResult, setSmtpTestResult] = useState(null);
   const [showUserModal, setShowUserModal] = useState(false);
   const [showClusterModal, setShowClusterModal] = useState(false);
   const [showAssignmentModal, setShowAssignmentModal] = useState(false);
-
-  const [newUser, setNewUser] = useState({ email: '', name: '', password: '', role: 'user' });
-  const [newCluster, setNewCluster] = useState({ name: '', url: '', apiToken: '' });
-  const [newAssignment, setNewAssignment] = useState({ containerId: '', clusterId: '', assignedToType: 'user', assignedToId: '' });
-
-  const [showThemeMenu, setShowThemeMenu] = useState(false);
-  const [theme, setTheme] = useState(localStorage.getItem('site_theme') || 'light');
+  const [loading, setLoading] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
 
   const renderRole = (role) => role === 'admin' ? 'Administrator' : 'Benutzer';
+  const adminCount = users.filter(item => item.role === 'admin').length;
+  const userCount = users.filter(item => item.role === 'user').length;
+
+  const currentClusterName = useMemo(() => {
+    const cluster = clusters.find(item => String(item.id) === String(newAssignment.clusterId));
+    return cluster?.name || '';
+  }, [clusters, newAssignment.clusterId]);
 
   useEffect(() => {
-    loadData();
+    loadData(activeTab);
   }, [activeTab]);
 
-  useEffect(() => {
-    if (successMsg) {
-      const timer = setTimeout(() => setSuccessMsg(''), 4000);
-      return () => clearTimeout(timer);
-    }
-  }, [successMsg]);
-
-  const loadData = async () => {
+  const loadData = async (tab = activeTab) => {
     try {
       setLoading(true);
       setError('');
 
-      if (activeTab === 'users' || activeTab === 'overview') {
-        const res = await adminApi.getUsers();
-        setUsers(res.data.users || []);
-      }
+      const requests = [];
+      const needsUsers = ['overview', 'users', 'assignments'].includes(tab);
+      const needsClusters = ['overview', 'clusters', 'assignments'].includes(tab);
+      const needsAssignments = ['overview', 'assignments'].includes(tab);
+      const needsSettings = tab === 'settings';
 
-      if (activeTab === 'clusters' || activeTab === 'overview') {
-        const res = await adminApi.getClusters();
-        setClusters(res.data.clusters || []);
-      }
+      if (needsUsers) requests.push(adminApi.getUsers().then(res => setUsers(res.data.users || [])));
+      if (needsClusters) requests.push(adminApi.getClusters().then(res => setClusters(res.data.clusters || [])));
+      if (needsAssignments) requests.push(adminApi.getAssignments().then(res => setAssignments(res.data.assignments || [])));
+      if (needsSettings) requests.push(loadSettings());
 
-      if (activeTab === 'assignments') {
-        const res = await adminApi.getAssignments();
-        setAssignments(res.data.assignments || []);
-      }
-
-      if (activeTab === 'settings') {
-        const res = await adminApi.getSettings();
-        setSettings(res.data.settings || {});
-      }
+      await Promise.all(requests);
     } catch (err) {
       setError(getErrorMessage(err, 'Daten konnten nicht geladen werden.'));
     } finally {
@@ -69,37 +65,46 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleCreateUser = async () => {
-    try {
-      if (!newUser.email || !newUser.name || !newUser.password) {
-        setError('Email, Name und Passwort erforderlich');
-        return;
-      }
-
-      if (newUser.password.length < 6) {
-        setError('Passwort muss mindestens 6 Zeichen lang sein');
-        return;
-      }
-
-      setError('');
-      await adminApi.createUser(newUser);
-      setSuccessMsg('Benutzer erfolgreich erstellt.');
-      setNewUser({ email: '', name: '', password: '', role: 'user' });
-      setShowUserModal(false);
-      loadData();
-    } catch (err) {
-      setError(getErrorMessage(err, 'Benutzer konnte nicht erstellt werden.'));
-    }
+  const loadSettings = async () => {
+    const res = await adminApi.getSettings();
+    const smtp = res.data.settings || {};
+    setSettings({
+      smtpHost: smtp.smtp_host || '',
+      smtpPort: smtp.smtp_port || '587',
+      smtpUser: smtp.smtp_user || '',
+      smtpPassword: ''
+    });
+    setSmtpTestResult(null);
   };
 
-  const handleUpdateUserRole = async (userId, newRole) => {
+  const showSuccess = (message) => {
+    setSuccessMsg(message);
+    setTimeout(() => setSuccessMsg(''), 4000);
+  };
+
+  const handleCreateUser = async (e) => {
+    e.preventDefault();
+    if (!newUser.email || !newUser.name || !newUser.password) {
+      setError('Bitte Name, E-Mail-Adresse und Passwort eingeben.');
+      return;
+    }
+    if (newUser.password.length < 6) {
+      setError('Das Passwort muss mindestens 6 Zeichen lang sein.');
+      return;
+    }
+
     try {
+      setActionLoading(true);
       setError('');
-      await adminApi.updateUser(userId, { role: newRole });
-      setSuccessMsg('Benutzerrolle aktualisiert.');
-      loadData();
+      await adminApi.createUser(newUser);
+      setNewUser(emptyUser);
+      setShowUserModal(false);
+      showSuccess('Benutzer erfolgreich angelegt.');
+      await loadData('users');
     } catch (err) {
-      setError(getErrorMessage(err, 'Rolle konnte nicht aktualisiert werden.'));
+      setError(getErrorMessage(err, 'Benutzer konnte nicht angelegt werden.'));
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -107,600 +112,378 @@ export default function AdminDashboard() {
     if (!window.confirm('Diesen Benutzer wirklich löschen?')) return;
 
     try {
+      setActionLoading(true);
       setError('');
       await adminApi.deleteUser(userId);
-      setSuccessMsg('Benutzer erfolgreich gelöscht.');
-      loadData();
+      showSuccess('Benutzer erfolgreich gelöscht.');
+      await loadData(activeTab);
     } catch (err) {
       setError(getErrorMessage(err, 'Benutzer konnte nicht gelöscht werden.'));
+    } finally {
+      setActionLoading(false);
     }
   };
 
-  const handleCreateCluster = async () => {
-    try {
-      if (!newCluster.name || !newCluster.url || !newCluster.apiToken) {
-        setError('Alle Felder erforderlich');
-        return;
-      }
+  const handleCreateCluster = async (e) => {
+    e.preventDefault();
+    if (!newCluster.name || !newCluster.url || !newCluster.apiToken) {
+      setError('Bitte Cluster-Name, URL und API-Token eingeben.');
+      return;
+    }
 
+    try {
+      setActionLoading(true);
       setError('');
       await adminApi.createCluster(newCluster);
-      setSuccessMsg('Proxmox-Cluster hinzugefügt.');
-      setNewCluster({ name: '', url: '', apiToken: '' });
+      setNewCluster(emptyCluster);
       setShowClusterModal(false);
-      loadData();
+      showSuccess('Proxmox-Cluster erfolgreich gespeichert.');
+      await loadData('clusters');
     } catch (err) {
       setError(getErrorMessage(err, 'Cluster konnte nicht hinzugefügt werden.'));
+    } finally {
+      setActionLoading(false);
     }
   };
 
   const handleDeleteCluster = async (clusterId) => {
-    if (!window.confirm('Cluster wirklich löschen?')) return;
+    if (!window.confirm('Diesen Cluster wirklich löschen?')) return;
 
     try {
+      setActionLoading(true);
       setError('');
       await adminApi.deleteCluster(clusterId);
-      setSuccessMsg('Cluster erfolgreich gelöscht.');
-      loadData();
+      showSuccess('Cluster erfolgreich gelöscht.');
+      await loadData(activeTab);
     } catch (err) {
       setError(getErrorMessage(err, 'Cluster konnte nicht gelöscht werden.'));
+    } finally {
+      setActionLoading(false);
     }
   };
 
-  const handleCreateAssignment = async () => {
-    try {
-      if (!newAssignment.containerId || !newAssignment.clusterId || !newAssignment.assignedToId) {
-        setError('Alle Felder erforderlich');
-        return;
-      }
+  const handleLoadClusterContainers = async () => {
+    if (!newAssignment.clusterId) {
+      setError('Bitte zuerst einen Cluster auswählen.');
+      return;
+    }
 
+    try {
+      setActionLoading(true);
+      setError('');
+      const res = await adminApi.getClusterContainers(newAssignment.clusterId);
+      setClusterContainers(res.data.containers || []);
+      if (!res.data.containers?.length) {
+        showSuccess('Der Cluster hat keine Container oder VMs zurückgegeben.');
+      }
+    } catch (err) {
+      setError(getErrorMessage(err, 'Container konnten nicht geladen werden.'));
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleCreateAssignment = async (e) => {
+    e.preventDefault();
+    if (!newAssignment.containerId || !newAssignment.clusterId || !newAssignment.assignedToId) {
+      setError('Bitte Cluster, Container/VM und Benutzer auswählen.');
+      return;
+    }
+
+    try {
+      setActionLoading(true);
       setError('');
       await adminApi.createAssignment(newAssignment);
-      setSuccessMsg('Container zugewiesen.');
-      setNewAssignment({ containerId: '', clusterId: '', assignedToType: 'user', assignedToId: '' });
+      setNewAssignment(emptyAssignment);
+      setClusterContainers([]);
       setShowAssignmentModal(false);
-      loadData();
+      showSuccess('Zuweisung erfolgreich angelegt.');
+      await loadData('assignments');
     } catch (err) {
-      setError(getErrorMessage(err, 'Zuweisung konnte nicht erstellt werden.'));
+      setError(getErrorMessage(err, 'Zuweisung konnte nicht angelegt werden.'));
+    } finally {
+      setActionLoading(false);
     }
   };
 
   const handleDeleteAssignment = async (assignmentId) => {
-    if (!window.confirm('Zuweisung wirklich löschen?')) return;
+    if (!window.confirm('Diese Zuweisung wirklich löschen?')) return;
 
     try {
+      setActionLoading(true);
       setError('');
       await adminApi.deleteAssignment(assignmentId);
-      setSuccessMsg('Zuweisung erfolgreich entfernt.');
-      loadData();
+      showSuccess('Zuweisung erfolgreich gelöscht.');
+      await loadData('assignments');
     } catch (err) {
       setError(getErrorMessage(err, 'Zuweisung konnte nicht gelöscht werden.'));
+    } finally {
+      setActionLoading(false);
     }
   };
 
-  const handleUpdateSettings = async () => {
-    try {
-      if (!settings.smtp_host || !settings.smtp_port || !settings.smtp_user || !settings.smtp_password) {
-        setError('Alle SMTP-Felder erforderlich');
-        return;
-      }
-
-      setError('');
-      await adminApi.updateSettings({
-        smtpHost: settings.smtp_host,
-        smtpPort: settings.smtp_port,
-        smtpUser: settings.smtp_user,
-        smtpPassword: settings.smtp_password
-      });
-      setSuccessMsg('SMTP-Einstellungen aktualisiert.');
-    } catch (err) {
-      setError(getErrorMessage(err, 'Einstellungen konnten nicht aktualisiert werden.'));
-    }
+  const handleSettingsChange = (e) => {
+    const { name, value } = e.target;
+    setSettings(prev => ({ ...prev, [name]: value }));
+    setSmtpTestResult(null);
+    setError('');
   };
 
   const handleTestSmtp = async () => {
+    if (!settings.smtpHost || !settings.smtpPort || !settings.smtpUser || !settings.smtpPassword) {
+      setError('Für den SMTP-Test bitte auch das SMTP-Passwort eingeben.');
+      return;
+    }
+
     try {
-      if (!settings.smtp_host || !settings.smtp_port || !settings.smtp_user || !settings.smtp_password) {
-        setError('Alle SMTP-Felder erforderlich');
-        return;
-      }
-
+      setActionLoading(true);
       setError('');
-      const result = await adminApi.testSmtp({
-        smtpHost: settings.smtp_host,
-        smtpPort: settings.smtp_port,
-        smtpUser: settings.smtp_user,
-        smtpPassword: settings.smtp_password
-      });
-
-      if (result.data.success) {
-        setSuccessMsg('SMTP-Verbindung erfolgreich!');
-      } else {
-        setError(result.data.message || 'SMTP-Test fehlgeschlagen');
-      }
+      const res = await adminApi.testSmtp(settings);
+      setSmtpTestResult(res.data);
     } catch (err) {
-      setError(getErrorMessage(err, 'SMTP-Test fehlgeschlagen.'));
+      setSmtpTestResult({ success: false, message: getErrorMessage(err, 'SMTP-Test fehlgeschlagen.') });
+    } finally {
+      setActionLoading(false);
     }
   };
 
-  const toggleTheme = (newTheme) => {
-    setTheme(newTheme);
-    document.body.classList.remove('theme-light', 'theme-dark');
-    document.body.classList.add(`theme-${newTheme}`);
-    localStorage.setItem('site_theme', newTheme);
-    setShowThemeMenu(false);
+  const handleSaveSettings = async (e) => {
+    e.preventDefault();
+    if (!settings.smtpHost || !settings.smtpPort || !settings.smtpUser) {
+      setError('Bitte SMTP-Host, Port und Benutzer eingeben.');
+      return;
+    }
+
+    try {
+      setActionLoading(true);
+      setError('');
+      await adminApi.updateSettings(settings);
+      setSettings(prev => ({ ...prev, smtpPassword: '' }));
+      showSuccess('SMTP-Einstellungen erfolgreich gespeichert.');
+    } catch (err) {
+      setError(getErrorMessage(err, 'SMTP-Einstellungen konnten nicht gespeichert werden.'));
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   return (
-    <div className="admin-container">
-      {/* Header */}
-      <div className="admin-header">
-        <div className="admin-header-content">
-          <h1>Verwaltung</h1>
-          <div className="admin-header-actions">
-            <span className="user-name">{user?.email}</span>
-            <div className="dropdown-container">
-              <button
-                className="icon-btn theme-toggle-btn"
-                onClick={() => setShowThemeMenu(!showThemeMenu)}
-                aria-label="Theme umschalten"
-              >
-                {theme === 'dark' ? '☀️' : '🌙'}
-              </button>
-              {showThemeMenu && (
-                <div className="dropdown-menu">
-                  <button
-                    className={`dropdown-item ${theme === 'light' ? 'active' : ''}`}
-                    onClick={() => toggleTheme('light')}
-                  >
-                    Light Mode
-                  </button>
-                  <button
-                    className={`dropdown-item ${theme === 'dark' ? 'active' : ''}`}
-                    onClick={() => toggleTheme('dark')}
-                  >
-                    Dark Mode
-                  </button>
-                </div>
-              )}
-            </div>
-            <button className="logout-btn" onClick={logout}>
-              Abmelden
-            </button>
-          </div>
+    <div className="app-page">
+      <header className="app-topbar">
+        <div>
+          <p className="eyebrow">Hosting Portal</p>
+          <h1>Administration</h1>
         </div>
-      </div>
-
-      {/* Tabs Navigation */}
-      <div className="admin-tabs">
-        <button
-          className={`tab-btn ${activeTab === 'overview' ? 'active' : ''}`}
-          onClick={() => setActiveTab('overview')}
-        >
-          Übersicht
-        </button>
-        <button
-          className={`tab-btn ${activeTab === 'users' ? 'active' : ''}`}
-          onClick={() => setActiveTab('users')}
-        >
-          Benutzer
-        </button>
-        <button
-          className={`tab-btn ${activeTab === 'clusters' ? 'active' : ''}`}
-          onClick={() => setActiveTab('clusters')}
-        >
-          Cluster
-        </button>
-        <button
-          className={`tab-btn ${activeTab === 'assignments' ? 'active' : ''}`}
-          onClick={() => setActiveTab('assignments')}
-        >
-          Zuweisungen
-        </button>
-        <button
-          className={`tab-btn ${activeTab === 'settings' ? 'active' : ''}`}
-          onClick={() => setActiveTab('settings')}
-        >
-          Einstellungen
-        </button>
-      </div>
-
-      {/* Alerts */}
-      {error && (
-        <div className="alert alert-error">
-          <span>{error}</span>
-          <button className="alert-close" onClick={() => setError('')}>✕</button>
+        <div className="topbar-actions">
+          <span className="user-chip">{user?.name || user?.email}</span>
+          <button type="button" className="btn-secondary" onClick={logout}>Abmelden</button>
         </div>
-      )}
-      {successMsg && (
-        <div className="alert alert-success">
-          <span>{successMsg}</span>
-          <button className="alert-close" onClick={() => setSuccessMsg('')}>✕</button>
-        </div>
-      )}
+      </header>
 
-      {/* Content */}
-      <div className="admin-content">
-        {loading ? (
-          <div className="loader-container">
-            <div className="spinner"></div>
-            <p>Laden...</p>
-          </div>
-        ) : (
-          <>
-            {/* OVERVIEW TAB */}
-            {activeTab === 'overview' && (
-              <div className="overview-grid">
-                <div className="stat-card">
-                  <div className="stat-number">{users.length}</div>
-                  <div className="stat-label">Benutzer gesamt</div>
-                </div>
-                <div className="stat-card">
-                  <div className="stat-number">{clusters.length}</div>
-                  <div className="stat-label">Proxmox-Cluster</div>
-                </div>
-                <div className="stat-card">
-                  <div className="stat-number">{assignments.length}</div>
-                  <div className="stat-label">Zuweisungen</div>
-                </div>
-                <div className="stat-card">
-                  <div className="stat-number">{users.filter(u => u.role === 'admin').length}</div>
-                  <div className="stat-label">Administrator</div>
-                </div>
-              </div>
-            )}
+      <main className="app-container">
+        <nav className="app-tabs" aria-label="Administration">
+          <button type="button" className={activeTab === 'overview' ? 'active' : ''} onClick={() => setActiveTab('overview')}>Übersicht</button>
+          <button type="button" className={activeTab === 'users' ? 'active' : ''} onClick={() => setActiveTab('users')}>Benutzer</button>
+          <button type="button" className={activeTab === 'clusters' ? 'active' : ''} onClick={() => setActiveTab('clusters')}>Proxmox</button>
+          <button type="button" className={activeTab === 'assignments' ? 'active' : ''} onClick={() => setActiveTab('assignments')}>Zuweisungen</button>
+          <button type="button" className={activeTab === 'settings' ? 'active' : ''} onClick={() => setActiveTab('settings')}>Einstellungen</button>
+        </nav>
 
-            {/* USERS TAB */}
-            {activeTab === 'users' && (
-              <div>
-                <div className="tab-header">
-                  <h2>Benutzerverwaltung</h2>
-                  <button className="btn-primary" onClick={() => setShowUserModal(true)}>
-                    + Benutzer hinzufügen
-                  </button>
-                </div>
+        {error && <div className="alert alert-danger">{error}</div>}
+        {successMsg && <div className="alert alert-success">{successMsg}</div>}
+        {loading && <div className="loading"><span className="spinner"></span><span>Lädt...</span></div>}
 
-                {showUserModal && (
-                  <div className="modal-overlay" onClick={() => setShowUserModal(false)}>
-                    <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-                      <div className="modal-header">
-                        <h3>Neuer Benutzer</h3>
-                        <button className="modal-close" onClick={() => setShowUserModal(false)}>✕</button>
-                      </div>
-                      <div className="modal-body">
-                        <div className="form-group">
-                          <label>Email</label>
-                          <input
-                            type="email"
-                            placeholder="benutzer@example.com"
-                            value={newUser.email}
-                            onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
-                          />
-                        </div>
-                        <div className="form-group">
-                          <label>Name</label>
-                          <input
-                            type="text"
-                            placeholder="Max Mustermann"
-                            value={newUser.name}
-                            onChange={(e) => setNewUser({ ...newUser, name: e.target.value })}
-                          />
-                        </div>
-                        <div className="form-group">
-                          <label>Passwort</label>
-                          <input
-                            type="password"
-                            placeholder="Mindestens 6 Zeichen"
-                            value={newUser.password}
-                            onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
-                          />
-                        </div>
-                        <div className="form-group">
-                          <label>Rolle</label>
-                          <select
-                            value={newUser.role}
-                            onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}
-                          >
-                            <option value="user">Benutzer</option>
-                            <option value="admin">Administrator</option>
-                          </select>
-                        </div>
-                      </div>
-                      <div className="modal-footer">
-                        <button className="btn-secondary" onClick={() => setShowUserModal(false)}>
-                          Abbrechen
-                        </button>
-                        <button className="btn-primary" onClick={handleCreateUser}>
-                          Erstellen
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                <div className="table-wrapper">
-                  <table className="admin-table">
-                    <thead>
-                      <tr>
-                        <th>Email</th>
-                        <th>Name</th>
-                        <th>Rolle</th>
-                        <th>Erstellt am</th>
-                        <th>Aktionen</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {users.map((u) => (
-                        <tr key={u.id}>
-                          <td>{u.email}</td>
-                          <td>{u.name}</td>
-                          <td>
-                            <select
-                              value={u.role}
-                              onChange={(e) => handleUpdateUserRole(u.id, e.target.value)}
-                              className="role-select"
-                            >
-                              <option value="user">Benutzer</option>
-                              <option value="admin">Administrator</option>
-                            </select>
-                          </td>
-                          <td>{new Date(u.created_at).toLocaleDateString('de-DE')}</td>
-                          <td>
-                            <button
-                              className="btn-delete"
-                              onClick={() => handleDeleteUser(u.id)}
-                            >
-                              Löschen
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-
-            {/* CLUSTERS TAB */}
-            {activeTab === 'clusters' && (
-              <div>
-                <div className="tab-header">
-                  <h2>Proxmox-Cluster</h2>
-                  <button className="btn-primary" onClick={() => setShowClusterModal(true)}>
-                    + Cluster hinzufügen
-                  </button>
-                </div>
-
-                {showClusterModal && (
-                  <div className="modal-overlay" onClick={() => setShowClusterModal(false)}>
-                    <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-                      <div className="modal-header">
-                        <h3>Neuer Proxmox-Cluster</h3>
-                        <button className="modal-close" onClick={() => setShowClusterModal(false)}>✕</button>
-                      </div>
-                      <div className="modal-body">
-                        <div className="form-group">
-                          <label>Name</label>
-                          <input
-                            type="text"
-                            placeholder="z.B. Cluster 1"
-                            value={newCluster.name}
-                            onChange={(e) => setNewCluster({ ...newCluster, name: e.target.value })}
-                          />
-                        </div>
-                        <div className="form-group">
-                          <label>URL</label>
-                          <input
-                            type="text"
-                            placeholder="https://proxmox.example.com:8006"
-                            value={newCluster.url}
-                            onChange={(e) => setNewCluster({ ...newCluster, url: e.target.value })}
-                          />
-                        </div>
-                        <div className="form-group">
-                          <label>API-Token</label>
-                          <input
-                            type="password"
-                            placeholder="API-Token"
-                            value={newCluster.apiToken}
-                            onChange={(e) => setNewCluster({ ...newCluster, apiToken: e.target.value })}
-                          />
-                        </div>
-                      </div>
-                      <div className="modal-footer">
-                        <button className="btn-secondary" onClick={() => setShowClusterModal(false)}>
-                          Abbrechen
-                        </button>
-                        <button className="btn-primary" onClick={handleCreateCluster}>
-                          Hinzufügen
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                <div className="cluster-grid">
-                  {clusters.map((cluster) => (
-                    <div key={cluster.id} className="cluster-card">
-                      <h4>{cluster.name}</h4>
-                      <p className="cluster-url">{cluster.url}</p>
-                      <p className="cluster-date">Erstellt: {new Date(cluster.created_at).toLocaleDateString('de-DE')}</p>
-                      <button
-                        className="btn-delete"
-                        onClick={() => handleDeleteCluster(cluster.id)}
-                      >
-                        Löschen
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* ASSIGNMENTS TAB */}
-            {activeTab === 'assignments' && (
-              <div>
-                <div className="tab-header">
-                  <h2>Container-Zuweisungen</h2>
-                  <button className="btn-primary" onClick={() => setShowAssignmentModal(true)}>
-                    + Zuweisung hinzufügen
-                  </button>
-                </div>
-
-                {showAssignmentModal && (
-                  <div className="modal-overlay" onClick={() => setShowAssignmentModal(false)}>
-                    <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-                      <div className="modal-header">
-                        <h3>Neue Zuweisung</h3>
-                        <button className="modal-close" onClick={() => setShowAssignmentModal(false)}>✕</button>
-                      </div>
-                      <div className="modal-body">
-                        <div className="form-group">
-                          <label>Cluster</label>
-                          <select
-                            value={newAssignment.clusterId}
-                            onChange={(e) => setNewAssignment({ ...newAssignment, clusterId: e.target.value })}
-                          >
-                            <option value="">-- Wählen --</option>
-                            {clusters.map((c) => (
-                              <option key={c.id} value={c.id}>{c.name}</option>
-                            ))}
-                          </select>
-                        </div>
-                        <div className="form-group">
-                          <label>Container-ID</label>
-                          <input
-                            type="text"
-                            placeholder="z.B. 100"
-                            value={newAssignment.containerId}
-                            onChange={(e) => setNewAssignment({ ...newAssignment, containerId: e.target.value })}
-                          />
-                        </div>
-                        <div className="form-group">
-                          <label>Zuweisen zu</label>
-                          <select
-                            value={newAssignment.assignedToType}
-                            onChange={(e) => setNewAssignment({ ...newAssignment, assignedToType: e.target.value })}
-                          >
-                            <option value="user">Benutzer</option>
-                            <option value="group">Gruppe</option>
-                          </select>
-                        </div>
-                        <div className="form-group">
-                          <label>{newAssignment.assignedToType === 'user' ? 'Benutzer' : 'Gruppe'}</label>
-                          <select
-                            value={newAssignment.assignedToId}
-                            onChange={(e) => setNewAssignment({ ...newAssignment, assignedToId: e.target.value })}
-                          >
-                            <option value="">-- Wählen --</option>
-                            {newAssignment.assignedToType === 'user' ? (
-                              users.map((u) => (
-                                <option key={u.id} value={u.id}>{u.email}</option>
-                              ))
-                            ) : null}
-                          </select>
-                        </div>
-                      </div>
-                      <div className="modal-footer">
-                        <button className="btn-secondary" onClick={() => setShowAssignmentModal(false)}>
-                          Abbrechen
-                        </button>
-                        <button className="btn-primary" onClick={handleCreateAssignment}>
-                          Zuweisen
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                <div className="table-wrapper">
-                  <table className="admin-table">
-                    <thead>
-                      <tr>
-                        <th>Container-ID</th>
-                        <th>Cluster</th>
-                        <th>Zugewiesen zu</th>
-                        <th>Typ</th>
-                        <th>Aktionen</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {assignments.map((a) => (
-                        <tr key={a.id}>
-                          <td>{a.container_id}</td>
-                          <td>{a.cluster_name}</td>
-                          <td>{a.assigned_to_name}</td>
-                          <td>{a.assigned_to_type === 'user' ? 'Benutzer' : 'Gruppe'}</td>
-                          <td>
-                            <button
-                              className="btn-delete"
-                              onClick={() => handleDeleteAssignment(a.id)}
-                            >
-                              Löschen
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-
-            {/* SETTINGS TAB */}
-            {activeTab === 'settings' && (
-              <div>
-                <h2>SMTP-Einstellungen</h2>
-                <div className="settings-form">
-                  <div className="form-group">
-                    <label>SMTP-Host</label>
-                    <input
-                      type="text"
-                      placeholder="smtp.example.com"
-                      value={settings.smtp_host || ''}
-                      onChange={(e) => setSettings({ ...settings, smtp_host: e.target.value })}
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label>SMTP-Port</label>
-                    <input
-                      type="number"
-                      placeholder="587"
-                      value={settings.smtp_port || ''}
-                      onChange={(e) => setSettings({ ...settings, smtp_port: e.target.value })}
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label>SMTP-Benutzer</label>
-                    <input
-                      type="text"
-                      placeholder="benutzer@example.com"
-                      value={settings.smtp_user || ''}
-                      onChange={(e) => setSettings({ ...settings, smtp_user: e.target.value })}
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label>SMTP-Passwort</label>
-                    <input
-                      type="password"
-                      placeholder="••••••••"
-                      value={settings.smtp_password || ''}
-                      onChange={(e) => setSettings({ ...settings, smtp_password: e.target.value })}
-                    />
-                  </div>
-                  <div className="form-actions">
-                    <button className="btn-secondary" onClick={handleTestSmtp}>
-                      Test
-                    </button>
-                    <button className="btn-primary" onClick={handleUpdateSettings}>
-                      Speichern
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-          </>
+        {!loading && activeTab === 'overview' && (
+          <section className="dashboard-grid">
+            <article className="metric-card">
+              <span>Benutzer</span>
+              <strong>{users.length}</strong>
+              <small>{adminCount} Administratoren · {userCount} Benutzer</small>
+            </article>
+            <article className="metric-card">
+              <span>Proxmox-Cluster</span>
+              <strong>{clusters.length}</strong>
+              <small>Gespeicherte API-Verbindungen</small>
+            </article>
+            <article className="metric-card">
+              <span>Zuweisungen</span>
+              <strong>{assignments.length}</strong>
+              <small>Direkte Benutzerzuweisungen</small>
+            </article>
+          </section>
         )}
+
+        {!loading && activeTab === 'users' && (
+          <section className="panel-card">
+            <div className="panel-header">
+              <div>
+                <h2>Benutzer</h2>
+                <p>Lege Benutzer mit festem Startpasswort und Rolle an.</p>
+              </div>
+              <button type="button" className="btn-primary" onClick={() => setShowUserModal(true)}>Benutzer anlegen</button>
+            </div>
+            <div className="table-responsive">
+              <table>
+                <thead>
+                  <tr><th>Name</th><th>E-Mail</th><th>Rolle</th><th>Aktion</th></tr>
+                </thead>
+                <tbody>
+                  {users.map(item => (
+                    <tr key={item.id}>
+                      <td>{item.name}</td>
+                      <td>{item.email}</td>
+                      <td><span className="badge">{renderRole(item.role)}</span></td>
+                      <td><button type="button" className="btn-danger btn-small" onClick={() => handleDeleteUser(item.id)} disabled={actionLoading || item.id === user?.id}>Löschen</button></td>
+                    </tr>
+                  ))}
+                  {users.length === 0 && <tr><td colSpan="4" className="empty-cell">Keine Benutzer vorhanden.</td></tr>}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        )}
+
+        {!loading && activeTab === 'clusters' && (
+          <section className="panel-card">
+            <div className="panel-header">
+              <div>
+                <h2>Proxmox</h2>
+                <p>Verwalte die API-Verbindungen zu deinen Clustern.</p>
+              </div>
+              <button type="button" className="btn-primary" onClick={() => setShowClusterModal(true)}>Cluster hinzufügen</button>
+            </div>
+            <div className="table-responsive">
+              <table>
+                <thead>
+                  <tr><th>Name</th><th>URL</th><th>Aktion</th></tr>
+                </thead>
+                <tbody>
+                  {clusters.map(item => (
+                    <tr key={item.id}>
+                      <td>{item.name}</td>
+                      <td>{item.url}</td>
+                      <td><button type="button" className="btn-danger btn-small" onClick={() => handleDeleteCluster(item.id)} disabled={actionLoading}>Löschen</button></td>
+                    </tr>
+                  ))}
+                  {clusters.length === 0 && <tr><td colSpan="3" className="empty-cell">Kein Cluster gespeichert.</td></tr>}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        )}
+
+        {!loading && activeTab === 'assignments' && (
+          <section className="panel-card">
+            <div className="panel-header">
+              <div>
+                <h2>Zuweisungen</h2>
+                <p>Weise Container oder VMs direkt einem Benutzer zu.</p>
+              </div>
+              <button type="button" className="btn-primary" onClick={() => setShowAssignmentModal(true)}>Zuweisung anlegen</button>
+            </div>
+            <div className="table-responsive">
+              <table>
+                <thead>
+                  <tr><th>Container/VM</th><th>Cluster</th><th>Benutzer</th><th>Aktion</th></tr>
+                </thead>
+                <tbody>
+                  {assignments.map(item => (
+                    <tr key={item.id}>
+                      <td>{item.container_id}</td>
+                      <td>{item.cluster_name}</td>
+                      <td>{item.assigned_user_name ? `${item.assigned_user_name} (${item.assigned_to_name})` : item.assigned_to_name}</td>
+                      <td><button type="button" className="btn-danger btn-small" onClick={() => handleDeleteAssignment(item.id)} disabled={actionLoading}>Löschen</button></td>
+                    </tr>
+                  ))}
+                  {assignments.length === 0 && <tr><td colSpan="4" className="empty-cell">Keine Zuweisungen vorhanden.</td></tr>}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        )}
+
+        {!loading && activeTab === 'settings' && (
+          <section className="panel-card settings-card">
+            <div className="panel-header">
+              <div>
+                <h2>Einstellungen</h2>
+                <p>Ändere SMTP-Daten auch nach der Erstkonfiguration.</p>
+              </div>
+            </div>
+            <form className="form-grid" onSubmit={handleSaveSettings}>
+              <label className="form-group">
+                <span>SMTP-Host</span>
+                <input type="text" name="smtpHost" value={settings.smtpHost} onChange={handleSettingsChange} placeholder="smtp.example.com" />
+              </label>
+              <label className="form-group">
+                <span>SMTP-Port</span>
+                <input type="text" name="smtpPort" value={settings.smtpPort} onChange={handleSettingsChange} placeholder="587" />
+              </label>
+              <label className="form-group">
+                <span>SMTP-Benutzer</span>
+                <input type="email" name="smtpUser" value={settings.smtpUser} onChange={handleSettingsChange} placeholder="noreply@example.com" />
+              </label>
+              <label className="form-group">
+                <span>SMTP-Passwort</span>
+                <input type="password" name="smtpPassword" value={settings.smtpPassword} onChange={handleSettingsChange} placeholder="Leer lassen, um es nicht zu ändern" />
+              </label>
+              <div className="form-actions full-width">
+                <button type="button" className="btn-secondary" onClick={handleTestSmtp} disabled={actionLoading}>SMTP testen</button>
+                <button type="submit" className="btn-primary" disabled={actionLoading}>SMTP speichern</button>
+              </div>
+            </form>
+            {smtpTestResult && <div className={`test-result ${smtpTestResult.success ? 'success' : 'error'}`}>{translateMessage(smtpTestResult.message)}</div>}
+          </section>
+        )}
+      </main>
+
+      {showUserModal && (
+        <Modal title="Benutzer anlegen" onClose={() => setShowUserModal(false)}>
+          <form className="form-stack" onSubmit={handleCreateUser}>
+            <label className="form-group"><span>Name</span><input type="text" value={newUser.name} onChange={e => setNewUser(prev => ({ ...prev, name: e.target.value }))} placeholder="Max Mustermann" /></label>
+            <label className="form-group"><span>E-Mail-Adresse</span><input type="email" value={newUser.email} onChange={e => setNewUser(prev => ({ ...prev, email: e.target.value }))} placeholder="max@example.com" /></label>
+            <label className="form-group"><span>Startpasswort</span><input type="text" value={newUser.password} onChange={e => setNewUser(prev => ({ ...prev, password: e.target.value }))} placeholder="Passwort für den Benutzer" /></label>
+            <label className="form-group"><span>Rolle</span><select value={newUser.role} onChange={e => setNewUser(prev => ({ ...prev, role: e.target.value }))}><option value="user">Benutzer</option><option value="admin">Administrator</option></select></label>
+            <div className="form-actions"><button type="button" className="btn-secondary" onClick={() => setShowUserModal(false)}>Abbrechen</button><button type="submit" className="btn-primary" disabled={actionLoading}>Anlegen</button></div>
+          </form>
+        </Modal>
+      )}
+
+      {showClusterModal && (
+        <Modal title="Proxmox-Cluster hinzufügen" onClose={() => setShowClusterModal(false)}>
+          <form className="form-stack" onSubmit={handleCreateCluster}>
+            <label className="form-group"><span>Name</span><input type="text" value={newCluster.name} onChange={e => setNewCluster(prev => ({ ...prev, name: e.target.value }))} placeholder="Home Lab" /></label>
+            <label className="form-group"><span>URL</span><input type="text" value={newCluster.url} onChange={e => setNewCluster(prev => ({ ...prev, url: e.target.value }))} placeholder="https://10.10.0.10:8006" /></label>
+            <label className="form-group"><span>API-Token</span><input type="password" value={newCluster.apiToken} onChange={e => setNewCluster(prev => ({ ...prev, apiToken: e.target.value }))} placeholder="user@pam!tokenid=secret" /></label>
+            <div className="form-actions"><button type="button" className="btn-secondary" onClick={() => setShowClusterModal(false)}>Abbrechen</button><button type="submit" className="btn-primary" disabled={actionLoading}>Speichern</button></div>
+          </form>
+        </Modal>
+      )}
+
+      {showAssignmentModal && (
+        <Modal title="Zuweisung anlegen" onClose={() => setShowAssignmentModal(false)}>
+          <form className="form-stack" onSubmit={handleCreateAssignment}>
+            <label className="form-group"><span>Cluster</span><select value={newAssignment.clusterId} onChange={e => { setNewAssignment(prev => ({ ...prev, clusterId: e.target.value, containerId: '' })); setClusterContainers([]); }}><option value="">Bitte auswählen</option>{clusters.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+            <button type="button" className="btn-secondary" onClick={handleLoadClusterContainers} disabled={actionLoading || !newAssignment.clusterId}>{currentClusterName ? `Container von ${currentClusterName} laden` : 'Container laden'}</button>
+            <label className="form-group"><span>Container/VM</span>{clusterContainers.length > 0 ? <select value={newAssignment.containerId} onChange={e => setNewAssignment(prev => ({ ...prev, containerId: e.target.value }))}><option value="">Bitte auswählen</option>{clusterContainers.map(item => <option key={`${item.type}-${item.vmid}`} value={item.vmid}>{item.vmid} · {item.name || item.type} · {item.status}</option>)}</select> : <input type="text" value={newAssignment.containerId} onChange={e => setNewAssignment(prev => ({ ...prev, containerId: e.target.value }))} placeholder="VMID oder CTID" />}</label>
+            <label className="form-group"><span>Benutzer</span><select value={newAssignment.assignedToId} onChange={e => setNewAssignment(prev => ({ ...prev, assignedToId: e.target.value }))}><option value="">Bitte auswählen</option>{users.map(item => <option key={item.id} value={item.id}>{item.name} · {item.email}</option>)}</select></label>
+            <div className="form-actions"><button type="button" className="btn-secondary" onClick={() => setShowAssignmentModal(false)}>Abbrechen</button><button type="submit" className="btn-primary" disabled={actionLoading}>Zuweisen</button></div>
+          </form>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+function Modal({ title, children, onClose }) {
+  return (
+    <div className="modal-overlay active" role="dialog" aria-modal="true">
+      <div className="modal-card">
+        <div className="modal-header">
+          <h2>{title}</h2>
+          <button type="button" className="icon-button" onClick={onClose} aria-label="Schließen">×</button>
+        </div>
+        {children}
       </div>
     </div>
   );

@@ -1,5 +1,6 @@
 const express = require('express');
 const bcryptjs = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 const router = express.Router();
 
 const { get, run, all } = require('../config/database');
@@ -12,18 +13,26 @@ const { testConnection } = require('../services/proxmoxService');
 const SETUP_KEYS = ['smtp_host', 'smtp_port', 'smtp_user', 'smtp_password'];
 
 async function getSetupState() {
-  const adminUser = await get('SELECT id, email, name, role FROM users WHERE role = ? ORDER BY id ASC LIMIT 1', [ROLES.ADMIN]);
+  const adminUser = await get(
+    'SELECT id, email, name, role FROM users WHERE role = ? ORDER BY id ASC LIMIT 1',
+    [ROLES.ADMIN]
+  );
   const proxmoxCluster = await get('SELECT id FROM proxmox_clusters ORDER BY id ASC LIMIT 1');
-  const smtpRows = await all(`SELECT key, value FROM settings WHERE key IN (${SETUP_KEYS.map(() => '?').join(',')})`, SETUP_KEYS);
+  const smtpRows = await all(
+    `SELECT key, value FROM settings WHERE key IN (${SETUP_KEYS.map(() => '?').join(',')})`,
+    SETUP_KEYS
+  );
 
   const smtpSettings = smtpRows.reduce((acc, row) => {
     acc[row.key] = row.value;
     return acc;
   }, {});
 
-  const adminConfigured = !!adminUser;
-  const proxmoxConfigured = !!proxmoxCluster;
-  const smtpConfigured = SETUP_KEYS.every(key => typeof smtpSettings[key] === 'string' && smtpSettings[key].trim() !== '');
+  const adminConfigured = Boolean(adminUser);
+  const proxmoxConfigured = Boolean(proxmoxCluster);
+  const smtpConfigured = SETUP_KEYS.every(
+    key => typeof smtpSettings[key] === 'string' && smtpSettings[key].trim() !== ''
+  );
 
   const missing = [];
   if (!adminConfigured) missing.push('admin');
@@ -56,12 +65,17 @@ async function assertSetupOpen() {
 
 function normalizeUrl(url) {
   if (!url || typeof url !== 'string') return '';
-  return url.trim().replace(/\/$/, '');
+  return url.trim().replace(/\/+$/, '');
 }
 
 function validateSmtp({ smtpHost, smtpPort, smtpUser, smtpPassword }) {
   if (!smtpHost || !smtpPort || !smtpUser || !smtpPassword) {
     throw new AppError('SMTP host, port, user, and password are required', HTTP_STATUS.BAD_REQUEST);
+  }
+
+  const parsedPort = Number(smtpPort);
+  if (!Number.isInteger(parsedPort) || parsedPort < 1 || parsedPort > 65535) {
+    throw new AppError('SMTP port is invalid', HTTP_STATUS.BAD_REQUEST);
   }
 }
 
@@ -74,9 +88,6 @@ function validateProxmox({ proxmoxName, proxmoxUrl, proxmoxApiToken }) {
   }
 }
 
-/**
- * Check if setup is required
- */
 router.get('/setup-required', async (req, res, next) => {
   try {
     const state = await getSetupState();
@@ -86,25 +97,24 @@ router.get('/setup-required', async (req, res, next) => {
   }
 });
 
-/**
- * Public SMTP test during first setup. This is only available until setup is complete.
- */
 router.post('/setup/test-smtp', async (req, res, next) => {
   try {
     await assertSetupOpen();
     const { smtpHost, smtpPort, smtpUser, smtpPassword } = req.body;
     validateSmtp({ smtpHost, smtpPort, smtpUser, smtpPassword });
 
-    const result = await testSmtpConnection(smtpHost, smtpPort, smtpUser, smtpPassword);
+    const result = await testSmtpConnection(
+      smtpHost.trim(),
+      String(smtpPort).trim(),
+      smtpUser.trim(),
+      smtpPassword
+    );
     res.status(result.success ? HTTP_STATUS.OK : HTTP_STATUS.BAD_REQUEST).json(result);
   } catch (err) {
     next(err);
   }
 });
 
-/**
- * Public Proxmox test during first setup. This is only available until setup is complete.
- */
 router.post('/setup/test-proxmox', async (req, res, next) => {
   try {
     await assertSetupOpen();
@@ -113,17 +123,13 @@ router.post('/setup/test-proxmox', async (req, res, next) => {
     const proxmoxApiToken = req.body.proxmoxApiToken;
     validateProxmox({ proxmoxName, proxmoxUrl, proxmoxApiToken });
 
-    const result = await testConnection(proxmoxUrl, proxmoxApiToken);
+    const result = await testConnection(proxmoxUrl, proxmoxApiToken.trim());
     res.status(result.success ? HTTP_STATUS.OK : HTTP_STATUS.BAD_REQUEST).json(result);
   } catch (err) {
     next(err);
   }
 });
 
-/**
- * Initial setup - create admin user, configure Proxmox and SMTP.
- * Setup is complete only when all three parts are present.
- */
 router.post('/setup', async (req, res, next) => {
   try {
     const state = await assertSetupOpen();
@@ -150,7 +156,7 @@ router.post('/setup', async (req, res, next) => {
         throw new AppError('Admin password must be at least 6 characters', HTTP_STATUS.BAD_REQUEST);
       }
 
-      const existingUser = await get('SELECT id FROM users WHERE email = ?', [adminEmail]);
+      const existingUser = await get('SELECT id FROM users WHERE email = ?', [adminEmail.trim().toLowerCase()]);
       if (existingUser) {
         throw new AppError(ERROR_MESSAGES.USER_EXISTS, HTTP_STATUS.CONFLICT);
       }
@@ -158,13 +164,13 @@ router.post('/setup', async (req, res, next) => {
       const passwordHash = await bcryptjs.hash(adminPassword, 10);
       const result = await run(
         'INSERT INTO users (email, name, password_hash, role) VALUES (?, ?, ?, ?)',
-        [adminEmail, adminName, passwordHash, ROLES.ADMIN]
+        [adminEmail.trim().toLowerCase(), adminName.trim(), passwordHash, ROLES.ADMIN]
       );
 
       adminUser = {
         id: result.lastID,
-        email: adminEmail,
-        name: adminName,
+        email: adminEmail.trim().toLowerCase(),
+        name: adminName.trim(),
         role: ROLES.ADMIN
       };
     }
@@ -173,7 +179,7 @@ router.post('/setup', async (req, res, next) => {
       const normalizedProxmoxUrl = normalizeUrl(proxmoxUrl);
       validateProxmox({ proxmoxName, proxmoxUrl: normalizedProxmoxUrl, proxmoxApiToken });
 
-      const proxmoxTest = await testConnection(normalizedProxmoxUrl, proxmoxApiToken);
+      const proxmoxTest = await testConnection(normalizedProxmoxUrl, proxmoxApiToken.trim());
       if (!proxmoxTest.success) {
         throw new AppError(`Proxmox test failed: ${proxmoxTest.message}`, HTTP_STATUS.BAD_REQUEST);
       }
@@ -187,7 +193,12 @@ router.post('/setup', async (req, res, next) => {
     if (!state.smtpConfigured) {
       validateSmtp({ smtpHost, smtpPort, smtpUser, smtpPassword });
 
-      const smtpTest = await testSmtpConnection(smtpHost.trim(), smtpPort, smtpUser.trim(), smtpPassword);
+      const smtpTest = await testSmtpConnection(
+        smtpHost.trim(),
+        String(smtpPort).trim(),
+        smtpUser.trim(),
+        smtpPassword
+      );
       if (!smtpTest.success) {
         throw new AppError(`SMTP test failed: ${smtpTest.message}`, HTTP_STATUS.BAD_REQUEST);
       }
@@ -219,9 +230,6 @@ router.post('/setup', async (req, res, next) => {
   }
 });
 
-/**
- * Login endpoint
- */
 router.post('/login', async (req, res, next) => {
   try {
     const { email, password } = req.body;
@@ -235,7 +243,7 @@ router.post('/login', async (req, res, next) => {
       throw new AppError(ERROR_MESSAGES.SETUP_REQUIRED, HTTP_STATUS.FORBIDDEN);
     }
 
-    const user = await get('SELECT * FROM users WHERE email = ?', [email]);
+    const user = await get('SELECT * FROM users WHERE email = ?', [email.trim().toLowerCase()]);
 
     if (!user) {
       throw new AppError(ERROR_MESSAGES.INVALID_CREDENTIALS, HTTP_STATUS.UNAUTHORIZED);
@@ -263,9 +271,6 @@ router.post('/login', async (req, res, next) => {
   }
 });
 
-/**
- * Verify token
- */
 router.get('/verify', authMiddleware, async (req, res, next) => {
   try {
     const setupState = await getSetupState();
@@ -275,15 +280,15 @@ router.get('/verify', authMiddleware, async (req, res, next) => {
   }
 });
 
-/**
- * Change password
- */
 router.post('/change-password', authMiddleware, async (req, res, next) => {
   try {
     const { currentPassword, newPassword } = req.body;
 
     if (!currentPassword || !newPassword) {
       throw new AppError('Current and new password required', HTTP_STATUS.BAD_REQUEST);
+    }
+    if (newPassword.length < 6) {
+      throw new AppError('New password must be at least 6 characters', HTTP_STATUS.BAD_REQUEST);
     }
 
     const user = await get('SELECT * FROM users WHERE id = ?', [req.user.id]);
@@ -311,9 +316,6 @@ router.post('/change-password', authMiddleware, async (req, res, next) => {
   }
 });
 
-/**
- * Forgot password - send reset email
- */
 router.post('/forgot-password', async (req, res, next) => {
   try {
     const { email } = req.body;
@@ -322,7 +324,7 @@ router.post('/forgot-password', async (req, res, next) => {
       throw new AppError('Email is required', HTTP_STATUS.BAD_REQUEST);
     }
 
-    const user = await get('SELECT * FROM users WHERE email = ?', [email]);
+    const user = await get('SELECT * FROM users WHERE email = ?', [email.trim().toLowerCase()]);
 
     if (!user) {
       return res.json({ message: 'If email exists, password reset link has been sent' });
@@ -343,9 +345,6 @@ router.post('/forgot-password', async (req, res, next) => {
   }
 });
 
-/**
- * Reset password with token
- */
 router.post('/reset-password', async (req, res, next) => {
   try {
     const { token, newPassword } = req.body;
@@ -353,8 +352,11 @@ router.post('/reset-password', async (req, res, next) => {
     if (!token || !newPassword) {
       throw new AppError('Token and new password required', HTTP_STATUS.BAD_REQUEST);
     }
+    if (newPassword.length < 6) {
+      throw new AppError('New password must be at least 6 characters', HTTP_STATUS.BAD_REQUEST);
+    }
 
-    const decoded = require('jsonwebtoken').verify(token, process.env.JWT_SECRET || 'dev-secret-key');
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'dev-secret-key');
     const user = await get('SELECT * FROM users WHERE id = ?', [decoded.id]);
 
     if (!user) {
@@ -374,9 +376,6 @@ router.post('/reset-password', async (req, res, next) => {
   }
 });
 
-/**
- * Logout (client-side only, but endpoint for completeness)
- */
 router.post('/logout', authMiddleware, (req, res) => {
   res.json({ message: 'Logged out successfully' });
 });

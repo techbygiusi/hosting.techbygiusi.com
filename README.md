@@ -1,19 +1,17 @@
 # Hosting Portal - Changelog
 
-## v1.1 - 2026-06-28
+## v1.0.6 - 2026-06-28
 
-**Commit:** `feat: hosting portal v1.1 - user management & settings overhaul`
+**Commit:** `feat: simplify admin settings and polish responsive ui`
 
-- Add password input on user creation (instead of auto-generated)
-- Add role dropdown (user/admin) - changeable anytime
-- Enable SMTP configuration in settings tab (not just setup)
-- Add dark/light mode toggle with dropdown (desktop only, mobile locked to light)
-- Redesign AdminDashboard with 5 tabs (overview, users, clusters, assignments, settings)
-- Rewrite globals.css with modern design system, responsive grid, animations
-- Add stat-cards on overview tab
-- Improve alerts with animations and auto-dismiss
-- Support role changes without deleting user
-- Mobile-first responsive design (320px+)
+- Moved the desktop header layout so the logout button no longer sits underneath the lamp light/dark switch.
+- Kept mobile clients locked to light mode and hid the light/dark switch on mobile.
+- Added an admin settings page for SMTP so the mail configuration can be changed after the first setup.
+- Changed user creation so an administrator can set the start password manually and hand it to the user.
+- Removed customer group management from the frontend and simplified assignments to direct user assignments only.
+- Replaced the old role handling with a simple dropdown for Benutzer or Administrator. The first setup user remains administrator automatically.
+- Cleaned and modernized the admin and user dashboards with responsive cards, cleaner tables, mobile-friendly modals and a layout closer to the Tech by Giusi site colors.
+- Rewrote broken inline dashboard CSS and fixed backend route syntax issues from the previous package.
 
 ---
 

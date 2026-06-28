@@ -24,25 +24,9 @@ export default function Setup() {
   const proxmoxConfigured = Boolean(setupStatus?.proxmoxConfigured);
   const smtpConfigured = Boolean(setupStatus?.smtpConfigured);
 
-  const [adminData, setAdminData] = useState({
-    name: '',
-    email: '',
-    password: '',
-    confirmPassword: ''
-  });
-
-  const [proxmoxData, setProxmoxData] = useState({
-    name: 'Standard Proxmox',
-    url: '',
-    apiToken: ''
-  });
-
-  const [smtpData, setSMTPData] = useState({
-    smtpHost: '',
-    smtpPort: '587',
-    smtpUser: '',
-    smtpPassword: ''
-  });
+  const [adminData, setAdminData] = useState({ name: '', email: '', password: '', confirmPassword: '' });
+  const [proxmoxData, setProxmoxData] = useState({ name: 'Standard Proxmox', url: '', apiToken: '' });
+  const [smtpData, setSMTPData] = useState({ smtpHost: '', smtpPort: '587', smtpUser: '', smtpPassword: '' });
 
   const firstOpenStep = useMemo(() => {
     if (!adminConfigured) return STEP_ADMIN;
@@ -76,7 +60,6 @@ export default function Setup() {
 
   const validateAdminData = () => {
     if (adminConfigured) return true;
-
     if (!adminData.name || !adminData.email || !adminData.password) {
       setError('Bitte Name, E-Mail-Adresse und Passwort für den Administrator eingeben.');
       return false;
@@ -94,7 +77,6 @@ export default function Setup() {
 
   const validateProxmoxData = () => {
     if (proxmoxConfigured) return true;
-
     if (!proxmoxData.name || !proxmoxData.url || !proxmoxData.apiToken) {
       setError('Bitte Proxmox-Name, URL und API-Token eingeben.');
       return false;
@@ -108,7 +90,6 @@ export default function Setup() {
 
   const validateSMTPData = () => {
     if (smtpConfigured) return true;
-
     if (!smtpData.smtpHost || !smtpData.smtpPort || !smtpData.smtpUser || !smtpData.smtpPassword) {
       setError('Bitte SMTP-Host, Port, Benutzer und Passwort eingeben.');
       return false;
@@ -129,10 +110,7 @@ export default function Setup() {
       });
       setProxmoxTestResult(result.data);
     } catch (err) {
-      setProxmoxTestResult({
-        success: false,
-        message: getErrorMessage(err, 'Verbindungstest fehlgeschlagen.')
-      });
+      setProxmoxTestResult({ success: false, message: getErrorMessage(err, 'Verbindungstest fehlgeschlagen.') });
     } finally {
       setTestProxmoxLoading(false);
     }
@@ -147,10 +125,7 @@ export default function Setup() {
       const result = await authApi.setupTestSmtp(smtpData);
       setSmtpTestResult(result.data);
     } catch (err) {
-      setSmtpTestResult({
-        success: false,
-        message: getErrorMessage(err, 'Verbindungstest fehlgeschlagen.')
-      });
+      setSmtpTestResult({ success: false, message: getErrorMessage(err, 'Verbindungstest fehlgeschlagen.') });
     } finally {
       setTestSmtpLoading(false);
     }
@@ -178,24 +153,19 @@ export default function Setup() {
 
   const handleNext = async () => {
     setError('');
-
     if (step === STEP_ADMIN) {
       if (validateAdminData()) setStep(STEP_PROXMOX);
       return;
     }
-
     if (step === STEP_PROXMOX) {
       if (canLeaveProxmoxStep()) setStep(STEP_SMTP);
       return;
     }
-
     await handleSubmit();
   };
 
   const handleSubmit = async () => {
-    if (!validateAdminData() || !canLeaveProxmoxStep() || !canLeaveSMTPStep()) {
-      return;
-    }
+    if (!validateAdminData() || !canLeaveProxmoxStep() || !canLeaveSMTPStep()) return;
 
     try {
       setLoading(true);
@@ -211,76 +181,70 @@ export default function Setup() {
 
   const goBack = () => {
     setError('');
-    if (step === STEP_SMTP) {
-      setStep(STEP_PROXMOX);
-    } else if (step === STEP_PROXMOX) {
-      setStep(STEP_ADMIN);
-    }
+    if (step === STEP_SMTP) setStep(STEP_PROXMOX);
+    if (step === STEP_PROXMOX) setStep(STEP_ADMIN);
   };
 
-  const renderStatusPill = (configured) => (
-    <span className={`setup-pill ${configured ? 'done' : 'open'}`}>
-      {configured ? 'Gespeichert' : 'Erforderlich'}
-    </span>
+  const statusPill = (configured) => (
+    <span className={`setup-pill ${configured ? 'done' : 'open'}`}>{configured ? 'Gespeichert' : 'Offen'}</span>
   );
 
   return (
-    <div className="setup-shell">
-      <div className="setup-card setup-card-wide">
-        <div className="setup-header">
+    <main className="auth-shell">
+      <section className="setup-card setup-card-wide">
+        <header className="auth-header setup-header">
           <p className="eyebrow">Erstkonfiguration</p>
-          <h1>Hosting Portal</h1>
-          <p>Schließe die drei Einrichtungsschritte ab, bevor das Portal geöffnet wird.</p>
-        </div>
+          <h1>Hosting Portal einrichten</h1>
+          <p>Lege den Administrator an und speichere Proxmox sowie SMTP, bevor das Portal genutzt wird.</p>
+        </header>
 
-        <div className="setup-tabs" aria-label="Fortschritt der Einrichtung">
+        <nav className="setup-tabs" aria-label="Einrichtungsschritte">
           <button type="button" className={`setup-tab ${step === STEP_ADMIN ? 'active' : ''} ${adminConfigured ? 'complete' : ''}`} onClick={() => setStep(STEP_ADMIN)}>
             <span>1</span>
-            Administrator
-            {renderStatusPill(adminConfigured)}
+            <strong>Administrator</strong>
+            {statusPill(adminConfigured)}
           </button>
           <button type="button" className={`setup-tab ${step === STEP_PROXMOX ? 'active' : ''} ${proxmoxConfigured ? 'complete' : ''}`} onClick={() => setStep(STEP_PROXMOX)}>
             <span>2</span>
-            Proxmox API
-            {renderStatusPill(proxmoxConfigured)}
+            <strong>Proxmox API</strong>
+            {statusPill(proxmoxConfigured)}
           </button>
           <button type="button" className={`setup-tab ${step === STEP_SMTP ? 'active' : ''} ${smtpConfigured ? 'complete' : ''}`} onClick={() => setStep(STEP_SMTP)}>
             <span>3</span>
-            SMTP-Mail
-            {renderStatusPill(smtpConfigured)}
+            <strong>SMTP</strong>
+            {statusPill(smtpConfigured)}
           </button>
-        </div>
+        </nav>
 
         {error && <div className="alert alert-danger">{error}</div>}
 
         <div className="setup-content">
           {step === STEP_ADMIN && (
             <section className="setup-panel">
-              <div className="setup-panel-title">
+              <div className="section-title">
                 <h2>Administrator anlegen</h2>
-                <p>Dieses Konto wird der erste Administrator des Portals.</p>
+                <p>Das erste Konto wird automatisch Administrator.</p>
               </div>
-
               {adminConfigured ? (
-                <div className="alert alert-success">Administrator ist bereits vorhanden. Weiter mit Proxmox und SMTP.</div>
+                <div className="alert alert-success">Administrator ist bereits vorhanden.</div>
               ) : (
                 <div className="form-grid">
-                  <div className="form-group">
-                    <label>Vollständiger Name</label>
-                    <input type="text" name="name" value={adminData.name} onChange={handleAdminChange} placeholder="Administrator" />
-                  </div>
-                  <div className="form-group">
-                    <label>E-Mail</label>
+                  <label className="form-group">
+                    <span>Vollständiger Name</span>
+                    <input type="text" name="name" value={adminData.name} onChange={handleAdminChange} placeholder="Giuseppe" />
+                  </label>
+                  <label className="form-group">
+                    <span>E-Mail-Adresse</span>
                     <input type="email" name="email" value={adminData.email} onChange={handleAdminChange} placeholder="admin@example.com" />
-                  </div>
-                  <div className="form-group">
-                    <label>Passwort</label>
+                  </label>
+                  <label className="form-group">
+                    <span>Passwort</span>
                     <input type="password" name="password" value={adminData.password} onChange={handleAdminChange} placeholder="Mindestens 6 Zeichen" />
-                  </div>
-                  <div className="form-group">
-                    <label>Passwort bestätigen</label>
+                  </label>
+                  <label className="form-group">
+                    <span>Passwort bestätigen</span>
                     <input type="password" name="confirmPassword" value={adminData.confirmPassword} onChange={handleAdminChange} placeholder="Passwort wiederholen" />
-                  </div>
+                  </label>
                 </div>
               )}
             </section>
@@ -288,37 +252,32 @@ export default function Setup() {
 
           {step === STEP_PROXMOX && (
             <section className="setup-panel">
-              <div className="setup-panel-title">
-                <h2>Proxmox API</h2>
-                <p>Verbinde das Portal mit deinem Proxmox-Cluster, bevor Benutzer ihre zugewiesenen Systeme sehen.</p>
+              <div className="section-title">
+                <h2>Proxmox API speichern</h2>
+                <p>Der API-Zugriff wird getestet, bevor die Einrichtung fortgesetzt wird.</p>
               </div>
-
               {proxmoxConfigured ? (
                 <div className="alert alert-success">Proxmox API ist bereits konfiguriert.</div>
               ) : (
                 <>
                   <div className="form-grid">
-                    <div className="form-group">
-                      <label>Cluster-Name</label>
+                    <label className="form-group">
+                      <span>Cluster-Name</span>
                       <input type="text" name="name" value={proxmoxData.name} onChange={handleProxmoxChange} placeholder="Home Lab" />
-                    </div>
-                    <div className="form-group">
-                      <label>Proxmox URL</label>
+                    </label>
+                    <label className="form-group">
+                      <span>Proxmox URL</span>
                       <input type="text" name="url" value={proxmoxData.url} onChange={handleProxmoxChange} placeholder="https://10.10.0.10:8006" />
-                    </div>
-                    <div className="form-group full-width">
-                      <label>API-Token</label>
+                    </label>
+                    <label className="form-group full-width">
+                      <span>API-Token</span>
                       <input type="password" name="apiToken" value={proxmoxData.apiToken} onChange={handleProxmoxChange} placeholder="user@pam!tokenid=secret" />
-                    </div>
+                    </label>
                   </div>
-
                   <button className="btn-secondary full-button" type="button" onClick={handleTestProxmox} disabled={testProxmoxLoading}>
                     {testProxmoxLoading ? 'Proxmox wird getestet...' : 'Proxmox-Verbindung testen'}
                   </button>
-
-                  {proxmoxTestResult && (
-                    <div className={`test-result ${proxmoxTestResult.success ? 'success' : 'error'}`}>{translateMessage(proxmoxTestResult.message)}</div>
-                  )}
+                  {proxmoxTestResult && <div className={`test-result ${proxmoxTestResult.success ? 'success' : 'error'}`}>{translateMessage(proxmoxTestResult.message)}</div>}
                 </>
               )}
             </section>
@@ -326,58 +285,49 @@ export default function Setup() {
 
           {step === STEP_SMTP && (
             <section className="setup-panel">
-              <div className="setup-panel-title">
-                <h2>SMTP-Mail</h2>
-                <p>Speichere die SMTP-Daten und teste sie, damit System-Mails später zuverlässig funktionieren.</p>
+              <div className="section-title">
+                <h2>SMTP speichern</h2>
+                <p>Damit System-Mails funktionieren, muss die SMTP-Verbindung erfolgreich getestet werden.</p>
               </div>
-
               {smtpConfigured ? (
                 <div className="alert alert-success">SMTP ist bereits konfiguriert.</div>
               ) : (
                 <>
                   <div className="form-grid">
-                    <div className="form-group">
-                      <label>SMTP-Host</label>
+                    <label className="form-group">
+                      <span>SMTP-Host</span>
                       <input type="text" name="smtpHost" value={smtpData.smtpHost} onChange={handleSMTPChange} placeholder="smtp.example.com" />
-                    </div>
-                    <div className="form-group">
-                      <label>SMTP-Port</label>
+                    </label>
+                    <label className="form-group">
+                      <span>SMTP-Port</span>
                       <input type="text" name="smtpPort" value={smtpData.smtpPort} onChange={handleSMTPChange} placeholder="587" />
-                    </div>
-                    <div className="form-group">
-                      <label>SMTP-Benutzer</label>
+                    </label>
+                    <label className="form-group">
+                      <span>SMTP-Benutzer</span>
                       <input type="email" name="smtpUser" value={smtpData.smtpUser} onChange={handleSMTPChange} placeholder="noreply@example.com" />
-                    </div>
-                    <div className="form-group">
-                      <label>SMTP-Passwort</label>
+                    </label>
+                    <label className="form-group">
+                      <span>SMTP-Passwort</span>
                       <input type="password" name="smtpPassword" value={smtpData.smtpPassword} onChange={handleSMTPChange} placeholder="SMTP-Passwort" />
-                    </div>
+                    </label>
                   </div>
-
                   <button className="btn-secondary full-button" type="button" onClick={handleTestSMTP} disabled={testSmtpLoading}>
                     {testSmtpLoading ? 'SMTP wird getestet...' : 'SMTP-Verbindung testen'}
                   </button>
-
-                  {smtpTestResult && (
-                    <div className={`test-result ${smtpTestResult.success ? 'success' : 'error'}`}>{translateMessage(smtpTestResult.message)}</div>
-                  )}
+                  {smtpTestResult && <div className={`test-result ${smtpTestResult.success ? 'success' : 'error'}`}>{translateMessage(smtpTestResult.message)}</div>}
                 </>
               )}
             </section>
           )}
         </div>
 
-        <div className="setup-actions">
-          {step > STEP_ADMIN && (
-            <button className="btn-secondary" type="button" onClick={goBack} disabled={loading}>
-              Zurück
-            </button>
-          )}
+        <footer className="setup-actions">
+          {step > STEP_ADMIN && <button className="btn-secondary" type="button" onClick={goBack} disabled={loading}>Zurück</button>}
           <button className="btn-primary" type="button" onClick={handleNext} disabled={loading}>
             {loading ? 'Speichert...' : step === STEP_SMTP ? 'Einrichtung abschließen' : 'Weiter'}
           </button>
-        </div>
-      </div>
-    </div>
+        </footer>
+      </section>
+    </main>
   );
 }

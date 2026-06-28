@@ -7,9 +7,6 @@ const { HTTP_STATUS } = require('../config/constants');
 const { AppError } = require('../middleware/errorHandler');
 const { getAllContainers, getContainerIps } = require('../services/proxmoxService');
 
-/**
- * Get user profile
- */
 router.get('/profile', async (req, res, next) => {
   try {
     const user = await get(
@@ -27,9 +24,6 @@ router.get('/profile', async (req, res, next) => {
   }
 });
 
-/**
- * Update user profile
- */
 router.put('/profile', async (req, res, next) => {
   try {
     const { name } = req.body;
@@ -40,7 +34,7 @@ router.put('/profile', async (req, res, next) => {
 
     await run(
       'UPDATE users SET name = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-      [name, req.user.id]
+      [String(name).trim(), req.user.id]
     );
 
     const user = await get(
@@ -54,43 +48,23 @@ router.put('/profile', async (req, res, next) => {
   }
 });
 
-/**
- * Get user's containers (from assigned groups and direct assignments)
- */
 router.get('/containers', async (req, res, next) => {
   try {
-    // Get user's groups
-    const userGroups = await all(
-      'SELECT group_id FROM user_groups WHERE user_id = ?',
-      [req.user.id]
-    );
-
-    const groupIds = userGroups.map(ug => ug.group_id);
-
-    // Get assignments for user's groups and direct assignments
-    let assignmentQuery = `
-      SELECT DISTINCT ca.*, pc.url, pc.api_token, pc.name as cluster_name
+    const assignments = await all(`
+      SELECT ca.*, pc.url, pc.api_token, pc.name as cluster_name
       FROM container_assignments ca
       JOIN proxmox_clusters pc ON ca.cluster_id = pc.id
-      WHERE (
-        (ca.assigned_to_type = 'user' AND ca.assigned_to_id = ?)
-        OR (ca.assigned_to_type = 'group' AND ca.assigned_to_id IN (${groupIds.length ? groupIds.map(() => '?').join(',') : 'NULL'}))
-      )
-    `;
+      WHERE ca.assigned_to_type = 'user' AND ca.assigned_to_id = ?
+    `, [req.user.id]);
 
-    const params = [req.user.id, ...groupIds];
-    const assignments = await all(assignmentQuery, params);
-
-    // Fetch container details from Proxmox
     const containers = [];
 
     for (const assignment of assignments) {
       try {
         const allContainers = await getAllContainers(assignment.url, assignment.api_token);
-        const container = allContainers.find(c => c.vmid == assignment.container_id);
+        const container = allContainers.find(c => String(c.vmid) === String(assignment.container_id));
 
         if (container) {
-          // Get additional details
           const ips = await getContainerIps(
             assignment.url,
             assignment.api_token,
@@ -120,7 +94,6 @@ router.get('/containers', async (req, res, next) => {
         }
       } catch (error) {
         console.error(`Error fetching container ${assignment.container_id}:`, error.message);
-        // Continue with other containers even if one fails
       }
     }
 
@@ -130,42 +103,24 @@ router.get('/containers', async (req, res, next) => {
   }
 });
 
-/**
- * Get single container details
- */
 router.get('/containers/:id', async (req, res, next) => {
   try {
     const containerId = req.params.id;
 
-    // Check if user has access to this container
-    const userGroups = await all(
-      'SELECT group_id FROM user_groups WHERE user_id = ?',
-      [req.user.id]
-    );
-
-    const groupIds = userGroups.map(ug => ug.group_id);
-
-    let accessQuery = `
+    const assignment = await get(`
       SELECT ca.*, pc.url, pc.api_token
       FROM container_assignments ca
       JOIN proxmox_clusters pc ON ca.cluster_id = pc.id
-      WHERE ca.container_id = ? AND (
-        (ca.assigned_to_type = 'user' AND ca.assigned_to_id = ?)
-        OR (ca.assigned_to_type = 'group' AND ca.assigned_to_id IN (${groupIds.length ? groupIds.map(() => '?').join(',') : 'NULL'}))
-      )
+      WHERE ca.container_id = ? AND ca.assigned_to_type = 'user' AND ca.assigned_to_id = ?
       LIMIT 1
-    `;
-
-    const params = [containerId, req.user.id, ...groupIds];
-    const assignment = await get(accessQuery, params);
+    `, [containerId, req.user.id]);
 
     if (!assignment) {
       throw new AppError('Container not accessible', HTTP_STATUS.FORBIDDEN);
     }
 
-    // Fetch from Proxmox
     const allContainers = await getAllContainers(assignment.url, assignment.api_token);
-    const container = allContainers.find(c => c.vmid == containerId);
+    const container = allContainers.find(c => String(c.vmid) === String(containerId));
 
     if (!container) {
       throw new AppError('Container not found', HTTP_STATUS.NOT_FOUND);
@@ -196,6 +151,33 @@ router.get('/containers/:id', async (req, res, next) => {
         uptime: container.uptime || 0
       }
     });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/change-password', async (req, res, next) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+
+    if (!currentPassword || !newPassword) {
+      throw new AppError('Current and new password required', HTTP_STATUS.BAD_REQUEST);
+    }
+    if (newPassword.length < 6) {
+      throw new AppError('New password must be at least 6 characters', HTTP_STATUS.BAD_REQUEST);
+    }
+
+    const user = await get('SELECT * FROM users WHERE id = ?', [req.user.id]);
+    const passwordMatch = await bcryptjs.compare(currentPassword, user.password_hash);
+
+    if (!passwordMatch) {
+      throw new AppError('Current password is incorrect', HTTP_STATUS.UNAUTHORIZED);
+    }
+
+    const newPasswordHash = await bcryptjs.hash(newPassword, 10);
+    await run('UPDATE users SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [newPasswordHash, req.user.id]);
+
+    res.json({ message: 'Password changed successfully' });
   } catch (err) {
     next(err);
   }
