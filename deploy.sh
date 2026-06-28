@@ -32,8 +32,14 @@ replace_env_value_if_current() {
   local key="$1"
   local old_value="$2"
   local new_value="$3"
-  if grep -q "^${key}=${old_value}$" "$ENV_FILE"; then
-    sed -i "s/^${key}=${old_value}$/${key}=${new_value}/" "$ENV_FILE"
+  if grep -Eq "^${key}=${old_value}([[:space:]]*)$" "$ENV_FILE"; then
+    sed -i -E "s/^${key}=${old_value}([[:space:]]*)$/${key}=${new_value}/" "$ENV_FILE"
+  fi
+}
+
+migrate_parallel_uploads_default() {
+  if grep -Eq '^MAX_PARALLEL_UPLOADS=\"?12\"?([[:space:]]*#.*)?$' "$ENV_FILE"; then
+    sed -i -E 's/^MAX_PARALLEL_UPLOADS=\"?12\"?([[:space:]]*#.*)?$/MAX_PARALLEL_UPLOADS=24/' "$ENV_FILE"
   fi
 }
 
@@ -79,6 +85,7 @@ ensure_env_value "MAX_UPLOAD_MB" "${MAX_UPLOAD_MB:-25}"
 ensure_env_value "MAX_UPLOAD_FILES" "${MAX_UPLOAD_FILES:-30}"
 ensure_env_value "MAX_PARALLEL_UPLOADS" "${MAX_PARALLEL_UPLOADS:-24}"
 replace_env_value_if_current "MAX_PARALLEL_UPLOADS" "12" "24"
+migrate_parallel_uploads_default
 ensure_env_value "MIN_FREE_SPACE_MB" "${MIN_FREE_SPACE_MB:-250}"
 ensure_env_value "UPLOAD_REQUEST_TIMEOUT_MS" "${UPLOAD_REQUEST_TIMEOUT_MS:-600000}"
 
@@ -95,6 +102,7 @@ echo "========================================"
 echo "${APP_NAME} Deployment"
 echo "========================================"
 echo "Port: ${PICLY_HTTP_PORT:-3002}"
+echo "Parallel Uploads: ${MAX_PARALLEL_UPLOADS:-24}"
 echo "Daten: ./data"
 echo ""
 

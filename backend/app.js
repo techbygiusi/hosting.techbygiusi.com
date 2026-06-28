@@ -138,6 +138,32 @@ async function prependMetadata(created) {
   });
 }
 
+async function removeImageMetadata(id) {
+  return withMetadataLock(async () => {
+    const existing = await readMetadataUnlocked();
+    const image = existing.find((item) => item.id === id);
+
+    if (!image) {
+      return null;
+    }
+
+    const next = existing.filter((item) => item.id !== id);
+    await writeMetadataUnlocked(next);
+    return image;
+  });
+}
+
+function resolveUploadPath(filename) {
+  const filePath = path.resolve(path.join(UPLOAD_DIR, path.basename(filename)));
+  const resolvedUploadDir = path.resolve(UPLOAD_DIR);
+
+  if (!filePath.startsWith(`${resolvedUploadDir}${path.sep}`)) {
+    return null;
+  }
+
+  return filePath;
+}
+
 async function cleanupFiles(files) {
   await Promise.all(
     (files || [])
@@ -472,6 +498,26 @@ app.get('/api/admin/images/:id/download', requireAdmin, async (req, res) => {
 
   const downloadName = ensureSafeName(image.originalName || image.filename);
   return res.download(resolvedPath, downloadName);
+});
+
+
+app.delete('/api/admin/images/:id', requireAdmin, async (req, res) => {
+  const image = await removeImageMetadata(req.params.id);
+
+  if (!image) {
+    return res.status(404).json({ message: 'Bild nicht gefunden.' });
+  }
+
+  const filePath = resolveUploadPath(image.filename);
+  if (!filePath) {
+    return res.status(400).json({ message: 'Ungültiger Dateipfad.' });
+  }
+
+  await fsp.rm(filePath, { force: true }).catch((error) => {
+    console.warn(`Picly could not remove uploaded file ${image.filename}:`, error.message);
+  });
+
+  return res.json({ message: 'Bild wurde gelöscht.', image: publicImageInfo(image) });
 });
 
 app.get('/api/admin/download-all', requireAdmin, async (req, res, next) => {

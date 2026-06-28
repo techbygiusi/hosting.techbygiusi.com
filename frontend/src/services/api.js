@@ -58,4 +58,9 @@ export async function downloadAll() {
   return response.data;
 }
 
+export async function deleteImage(id) {
+  const response = await api.delete(`/admin/images/${id}`);
+  return response.data;
+}
+
 export default api;

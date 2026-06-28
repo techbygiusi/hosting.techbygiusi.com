@@ -92,11 +92,10 @@ export default function UploadPage() {
   return (
     <section className="hero-grid">
       <div className="hero-copy">
-        <p className="eyebrow">Simple Image Drop</p>
         <h1>Bilder hochladen. Schnell, sauber, mobil.</h1>
         <p>
           Picly nimmt Bilder direkt entgegen und legt sie sicher auf dem Server ab. Nutzer brauchen
-          keine Zugangsdaten – einfach auswählen, Fortschritt sehen und fertig.
+          keine Zugangsdaten - einfach auswählen, Fortschritt sehen und fertig.
         </p>
         <div className="hero-pills" aria-label="Eigenschaften">
           <span>Ohne User-Login</span>

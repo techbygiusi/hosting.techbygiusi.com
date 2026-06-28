@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { adminLogin, downloadAll, downloadImage, getAdminStats, getImageBlob, getImages, setAuthToken } from '../services/api.js';
+import { adminLogin, deleteImage, downloadAll, downloadImage, getAdminStats, getImageBlob, getImages, setAuthToken } from '../services/api.js';
 
 const TOKEN_KEY = 'picly-admin-token';
 
@@ -107,7 +107,7 @@ function AdminLogin({ onSuccess }) {
   );
 }
 
-function GalleryImage({ image, onOpen }) {
+function GalleryImage({ image, onOpen, onDelete, deleting }) {
   const [url, setUrl] = useState('');
 
   useEffect(() => {
@@ -132,6 +132,10 @@ function GalleryImage({ image, onOpen }) {
     saveBlob(blob, image.originalName || `${image.id}.jpg`);
   }
 
+  async function handleDelete() {
+    await onDelete(image);
+  }
+
   return (
     <article className="image-card">
       <button className="image-thumb" type="button" onClick={() => onOpen({ ...image, url })}>
@@ -145,6 +149,7 @@ function GalleryImage({ image, onOpen }) {
       <div className="card-actions split-actions">
         <button className="btn-secondary" type="button" onClick={() => onOpen({ ...image, url })}>Ansehen</button>
         <button className="btn-primary" type="button" onClick={handleDownload}>Download</button>
+        <button className="btn-danger" type="button" onClick={handleDelete} disabled={deleting}>{deleting ? 'Lösche...' : 'Löschen'}</button>
       </div>
     </article>
   );
@@ -157,6 +162,7 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [selected, setSelected] = useState(null);
+  const [deletingId, setDeletingId] = useState('');
 
   useEffect(() => {
     const token = window.localStorage.getItem(TOKEN_KEY);
@@ -202,6 +208,24 @@ export default function AdminPage() {
     saveBlob(blob, `picly-images-${new Date().toISOString().slice(0, 10)}.zip`);
   }
 
+  async function handleDeleteImage(image) {
+    if (!image || deletingId) return;
+    const confirmed = window.confirm(`Bild wirklich löschen?\n\n${image.originalName || image.id}`);
+    if (!confirmed) return;
+
+    try {
+      setDeletingId(image.id);
+      setError('');
+      await deleteImage(image.id);
+      if (selected?.id === image.id) setSelected(null);
+      await loadImages();
+    } catch (err) {
+      setError(err.response?.data?.message || 'Bild konnte nicht gelöscht werden.');
+    } finally {
+      setDeletingId('');
+    }
+  }
+
   if (!authenticated) {
     return <AdminLogin onSuccess={() => setAuthenticated(true)} />;
   }
@@ -231,7 +255,7 @@ export default function AdminPage() {
           <article className="dashboard-card">
             <p className="eyebrow">Upload-Last</p>
             <h3>{stats.activeUploads || 0} aktiv</h3>
-            <span>bis zu {stats.maxParallelUploads || 0} Uploads parallel erlaubt</span>
+            <span>bis zu {stats.maxParallelUploads || 24} Upload-Vorgänge parallel erlaubt</span>
           </article>
           {(stats.storage || []).slice(0, 1).map((item) => (
             <StorageCard key={item.label} item={item} />
@@ -252,7 +276,7 @@ export default function AdminPage() {
 
       <div className="gallery-grid">
         {images.map((image) => (
-          <GalleryImage key={image.id} image={image} onOpen={setSelected} />
+          <GalleryImage key={image.id} image={image} onOpen={setSelected} onDelete={handleDeleteImage} deleting={deletingId === image.id} />
         ))}
       </div>
 
@@ -262,8 +286,13 @@ export default function AdminPage() {
             <button className="modal-close" type="button" onClick={() => setSelected(null)} aria-label="Schließen">×</button>
             {selected.url ? <img src={selected.url} alt={selected.originalName} /> : <div className="app-loader inline"><span className="spinner" /> Lade Bild...</div>}
             <div className="image-modal-footer">
-              <strong>{selected.originalName}</strong>
-              <span>{formatDate(selected.createdAt)} · {formatSize(selected.size)}</span>
+              <div>
+                <strong>{selected.originalName}</strong>
+                <span>{formatDate(selected.createdAt)} · {formatSize(selected.size)}</span>
+              </div>
+              <button className="btn-danger" type="button" onClick={() => handleDeleteImage(selected)} disabled={deletingId === selected.id}>
+                {deletingId === selected.id ? 'Lösche...' : 'Löschen'}
+              </button>
             </div>
           </div>
         </div>

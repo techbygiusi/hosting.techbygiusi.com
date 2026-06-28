@@ -1,5 +1,23 @@
 # Picly - Changelog
 
+## v0.1.8 - 2026-06-28
+
+**Commit:** `chore: simplify upload hero copy`
+
+- Removed the extra eyebrow from the upload intro.
+- Replaced the typographic dash in the public upload text with a normal hyphen for cleaner, consistent wording.
+
+## v0.1.7 - 2026-06-28
+
+**Commit:** `feat: add admin image deletion`
+
+- Added single-image deletion in the protected admin gallery.
+- Deleting an image removes the gallery metadata entry and the uploaded file from `./data/uploads`.
+- Added a delete action directly on every image card and inside the image preview dialog.
+- Made the old `MAX_PARALLEL_UPLOADS=12` migration more robust so existing `.env` files are reliably updated to `24`.
+- Changed the admin text to **Upload-Vorgänge** so the parallel limit is not confused with a total image limit.
+- Deployment output now prints the active parallel upload limit.
+
 ## v0.1.6 - 2026-06-28
 
 **Commit:** `fix: clear completed upload progress`
@@ -94,7 +112,7 @@ sudo bash -c 'apt-get update && apt-get install -y git curl ca-certificates open
 Update an existing installation:
 
 ```bash
-cd /opt/picly.techbygiusi.com && git fetch origin picly && git reset --hard origin/picly && ./deploy.sh
+cd /opt/picly.techbygiusi.com && git fetch origin picly && git reset --hard origin/picly && chmod +x deploy.sh && ./deploy.sh
 ```
 
 On first deployment, `deploy.sh` prints the admin URL, username and generated password. The values are stored in `.env` and are reused during updates.
