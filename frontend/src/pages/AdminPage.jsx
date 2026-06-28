@@ -57,7 +57,6 @@ function StorageCard({ item }) {
           <div className="storage-bar" aria-label={`${item.label} Nutzung`}>
             <span style={{ width: `${usedPercent}%` }} />
           </div>
-          <small>Container-Pfad: {item.path}</small>
         </>
       )}
     </article>

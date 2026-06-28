@@ -3,7 +3,7 @@
   --site-surface: #fbf8f1;
   --site-inset: #f1ebdf;
   --site-text: #463f38;
-  --site-muted: #8c8275;
+  --site-muted: #79705f;
   --site-accent: #7e8b6b;
   --site-accent-strong: #5e6a4c;
   --site-gold: #9c7c43;
@@ -283,16 +283,13 @@ label { display: grid; gap: 7px; color: var(--site-muted); font-size: 14px; }
 
 .admin-layout { display: grid; gap: 18px; }
 .admin-hero {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 18px;
+  display: grid;
+  gap: 14px;
   padding-bottom: 4px;
 }
 .admin-hero h1 { font-size: clamp(38px, 6vw, 58px); }
-.admin-actions,
 .card-actions { display: flex; flex-wrap: wrap; gap: 8px; }
-.admin-actions { justify-content: flex-end; }
+.admin-actions { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; width: 100%; }
 .admin-dashboard {
   display: grid;
   grid-template-columns: 0.8fr 1fr 1.35fr;
@@ -396,6 +393,7 @@ label { display: grid; gap: 7px; color: var(--site-muted); font-size: 14px; }
   .site-header { min-height: 60px; gap: 10px; justify-content: flex-end; }
   .admin-shell .site-header { min-height: 16px; padding-top: 0; }
   .admin-shell .site-nav,
+  .upload-shell .site-nav,
   .brand,
   .desktop-admin-link { display: none; }
   .site-nav { gap: 6px; }
@@ -405,14 +403,6 @@ label { display: grid; gap: 7px; color: var(--site-muted); font-size: 14px; }
   .upload-column { gap: 12px; order: 1; }
   .hero-copy { display: grid; order: 2; gap: 10px; text-align: center; }
   .hero-copy h1, .hero-copy .ornament { display: none; }
-  /* Upload-Seite: Karte nimmt fast den ganzen Screen ein und sitzt mittig */
-  .upload-shell .site-header,
-  .upload-shell .site-footer,
-  .upload-shell .site-main { width: min(100% - 16px, 1180px); }
-  .upload-shell .site-main { display: flex; flex-direction: column; padding: 12px 0 18px; }
-  .upload-shell .hero-grid { margin: auto 0; flex: 0 0 auto; }
-  .upload-shell .card { padding: 18px; }
-  .upload-shell .drop-zone { min-height: 230px; }
   .site-footer { justify-content: space-between; }
   .footer-admin-link { display: inline-flex; align-items: center; justify-content: center; border-color: var(--site-border); }
   .card { padding: 16px; border-radius: 14px; }
@@ -549,28 +539,33 @@ label { display: grid; gap: 7px; color: var(--site-muted); font-size: 14px; }
 .courier-box { color: var(--site-gold); }
 .courier-face { color: var(--site-accent-strong); font-size: 17px; }
 
-/* ===== Seiten-Hintergründe ===== */
+/* ===== Seiten-Hintergründe & Farbwelt ===== */
+/* Gemeinsame Blau-Palette (aus dem Schwanenbild) für Upload + Admin */
+.upload-shell,
+.admin-shell {
+  --site-surface: #eef4f4;
+  --site-inset: #e6eeee;
+  --site-accent: #5f8b97;
+  --site-accent-strong: #4c7480;
+  --site-muted: #67737a;
+  --site-border: rgba(58, 78, 82, 0.16);
+}
+
 /* Upload-Seite: Aquarell-Schwäne als Hintergrund */
 .upload-shell {
   background-image:
-    linear-gradient(rgba(247, 243, 236, 0.22), rgba(247, 243, 236, 0.10)),
+    linear-gradient(rgba(232, 240, 240, 0.34), rgba(232, 240, 240, 0.20)),
     url('/hochzeit.jpg');
   background-size: cover;
   background-position: center;
   background-attachment: fixed;
 }
-/* Über dem Foto braucht es den Salbei-Bogen hinter der Upload-Spalte nicht mehr */
 .upload-shell .upload-column::before { display: none; }
 
 /* Admin-Seite: Blaustich aus dem Bild statt Beige */
 .admin-shell {
   --site-bg: #d9e4e5;
-  --site-surface: #eef4f4;
   --site-inset: #e1ebeb;
-  --site-accent: #5f8b97;
-  --site-accent-strong: #4c7480;
-  --site-muted: #6f7c7d;
-  --site-border: rgba(58, 78, 82, 0.16);
   background-color: var(--site-bg);
   background-image:
     radial-gradient(60% 50% at 0% 0%, rgba(95, 139, 151, 0.22), transparent 70%),
@@ -579,17 +574,55 @@ label { display: grid; gap: 7px; color: var(--site-muted); font-size: 14px; }
     radial-gradient(60% 50% at 0% 100%, rgba(76, 116, 128, 0.12), transparent 70%);
   background-attachment: fixed;
 }
-/* Buttons & Balken im Admin in Blau ziehen */
+
+/* Buttons, Balken & Fokus in Blau (beide Seiten) */
+.upload-shell .btn-secondary:hover:not(:disabled),
+.upload-shell .btn-outline:hover:not(:disabled),
 .admin-shell .btn-secondary:hover:not(:disabled),
 .admin-shell .btn-outline:hover:not(:disabled) { border-color: var(--site-accent); color: var(--site-accent); }
+.upload-shell .progress-bar,
 .admin-shell .storage-bar span,
 .admin-shell .progress-bar { background: linear-gradient(90deg, var(--site-accent), var(--site-accent-strong)); }
+.upload-shell input:focus,
 .admin-shell input:focus { border-color: var(--site-accent); box-shadow: 0 0 0 3px rgba(95, 139, 151, 0.18); }
+.upload-shell .courier-face { color: var(--site-accent-strong); }
+.upload-shell .pixel-courier { background: #e7eeee; border-color: rgba(95, 139, 151, 0.30); }
 
-/* Lesbarkeit des Textes über dem Foto (weicher Halo statt starkem Schleier) */
-.upload-shell .hero-copy h1 { text-shadow: 0 2px 22px rgba(247, 243, 236, 0.92), 0 1px 4px rgba(247, 243, 236, 0.8); }
-.upload-shell .hero-copy p,
-.upload-shell .hero-copy .eyebrow { text-shadow: 0 1px 12px rgba(247, 243, 236, 0.95); }
+/* Lesbarkeit über dem Foto: dezentes Frost-Panel hinter dem Text */
+.upload-shell .hero-copy {
+  background: rgba(244, 248, 248, 0.66);
+  border: 1px solid rgba(58, 78, 82, 0.10);
+  border-radius: var(--radius-xl);
+  padding: clamp(18px, 3.5vw, 28px);
+  backdrop-filter: blur(7px);
+  -webkit-backdrop-filter: blur(7px);
+  box-shadow: 0 14px 40px rgba(58, 78, 82, 0.10);
+}
+.upload-shell .hero-copy p { color: #4f4a43; }
+.upload-shell .hero-copy h1 { color: var(--site-gold); }
+
+/* Header/Footer über dem Foto lesbar halten (kein Panel drumherum) */
 .upload-shell .site-header,
-.upload-shell .site-footer { text-shadow: 0 1px 10px rgba(247, 243, 236, 0.85); }
-.upload-shell .ornament { text-shadow: 0 1px 10px rgba(247, 243, 236, 0.9); }
+.upload-shell .site-footer { text-shadow: 0 1px 9px rgba(244, 248, 248, 0.9); }
+
+/* Upload-Seite auf Mobile/große Handys: fast volle Breite, vertikal mittig */
+@media (max-width: 900px) {
+  .upload-shell .site-header,
+  .upload-shell .site-footer,
+  .upload-shell .site-main { width: min(100% - 12px, 900px); }
+  .upload-shell .site-main { display: flex; flex-direction: column; padding: 10px 0 16px; }
+  .upload-shell .hero-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    min-height: 0;
+    margin: auto 0;
+    padding-top: 0;
+  }
+  .upload-shell .upload-column { order: 1; gap: 12px; }
+  .upload-shell .hero-copy { order: 2; gap: 10px; text-align: center; }
+  .upload-shell .hero-copy h1,
+  .upload-shell .hero-copy .ornament { display: none; }
+  .upload-shell .card { padding: 16px; }
+  .upload-shell .drop-zone { min-height: 230px; }
+}
