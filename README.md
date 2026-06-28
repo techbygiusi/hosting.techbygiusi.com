@@ -1,5 +1,17 @@
 # Hosting Portal - Changelog
 
+## v1.0.20 - 2026-06-28
+
+**Commit:** `feat: rename resources to services and collapse details`
+
+- Renamed the frontend resource area to **Dienste** so the portal wording better matches the hosted customer services.
+- Reduced service cards to the most important overview data first: name, type, status, assigned user or cluster, CPU and RAM.
+- Moved detailed metadata, disks, management links and admin actions behind a **Details anzeigen** toggle so the overview stays clean.
+- Applied the collapsed service card behavior to both the admin dashboard and the user dashboard.
+- Kept all visible frontend labels in German and preserved the current TechByGiusi theme behavior.
+
+---
+
 ## v1.0.19 - 2026-06-28
 
 **Commit:** `fix: center desktop login card`

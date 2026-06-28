@@ -53,7 +53,7 @@ export default function AdminDashboard() {
     ['overview', 'Übersicht'],
     ['users', 'Benutzer'],
     ['clusters', 'Proxmox'],
-    ['resources', 'Ressourcen'],
+    ['resources', 'Dienste'],
     ['settings', 'Einstellungen']
   ];
 
@@ -310,7 +310,7 @@ export default function AdminDashboard() {
         showSuccess('Keine Container oder VMs gefunden.');
       }
     } catch (err) {
-      setError(getErrorMessage(err, 'Ressourcen konnten nicht geladen werden.'));
+      setError(getErrorMessage(err, 'Dienste konnten nicht geladen werden.'));
     } finally {
       setActionLoading(false);
     }
@@ -328,7 +328,7 @@ export default function AdminDashboard() {
   const handleSaveResource = async (e) => {
     e.preventDefault();
     if (!newResource.clusterId || !newResource.containerId || !newResource.userId) {
-      setError('Bitte Cluster, Ressource und Benutzer auswählen.');
+      setError('Bitte Cluster, Dienst und Benutzer auswählen.');
       return;
     }
 
@@ -337,31 +337,31 @@ export default function AdminDashboard() {
       setError('');
       if (editResourceId) {
         await adminApi.updateResource(editResourceId, newResource);
-        showSuccess('Ressource wurde gespeichert.');
+        showSuccess('Dienst wurde gespeichert.');
       } else {
         await adminApi.createResource(newResource);
-        showSuccess('Ressource wurde angelegt.');
+        showSuccess('Dienst wurde angelegt.');
       }
       closeResourceModal();
       await loadData(activeTab);
     } catch (err) {
-      setError(getErrorMessage(err, 'Ressource konnte nicht gespeichert werden.'));
+      setError(getErrorMessage(err, 'Dienst konnte nicht gespeichert werden.'));
     } finally {
       setActionLoading(false);
     }
   };
 
   const handleDeleteResource = async (resourceId) => {
-    if (!window.confirm('Diese Ressource löschen?')) return;
+    if (!window.confirm('Diesen Dienst entfernen?')) return;
 
     try {
       setActionLoading(true);
       setError('');
       await adminApi.deleteResource(resourceId);
-      showSuccess('Ressource wurde gelöscht.');
+      showSuccess('Dienst wurde entfernt.');
       await loadData(activeTab);
     } catch (err) {
-      setError(getErrorMessage(err, 'Ressource konnte nicht gelöscht werden.'));
+      setError(getErrorMessage(err, 'Dienst konnte nicht entfernt werden.'));
     } finally {
       setActionLoading(false);
     }
@@ -508,7 +508,7 @@ export default function AdminDashboard() {
             <MetricCard label="Benutzer" value={userCount} onClick={() => setActiveTab('users')} />
             <MetricCard label="Administratoren" value={adminCount} onClick={() => setActiveTab('users')} />
             <MetricCard label="Cluster" value={clusters.length} onClick={() => setActiveTab('clusters')} />
-            <MetricCard label="Ressourcen" value={resources.length} onClick={() => setActiveTab('resources')} />
+            <MetricCard label="Dienste" value={resources.length} onClick={() => setActiveTab('resources')} />
             <MetricCard label="Online" value={onlineCount} onClick={() => setActiveTab('resources')} />
           </section>
         )}
@@ -551,9 +551,9 @@ export default function AdminDashboard() {
 
         {!loading && activeTab === 'resources' && (
           <section className="panel-card">
-            <PanelHeader title="Ressourcen" action="Ressource anlegen" onAction={openCreateResource} />
+            <PanelHeader title="Dienste" action="Dienst anlegen" onAction={openCreateResource} />
             {resources.length === 0 ? (
-              <div className="empty-state soft-box"><h2>Keine Ressourcen</h2></div>
+              <div className="empty-state soft-box"><h2>Keine Dienste</h2></div>
             ) : (
               <div className="resource-grid admin-resource-grid">
                 {resources.map(item => <ResourceCard key={item.id} resource={item} onEdit={openEditResource} onDelete={handleDeleteResource} actionLoading={actionLoading} />)}
@@ -645,10 +645,10 @@ export default function AdminDashboard() {
       )}
 
       {showResourceModal && (
-        <Modal title={editResourceId ? 'Ressource bearbeiten' : 'Ressource anlegen'} onClose={closeResourceModal}>
+        <Modal title={editResourceId ? 'Dienst bearbeiten' : 'Dienst anlegen'} onClose={closeResourceModal}>
           <form className="form-stack" onSubmit={handleSaveResource}>
             <label className="form-group"><span>Cluster</span><select value={newResource.clusterId} onChange={e => { setNewResource(prev => ({ ...prev, clusterId: e.target.value, containerId: '', name: editResourceId ? prev.name : '' })); setClusterContainers([]); }}><option value="">Bitte auswählen</option>{clusters.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
-            <button type="button" className="btn-secondary" onClick={handleLoadClusterContainers} disabled={actionLoading || !newResource.clusterId}>{currentClusterName ? `Ressourcen von ${currentClusterName} laden` : 'Ressourcen laden'}</button>
+            <button type="button" className="btn-secondary" onClick={handleLoadClusterContainers} disabled={actionLoading || !newResource.clusterId}>{currentClusterName ? `Dienste von ${currentClusterName} laden` : 'Dienste laden'}</button>
             <label className="form-group"><span>Container oder VM</span>{clusterContainers.length > 0 ? <select value={newResource.containerId} onChange={e => handleResourceContainerChange(e.target.value)}><option value="">Bitte auswählen</option>{clusterContainers.map(item => <option key={`${item.type}-${item.vmid}`} value={item.vmid}>{item.vmid} · {item.name || item.type} · {renderType(item.type)} · {renderStatus(item.status)}</option>)}</select> : <input type="text" value={newResource.containerId} onChange={e => setNewResource(prev => ({ ...prev, containerId: e.target.value }))} placeholder="VMID oder CTID" />}</label>
             <label className="form-group"><span>Anzeigename</span><input type="text" value={newResource.name} onChange={e => setNewResource(prev => ({ ...prev, name: e.target.value }))} placeholder="Optional" /></label>
             <label className="form-group"><span>Benutzer</span><select value={newResource.userId} onChange={e => setNewResource(prev => ({ ...prev, userId: e.target.value }))}><option value="">Bitte auswählen</option>{users.map(item => <option key={item.id} value={item.id}>{item.name} · {item.email}</option>)}</select></label>
@@ -683,30 +683,47 @@ function SetupCheckRow({ label, ok, detail }) {
 }
 
 function ResourceCard({ resource, onEdit, onDelete, actionLoading }) {
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const cpuPercent = getCpuPercent(resource);
   const memPercent = getPercent(resource.mem, resource.maxmem);
+  const publicUrl = resource.publicUrl || resource.webUrl;
 
   return (
-    <article className="resource-card">
+    <article className="resource-card compact-resource-card">
       <div className="resource-card-header">
         <div><span className="resource-id">{renderType(resource.type)} · {resource.containerId}</span><h2>{resource.name}</h2></div>
         <span className={`status-badge status-${resource.status || 'unknown'}`}>{renderStatus(resource.status)}</span>
       </div>
-      <div className="resource-meta">
-        <span>Benutzer</span><span>{resource.userName || resource.userEmail || 'Nicht gesetzt'}</span>
-        <span>Cluster</span><span>{resource.clusterName}</span>
-        <span>Node</span><span>{resource.node || 'Unbekannt'}</span>
+
+      <div className="resource-summary">
+        <div><span>Benutzer</span><strong>{resource.userName || resource.userEmail || 'Nicht gesetzt'}</strong></div>
+        <div><span>Cluster</span><strong>{resource.clusterName || 'Unbekannt'}</strong></div>
       </div>
+
       <Metric label="CPU" percent={cpuPercent} detail={`${cpuPercent.toFixed(1)} %`} />
       <Metric label="RAM" percent={memPercent} detail={`${formatBytes(resource.mem)} / ${formatBytes(resource.maxmem)}`} />
-      <DiskDetails resource={resource} />
-      <div className="button-stack">
-        {resource.publicUrl && <a className="btn-secondary full-button" href={resource.publicUrl} target="_blank" rel="noreferrer">Öffentliche Seite</a>}
-        {resource.adminUrl && <a className="btn-secondary full-button" href={resource.adminUrl} target="_blank" rel="noreferrer">Verwaltungsseite</a>}
-        <button type="button" className="btn-secondary full-button" onClick={() => onEdit(resource)}>Bearbeiten</button>
-        <button type="button" className="btn-danger full-button" onClick={() => onDelete(resource.id)} disabled={actionLoading}>Entfernen</button>
-      </div>
-      {resource.monitorError && <p className="hint-text">Monitoring nicht erreichbar.</p>}
+
+      <button type="button" className="btn-secondary full-button service-detail-toggle" onClick={() => setDetailsOpen(value => !value)}>
+        {detailsOpen ? 'Details ausblenden' : 'Details anzeigen'}
+      </button>
+
+      {detailsOpen && (
+        <div className="resource-details">
+          <div className="resource-meta">
+            <span>Benutzer</span><span>{resource.userName || resource.userEmail || 'Nicht gesetzt'}</span>
+            <span>Cluster</span><span>{resource.clusterName || 'Unbekannt'}</span>
+            <span>Node</span><span>{resource.node || 'Unbekannt'}</span>
+          </div>
+          <DiskDetails resource={resource} />
+          <div className="button-stack">
+            {publicUrl && <a className="btn-secondary full-button" href={publicUrl} target="_blank" rel="noreferrer">Öffentliche Seite</a>}
+            {resource.adminUrl && <a className="btn-secondary full-button" href={resource.adminUrl} target="_blank" rel="noreferrer">Verwaltungsseite</a>}
+            <button type="button" className="btn-secondary full-button" onClick={() => onEdit(resource)}>Bearbeiten</button>
+            <button type="button" className="btn-danger full-button" onClick={() => onDelete(resource.id)} disabled={actionLoading}>Entfernen</button>
+          </div>
+          {resource.monitorError && <p className="hint-text">Monitoring nicht erreichbar.</p>}
+        </div>
+      )}
     </article>
   );
 }
@@ -789,5 +806,5 @@ function renderStatus(status) {
 function renderType(type) {
   if (type === 'lxc') return 'LXC';
   if (type === 'qemu') return 'VM';
-  return 'Ressource';
+  return 'Dienst';
 }

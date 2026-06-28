@@ -665,6 +665,42 @@ tr:hover td { background: rgba(122, 135, 111, 0.06); }
 .admin-resource-grid { grid-template-columns: repeat(auto-fill, minmax(285px, 1fr)); }
 
 .resource-card { display: grid; gap: var(--spacing-md); }
+
+.compact-resource-card {
+  align-content: start;
+}
+.resource-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.resource-summary > div {
+  display: grid;
+  gap: 2px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  background: var(--color-bg-alt);
+}
+.resource-summary span {
+  color: var(--color-text-light);
+  font-size: var(--font-size-sm);
+}
+.resource-summary strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-text);
+  font-size: var(--font-size-base);
+}
+.service-detail-toggle {
+  margin-top: 2px;
+}
+.resource-details {
+  display: grid;
+  gap: var(--spacing-md);
+  padding-top: var(--spacing-xs);
+}
 .resource-card-header {
   display: flex;
   align-items: flex-start;
@@ -1029,6 +1065,7 @@ body.theme-dark .icon-button {
   .panel-card, .metric-card, .resource-card, .modal-card, .intro-card { padding: 16px; }
 
   .resource-card-header { flex-direction: column; }
+  .resource-summary { grid-template-columns: 1fr; }
   .card-actions { flex-direction: column; }
   .card-actions .btn-small { width: 100%; }
 

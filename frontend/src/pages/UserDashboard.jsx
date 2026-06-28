@@ -31,7 +31,7 @@ export default function UserDashboard() {
       const response = await userApi.getResources();
       setResources(response.data.resources || []);
     } catch (err) {
-      setError(getErrorMessage(err, 'Ressourcen konnten nicht geladen werden.'));
+      setError(getErrorMessage(err, 'Dienste konnten nicht geladen werden.'));
     } finally {
       setLoading(false);
     }
@@ -55,11 +55,11 @@ export default function UserDashboard() {
         {error && <div className="alert alert-danger">{error}</div>}
 
         {loading ? (
-          <div className="loading"><span className="spinner"></span><span>Ressourcen werden geladen...</span></div>
+          <div className="loading"><span className="spinner"></span><span>Dienste werden geladen...</span></div>
         ) : resources.length === 0 ? (
           <section className="empty-state panel-card">
-            <h2>Keine Ressourcen</h2>
-            <p>Dir sind noch keine Container oder VMs zugewiesen.</p>
+            <h2>Keine Dienste</h2>
+            <p>Dir sind noch keine Dienste zugewiesen.</p>
           </section>
         ) : (
           <section className="resource-grid">
@@ -72,11 +72,13 @@ export default function UserDashboard() {
 }
 
 function ResourceCard({ resource }) {
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const cpuPercent = getCpuPercent(resource);
   const memPercent = getPercent(resource.mem, resource.maxmem);
+  const publicUrl = resource.publicUrl || resource.webUrl;
 
   return (
-    <article className="resource-card">
+    <article className="resource-card compact-resource-card">
       <div className="resource-card-header">
         <div>
           <span className="resource-id">{renderType(resource.type)} · {resource.containerId}</span>
@@ -85,26 +87,37 @@ function ResourceCard({ resource }) {
         <span className={`status-badge status-${resource.status || 'unknown'}`}>{renderStatus(resource.status)}</span>
       </div>
 
-      <div className="resource-meta">
-        <span>Cluster</span><span>{resource.clusterName}</span>
-        <span>Node</span><span>{resource.node || 'Unbekannt'}</span>
+      <div className="resource-summary">
+        <div><span>Cluster</span><strong>{resource.clusterName || 'Unbekannt'}</strong></div>
+        <div><span>Node</span><strong>{resource.node || 'Unbekannt'}</strong></div>
       </div>
 
       <Metric label="CPU" percent={cpuPercent} detail={`${cpuPercent.toFixed(1)} %`} />
       <Metric label="RAM" percent={memPercent} detail={`${formatBytes(resource.mem)} / ${formatBytes(resource.maxmem)}`} />
-      <DiskDetails resource={resource} />
 
-      {resource.publicUrl || resource.webUrl ? (
-        <a className="btn-primary full-button" href={resource.publicUrl || resource.webUrl} target="_blank" rel="noreferrer">Öffentliche Seite</a>
+      {publicUrl ? (
+        <a className="btn-primary full-button" href={publicUrl} target="_blank" rel="noreferrer">Öffentliche Seite</a>
       ) : (
         <button type="button" className="btn-secondary full-button" disabled>Keine öffentliche Seite</button>
       )}
 
-      {resource.monitorError && <p className="hint-text">Monitoring ist gerade nicht erreichbar.</p>}
+      <button type="button" className="btn-secondary full-button service-detail-toggle" onClick={() => setDetailsOpen(value => !value)}>
+        {detailsOpen ? 'Details ausblenden' : 'Details anzeigen'}
+      </button>
+
+      {detailsOpen && (
+        <div className="resource-details">
+          <div className="resource-meta">
+            <span>Cluster</span><span>{resource.clusterName || 'Unbekannt'}</span>
+            <span>Node</span><span>{resource.node || 'Unbekannt'}</span>
+          </div>
+          <DiskDetails resource={resource} />
+          {resource.monitorError && <p className="hint-text">Monitoring ist gerade nicht erreichbar.</p>}
+        </div>
+      )}
     </article>
   );
 }
-
 
 function DiskDetails({ resource }) {
   const filesystems = Array.isArray(resource.filesystems) ? resource.filesystems : [];
@@ -191,5 +204,5 @@ function renderStatus(status) {
 function renderType(type) {
   if (type === 'lxc') return 'LXC';
   if (type === 'qemu') return 'VM';
-  return 'Ressource';
+  return 'Dienst';
 }
