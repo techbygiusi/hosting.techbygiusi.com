@@ -100,7 +100,7 @@ export default function UploadPage() {
         <h1>Florian &amp; Alexandra</h1>
         <p>
           Schön, dass ihr dabei wart! Haltet eure schönsten Momente fest und ladet eure Fotos
-          hier hoch — so entsteht unser gemeinsames Hochzeitsalbum aus allen Blickwinkeln.
+          hier hoch - so entsteht unser gemeinsames Hochzeitsalbum aus allen Blickwinkeln.
         </p>
         <div className="ornament" aria-hidden="true">❦</div>
       </div>

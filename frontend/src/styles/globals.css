@@ -141,7 +141,7 @@ label { display: grid; gap: 7px; color: var(--site-muted); font-size: 14px; }
   color: var(--site-muted);
   background: var(--site-surface);
   border: 1px solid var(--site-border);
-  border-radius: 999px;
+  border-radius: 10px;
   padding: 7px 10px;
   font-size: 13px;
 }
@@ -608,7 +608,7 @@ label { display: grid; gap: 7px; color: var(--site-muted); font-size: 14px; }
 /* Upload-Seite auf Mobile/große Handys: fast volle Breite, vertikal mittig */
 @media (max-width: 900px) {
   /* Hintergrundbild nach rechts schieben damit Schwäne mittig erscheinen */
-  .upload-shell { background-position: 38% 69%; }
+  .upload-shell { background-position: 42% 69%; }
 
   .upload-shell .site-header,
   .upload-shell .site-footer,
