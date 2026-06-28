@@ -24,18 +24,22 @@
 
 
 * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-html, body, #root { height: 100%; width: 100%; }
-body {
-  height: 100%;
-  font-family: var(--font);
-  background-color: var(--site-bg);
+html {
+  background-color: #f6f1e8;
   background-image:
     radial-gradient(60% 50% at 0% 0%, rgba(126, 139, 107, 0.18), transparent 70%),
     radial-gradient(55% 45% at 100% 0%, rgba(185, 200, 200, 0.22), transparent 72%),
     radial-gradient(70% 55% at 100% 100%, rgba(126, 139, 107, 0.16), transparent 72%),
     radial-gradient(60% 50% at 0% 100%, rgba(156, 124, 67, 0.10), transparent 70%);
-  background-attachment: fixed;
+  background-attachment: scroll;
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  min-height: 100%;
+}
+body, #root { min-height: 100%; width: 100%; }
+body {
   color: var(--site-text);
+  font-family: var(--font);
   font-size: 17px;
   line-height: 1.55;
   font-weight: 400;
@@ -558,7 +562,8 @@ label { display: grid; gap: 7px; color: var(--site-muted); font-size: 14px; }
     url('/hochzeit.jpg');
   background-size: cover;
   background-position: center;
-  background-attachment: fixed;
+  background-attachment: scroll;
+  min-height: 100vh;
 }
 .upload-shell .upload-column::before { display: none; }
 
@@ -572,7 +577,9 @@ label { display: grid; gap: 7px; color: var(--site-muted); font-size: 14px; }
     radial-gradient(55% 45% at 100% 0%, rgba(156, 178, 172, 0.20), transparent 72%),
     radial-gradient(70% 55% at 100% 100%, rgba(95, 139, 151, 0.18), transparent 72%),
     radial-gradient(60% 50% at 0% 100%, rgba(76, 116, 128, 0.12), transparent 70%);
-  background-attachment: fixed;
+  background-attachment: scroll;
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
 }
 
 /* Buttons, Balken & Fokus in Blau (beide Seiten) */
@@ -823,4 +830,24 @@ label { display: grid; gap: 7px; color: var(--site-muted); font-size: 14px; }
   .viewer-btn { padding: 9px 11px; }
   .viewer-infobar { padding: 10px 12px calc(10px + env(safe-area-inset-bottom)); }
   .viewer-info strong { font-size: 13px; }
+}
+
+/* ===== Admin: normale Schriftart für alle Texte ausser Brand ===== */
+.admin-shell h1,
+.admin-shell h2,
+.admin-shell h3,
+.admin-shell .eyebrow,
+.admin-shell .card-heading h2,
+.admin-shell .admin-hero h1,
+.admin-shell .login-card h1,
+.admin-shell .password-modal-head h2,
+.admin-shell .dashboard-card h3,
+.admin-shell .storage-card h3,
+.admin-shell .empty-state h2 {
+  font-family: var(--font);
+  letter-spacing: 0;
+}
+.admin-shell .eyebrow {
+  letter-spacing: 0.22em;
+  font-size: 11px;
 }
