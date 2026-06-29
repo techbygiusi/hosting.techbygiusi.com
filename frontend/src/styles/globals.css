@@ -1192,9 +1192,6 @@ body.theme-light .modal-card {
 
 body.theme-light .list-card,
 body.theme-light .soft-box,
-body.theme-light .resource-summary > div,
-body.theme-light .resource-meta,
-body.theme-light .disk-row,
 body.theme-light .setup-check-row,
 body.theme-light .setup-check-test {
   background: #ffffff;
@@ -1202,6 +1199,13 @@ body.theme-light .setup-check-test {
 }
 
 body.theme-light .resource-card {
-  background: #eeeeee;
-  border-color: rgba(17, 17, 17, 0.11);
+  background: #ffffff;
+  border-color: rgba(17, 17, 17, 0.12);
+}
+
+body.theme-light .resource-summary > div,
+body.theme-light .resource-meta,
+body.theme-light .disk-row {
+  background: #f1f1f1;
+  border: 1px solid rgba(17, 17, 17, 0.08);
 }

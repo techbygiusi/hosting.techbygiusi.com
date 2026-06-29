@@ -1,5 +1,15 @@
 # Hosting Portal - Changelog
 
+## v1.0.29 - 2026-06-29
+
+**Commit:** `fix: separate service cards in light mode`
+
+- Fixed the light-mode **Dienste** section so individual service cards stand out clearly from the surrounding panel.
+- Changed the service cards themselves to white in light mode and set the inner summary boxes back to a light neutral grey.
+- Kept the improved light-mode styling for Benutzer and Proxmox, and kept the darker neutral popup styling in dark mode.
+
+---
+
 ## v1.0.28 - 2026-06-28
 
 **Commit:** `style: refine modal and nested surface contrast`
