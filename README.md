@@ -1,5 +1,16 @@
 # Hosting Portal - Changelog
 
+## v1.0.28 - 2026-06-28
+
+**Commit:** `style: refine modal and nested surface contrast`
+
+- Fixed light-mode nested surfaces so box-in-box layouts stand out more clearly, especially in Proxmox and Benutzer sections.
+- Changed dark-mode popups from a blue-tinted look to a more neutral black/gray surface.
+- Made danger actions in dark mode more visible with stronger red contrast.
+- Kept the compact Dienste cards and the new details modal behavior.
+
+---
+
 ## v1.0.27 - 2026-06-29
 
 **Commit:** `feat: show service details in modal`

@@ -77,14 +77,14 @@ body.theme-light {
 }
 
 body.theme-dark {
-  --site-bg:        #0B0F14;
-  --site-surface:   rgba(255, 255, 255, 0.06);
-  --site-inset:     #101720;
+  --site-bg:        #0d0f12;
+  --site-surface:   #171a1f;
+  --site-inset:     #111418;
   --site-text:      #E6E6E6;
   --site-muted:     #9AA4B2;
   --site-accent:    #C2CEA7;
   --site-accent-strong: #AEBD8D;
-  --site-border:    #243041;
+  --site-border:    #2c3138;
   --site-cord:      rgba(255, 255, 255, 0.30);
   --site-bulb-off:  #2a3242;
   --site-bulb-on:   #ffd666;
@@ -242,6 +242,17 @@ input::placeholder, textarea::placeholder {
   color: #ffffff;
 }
 
+body.theme-dark .btn-danger {
+  background: rgba(180, 35, 24, 0.18);
+  color: #ffb4ab;
+  border-color: rgba(228, 72, 56, 0.42);
+}
+body.theme-dark .btn-danger:hover:not(:disabled) {
+  background: #c43d2f;
+  border-color: #c43d2f;
+  color: #ffffff;
+}
+
 .btn-small {
   min-height: 32px;
   padding: 5px 10px;
@@ -314,7 +325,7 @@ body.theme-dark .soft-box,
 body.theme-dark .setup-content,
 body.theme-dark .resource-meta,
 body.theme-dark .disk-row {
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--color-surface);
   border: 1px solid var(--color-border);
 }
 
@@ -904,8 +915,8 @@ body.theme-dark .progress-bar {
   .modal-overlay, .modal-card { animation: none; }
 }
 body.theme-dark .modal-card {
-  background: var(--color-bg-alt);
-  border: 1px solid var(--color-border);
+  background: #15181d;
+  border: 1px solid #30353d;
   box-shadow: var(--shadow-lg);
 }
 .modal-card .form-stack { gap: 18px; }
@@ -917,8 +928,8 @@ body.theme-dark .modal-card {
 body.theme-dark .modal-card input,
 body.theme-dark .modal-card select,
 body.theme-dark .modal-card textarea {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: var(--color-border);
+  background: #252a32;
+  border-color: #343a43;
 }
 .modal-header {
   display: flex;
@@ -1171,16 +1182,15 @@ body.theme-light .metric-card,
 body.theme-light .modal-card,
 body.theme-light .app-error-card,
 body.theme-light .intro-card,
-body.theme-light .list-card,
 body.theme-light .setup-content {
   background: #eeeeee;
 }
 
-body.theme-light .resource-card {
+body.theme-light .modal-card {
   background: #eeeeee;
-  border-color: rgba(17, 17, 17, 0.11);
 }
 
+body.theme-light .list-card,
 body.theme-light .soft-box,
 body.theme-light .resource-summary > div,
 body.theme-light .resource-meta,
@@ -1189,4 +1199,9 @@ body.theme-light .setup-check-row,
 body.theme-light .setup-check-test {
   background: #ffffff;
   border: 1px solid rgba(17, 17, 17, 0.08);
+}
+
+body.theme-light .resource-card {
+  background: #eeeeee;
+  border-color: rgba(17, 17, 17, 0.11);
 }
