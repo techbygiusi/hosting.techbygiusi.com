@@ -1,5 +1,16 @@
 # Hosting Portal - Changelog
 
+## v1.0.31 - 2026-06-29
+
+**Commit:** `style: improve modal field contrast and close hover`
+
+- Increased the contrast between light-mode popup backgrounds and the white fields/inner sections so inputs are easier to distinguish.
+- Kept the popup surface neutral grey while making form fields and detail boxes clearly white with a stronger border.
+- Added a subtle hover/focus animation to the modal close button with rotation and contrast feedback.
+- Preserved the service-card light-mode hierarchy and the neutral dark-mode popup styling.
+
+---
+
 ## v1.0.30 - 2026-06-29
 
 **Commit:** `style: tune light modal surface`

@@ -1209,3 +1209,42 @@ body.theme-light .disk-row {
   background: #f1f1f1;
   border: 1px solid rgba(17, 17, 17, 0.08);
 }
+
+
+/* Light modal contrast override */
+body.theme-light .modal-card {
+  background: #e6e6e6;
+  border-color: rgba(17, 17, 17, 0.14);
+}
+
+body.theme-light .modal-card .resource-meta,
+body.theme-light .modal-card .disk-row,
+body.theme-light .modal-card input,
+body.theme-light .modal-card select,
+body.theme-light .modal-card textarea {
+  background: #ffffff;
+  border-color: rgba(17, 17, 17, 0.14);
+  box-shadow: 0 1px 0 rgba(17, 17, 17, 0.03);
+}
+
+.modal-header .icon-button {
+  transition: transform 0.18s ease, background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+}
+
+.modal-header .icon-button:hover,
+.modal-header .icon-button:focus-visible {
+  transform: rotate(90deg) scale(1.04);
+  background: var(--color-text);
+  color: var(--color-bg);
+  outline: none;
+}
+
+body.theme-dark .modal-header .icon-button:hover,
+body.theme-dark .modal-header .icon-button:focus-visible {
+  background: #e6e6e6;
+  color: #111111;
+}
+
+.modal-header .icon-button:active {
+  transform: rotate(90deg) scale(0.96);
+}
