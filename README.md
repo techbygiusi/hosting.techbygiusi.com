@@ -1,4 +1,12 @@
-# Picly v0.1.33
+# Picly v0.1.34
+
+## v0.1.34 - 2026-06-29
+
+**Commit:** `style: widen mobile wedding intro text`
+
+- Let the mobile wedding intro text use more of the available card width.
+- Removed the narrow text measure that made the intro read like a poem.
+- Kept the centered mobile layout and the existing desktop styling.
 
 ## v0.1.33 - 2026-06-29
 

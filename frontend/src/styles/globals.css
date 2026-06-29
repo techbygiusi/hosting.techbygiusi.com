@@ -668,8 +668,9 @@ label { display: grid; gap: 7px; color: var(--site-muted); font-size: 14px; }
   .upload-shell .hero-copy h1,
   .upload-shell .hero-copy .ornament { display: none; }
   .upload-shell .hero-copy p {
-    max-width: 29ch;
-    margin: 0 auto;
+    max-width: none;
+    width: 100%;
+    margin: 0;
     font-size: 17px;
     line-height: 1.5;
   }
@@ -696,7 +697,8 @@ label { display: grid; gap: 7px; color: var(--site-muted); font-size: 14px; }
   .mobile-album-names { font-size: clamp(34px, 11vw, 44px); }
   .mobile-album-word { font-size: clamp(20px, 6vw, 26px); }
   .upload-shell .hero-copy p {
-    max-width: 25ch;
+    max-width: none;
+    width: 100%;
     font-size: 16px;
     line-height: 1.45;
   }
