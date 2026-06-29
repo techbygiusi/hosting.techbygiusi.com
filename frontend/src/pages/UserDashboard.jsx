@@ -101,21 +101,40 @@ function ResourceCard({ resource }) {
         <button type="button" className="btn-secondary full-button" disabled>Keine öffentliche Seite</button>
       )}
 
-      <button type="button" className="btn-secondary full-button service-detail-toggle" onClick={() => setDetailsOpen(value => !value)}>
-        {detailsOpen ? 'Details ausblenden' : 'Details anzeigen'}
+      <button type="button" className="btn-secondary full-button service-detail-toggle" onClick={() => setDetailsOpen(true)}>
+        Details anzeigen
       </button>
 
       {detailsOpen && (
-        <div className="resource-details">
-          <div className="resource-meta">
-            <span>Cluster</span><span>{resource.clusterName || 'Unbekannt'}</span>
-            <span>Node</span><span>{resource.node || 'Unbekannt'}</span>
+        <Modal title={`Details · ${resource.name}`} onClose={() => setDetailsOpen(false)} className="detail-modal-card">
+          <div className="resource-details detail-modal-content">
+            <div className="resource-meta">
+              <span>Cluster</span><span>{resource.clusterName || 'Unbekannt'}</span>
+              <span>Node</span><span>{resource.node || 'Unbekannt'}</span>
+              <span>Typ</span><span>{renderType(resource.type)}</span>
+              <span>ID</span><span>{resource.containerId || 'Unbekannt'}</span>
+              <span>Status</span><span>{renderStatus(resource.status)}</span>
+            </div>
+            <DiskDetails resource={resource} />
+            {resource.monitorError && <p className="hint-text">Monitoring ist gerade nicht erreichbar.</p>}
           </div>
-          <DiskDetails resource={resource} />
-          {resource.monitorError && <p className="hint-text">Monitoring ist gerade nicht erreichbar.</p>}
-        </div>
+        </Modal>
       )}
     </article>
+  );
+}
+
+function Modal({ title, children, onClose, className = '' }) {
+  return (
+    <div className="modal-overlay active" role="dialog" aria-modal="true">
+      <div className={`modal-card ${className}`.trim()}>
+        <div className="modal-header">
+          <h2>{title}</h2>
+          <button type="button" className="icon-button" onClick={onClose} aria-label="Schließen">×</button>
+        </div>
+        {children}
+      </div>
+    </div>
   );
 }
 

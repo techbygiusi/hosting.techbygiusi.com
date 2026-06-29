@@ -1,5 +1,27 @@
 # Hosting Portal - Changelog
 
+## v1.0.27 - 2026-06-29
+
+**Commit:** `feat: show service details in modal`
+
+- Changed **Details anzeigen** on Dienst cards so it opens a dedicated details popup instead of expanding the card inline.
+- Kept the compact Dienst overview stable while moving metadata, disks and admin actions into the details dialog.
+- On mobile, the details dialog uses the existing full-width bottom-sheet behavior and slides up from the bottom.
+- Updated the README changelog.
+
+---
+
+## v1.0.26 - 2026-06-29
+
+**Commit:** `style: remove beige light surfaces`
+
+- Removed the remaining warm/beige-looking light-mode surfaces.
+- Set the light-mode page background to pure white, main containers and popups to neutral cold grey, and nested boxes back to white.
+- Added final light-mode surface overrides so older component rules cannot reintroduce warm tones.
+- Left dark mode unchanged.
+
+---
+
 ## v1.0.25 - 2026-06-29
 
 **Commit:** `style: alternate light mode surfaces`

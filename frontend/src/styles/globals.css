@@ -3,7 +3,7 @@
    Global stylesheet, aligned to the techbygiusi.com design language.
 
    Design language (single source of truth):
-   - White page background, neutral light-grey cards (#f1f1f1)
+   - White page background, neutral cold-grey cards (#eeeeee)
    - Muted sage / olive green accent (#7A876F)
    - Near-black editorial text, light font weights
    - Flat surfaces, hairline borders, gentle rounding (8–14px)
@@ -17,7 +17,7 @@
 body.theme-light {
   /* Brand palette */
   --site-bg:        #ffffff;   /* page background */
-  --site-surface:   #f1f1f1;   /* cards / panels / popups */
+  --site-surface:   #eeeeee;   /* cards / panels / popups */
   --site-inset:     #ffffff;   /* boxes inside boxes */
   --site-text:      #111111;
   --site-muted:     #6B7280;
@@ -679,8 +679,8 @@ tr:hover td { background: rgba(122, 135, 111, 0.06); }
 }
 
 body.theme-light .resource-card {
-  background: #f1f1f1;
-  border-color: rgba(17, 17, 17, 0.10);
+  background: #eeeeee;
+  border-color: rgba(17, 17, 17, 0.11);
 }
 
 body.theme-light .resource-summary > div,
@@ -874,6 +874,16 @@ body.theme-dark .progress-bar {
   border-radius: 18px;
   box-shadow: var(--shadow-lg);
   animation: modalPopIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.detail-modal-card {
+  width: min(760px, calc(100vw - 32px));
+}
+.detail-modal-content {
+  gap: var(--spacing-lg);
+}
+.detail-modal-content .resource-meta {
+  grid-template-columns: minmax(110px, auto) 1fr;
 }
 
 @keyframes modalOverlayIn {
@@ -1130,4 +1140,53 @@ body.theme-dark .icon-button {
     animation: modalSheetUp 0.26s cubic-bezier(0.16, 1, 0.3, 1);
   }
   .modal-card .form-actions { display: grid; grid-template-columns: 1fr; }
+  .detail-modal-card {
+    width: 100%;
+    max-width: 100%;
+  }
+  .detail-modal-content .resource-meta {
+    grid-template-columns: 1fr;
+  }
+
+}
+
+
+/* Light-mode final surface hierarchy: white page, neutral gray containers,
+   white nested boxes. Kept at the end so no earlier rule can reintroduce
+   warm/beige tones. */
+body.theme-light {
+  --site-bg: #ffffff;
+  --site-surface: #eeeeee;
+  --site-inset: #ffffff;
+  --color-bg: #ffffff;
+  --color-bg-alt: #ffffff;
+  --color-surface: #eeeeee;
+  --color-card: #eeeeee;
+}
+
+body.theme-light .auth-card,
+body.theme-light .setup-card,
+body.theme-light .panel-card,
+body.theme-light .metric-card,
+body.theme-light .modal-card,
+body.theme-light .app-error-card,
+body.theme-light .intro-card,
+body.theme-light .list-card,
+body.theme-light .setup-content {
+  background: #eeeeee;
+}
+
+body.theme-light .resource-card {
+  background: #eeeeee;
+  border-color: rgba(17, 17, 17, 0.11);
+}
+
+body.theme-light .soft-box,
+body.theme-light .resource-summary > div,
+body.theme-light .resource-meta,
+body.theme-light .disk-row,
+body.theme-light .setup-check-row,
+body.theme-light .setup-check-test {
+  background: #ffffff;
+  border: 1px solid rgba(17, 17, 17, 0.08);
 }

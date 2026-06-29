@@ -710,24 +710,29 @@ function ResourceCard({ resource, onEdit, onDelete, actionLoading }) {
         </div>
       )}
 
-      <button type="button" className="btn-secondary full-button service-detail-toggle" onClick={() => setDetailsOpen(value => !value)}>
-        {detailsOpen ? 'Details ausblenden' : 'Details anzeigen'}
+      <button type="button" className="btn-secondary full-button service-detail-toggle" onClick={() => setDetailsOpen(true)}>
+        Details anzeigen
       </button>
 
       {detailsOpen && (
-        <div className="resource-details">
-          <div className="resource-meta">
-            <span>Benutzer</span><span>{resource.userName || resource.userEmail || 'Nicht gesetzt'}</span>
-            <span>Cluster</span><span>{resource.clusterName || 'Unbekannt'}</span>
-            <span>Node</span><span>{resource.node || 'Unbekannt'}</span>
+        <Modal title={`Details · ${resource.name}`} onClose={() => setDetailsOpen(false)} className="detail-modal-card">
+          <div className="resource-details detail-modal-content">
+            <div className="resource-meta">
+              <span>Benutzer</span><span>{resource.userName || resource.userEmail || 'Nicht gesetzt'}</span>
+              <span>Cluster</span><span>{resource.clusterName || 'Unbekannt'}</span>
+              <span>Node</span><span>{resource.node || 'Unbekannt'}</span>
+              <span>Typ</span><span>{renderType(resource.type)}</span>
+              <span>ID</span><span>{resource.containerId || 'Unbekannt'}</span>
+              <span>Status</span><span>{renderStatus(resource.status)}</span>
+            </div>
+            <DiskDetails resource={resource} />
+            <div className="button-stack">
+              <button type="button" className="btn-secondary full-button" onClick={() => { setDetailsOpen(false); onEdit(resource); }}>Bearbeiten</button>
+              <button type="button" className="btn-danger full-button" onClick={() => { setDetailsOpen(false); onDelete(resource.id); }} disabled={actionLoading}>Entfernen</button>
+            </div>
+            {resource.monitorError && <p className="hint-text">Monitoring nicht erreichbar.</p>}
           </div>
-          <DiskDetails resource={resource} />
-          <div className="button-stack">
-            <button type="button" className="btn-secondary full-button" onClick={() => onEdit(resource)}>Bearbeiten</button>
-            <button type="button" className="btn-danger full-button" onClick={() => onDelete(resource.id)} disabled={actionLoading}>Entfernen</button>
-          </div>
-          {resource.monitorError && <p className="hint-text">Monitoring nicht erreichbar.</p>}
-        </div>
+        </Modal>
       )}
     </article>
   );
@@ -775,8 +780,8 @@ function Metric({ label, percent, detail }) {
   return <div className="metric-line"><div><span>{label}</span><span>{safePercent.toFixed(1)}%</span></div><div className="progress-bar"><span style={{ width: `${safePercent}%` }}></span></div><small>{detail}</small></div>;
 }
 
-function Modal({ title, children, onClose }) {
-  return <div className="modal-overlay active" role="dialog" aria-modal="true"><div className="modal-card"><div className="modal-header"><h2>{title}</h2><button type="button" className="icon-button" onClick={onClose} aria-label="Schließen">×</button></div>{children}</div></div>;
+function Modal({ title, children, onClose, className = '' }) {
+  return <div className="modal-overlay active" role="dialog" aria-modal="true"><div className={`modal-card ${className}`.trim()}><div className="modal-header"><h2>{title}</h2><button type="button" className="icon-button" onClick={onClose} aria-label="Schließen">×</button></div>{children}</div></div>;
 }
 
 function getPercent(value, max) {
