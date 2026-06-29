@@ -1,5 +1,16 @@
 # Hosting Portal - Changelog
 
+## v1.0.25 - 2026-06-29
+
+**Commit:** `style: alternate light mode surfaces`
+
+- Changed the light-mode page background back to pure white.
+- Kept main cards, panels and popup dialogs on the neutral grey surface.
+- Changed nested boxes inside cards, such as service summary fields and detail rows, back to white so the hierarchy is clearer.
+- Left dark mode unchanged.
+
+---
+
 ## v1.0.24 - 2026-06-28
 
 **Commit:** `style: restore neutral gray light cards`
