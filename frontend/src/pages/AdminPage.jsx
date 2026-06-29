@@ -139,8 +139,8 @@ function PasswordDialog({ onClose, onChanged }) {
   }
 
   return (
-    <div className="modal-backdrop password-backdrop" onClick={onClose}>
-      <form className="password-modal" onSubmit={handleSubmit} onClick={(event) => event.stopPropagation()}>
+    <div className="modal-backdrop password-backdrop">
+      <form className="password-modal" onSubmit={handleSubmit}>
         <button className="modal-close" type="button" onClick={onClose} aria-label="Schließen">×</button>
         <div className="password-modal-head">
           <p className="eyebrow">Admin</p>
@@ -329,13 +329,13 @@ function BackupDialog({ onClose, onSaved }) {
   const passwordHint = form.smb.hasPassword ? 'Leer lassen, um das gespeicherte Kennwort zu behalten' : 'SMB-Kennwort';
 
   return (
-    <div className="modal-backdrop backup-backdrop" onClick={onClose}>
-      <form className="password-modal backup-modal" onSubmit={handleSave} onClick={(event) => event.stopPropagation()}>
+    <div className="modal-backdrop backup-backdrop">
+      <form className="password-modal backup-modal" onSubmit={handleSave}>
         <button className="modal-close" type="button" onClick={onClose} aria-label="Schließen">×</button>
         <div className="password-modal-head backup-modal-head">
           <p className="eyebrow">Admin</p>
           <h2>Backup</h2>
-          <p>SMB-Ziel direkt im Container hinterlegen. Der Docker-Host muss keinen Share mounten.</p>
+          <p>Mach ein Backup deiner Bilder an einem sicheren Ort. Neue Uploads und gelöschte Bilder werden automatisch mit dem SMB-Ziel abgeglichen.</p>
         </div>
 
         {loading ? (
@@ -353,23 +353,23 @@ function BackupDialog({ onClose, onSaved }) {
             <div className="backup-grid two-cols">
               <label>
                 SMB-Server
-                <input value={form.smb.server} onChange={(event) => updateSmb('server', event.target.value)} placeholder="10.10.0.21" />
+                <input value={form.smb.server} onChange={(event) => updateSmb('server', event.target.value)} placeholder="192.168.1.10 oder nas.local" />
               </label>
               <label>
                 Share
-                <input value={form.smb.share} onChange={(event) => updateSmb('share', event.target.value)} placeholder="Backup-Labby" />
+                <input value={form.smb.share} onChange={(event) => updateSmb('share', event.target.value)} placeholder="Fotos-Backup" />
               </label>
             </div>
 
             <label>
               Remote-Pfad im Share
-              <input value={form.smb.remotePath} onChange={(event) => updateSmb('remotePath', event.target.value)} placeholder="Picly" />
+              <input value={form.smb.remotePath} onChange={(event) => updateSmb('remotePath', event.target.value)} placeholder="picly" />
             </label>
 
             <div className="backup-grid two-cols">
               <label>
                 Benutzer
-                <input value={form.smb.username} onChange={(event) => updateSmb('username', event.target.value)} autoComplete="username" />
+                <input value={form.smb.username} onChange={(event) => updateSmb('username', event.target.value)} autoComplete="username" placeholder="backup-user" />
               </label>
               <label>
                 Kennwort
@@ -463,7 +463,24 @@ function BackupDialog({ onClose, onSaved }) {
   );
 }
 
-function GalleryImage({ image, index, onOpen, onDelete, deleting, onUrlLoaded }) {
+function galleryCornerClass(index, total, columns) {
+  const safeTotal = Math.max(0, Number(total || 0));
+  const safeColumns = Math.max(1, Number(columns || 1));
+  if (!safeTotal) return '';
+
+  const firstRowEnd = Math.min(safeColumns - 1, safeTotal - 1);
+  const lastRowStart = Math.floor((safeTotal - 1) / safeColumns) * safeColumns;
+  const classes = [];
+
+  if (index === 0) classes.push('gallery-corner-top-left');
+  if (index === firstRowEnd) classes.push('gallery-corner-top-right');
+  if (index === lastRowStart) classes.push('gallery-corner-bottom-left');
+  if (index === safeTotal - 1) classes.push('gallery-corner-bottom-right');
+
+  return classes.join(' ');
+}
+
+function GalleryImage({ image, index, onOpen, onDelete, deleting, onUrlLoaded, cornerClass = '' }) {
   const [url, setUrl] = useState('');
 
   useEffect(() => {
@@ -498,7 +515,7 @@ function GalleryImage({ image, index, onOpen, onDelete, deleting, onUrlLoaded })
   }
 
   return (
-    <article className="image-card image-tile">
+    <article className={`image-card image-tile ${cornerClass}`.trim()}>
       <button className="image-thumb" type="button" onClick={() => onOpen(index)} aria-label={`${image.originalName || 'Bild'} öffnen`}>
         {url ? <img src={url} alt={image.originalName || 'Upload'} /> : <span className="spinner" />}
       </button>
@@ -525,6 +542,8 @@ export default function AdminPage() {
   const [passwordOpen, setPasswordOpen] = useState(false);
   const [backupOpen, setBackupOpen] = useState(false);
   const [success, setSuccess] = useState('');
+  const [galleryColumns, setGalleryColumns] = useState(1);
+  const galleryRef = useRef(null);
 
   // Viewer: track loaded URLs per image id
   const [loadedUrls, setLoadedUrls] = useState({});
@@ -588,6 +607,42 @@ export default function AdminPage() {
     if (authenticated) loadImages();
   }, [authenticated]);
 
+  useEffect(() => {
+    function updateGalleryColumns() {
+      const grid = galleryRef.current;
+      if (!grid) {
+        setGalleryColumns(1);
+        return;
+      }
+
+      const tiles = Array.from(grid.children).filter((node) => node.classList?.contains('image-card'));
+      if (!tiles.length) {
+        setGalleryColumns(1);
+        return;
+      }
+
+      const firstRowTop = tiles[0].offsetTop;
+      const columns = tiles.filter((node) => node.offsetTop === firstRowTop).length || 1;
+      setGalleryColumns(columns);
+    }
+
+    const runUpdate = () => window.requestAnimationFrame(updateGalleryColumns);
+    runUpdate();
+
+    window.addEventListener('resize', runUpdate);
+
+    let resizeObserver;
+    if (window.ResizeObserver && galleryRef.current) {
+      resizeObserver = new window.ResizeObserver(runUpdate);
+      resizeObserver.observe(galleryRef.current);
+    }
+
+    return () => {
+      window.removeEventListener('resize', runUpdate);
+      resizeObserver?.disconnect();
+    };
+  }, [images.length]);
+
   const totalSize = useMemo(() => images.reduce((sum, image) => sum + Number(image.size || 0), 0), [images]);
 
   function logout() {
@@ -643,11 +698,11 @@ export default function AdminPage() {
           <p>{images.length} Bilder · {formatSize(totalSize)}</p>
         </div>
         <div className="admin-actions">
-          <button className="btn-secondary" type="button" onClick={() => setPasswordOpen(true)}>Kennwort ändern</button>
-          <button className="btn-secondary" type="button" onClick={() => setBackupOpen(true)}>Backup</button>
-          <button className="btn-secondary" type="button" onClick={loadImages} disabled={loading}>Aktualisieren</button>
-          <button className="btn-primary" type="button" onClick={handleDownloadAll} disabled={!images.length}>Alle als ZIP</button>
-          <button className="btn-outline" type="button" onClick={logout}>Abmelden</button>
+          <button className="btn-secondary admin-action-password" type="button" onClick={() => setPasswordOpen(true)}>Kennwort ändern</button>
+          <button className="btn-secondary admin-action-backup" type="button" onClick={() => setBackupOpen(true)}>Backup</button>
+          <button className="btn-secondary admin-action-refresh" type="button" onClick={loadImages} disabled={loading}>Aktualisieren</button>
+          <button className="btn-primary admin-action-download" type="button" onClick={handleDownloadAll} disabled={!images.length} aria-label="Alle Bilder als ZIP herunterladen"><span className="zip-label-short">Alle als ZIP</span><span className="zip-label-long">Alle als ZIP herunterladen</span></button>
+          <button className="btn-outline admin-action-logout" type="button" onClick={logout}>Abmelden</button>
         </div>
       </div>
 
@@ -681,7 +736,7 @@ export default function AdminPage() {
         </div>
       )}
 
-      <div className="gallery-grid">
+      <div className="gallery-grid" ref={galleryRef}>
         {images.map((image, index) => (
           <GalleryImage
             key={image.id}
@@ -691,6 +746,7 @@ export default function AdminPage() {
             onDelete={handleDeleteImage}
             deleting={deletingId === image.id}
             onUrlLoaded={(id, url) => setLoadedUrls(prev => ({ ...prev, [id]: url }))}
+            cornerClass={galleryCornerClass(index, images.length, galleryColumns)}
           />
         ))}
       </div>

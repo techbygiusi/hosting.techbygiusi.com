@@ -1,4 +1,39 @@
-# Picly - Changelog
+# Picly v0.1.28
+
+## v0.1.28 - 2026-06-29
+- Galerie-Ecken im Admin-Bereich verbessert: Bilder an den echten Außenecken übernehmen jetzt die passende Abrundung.
+- Galerie-Container im Admin-Bereich rundet sauber mit, auch wenn nicht jede Ecke belegt ist.
+
+## v0.1.27 - 2026-06-29
+
+**Commit:** `copy: update wedding upload intro`
+
+- Reworded the upload page intro for guests on desktop and mobile.
+- Added a short thank-you line signed by Florian & Alexandra.
+- Kept the upload flow and admin area unchanged.
+
+## v0.1.26 - 2026-06-29
+
+**Commit:** `style: improve mobile admin action order`
+
+- Swapped the mobile positions of **Abmelden** and the ZIP download action.
+- Made **Alle als ZIP herunterladen** span the full two-button width on mobile.
+- Kept the desktop admin action layout unchanged.
+
+## v0.1.25 - 2026-06-29
+
+**Commit:** `copy: simplify backup dialog description`
+
+- Replaced the technical backup dialog helper text with a friendlier message about keeping images safe.
+- Clarified that uploads and deletions are mirrored to the SMB backup target.
+
+## v0.1.24 - 2026-06-29
+
+**Commit:** `fix: keep admin dialogs open on backdrop click`
+
+- Prevented the **Backup** and **Kennwort ändern** dialogs from closing when clicking beside the window.
+- Kept dialog closing explicit through the close/cancel buttons.
+- Replaced SMB form examples with neutral placeholder values instead of project-specific examples.
 
 ## v0.1.23 - 2026-06-29
 

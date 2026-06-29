@@ -609,6 +609,22 @@ label { display: grid; gap: 7px; color: var(--site-muted); font-size: 14px; }
   box-shadow: 0 14px 40px rgba(58, 78, 82, 0.10);
 }
 .upload-shell .hero-copy p { color: #4f4a43; }
+
+.upload-shell .wedding-intro-copy { margin: 0; }
+.upload-shell .wedding-thanks {
+  display: grid;
+  gap: 4px;
+  margin: -4px 0 0;
+  color: #4f4a43;
+}
+.upload-shell .wedding-thanks span { font-size: 17px; }
+.upload-shell .wedding-thanks strong {
+  font-family: var(--font-script);
+  font-weight: 400;
+  color: var(--site-gold);
+  font-size: clamp(34px, 4.2vw, 52px);
+  line-height: 0.98;
+}
 .upload-shell .hero-copy h1 { color: var(--site-gold); }
 
 /* Header/Footer über dem Foto lesbar halten (kein Panel drumherum) */
@@ -656,6 +672,12 @@ label { display: grid; gap: 7px; color: var(--site-muted); font-size: 14px; }
     font-size: 17px;
     line-height: 1.5;
   }
+  .upload-shell .wedding-thanks {
+    gap: 2px;
+    margin-top: -2px;
+  }
+  .upload-shell .wedding-thanks span { font-size: 15px; }
+  .upload-shell .wedding-thanks strong { font-size: clamp(32px, 10vw, 42px); }
 }
 
 
@@ -677,6 +699,7 @@ label { display: grid; gap: 7px; color: var(--site-muted); font-size: 14px; }
     font-size: 16px;
     line-height: 1.45;
   }
+  .upload-shell .wedding-thanks strong { font-size: clamp(30px, 10vw, 38px); }
 }
 
 /* ===== Custom Scrollbar ===== */
@@ -1107,6 +1130,8 @@ label { display: grid; gap: 7px; color: var(--site-muted); font-size: 14px; }
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   gap: 2px;
   align-items: start;
+  border-radius: 26px;
+  overflow: hidden;
 }
 
 .admin-shell .image-card.image-tile {
@@ -1128,6 +1153,30 @@ label { display: grid; gap: 7px; color: var(--site-muted); font-size: 14px; }
   background: rgba(255, 255, 255, 0.22);
   display: block;
   cursor: zoom-in;
+}
+
+.admin-shell .image-card.image-tile.gallery-corner-top-left,
+.admin-shell .image-card.image-tile.gallery-corner-top-left .image-thumb,
+.admin-shell .image-card.image-tile.gallery-corner-top-left .image-thumb img {
+  border-top-left-radius: 26px;
+}
+
+.admin-shell .image-card.image-tile.gallery-corner-top-right,
+.admin-shell .image-card.image-tile.gallery-corner-top-right .image-thumb,
+.admin-shell .image-card.image-tile.gallery-corner-top-right .image-thumb img {
+  border-top-right-radius: 26px;
+}
+
+.admin-shell .image-card.image-tile.gallery-corner-bottom-left,
+.admin-shell .image-card.image-tile.gallery-corner-bottom-left .image-thumb,
+.admin-shell .image-card.image-tile.gallery-corner-bottom-left .image-thumb img {
+  border-bottom-left-radius: 26px;
+}
+
+.admin-shell .image-card.image-tile.gallery-corner-bottom-right,
+.admin-shell .image-card.image-tile.gallery-corner-bottom-right .image-thumb,
+.admin-shell .image-card.image-tile.gallery-corner-bottom-right .image-thumb img {
+  border-bottom-right-radius: 26px;
 }
 
 .admin-shell .image-tile .image-thumb img {
@@ -1681,5 +1730,31 @@ select:focus { border-color: var(--site-accent); box-shadow: 0 0 0 3px rgba(122,
 
   .switch-row {
     align-items: flex-start;
+  }
+}
+
+
+/* ===== v0.1.26 Mobile admin action order ===== */
+.admin-action-download .zip-label-long {
+  display: none;
+}
+
+@media (max-width: 720px) {
+  .admin-shell .admin-action-password { order: 1; }
+  .admin-shell .admin-action-backup { order: 2; }
+  .admin-shell .admin-action-refresh { order: 3; }
+  .admin-shell .admin-action-logout { order: 4; }
+
+  .admin-shell .admin-action-download {
+    order: 5;
+    grid-column: 1 / -1;
+  }
+
+  .admin-shell .admin-action-download .zip-label-short {
+    display: none;
+  }
+
+  .admin-shell .admin-action-download .zip-label-long {
+    display: inline;
   }
 }
