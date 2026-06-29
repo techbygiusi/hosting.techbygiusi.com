@@ -96,20 +96,12 @@ export default function UploadPage() {
   return (
     <section className="hero-grid">
       <div className="hero-copy">
-        <p className="eyebrow">Wir haben geheiratet!</p>
-        <h1>Florian &amp; Alexandra</h1>
-        <div className="mobile-album-title" aria-hidden="true">
-          <span className="mobile-topline">Wir haben geheiratet!</span>
-          <span className="mobile-album-names">Florian &amp; Alexandra</span>
-          <span className="mobile-album-word">Hochzeitsalbum</span>
-        </div>
         <p className="wedding-intro-copy">
           Schön, dass ihr dabei seid! Haltet eure schönsten Momente fest und ladet eure Fotos
           hier hoch – so entsteht unser gemeinsames Hochzeitsalbum aus allen Blickwinkeln.
         </p>
         <p className="wedding-thanks">
           <span>Ein herzliches Dankeschön</span>
-          <strong>Florian &amp; Alexandra</strong>
         </p>
         <div className="ornament" aria-hidden="true">❦</div>
       </div>

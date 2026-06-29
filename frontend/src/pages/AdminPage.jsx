@@ -468,14 +468,15 @@ function galleryCornerClass(index, total, columns) {
   const safeColumns = Math.max(1, Number(columns || 1));
   if (!safeTotal) return '';
 
-  const firstRowEnd = Math.min(safeColumns - 1, safeTotal - 1);
-  const lastRowStart = Math.floor((safeTotal - 1) / safeColumns) * safeColumns;
+  const column = index % safeColumns;
+  const row = Math.floor(index / safeColumns);
+  const lastRow = Math.floor((safeTotal - 1) / safeColumns);
   const classes = [];
 
-  if (index === 0) classes.push('gallery-corner-top-left');
-  if (index === firstRowEnd) classes.push('gallery-corner-top-right');
-  if (index === lastRowStart) classes.push('gallery-corner-bottom-left');
-  if (index === safeTotal - 1) classes.push('gallery-corner-bottom-right');
+  if (row === 0 && column === 0) classes.push('gallery-corner-top-left');
+  if (row === 0 && column === safeColumns - 1) classes.push('gallery-corner-top-right');
+  if (row === lastRow && column === 0) classes.push('gallery-corner-bottom-left');
+  if (row === lastRow && column === safeColumns - 1) classes.push('gallery-corner-bottom-right');
 
   return classes.join(' ');
 }

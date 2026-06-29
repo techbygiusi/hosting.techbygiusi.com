@@ -1130,7 +1130,7 @@ label { display: grid; gap: 7px; color: var(--site-muted); font-size: 14px; }
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   gap: 2px;
   align-items: start;
-  border-radius: 26px;
+  border-radius: 10px;
   overflow: hidden;
 }
 
@@ -1158,25 +1158,25 @@ label { display: grid; gap: 7px; color: var(--site-muted); font-size: 14px; }
 .admin-shell .image-card.image-tile.gallery-corner-top-left,
 .admin-shell .image-card.image-tile.gallery-corner-top-left .image-thumb,
 .admin-shell .image-card.image-tile.gallery-corner-top-left .image-thumb img {
-  border-top-left-radius: 26px;
+  border-top-left-radius: 10px;
 }
 
 .admin-shell .image-card.image-tile.gallery-corner-top-right,
 .admin-shell .image-card.image-tile.gallery-corner-top-right .image-thumb,
 .admin-shell .image-card.image-tile.gallery-corner-top-right .image-thumb img {
-  border-top-right-radius: 26px;
+  border-top-right-radius: 10px;
 }
 
 .admin-shell .image-card.image-tile.gallery-corner-bottom-left,
 .admin-shell .image-card.image-tile.gallery-corner-bottom-left .image-thumb,
 .admin-shell .image-card.image-tile.gallery-corner-bottom-left .image-thumb img {
-  border-bottom-left-radius: 26px;
+  border-bottom-left-radius: 10px;
 }
 
 .admin-shell .image-card.image-tile.gallery-corner-bottom-right,
 .admin-shell .image-card.image-tile.gallery-corner-bottom-right .image-thumb,
 .admin-shell .image-card.image-tile.gallery-corner-bottom-right .image-thumb img {
-  border-bottom-right-radius: 26px;
+  border-bottom-right-radius: 10px;
 }
 
 .admin-shell .image-tile .image-thumb img {

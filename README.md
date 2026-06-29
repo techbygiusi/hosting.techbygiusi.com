@@ -1,4 +1,10 @@
-# Picly v0.1.28
+# Picly v0.1.29
+
+## v0.1.29 - 2026-06-29
+- Upload-Intro bereinigt, damit Namen und Hochzeitsalbum-Titel nicht doppelt erscheinen.
+- Dankeschön-Zeile vereinfacht, ohne die Namen erneut als Signatur zu wiederholen.
+- Galerie-Abrundung im Admin-Bereich auf 10px reduziert.
+- Ecklogik verbessert: rechte Ecken werden nur gerundet, wenn das Bild wirklich in der letzten Spalte sitzt.
 
 ## v0.1.28 - 2026-06-29
 - Galerie-Ecken im Admin-Bereich verbessert: Bilder an den echten Außenecken übernehmen jetzt die passende Abrundung.
