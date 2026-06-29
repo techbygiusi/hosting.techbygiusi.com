@@ -1,5 +1,15 @@
 # Hosting Portal - Changelog
 
+## v1.0.30 - 2026-06-29
+
+**Commit:** `style: tune light modal surface`
+
+- Changed the light-mode popup background to the same neutral gray surface used in the app cards instead of the brighter modal look.
+- Kept form fields and inner popup sections white for clear contrast and readability.
+- Preserved the service-card light-mode hierarchy and the neutral dark-mode popup styling.
+
+---
+
 ## v1.0.29 - 2026-06-29
 
 **Commit:** `fix: separate service cards in light mode`
