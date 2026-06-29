@@ -1,6 +1,6 @@
 {
   "name": "picly-frontend",
-  "version": "0.1.29",
+  "version": "0.1.31",
   "description": "Picly image upload frontend",
   "private": true,
   "dependencies": {

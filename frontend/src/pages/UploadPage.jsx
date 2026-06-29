@@ -98,10 +98,11 @@ export default function UploadPage() {
       <div className="hero-copy">
         <p className="wedding-intro-copy">
           Schön, dass ihr dabei seid! Haltet eure schönsten Momente fest und ladet eure Fotos
-          hier hoch – so entsteht unser gemeinsames Hochzeitsalbum aus allen Blickwinkeln.
+          hier hoch - so entsteht unser gemeinsames Hochzeitsalbum aus allen Blickwinkeln.
         </p>
         <p className="wedding-thanks">
           <span>Ein herzliches Dankeschön</span>
+          <strong>Florian &amp; Alexandra</strong>
         </p>
         <div className="ornament" aria-hidden="true">❦</div>
       </div>

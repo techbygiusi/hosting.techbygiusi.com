@@ -1,4 +1,20 @@
-# Picly v0.1.29
+# Picly v0.1.31
+
+## v0.1.31 - 2026-06-29
+
+**Commit:** `chore: replace typographic dashes with hyphens`
+
+- Replaced typographic dashes with normal hyphens across the app text and documentation.
+- Kept the wedding upload copy visually unchanged except for the dash character.
+- Updated frontend and backend package versions.
+
+## v0.1.30 - 2026-06-29
+
+**Commit:** `fix: restore names below wedding thank-you copy`
+
+- Added **Florian & Alexandra** back below **Ein herzliches Dankeschön** on the upload intro card.
+- Applied this consistently for desktop and mobile.
+- Kept the simplified wedding intro layout from the previous version.
 
 ## v0.1.29 - 2026-06-29
 - Upload-Intro bereinigt, damit Namen und Hochzeitsalbum-Titel nicht doppelt erscheinen.
