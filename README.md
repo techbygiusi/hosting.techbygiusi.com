@@ -1,4 +1,12 @@
-# Picly v0.1.32
+# Picly v0.1.33
+
+## v0.1.33 - 2026-06-29
+
+**Commit:** `style: adjust wedding thank-you spacing`
+
+- Increased the spacing between **Ein herzliches Dankeschön** and **Florian & Alexandra** on desktop and mobile.
+- Removed the decorative ornament with the lines from the desktop upload intro card.
+- Kept the rest of the upload intro layout unchanged.
 
 ## v0.1.32 - 2026-06-29
 
