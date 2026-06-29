@@ -10,6 +10,11 @@ const fs = require('fs');
 const fsp = require('fs/promises');
 const path = require('path');
 const crypto = require('crypto');
+const os = require('os');
+const { execFile } = require('child_process');
+const { promisify } = require('util');
+
+const execFileAsync = promisify(execFile);
 
 const app = express();
 const PORT = Number(process.env.BACKEND_PORT || 3001);
@@ -20,6 +25,9 @@ const METADATA_FILE = path.join(DATA_DIR, 'metadata.json');
 const METADATA_BACKUP_FILE = path.join(DATA_DIR, 'metadata.json.bak');
 const ADMIN_CONFIG_FILE = path.join(DATA_DIR, 'admin.json');
 const ADMIN_CONFIG_BACKUP_FILE = path.join(DATA_DIR, 'admin.json.bak');
+const BACKUP_CONFIG_FILE = path.join(DATA_DIR, 'backup.json');
+const BACKUP_CONFIG_BACKUP_FILE = path.join(DATA_DIR, 'backup.json.bak');
+const BACKUP_LOG_FILE = path.join(DATA_DIR, 'backup-log.json');
 const DEFAULT_ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin';
 const DEFAULT_ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin';
 const ADMIN_PASSWORD_MIN_LENGTH = Number(process.env.ADMIN_PASSWORD_MIN_LENGTH || 8);
@@ -33,10 +41,22 @@ const UPLOAD_REQUEST_TIMEOUT_MS = Number(process.env.UPLOAD_REQUEST_TIMEOUT_MS |
 const MAX_UPLOAD_BYTES = MAX_UPLOAD_MB * 1024 * 1024;
 const MIN_FREE_SPACE_BYTES = MIN_FREE_SPACE_MB * 1024 * 1024;
 const TMP_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+const BACKUP_LOG_LIMIT = 80;
+const SMB_COMMAND_TIMEOUT_MS = Number(process.env.SMB_COMMAND_TIMEOUT_MS || 120000);
+const BACKUP_SYNC_INTERVAL_MS = Number(process.env.BACKUP_SYNC_INTERVAL_MS || 60000);
 
 let activeUploads = 0;
 let metadataQueue = Promise.resolve();
 let adminConfigQueue = Promise.resolve();
+let backupConfigQueue = Promise.resolve();
+let backupSyncTimer = null;
+const backupSyncState = {
+  running: false,
+  pending: false,
+  lastStartedAt: null,
+  lastFinishedAt: null,
+  lastResult: null
+};
 
 const allowedMimeTypes = new Set([
   'image/jpeg',
@@ -256,6 +276,521 @@ async function readAdminConfigUnlocked() {
 
 async function readAdminConfig() {
   return readAdminConfigUnlocked();
+}
+
+
+function getBackupSecretKey() {
+  return crypto.createHash('sha256').update(String(JWT_SECRET || 'picly-backup-secret')).digest();
+}
+
+function encryptBackupSecret(value) {
+  const plain = String(value || '');
+  if (!plain) return '';
+
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv('aes-256-gcm', getBackupSecretKey(), iv);
+  const encrypted = Buffer.concat([cipher.update(plain, 'utf8'), cipher.final()]);
+  const tag = cipher.getAuthTag();
+
+  return `enc:v1:${iv.toString('base64')}:${tag.toString('base64')}:${encrypted.toString('base64')}`;
+}
+
+function decryptBackupSecret(value) {
+  const stored = String(value || '');
+  if (!stored) return '';
+  if (!stored.startsWith('enc:v1:')) return stored;
+
+  const parts = stored.split(':');
+  if (parts.length !== 5) return '';
+
+  try {
+    const iv = Buffer.from(parts[2], 'base64');
+    const tag = Buffer.from(parts[3], 'base64');
+    const encrypted = Buffer.from(parts[4], 'base64');
+    const decipher = crypto.createDecipheriv('aes-256-gcm', getBackupSecretKey(), iv);
+    decipher.setAuthTag(tag);
+    return Buffer.concat([decipher.update(encrypted), decipher.final()]).toString('utf8');
+  } catch (error) {
+    console.warn('Picly backup secret could not be decrypted:', error.message);
+    return '';
+  }
+}
+
+function normalizeBackupMode(mode) {
+  const value = String(mode || 'change').toLowerCase();
+  return ['change', 'hourly', 'daily', 'weekly'].includes(value) ? value : 'change';
+}
+
+function normalizeSmbVersion(version) {
+  const value = String(version || 'SMB3').toUpperCase().replace(/\s+/g, '');
+  return ['SMB3', 'SMB2', 'NT1'].includes(value) ? value : 'SMB3';
+}
+
+function normalizeRemotePath(value) {
+  const cleaned = String(value || '')
+    .trim()
+    .replace(/\\+/g, '/')
+    .replace(/^\/+|\/+$/g, '');
+
+  if (!cleaned) return '';
+
+  const parts = cleaned.split('/').filter(Boolean).map((part) => {
+    const safe = part.trim();
+    if (!safe || safe === '.' || safe === '..' || /[\r\n;"`$]/.test(safe)) {
+      throw createHttpError(400, 'Remote-Pfad enthaelt ungueltige Zeichen.');
+    }
+    return safe.slice(0, 120);
+  });
+
+  return parts.join('/');
+}
+
+function validateSmbTarget(config, requirePassword = true) {
+  const server = String(config.server || '').trim();
+  const share = String(config.share || '').trim();
+  const username = String(config.username || '').trim();
+  const password = String(config.password || '');
+
+  if (!server || !share || !username || (requirePassword && !password)) {
+    throw createHttpError(400, 'Bitte SMB-Server, Share, Benutzer und Kennwort eintragen.');
+  }
+
+  if (/[\/\r\n;"'`$]/.test(server) || /[\/\r\n;"'`$]/.test(share)) {
+    throw createHttpError(400, 'SMB-Server oder Share enthaelt ungueltige Zeichen.');
+  }
+}
+
+function normalizeBackupConfig(input = {}, existing = null) {
+  const current = existing || {};
+  const enabled = Boolean(input.enabled);
+  const now = new Date().toISOString();
+  const incomingPassword = typeof input.smb?.password === 'string' ? input.smb.password : (typeof input.password === 'string' ? input.password : '');
+  const existingPassword = current.smb?.passwordEncrypted || current.passwordEncrypted || current.password || input.smb?.passwordEncrypted || input.passwordEncrypted || '';
+  const passwordEncrypted = incomingPassword ? encryptBackupSecret(incomingPassword) : existingPassword;
+
+  const config = {
+    enabled,
+    mode: normalizeBackupMode(input.mode || current.mode),
+    schedule: {
+      hour: Math.min(23, Math.max(0, Number(input.schedule?.hour ?? current.schedule?.hour ?? 3) || 0)),
+      minute: Math.min(59, Math.max(0, Number(input.schedule?.minute ?? current.schedule?.minute ?? 0) || 0)),
+      weekday: Math.min(6, Math.max(0, Number(input.schedule?.weekday ?? current.schedule?.weekday ?? 1) || 1))
+    },
+    smb: {
+      server: String(input.smb?.server ?? current.smb?.server ?? '').trim(),
+      share: String(input.smb?.share ?? current.smb?.share ?? '').trim(),
+      remotePath: normalizeRemotePath(input.smb?.remotePath ?? current.smb?.remotePath ?? 'Picly'),
+      username: String(input.smb?.username ?? current.smb?.username ?? '').trim(),
+      domain: String(input.smb?.domain ?? current.smb?.domain ?? '').trim(),
+      smbVersion: normalizeSmbVersion(input.smb?.smbVersion ?? current.smb?.smbVersion ?? 'SMB3'),
+      passwordEncrypted
+    },
+    createdAt: current.createdAt || input.createdAt || now,
+    updatedAt: existing ? now : (input.updatedAt || current.updatedAt || now),
+    lastSyncAt: current.lastSyncAt || input.lastSyncAt || null,
+    lastSyncStatus: current.lastSyncStatus || input.lastSyncStatus || null,
+    lastSyncMessage: current.lastSyncMessage || input.lastSyncMessage || null
+  };
+
+  if (config.enabled) {
+    validateSmbTarget({ ...config.smb, password: decryptBackupSecret(config.smb.passwordEncrypted) }, true);
+  }
+
+  return config;
+}
+
+function publicBackupConfig(config) {
+  const schedule = config?.schedule || {};
+  const smb = config?.smb || {};
+  return {
+    enabled: Boolean(config?.enabled),
+    mode: normalizeBackupMode(config?.mode),
+    schedule: {
+      hour: Number(schedule.hour ?? 3),
+      minute: Number(schedule.minute ?? 0),
+      weekday: Number(schedule.weekday ?? 1)
+    },
+    smb: {
+      server: String(smb.server || ''),
+      share: String(smb.share || ''),
+      remotePath: String(smb.remotePath || 'Picly'),
+      username: String(smb.username || ''),
+      domain: String(smb.domain || ''),
+      smbVersion: normalizeSmbVersion(smb.smbVersion),
+      hasPassword: Boolean(smb.passwordEncrypted)
+    },
+    createdAt: config?.createdAt || null,
+    updatedAt: config?.updatedAt || null,
+    lastSyncAt: config?.lastSyncAt || null,
+    lastSyncStatus: config?.lastSyncStatus || null,
+    lastSyncMessage: config?.lastSyncMessage || null
+  };
+}
+
+async function readBackupConfigFile(file) {
+  const raw = await fsp.readFile(file, 'utf8');
+  return normalizeBackupConfig(JSON.parse(raw || '{}'));
+}
+
+async function writeBackupConfigUnlocked(config) {
+  await ensureDataFiles();
+
+  const tempFile = path.join(DATA_DIR, `backup.${process.pid}.${Date.now()}.${crypto.randomUUID()}.tmp`);
+  const data = `${JSON.stringify(normalizeBackupConfig(config), null, 2)}\n`;
+
+  try {
+    await fsp.writeFile(tempFile, data, { encoding: 'utf8', mode: 0o600 });
+    await fsp.copyFile(BACKUP_CONFIG_FILE, BACKUP_CONFIG_BACKUP_FILE).catch(() => {});
+    await fsp.rename(tempFile, BACKUP_CONFIG_FILE);
+    await fsp.chmod(BACKUP_CONFIG_FILE, 0o600).catch(() => {});
+  } catch (error) {
+    await fsp.rm(tempFile, { force: true }).catch(() => {});
+    throw error;
+  }
+}
+
+async function readBackupConfigUnlocked() {
+  await ensureDataFiles();
+
+  try {
+    return await readBackupConfigFile(BACKUP_CONFIG_FILE);
+  } catch (primaryError) {
+    try {
+      const backup = await readBackupConfigFile(BACKUP_CONFIG_BACKUP_FILE);
+      console.warn('Picly backup.json was invalid, backup.json.bak was used instead.', primaryError.message);
+      return backup;
+    } catch {
+      return normalizeBackupConfig({ enabled: false, mode: 'change', smb: { remotePath: 'Picly', smbVersion: 'SMB3' } });
+    }
+  }
+}
+
+async function readBackupConfig() {
+  return readBackupConfigUnlocked();
+}
+
+function withBackupConfigLock(task) {
+  const run = backupConfigQueue.then(task, task);
+  backupConfigQueue = run.catch(() => {});
+  return run;
+}
+
+async function readBackupLogs() {
+  await ensureDataFiles();
+  try {
+    const parsed = JSON.parse(await fsp.readFile(BACKUP_LOG_FILE, 'utf8') || '[]');
+    return Array.isArray(parsed) ? parsed.slice(0, BACKUP_LOG_LIMIT) : [];
+  } catch {
+    return [];
+  }
+}
+
+async function appendBackupLog(entry) {
+  const logs = await readBackupLogs();
+  const next = [{ time: new Date().toISOString(), ...entry }, ...logs].slice(0, BACKUP_LOG_LIMIT);
+  await fsp.writeFile(BACKUP_LOG_FILE, `${JSON.stringify(next, null, 2)}\n`, 'utf8').catch((error) => {
+    console.warn('Picly backup log could not be written:', error.message);
+  });
+  return next;
+}
+
+async function updateBackupSyncState(status, message) {
+  await withBackupConfigLock(async () => {
+    const config = await readBackupConfigUnlocked();
+    const next = {
+      ...config,
+      lastSyncAt: new Date().toISOString(),
+      lastSyncStatus: status,
+      lastSyncMessage: message,
+      updatedAt: new Date().toISOString()
+    };
+    await writeBackupConfigUnlocked(next);
+  });
+}
+
+function quoteSmbValue(value) {
+  const raw = String(value || '');
+  if (/[\r\n"]/g.test(raw)) {
+    throw createHttpError(400, 'SMB-Wert enthaelt ungueltige Zeichen.');
+  }
+  return `"${raw}"`;
+}
+
+function buildRemoteDirCommands(remotePath) {
+  return normalizeRemotePath(remotePath)
+    .split('/')
+    .filter(Boolean)
+    .map((part) => `cd ${quoteSmbValue(part)}`);
+}
+
+async function ensureRemoteBackupDir(config) {
+  const parts = normalizeRemotePath(config.smb.remotePath).split('/').filter(Boolean);
+  const prefix = [];
+
+  for (const part of parts) {
+    const nextPrefix = [...prefix, part];
+    try {
+      await runSmbCommands(config, nextPrefix.map((item) => `cd ${quoteSmbValue(item)}`));
+    } catch {
+      await runSmbCommands(config, [...prefix.map((item) => `cd ${quoteSmbValue(item)}`), `mkdir ${quoteSmbValue(part)}`]);
+    }
+    prefix.push(part);
+  }
+}
+
+async function withSmbCredentials(config, task) {
+  const credentialFile = path.join(os.tmpdir(), `picly-smb-${process.pid}-${crypto.randomUUID()}.conf`);
+  const password = decryptBackupSecret(config.smb.passwordEncrypted);
+  const lines = [
+    `username=${config.smb.username}`,
+    `password=${password}`
+  ];
+  if (config.smb.domain) lines.push(`domain=${config.smb.domain}`);
+
+  await fsp.writeFile(credentialFile, `${lines.join('\n')}\n`, { encoding: 'utf8', mode: 0o600 });
+
+  try {
+    return await task(credentialFile);
+  } finally {
+    await fsp.rm(credentialFile, { force: true }).catch(() => {});
+  }
+}
+
+async function runSmbCommands(config, commands, options = {}) {
+  const normalized = normalizeBackupConfig(config || {});
+  const password = decryptBackupSecret(normalized.smb.passwordEncrypted);
+  validateSmbTarget({ ...normalized.smb, password }, true);
+
+  const target = `//${normalized.smb.server}/${normalized.smb.share}`;
+  const commandString = commands.filter(Boolean).join('; ');
+
+  return withSmbCredentials(normalized, async (credentialFile) => {
+    try {
+      const result = await execFileAsync('smbclient', [
+        target,
+        '-A', credentialFile,
+        '-m', normalized.smb.smbVersion,
+        '-g',
+        '-c', commandString
+      ], {
+        timeout: options.timeout || SMB_COMMAND_TIMEOUT_MS,
+        maxBuffer: 1024 * 1024 * 8,
+        env: { ...process.env, LANG: 'C', LC_ALL: 'C' }
+      });
+      return result;
+    } catch (error) {
+      const detail = String(error.stderr || error.stdout || error.message || '').trim();
+      throw createHttpError(502, detail || 'SMB-Verbindung fehlgeschlagen.');
+    }
+  });
+}
+
+function parseSmbDir(stdout) {
+  const files = new Map();
+  for (const line of String(stdout || '').split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('.')) continue;
+    const parts = trimmed.split('|');
+    if (parts.length >= 3) {
+      const type = parts[0];
+      const name = parts[1];
+      const size = Number(parts[2] || 0);
+      if (name && name !== '.' && name !== '..' && !String(type).includes('D')) {
+        files.set(name, { name, size });
+      }
+      continue;
+    }
+
+    const match = trimmed.match(/^\s*(.+?)\s+[A-ZHSR]*\s+(\d+)\s+/);
+    if (match) files.set(match[1].trim(), { name: match[1].trim(), size: Number(match[2] || 0) });
+  }
+  return files;
+}
+
+function isManagedRemoteFile(filename) {
+  const ext = path.extname(filename || '').toLowerCase();
+  return filename === 'metadata.json' || (/^[a-f0-9-]{36}\.[a-z0-9]+$/i.test(filename || '') && allowedExtensions.has(ext));
+}
+
+async function listRemoteBackupFiles(config) {
+  await ensureRemoteBackupDir(config);
+  const commands = [...buildRemoteDirCommands(config.smb.remotePath), 'ls'];
+  const result = await runSmbCommands(config, commands);
+  return parseSmbDir(result.stdout);
+}
+
+async function testBackupConnection(config) {
+  const normalized = normalizeBackupConfig(config || {});
+  await ensureRemoteBackupDir(normalized);
+  const commands = [...buildRemoteDirCommands(normalized.smb.remotePath), 'ls'];
+  await runSmbCommands(normalized, commands, { timeout: SMB_COMMAND_TIMEOUT_MS });
+  return { ok: true, message: 'SMB-Verbindung erfolgreich. Zielordner ist erreichbar.' };
+}
+
+async function uploadFileToBackup(config, localPath, remoteName) {
+  await ensureRemoteBackupDir(config);
+  const commands = [
+    ...buildRemoteDirCommands(config.smb.remotePath),
+    `put ${quoteSmbValue(localPath)} ${quoteSmbValue(remoteName)}`
+  ];
+  await runSmbCommands(config, commands, { timeout: Math.max(SMB_COMMAND_TIMEOUT_MS, 300000) });
+}
+
+async function deleteFileFromBackup(config, remoteName) {
+  await ensureRemoteBackupDir(config);
+  const commands = [
+    ...buildRemoteDirCommands(config.smb.remotePath),
+    `del ${quoteSmbValue(remoteName)}`
+  ];
+  await runSmbCommands(config, commands);
+}
+
+async function syncImagesToBackup(reason = 'manual') {
+  const config = await readBackupConfig();
+  if (!config.enabled) {
+    const skipped = { ok: true, skipped: true, message: 'Backup ist deaktiviert.' };
+    backupSyncState.lastResult = skipped;
+    return skipped;
+  }
+
+  const startedAt = new Date().toISOString();
+  backupSyncState.lastStartedAt = startedAt;
+
+  const result = {
+    ok: false,
+    reason,
+    startedAt,
+    finishedAt: null,
+    uploaded: 0,
+    deleted: 0,
+    skipped: 0,
+    errors: []
+  };
+
+  try {
+    const images = await readMetadata();
+    const remoteFiles = await listRemoteBackupFiles(config);
+    const expectedRemoteNames = new Set();
+
+    for (const image of images) {
+      const localPath = resolveUploadPath(image.filename);
+      if (!localPath) continue;
+
+      const stat = await fsp.stat(localPath).catch(() => null);
+      if (!stat) continue;
+
+      expectedRemoteNames.add(image.filename);
+      const remote = remoteFiles.get(image.filename);
+
+      if (!remote || Number(remote.size || 0) !== Number(stat.size || 0)) {
+        await uploadFileToBackup(config, localPath, image.filename);
+        result.uploaded += 1;
+      } else {
+        result.skipped += 1;
+      }
+    }
+
+    expectedRemoteNames.add('metadata.json');
+    await uploadFileToBackup(config, METADATA_FILE, 'metadata.json');
+    result.uploaded += 1;
+
+    for (const [name] of remoteFiles) {
+      if (!expectedRemoteNames.has(name) && isManagedRemoteFile(name)) {
+        await deleteFileFromBackup(config, name);
+        result.deleted += 1;
+      }
+    }
+
+    result.ok = true;
+    result.finishedAt = new Date().toISOString();
+    result.message = `Sync abgeschlossen: ${result.uploaded} hochgeladen, ${result.deleted} entfernt, ${result.skipped} unveraendert.`;
+    backupSyncState.lastFinishedAt = result.finishedAt;
+    backupSyncState.lastResult = result;
+    await appendBackupLog({ status: 'success', reason, message: result.message, uploaded: result.uploaded, deleted: result.deleted, skipped: result.skipped });
+    await updateBackupSyncState('success', result.message);
+    return result;
+  } catch (error) {
+    result.ok = false;
+    result.finishedAt = new Date().toISOString();
+    result.message = error.message || 'Backup-Sync fehlgeschlagen.';
+    result.errors.push(result.message);
+    backupSyncState.lastFinishedAt = result.finishedAt;
+    backupSyncState.lastResult = result;
+    await appendBackupLog({ status: 'error', reason, message: result.message, uploaded: result.uploaded, deleted: result.deleted, skipped: result.skipped, errors: result.errors });
+    await updateBackupSyncState('error', result.message).catch(() => {});
+    throw createHttpError(error.statusCode || 500, result.message);
+  }
+}
+
+function queueBackupSync(reason = 'change') {
+  if (backupSyncState.running) {
+    backupSyncState.pending = true;
+    return Promise.resolve({ ok: true, queued: true, message: 'Backup-Sync laeuft bereits und wird danach erneut gestartet.' });
+  }
+
+  backupSyncState.running = true;
+
+  return syncImagesToBackup(reason)
+    .finally(() => {
+      backupSyncState.running = false;
+      if (backupSyncState.pending) {
+        backupSyncState.pending = false;
+        setTimeout(() => {
+          queueBackupSync('queued-change').catch((error) => console.warn('Queued Picly backup sync failed:', error.message));
+        }, 500);
+      }
+    });
+}
+
+function shouldRunScheduledBackup(config) {
+  if (!config.enabled || config.mode === 'change') return false;
+
+  const last = config.lastSyncAt ? new Date(config.lastSyncAt) : null;
+  const now = new Date();
+
+  if (config.mode === 'hourly') {
+    return !last || now.getTime() - last.getTime() >= 60 * 60 * 1000;
+  }
+
+  const due = new Date(now);
+  due.setHours(Number(config.schedule.hour || 0), Number(config.schedule.minute || 0), 0, 0);
+
+  if (config.mode === 'daily') {
+    return now >= due && (!last || last < due);
+  }
+
+  if (config.mode === 'weekly') {
+    return now.getDay() === Number(config.schedule.weekday || 1) && now >= due && (!last || last < due);
+  }
+
+  return false;
+}
+
+function startBackupScheduler() {
+  if (backupSyncTimer) clearInterval(backupSyncTimer);
+  backupSyncTimer = setInterval(async () => {
+    try {
+      const config = await readBackupConfig();
+      if (shouldRunScheduledBackup(config)) {
+        queueBackupSync('schedule').catch((error) => console.warn('Scheduled Picly backup sync failed:', error.message));
+      }
+    } catch (error) {
+      console.warn('Picly backup scheduler check failed:', error.message);
+    }
+  }, BACKUP_SYNC_INTERVAL_MS);
+
+  if (typeof backupSyncTimer.unref === 'function') backupSyncTimer.unref();
+}
+
+function queueChangeBackupSync() {
+  readBackupConfig()
+    .then((config) => {
+      if (config.enabled && config.mode === 'change') {
+        return queueBackupSync('change');
+      }
+      return null;
+    })
+    .catch((error) => console.warn('Picly change backup sync failed:', error.message));
 }
 
 function withAdminConfigLock(task) {
@@ -561,6 +1096,7 @@ app.post('/api/upload', withUploadSlot, requireUploadSpace, (req, res, next) => 
       }
 
       await prependMetadata(created);
+      queueChangeBackupSync();
 
       return res.status(201).json({
         message: created.length === 1 ? 'Bild wurde hochgeladen.' : `${created.length} Bilder wurden hochgeladen.`,
@@ -642,6 +1178,66 @@ app.get('/api/admin/stats', requireAdmin, async (_req, res) => {
   res.json(stats);
 });
 
+
+app.get('/api/admin/backup', requireAdmin, async (_req, res, next) => {
+  try {
+    const config = await readBackupConfig();
+    const logs = await readBackupLogs();
+    res.json({
+      config: publicBackupConfig(config),
+      status: {
+        running: backupSyncState.running,
+        pending: backupSyncState.pending,
+        lastStartedAt: backupSyncState.lastStartedAt,
+        lastFinishedAt: backupSyncState.lastFinishedAt,
+        lastResult: backupSyncState.lastResult
+      },
+      logs
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.put('/api/admin/backup', requireAdmin, async (req, res, next) => {
+  try {
+    const config = await withBackupConfigLock(async () => {
+      const existing = await readBackupConfigUnlocked();
+      const nextConfig = normalizeBackupConfig(req.body || {}, existing);
+      await writeBackupConfigUnlocked(nextConfig);
+      return nextConfig;
+    });
+
+    if (config.enabled && config.mode === 'change') {
+      queueBackupSync('config-saved').catch((error) => console.warn('Picly backup sync after config save failed:', error.message));
+    }
+
+    res.json({ message: 'Backup-Konfiguration wurde gespeichert.', config: publicBackupConfig(config) });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post('/api/admin/backup/test', requireAdmin, async (req, res, next) => {
+  try {
+    const existing = await readBackupConfig();
+    const candidate = normalizeBackupConfig({ ...req.body, enabled: true }, existing);
+    const result = await testBackupConnection(candidate);
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post('/api/admin/backup/sync', requireAdmin, async (_req, res, next) => {
+  try {
+    const result = await queueBackupSync('manual');
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.get('/api/admin/images', requireAdmin, async (_req, res) => {
   const images = await readMetadata();
   res.json({ images: images.map(publicImageInfo), total: images.length });
@@ -714,6 +1310,7 @@ app.delete('/api/admin/images/:id', requireAdmin, async (req, res) => {
   await fsp.rm(filePath, { force: true }).catch((error) => {
     console.warn(`Picly could not remove uploaded file ${image.filename}:`, error.message);
   });
+  queueChangeBackupSync();
 
   return res.json({ message: 'Bild wurde gelöscht.', image: publicImageInfo(image) });
 });
@@ -784,6 +1381,7 @@ ensureDataFiles()
   .then(readAdminConfig)
   .then(cleanupStaleTempUploads)
   .then(() => {
+    startBackupScheduler();
     const server = app.listen(PORT, () => {
       console.log(`Picly backend listening on port ${PORT}`);
     });

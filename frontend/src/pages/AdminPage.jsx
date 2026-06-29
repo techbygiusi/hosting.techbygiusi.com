@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { adminLogin, changeAdminPassword, deleteImage, downloadAll, downloadImage, getAdminStats, getImageBlob, getImages, setAuthToken } from '../services/api.js';
+import { adminLogin, changeAdminPassword, deleteImage, downloadAll, downloadImage, getAdminStats, getBackupSettings, getImageBlob, getImages, saveBackupSettings, setAuthToken, syncBackupNow, testBackupSettings } from '../services/api.js';
 
 const TOKEN_KEY = 'picly-admin-token';
 
@@ -169,6 +169,300 @@ function PasswordDialog({ onClose, onChanged }) {
   );
 }
 
+
+const emptyBackupForm = {
+  enabled: false,
+  mode: 'change',
+  schedule: { hour: 3, minute: 0, weekday: 1 },
+  smb: {
+    server: '',
+    share: '',
+    remotePath: 'Picly',
+    username: '',
+    password: '',
+    domain: '',
+    smbVersion: 'SMB3'
+  }
+};
+
+function normalizeBackupForm(config) {
+  return {
+    enabled: Boolean(config?.enabled),
+    mode: config?.mode || 'change',
+    schedule: {
+      hour: Number(config?.schedule?.hour ?? 3),
+      minute: Number(config?.schedule?.minute ?? 0),
+      weekday: Number(config?.schedule?.weekday ?? 1)
+    },
+    smb: {
+      server: config?.smb?.server || '',
+      share: config?.smb?.share || '',
+      remotePath: config?.smb?.remotePath || 'Picly',
+      username: config?.smb?.username || '',
+      password: '',
+      domain: config?.smb?.domain || '',
+      smbVersion: config?.smb?.smbVersion || 'SMB3',
+      hasPassword: Boolean(config?.smb?.hasPassword)
+    }
+  };
+}
+
+function BackupDialog({ onClose, onSaved }) {
+  const [form, setForm] = useState(emptyBackupForm);
+  const [logs, setLogs] = useState([]);
+  const [status, setStatus] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
+
+  async function loadBackup() {
+    try {
+      setLoading(true);
+      setError('');
+      const data = await getBackupSettings();
+      setForm(normalizeBackupForm(data.config));
+      setLogs(data.logs || []);
+      setStatus(data.status || null);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Backup-Konfiguration konnte nicht geladen werden.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadBackup();
+  }, []);
+
+  function updateField(field, value) {
+    setForm(prev => ({ ...prev, [field]: value }));
+    setMessage('');
+    setError('');
+  }
+
+  function updateSchedule(field, value) {
+    setForm(prev => ({ ...prev, schedule: { ...prev.schedule, [field]: Number(value) } }));
+    setMessage('');
+    setError('');
+  }
+
+  function updateSmb(field, value) {
+    setForm(prev => ({ ...prev, smb: { ...prev.smb, [field]: value } }));
+    setMessage('');
+    setError('');
+  }
+
+  function buildPayload(forceEnabled = form.enabled) {
+    return {
+      enabled: forceEnabled,
+      mode: form.mode,
+      schedule: form.schedule,
+      smb: {
+        server: form.smb.server,
+        share: form.smb.share,
+        remotePath: form.smb.remotePath,
+        username: form.smb.username,
+        password: form.smb.password,
+        domain: form.smb.domain,
+        smbVersion: form.smb.smbVersion
+      }
+    };
+  }
+
+  async function handleSave(event) {
+    event.preventDefault();
+    try {
+      setSaving(true);
+      setError('');
+      setMessage('');
+      const result = await saveBackupSettings(buildPayload());
+      setForm(normalizeBackupForm(result.config));
+      setMessage(result.message || 'Backup wurde gespeichert.');
+      onSaved?.(result.message || 'Backup wurde gespeichert.');
+      await loadBackup();
+    } catch (err) {
+      setError(err.response?.data?.message || 'Backup konnte nicht gespeichert werden.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleTest() {
+    try {
+      setTesting(true);
+      setError('');
+      setMessage('');
+      const result = await testBackupSettings(buildPayload(true));
+      setMessage(result.message || 'SMB-Verbindung erfolgreich.');
+    } catch (err) {
+      setError(err.response?.data?.message || 'SMB-Test fehlgeschlagen.');
+    } finally {
+      setTesting(false);
+    }
+  }
+
+  async function handleSyncNow() {
+    if (!form.enabled) {
+      setError('Bitte Backups zuerst aktivieren.');
+      setMessage('');
+      return;
+    }
+
+    try {
+      setSyncing(true);
+      setError('');
+      setMessage('');
+      await saveBackupSettings(buildPayload());
+      const result = await syncBackupNow();
+      setMessage(result.message || 'Synchronisierung wurde gestartet.');
+      await loadBackup();
+    } catch (err) {
+      setError(err.response?.data?.message || 'Synchronisierung fehlgeschlagen.');
+    } finally {
+      setSyncing(false);
+    }
+  }
+
+  const passwordHint = form.smb.hasPassword ? 'Leer lassen, um das gespeicherte Kennwort zu behalten' : 'SMB-Kennwort';
+
+  return (
+    <div className="modal-backdrop backup-backdrop" onClick={onClose}>
+      <form className="password-modal backup-modal" onSubmit={handleSave} onClick={(event) => event.stopPropagation()}>
+        <button className="modal-close" type="button" onClick={onClose} aria-label="Schließen">×</button>
+        <div className="password-modal-head backup-modal-head">
+          <p className="eyebrow">Admin</p>
+          <h2>Backup</h2>
+          <p>SMB-Ziel direkt im Container hinterlegen. Der Docker-Host muss keinen Share mounten.</p>
+        </div>
+
+        {loading ? (
+          <div className="app-loader inline"><span className="spinner" /> Lädt Backup-Konfiguration...</div>
+        ) : (
+          <>
+            <label className="switch-row">
+              <span>
+                <strong>Backups aktivieren</strong>
+                <small>Wenn aktiv, werden Uploads in den SMB-Ordner gespiegelt.</small>
+              </span>
+              <input type="checkbox" checked={form.enabled} onChange={(event) => updateField('enabled', event.target.checked)} />
+            </label>
+
+            <div className="backup-grid two-cols">
+              <label>
+                SMB-Server
+                <input value={form.smb.server} onChange={(event) => updateSmb('server', event.target.value)} placeholder="10.10.0.21" />
+              </label>
+              <label>
+                Share
+                <input value={form.smb.share} onChange={(event) => updateSmb('share', event.target.value)} placeholder="Backup-Labby" />
+              </label>
+            </div>
+
+            <label>
+              Remote-Pfad im Share
+              <input value={form.smb.remotePath} onChange={(event) => updateSmb('remotePath', event.target.value)} placeholder="Picly" />
+            </label>
+
+            <div className="backup-grid two-cols">
+              <label>
+                Benutzer
+                <input value={form.smb.username} onChange={(event) => updateSmb('username', event.target.value)} autoComplete="username" />
+              </label>
+              <label>
+                Kennwort
+                <input type="password" value={form.smb.password} onChange={(event) => updateSmb('password', event.target.value)} autoComplete="new-password" placeholder={passwordHint} />
+              </label>
+            </div>
+
+            <div className="backup-grid two-cols">
+              <label>
+                Domain / Workgroup optional
+                <input value={form.smb.domain} onChange={(event) => updateSmb('domain', event.target.value)} placeholder="WORKGROUP" />
+              </label>
+              <label>
+                SMB-Version
+                <select value={form.smb.smbVersion} onChange={(event) => updateSmb('smbVersion', event.target.value)}>
+                  <option value="SMB3">SMB3</option>
+                  <option value="SMB2">SMB2</option>
+                  <option value="NT1">NT1 / SMB1</option>
+                </select>
+              </label>
+            </div>
+
+            <div className="backup-section">
+              <label>
+                Synchronisierung
+                <select value={form.mode} onChange={(event) => updateField('mode', event.target.value)}>
+                  <option value="change">Bei Änderung sofort spiegeln</option>
+                  <option value="hourly">Stündlich</option>
+                  <option value="daily">Täglich</option>
+                  <option value="weekly">Wöchentlich</option>
+                </select>
+              </label>
+              {form.mode !== 'change' && form.mode !== 'hourly' && (
+                <div className="backup-grid three-cols">
+                  {form.mode === 'weekly' && (
+                    <label>
+                      Wochentag
+                      <select value={form.schedule.weekday} onChange={(event) => updateSchedule('weekday', event.target.value)}>
+                        <option value={1}>Montag</option>
+                        <option value={2}>Dienstag</option>
+                        <option value={3}>Mittwoch</option>
+                        <option value={4}>Donnerstag</option>
+                        <option value={5}>Freitag</option>
+                        <option value={6}>Samstag</option>
+                        <option value={0}>Sonntag</option>
+                      </select>
+                    </label>
+                  )}
+                  <label>
+                    Stunde
+                    <input type="number" min="0" max="23" value={form.schedule.hour} onChange={(event) => updateSchedule('hour', event.target.value)} />
+                  </label>
+                  <label>
+                    Minute
+                    <input type="number" min="0" max="59" value={form.schedule.minute} onChange={(event) => updateSchedule('minute', event.target.value)} />
+                  </label>
+                </div>
+              )}
+              <p className="backup-help">Im Modus „Bei Änderung“ wird nach Uploads oder Löschungen automatisch gespiegelt. Entfernte Picly-Bilder werden im SMB-Ziel ebenfalls entfernt.</p>
+            </div>
+
+            {status?.running && <div className="notice">Backup-Sync läuft gerade...</div>}
+            {error && <div className="notice danger">{error}</div>}
+            {message && <div className="notice success">{message}</div>}
+
+            <div className="backup-actions">
+              <button className="btn-outline" type="button" onClick={handleTest} disabled={testing || saving || syncing}>{testing ? 'Teste...' : 'Verbindung testen'}</button>
+              <button className="btn-secondary" type="button" onClick={handleSyncNow} disabled={!form.enabled || testing || saving || syncing}>{syncing ? 'Synchronisiere...' : 'Jetzt synchronisieren'}</button>
+              <button className="btn-primary" type="submit" disabled={saving || testing || syncing}>{saving ? 'Speichere...' : 'Speichern'}</button>
+            </div>
+
+            <div className="backup-log">
+              <strong>Letzte Backup-Läufe</strong>
+              {logs.length === 0 ? (
+                <p>Noch keine Backup-Läufe vorhanden.</p>
+              ) : (
+                <ul>
+                  {logs.slice(0, 5).map((entry, index) => (
+                    <li key={`${entry.time}-${index}`} className={entry.status === 'success' ? 'ok' : 'bad'}>
+                      <span>{formatDate(entry.time)}</span>
+                      <p>{entry.message}</p>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </>
+        )}
+      </form>
+    </div>
+  );
+}
+
 function GalleryImage({ image, index, onOpen, onDelete, deleting, onUrlLoaded }) {
   const [url, setUrl] = useState('');
 
@@ -229,6 +523,7 @@ export default function AdminPage() {
   const [selectedIndex, setSelectedIndex] = useState(null);
   const [deletingId, setDeletingId] = useState('');
   const [passwordOpen, setPasswordOpen] = useState(false);
+  const [backupOpen, setBackupOpen] = useState(false);
   const [success, setSuccess] = useState('');
 
   // Viewer: track loaded URLs per image id
@@ -349,6 +644,7 @@ export default function AdminPage() {
         </div>
         <div className="admin-actions">
           <button className="btn-secondary" type="button" onClick={() => setPasswordOpen(true)}>Kennwort ändern</button>
+          <button className="btn-secondary" type="button" onClick={() => setBackupOpen(true)}>Backup</button>
           <button className="btn-secondary" type="button" onClick={loadImages} disabled={loading}>Aktualisieren</button>
           <button className="btn-primary" type="button" onClick={handleDownloadAll} disabled={!images.length}>Alle als ZIP</button>
           <button className="btn-outline" type="button" onClick={logout}>Abmelden</button>
@@ -400,6 +696,7 @@ export default function AdminPage() {
       </div>
 
       {passwordOpen && <PasswordDialog onClose={() => setPasswordOpen(false)} onChanged={handlePasswordChanged} />}
+      {backupOpen && <BackupDialog onClose={() => setBackupOpen(false)} onSaved={(message) => { setSuccess(message); window.setTimeout(() => setSuccess(''), 5000); }} />}
 
       {selected && (
         <div

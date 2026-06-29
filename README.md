@@ -1,5 +1,17 @@
 # Picly - Changelog
 
+## v0.1.23 - 2026-06-29
+
+**Commit:** `feat: add container smb backup sync`
+
+- Added a new **Backup** button next to **Kennwort ändern** in the protected admin area.
+- Added a desktop backup configuration popup and a mobile bottom sheet that slides up from the bottom.
+- Added SMB backup settings directly inside Picly so the Docker host does not need to mount the SMB share.
+- Added connection testing, manual sync, sync logs and password-preserving SMB configuration.
+- Added immediate change-based mirroring: new uploads are copied to SMB and deleted Picly images are removed from the SMB target as well.
+- Added optional hourly, daily and weekly scheduled sync modes.
+- Installed `smbclient` in the backend container image so SMB access happens from inside the container.
+
 ## v0.1.22 - 2026-06-28
 
 **Commit:** `style: equalize admin stats card heights`

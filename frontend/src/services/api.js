@@ -68,4 +68,25 @@ export async function deleteImage(id) {
   return response.data;
 }
 
+
+export async function getBackupSettings() {
+  const response = await api.get('/admin/backup');
+  return response.data;
+}
+
+export async function saveBackupSettings(payload) {
+  const response = await api.put('/admin/backup', payload);
+  return response.data;
+}
+
+export async function testBackupSettings(payload) {
+  const response = await api.post('/admin/backup/test', payload);
+  return response.data;
+}
+
+export async function syncBackupNow() {
+  const response = await api.post('/admin/backup/sync');
+  return response.data;
+}
+
 export default api;
