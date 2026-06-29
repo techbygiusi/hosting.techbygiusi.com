@@ -1,4 +1,12 @@
-# Picly v0.1.31
+# Picly v0.1.32
+
+## v0.1.32 - 2026-06-29
+
+**Commit:** `fix: detect empty gallery grid columns`
+
+- Fixed gallery corner detection so empty CSS grid columns count as available columns.
+- Right-side gallery corners are now only rounded when an image really sits in the outer right column.
+- Prevented a short, incomplete row from being rounded on the right side.
 
 ## v0.1.31 - 2026-06-29
 

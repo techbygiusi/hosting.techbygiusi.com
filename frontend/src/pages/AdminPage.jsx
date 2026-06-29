@@ -616,15 +616,12 @@ export default function AdminPage() {
         return;
       }
 
-      const tiles = Array.from(grid.children).filter((node) => node.classList?.contains('image-card'));
-      if (!tiles.length) {
-        setGalleryColumns(1);
-        return;
-      }
+      const templateColumns = window.getComputedStyle(grid).gridTemplateColumns;
+      const columns = templateColumns
+        ? templateColumns.split(' ').filter((track) => track && track !== 'none').length
+        : 1;
 
-      const firstRowTop = tiles[0].offsetTop;
-      const columns = tiles.filter((node) => node.offsetTop === firstRowTop).length || 1;
-      setGalleryColumns(columns);
+      setGalleryColumns(Math.max(1, columns || 1));
     }
 
     const runUpdate = () => window.requestAnimationFrame(updateGalleryColumns);
