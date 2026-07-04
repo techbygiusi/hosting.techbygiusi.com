@@ -1,5 +1,99 @@
 # Hosting Portal - Changelog
 
+## v2.2.1 - 2026-07-04
+
+**Commit:** `fix: v2.2.1 – token-berechtigungen immer anzeigen (live-refresh via token prüfen), verschlüsselungs-hinweise entfernt`
+
+### Cluster / Token-Berechtigungen
+- Die Token-Berechtigungen (Lesen / Power / Konsole / Erstellen) werden jetzt **automatisch beim Öffnen des Cluster-Tabs** angezeigt – nicht mehr erst nach „Token prüfen".
+- „Token prüfen" bleibt und aktualisiert die Anzeige des jeweiligen Clusters **live**, ohne Tab-Wechsel oder Reload; der Button zeigt währenddessen „Prüfe…".
+- Neue Lade- und Fehlerzustände: „Berechtigungen werden geladen…" bzw. ein Hinweis, wenn der Token/die Verbindung nicht abrufbar ist.
+
+### UI-Text
+- Entfernt: die Hinweise „Verschlüsselt gespeichert. Jeder Abruf wird protokolliert." / „AES-256-GCM-verschlüsselt gespeichert" im Zugangsdaten-Bereich (Verschlüsselung/Protokollierung passieren weiterhin, werden aber nicht mehr im UI erwähnt).
+
+---
+
+## v2.2.0 - 2026-07-04
+
+**Commit:** `feat: v2.2.0 – admin kann ressourcen-zugangsdaten hinterlegen; user behält/löscht sie, admin kann user-daten nicht anfassen`
+
+### Zugangsdaten pro Ressource
+- Der **Admin** kann jetzt direkt an einer Ressource Zugangsdaten hinterlegen (Dienste → Karte → „Zugangsdaten hinterlegen"). Diese erscheinen beim Benutzer im Zugangsdaten-Tab mit der Markierung „vom Admin".
+- Der **Benutzer** kann admin-hinterlegte Zugangsdaten ansehen, kopieren und **löschen oder behalten** – aber nicht bearbeiten.
+- **Trennung der Rechte** (serverseitig erzwungen):
+  - Admin sieht/verwaltet nur die von ihm angelegten Einträge; vom Benutzer erstellte Zugangsdaten werden ihm nur als gesperrt angezeigt (kein Klartext, kein Bearbeiten, kein Löschen).
+  - Benutzer-eigene Zugangsdaten kann der Admin weder aufdecken (403) noch löschen (403).
+  - Der Benutzer kann admin-hinterlegte Einträge nicht bearbeiten (403), nur löschen.
+- Neue Spalte `created_by_role` an `resource_credentials` unterscheidet Admin- und Benutzer-Einträge. Jeder Passwort-Abruf wird im Audit-Log protokolliert.
+
+### Update-Hinweise
+- Rebuild mit `docker compose up -d --build`. Die Datenbank migriert sich selbst (neue Spalte `created_by_role`, Standard `user` für bestehende Einträge).
+
+---
+
+## v2.1.0 - 2026-07-04
+
+**Commit:** `feat: v2.1.0 – self-service als toggle, provisioning & credentials in settings, CT/VM-typwahl mit live templates/ISOs, log-scroll fix`
+
+### Self-Service
+- Der Self-Service-Schalter im Proxmox-Modal ist jetzt ein echter **Toggle**; die Detail-Konfiguration ist von dort entfernt.
+- Neuer Bereich **Einstellungen → Self-Service**: Cluster im Dropdown wählen, dann pro Cluster VMID-/IP-Bereich, Gateway/Bridge, Storages und Limits konfigurieren.
+- **CT/VM-Unterscheidung**: pro Cluster festlegbar, ob Benutzer Container (LXC), VMs (QEMU) oder beides erstellen dürfen.
+- CT-Templates und VM-ISOs werden **live über den API-Token** abgerufen (Storage frei wählbar, „Templates/ISOs abrufen"-Buttons).
+- Optionales, verschlüsseltes **Standard-Root-Passwort** pro Cluster für neue Container.
+- Der Erstell-Wizard unterscheidet nun CT (Template + Root-Passwort) und VM (leere QEMU-VM, bootet vom ausgewählten ISO; OS-Installation über die Konsole).
+
+### Zugangsdaten
+- Neuer **Zugangsdaten-Vault** unter Einstellungen: Admin kann zentrale Zugangsdaten hinterlegen, optional an einen Cluster oder Benutzer gekoppelt. AES-256-GCM-verschlüsselt, Anzeigen/Bearbeiten/Löschen, jeder Abruf im Audit-Log.
+
+### UI-Fixes
+- In der Detailansicht scrollt jetzt **nur der Tab-Inhalt** (z. B. die Log-/Aufgabenliste), Titel und Tabs bleiben fixiert – auf Desktop und im mobilen Bottom-Sheet.
+
+### Update-Hinweise
+- Rebuild mit `docker compose up -d --build`. Die Datenbank migriert sich selbst (neue Spalten `allow_types`, `iso_storage`, `default_password_encrypted`, Tabelle `admin_credentials`).
+- Bestehende Cluster mit aktiviertem Self-Service: Konfiguration einmalig unter Einstellungen → Self-Service prüfen und speichern.
+- Für VM-Self-Service braucht der Token zusätzlich Storage-Rechte für das ISO-Storage; für CT wie gehabt `VM.Allocate`.
+
+---
+
+## v2.0.0 - 2026-07-04
+
+**Commit:** `feat: v2.0.0 – power actions, web console, logs, credentials, groups, self-service provisioning & security hardening`
+
+### Benutzer
+- Added power actions (start, reboot, shutdown, hard stop) on service cards and in the details dialog, with confirmation prompts.
+- Added an **Aufgaben & Logs** tab showing the latest Proxmox tasks per machine with expandable task logs.
+- Added an in-browser **web console** (xterm.js) via a backend WebSocket relay – the Proxmox API token never leaves the server; console sessions use one-time tokens (30 s validity).
+- Added **Zugangsdaten** per service: credentials are stored AES-256-GCM encrypted, can be revealed/copied on demand, and every reveal is written to the audit log.
+- Added **self-service machine creation** (LXC) with template selection and CPU/RAM/disk sliders; VMID and IP are allocated automatically from the admin-defined ranges.
+
+### Gruppen
+- Services can now be shared with a **group** in addition to their owner – all group members see and control the resource.
+- Added group management with a member checklist in the admin area.
+
+### Admin
+- Added per-cluster self-service configuration: VMID range, IP pool (start–end, prefix, gateway), bridge, storage, template storage and limits for cores/RAM/disk.
+- Added **Token prüfen**: live display of the API token permissions (read / power / console / create). Read-only tokens automatically hide power, console and provisioning for all users.
+- Added a **Protokoll** tab with a full audit log (power actions, console opens, credential reveals, machine creation, admin changes) including user, timestamp and IP.
+
+### Sicherheit
+- Proxmox API tokens and stored secrets are now encrypted at rest with AES-256-GCM (`ENCRYPTION_KEY` env or auto-generated key in `data/.encryption-key`); legacy plaintext/base64 values keep working and are re-encrypted on save.
+- Removed the hardcoded JWT fallback secret: `JWT_SECRET` env or an auto-generated secret persisted in `data/.jwt-secret`.
+- Added rate limiting (strict on login/password reset, moderate on the API) and a login lockout (5 failed attempts → 15 minutes).
+- CORS restrictable via `FRONTEND_ORIGIN`, request body limit lowered to 1 MB, `trust proxy` configurable via `TRUST_PROXY_HOPS`.
+- Task log access is restricted to tasks of the user's own machine.
+
+### Mobile
+- All modals become full-width **bottom sheets** on mobile: they slide up from the bottom edge with a grab handle and safe-area padding, while desktop keeps centered dialogs.
+
+### Update-Hinweise
+- Rebuild with `docker compose up -d --build` (new deps: `ws`, `express-rate-limit`, `@xterm/xterm`, `@xterm/addon-fit`). The database migrates itself on first start – no data is lost.
+- The reverse proxy must pass WebSocket upgrades for `/api/console/ws` (already included in the shipped `nginx.conf`; Cloudflare Tunnel handles WebSockets out of the box).
+- Recommended Proxmox token role for full functionality: `VM.Audit`, `VM.PowerMgmt`, `VM.Console`, `VM.Allocate` (+ `Datastore.AllocateSpace` for self-service). Read-only tokens keep working – the portal hides the unavailable features.
+
+---
+
 ## v1.0.32 - 2026-06-29
 
 **Commit:** `fix: lock modal scroll and refine dark surfaces`
@@ -384,39 +478,3 @@
 - JWT auth + Bcrypt
 - Email service
 - 100% responsive
-
----
-
-## 🚀 v2.0.0 – Was ist neu
-
-### Für Benutzer
-- **Power-Aktionen**: Starten, Herunterfahren, Neustarten und Hard-Stop direkt von der Karte oder aus der Detailansicht (mit Bestätigung).
-- **Aufgaben & Logs**: Die letzten Proxmox-Tasks jeder Maschine inkl. aufklappbarem Log direkt im Portal.
-- **Web-Konsole**: Vollwertiges xterm.js-Terminal im Browser. Der Proxmox-API-Token bleibt dabei ausschließlich auf dem Backend (WebSocket-Relay mit Einmal-Token, 30 s gültig).
-- **Zugangsdaten**: Pro Dienst können Logins/Secrets hinterlegt werden – AES-256-GCM-verschlüsselt gespeichert, jeder Abruf wird protokolliert.
-- **Self-Service**: „Neue Maschine erstellen" (LXC) mit Template-Auswahl und Slidern für CPU/RAM/Disk. VMID und IP werden automatisch aus dem vom Admin freigegebenen Bereich vergeben.
-
-### Für Gruppen
-- Dienste können zusätzlich zum Besitzer einer **Gruppe** zugewiesen werden – alle Mitglieder sehen und steuern die Ressource.
-- Gruppenverwaltung mit Mitglieder-Checkliste im Admin-Bereich.
-
-### Für Admins
-- **Self-Service-Konfiguration pro Cluster**: VMID-Bereich, IP-Pool (von–bis, Präfix, Gateway), Bridge, Storage, Template-Storage sowie Limits für Kerne/RAM/Disk.
-- **Token prüfen**: Live-Anzeige der Berechtigungen des API-Tokens (Lesen / Power / Konsole / Erstellen). Kann der Token nur lesen, blendet das Portal die entsprechenden Funktionen automatisch aus.
-- **Protokoll-Tab**: Audit-Log aller sicherheitsrelevanten Aktionen (Power, Konsole, Zugangsdaten-Abruf, Maschinen-Erstellung, …) mit Benutzer, Zeit und IP.
-
-### Sicherheit
-- Proxmox-API-Tokens und Secrets werden **AES-256-GCM-verschlüsselt** gespeichert (Schlüssel via `ENCRYPTION_KEY` oder automatisch generiert in `data/.encryption-key`). Bestehende Klartext-/Base64-Werte werden transparent weiter gelesen und beim nächsten Speichern verschlüsselt.
-- Kein hartkodiertes JWT-Secret mehr: `JWT_SECRET` per Env oder automatisch generiert und persistiert (`data/.jwt-secret`).
-- **Rate-Limiting** (streng auf Login/Passwort-Reset, moderat auf der API) und **Login-Lockout** (5 Fehlversuche → 15 Minuten Sperre).
-- CORS auf konfigurierte Origin(s) einschränkbar (`FRONTEND_ORIGIN`), Body-Limit 1 MB, `trust proxy` konfigurierbar.
-- Konsolen-WebSocket nur über Einmal-Session-Tokens; Log-Zugriff nur auf Tasks der eigenen Maschine.
-
-### Mobile
-- Alle Modals werden auf Mobilgeräten zu **Bottom-Sheets**: volle Breite, sliden von unten hoch, Grab-Handle, Safe-Area-Padding. Desktop behält die zentrierten Dialoge.
-
-### Update-Hinweise
-1. `npm install` in `backend/` (neu: `ws`, `express-rate-limit`) und `frontend/` (neu: `@xterm/xterm`, `@xterm/addon-fit`) – bzw. einfach neu bauen: `docker compose up -d --build`.
-2. Die Datenbank migriert sich beim ersten Start selbst (neue Tabellen/Spalten, keine Daten gehen verloren).
-3. Für die Web-Konsole muss der Reverse Proxy WebSocket-Upgrades für `/api/console/ws` durchreichen (im mitgelieferten `nginx.conf` bereits enthalten; bei Cloudflare Tunnel funktionieren WebSockets out of the box).
-4. Empfohlener Proxmox-API-Token für den vollen Funktionsumfang: Rolle mit `VM.Audit`, `VM.PowerMgmt`, `VM.Console`, `VM.Allocate` (+ `Datastore.AllocateSpace` und `SDN.Use`/Bridge-Zugriff für Self-Service). Nur-Lese-Token funktionieren weiterhin – das Portal blendet dann Power/Konsole/Erstellen aus.

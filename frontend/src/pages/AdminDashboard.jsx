@@ -16,15 +16,16 @@ function LogoutIcon() {
 }
 
 const emptyUser = { email: '', name: '', password: '', role: 'user' };
-const emptyCluster = {
-  name: '', url: '', apiToken: '',
-  allowProvisioning: false, vmidMin: '', vmidMax: '',
+const emptyCluster = { name: '', url: '', apiToken: '', allowProvisioning: false };
+const emptyProvisioning = {
+  allowProvisioning: false, allowTypes: 'ct', vmidMin: '', vmidMax: '',
   ipStart: '', ipEnd: '', ipPrefix: '24', gateway: '',
-  bridge: 'vmbr0', storage: 'local-lvm', templateStorage: 'local',
-  maxCores: '2', maxMemoryMb: '2048', maxDiskGb: '20'
+  bridge: 'vmbr0', storage: 'local-lvm', templateStorage: 'local', isoStorage: 'local',
+  maxCores: '2', maxMemoryMb: '2048', maxDiskGb: '20', defaultPassword: ''
 };
 const emptyResource = { name: '', containerId: '', clusterId: '', userId: '', groupId: '', publicUrl: '', adminUrl: '' };
 const emptyGroup = { name: '', memberIds: [] };
+const emptyAdminCred = { label: '', username: '', secret: '', url: '', notes: '', clusterId: '', userId: '' };
 const emptySmtp = { smtpHost: '', smtpPort: '587', smtpUser: '', smtpPassword: '' };
 
 export default function AdminDashboard() {
@@ -62,6 +63,14 @@ export default function AdminDashboard() {
   const [showGroupModal, setShowGroupModal] = useState(false);
   const [auditEntries, setAuditEntries] = useState([]);
   const [clusterCaps, setClusterCaps] = useState({}); // clusterId -> capabilities
+  const [capsLoading, setCapsLoading] = useState(false);
+  const [checkingCapsId, setCheckingCapsId] = useState(null);
+  const [adminCredentials, setAdminCredentials] = useState([]);
+  const [showCredModal, setShowCredModal] = useState(false);
+  const [editCredId, setEditCredId] = useState(null);
+  const [newCred, setNewCred] = useState(emptyAdminCred);
+  const [revealedCreds, setRevealedCreds] = useState({});
+  const [resourceCredsFor, setResourceCredsFor] = useState(null); // resource object
 
   const tabs = [
     ['overview', 'Übersicht'],
@@ -92,18 +101,29 @@ export default function AdminDashboard() {
 
       const requests = [];
       const needsUsers = ['overview', 'users', 'groups', 'resources'].includes(tab);
-      const needsClusters = ['overview', 'clusters', 'resources'].includes(tab);
+      const needsClusters = ['overview', 'clusters', 'resources', 'settings'].includes(tab);
       const needsResources = ['overview', 'resources'].includes(tab);
       const needsGroups = ['groups', 'resources', 'overview'].includes(tab);
       const needsAudit = tab === 'audit';
       const needsSettings = tab === 'settings';
 
       if (needsUsers) requests.push(adminApi.getUsers().then(res => setUsers(res.data.users || [])));
-      if (needsClusters) requests.push(adminApi.getClusters().then(res => setClusters(res.data.clusters || [])));
+      if (needsClusters) requests.push(
+        adminApi.getClusters().then(res => {
+          const list = res.data.clusters || [];
+          setClusters(list);
+          // On the clusters tab, always show token permissions – fetch them
+          // in the background so the badges appear without "Token prüfen".
+          if (tab === 'clusters') loadAllCapabilities(list);
+        })
+      );
       if (needsResources) requests.push(adminApi.getResources().then(res => setResources(res.data.resources || [])));
       if (needsGroups) requests.push(adminApi.getGroups().then(res => setGroups(res.data.groups || [])));
       if (needsAudit) requests.push(adminApi.getAudit(200).then(res => setAuditEntries(res.data.entries || [])));
-      if (needsSettings) requests.push(loadSettings());
+      if (needsSettings) {
+        requests.push(loadSettings());
+        requests.push(adminApi.getAdminCredentials().then(res => setAdminCredentials(res.data.credentials || [])).catch(() => {}));
+      }
 
       await Promise.all(requests);
     } catch (err) {
@@ -213,19 +233,7 @@ export default function AdminDashboard() {
       name: item.name || '',
       url: item.url || '',
       apiToken: '',
-      allowProvisioning: !!item.allow_provisioning,
-      vmidMin: item.vmid_min ?? '',
-      vmidMax: item.vmid_max ?? '',
-      ipStart: item.ip_start || '',
-      ipEnd: item.ip_end || '',
-      ipPrefix: String(item.ip_prefix ?? '24'),
-      gateway: item.gateway || '',
-      bridge: item.bridge || 'vmbr0',
-      storage: item.storage || 'local-lvm',
-      templateStorage: item.template_storage || 'local',
-      maxCores: String(item.max_cores ?? '2'),
-      maxMemoryMb: String(item.max_memory_mb ?? '2048'),
-      maxDiskGb: String(item.max_disk_gb ?? '20')
+      allowProvisioning: !!item.allow_provisioning
     });
     setClusterTestResult(null);
     setShowClusterModal(true);
@@ -304,16 +312,101 @@ export default function AdminDashboard() {
     }
   };
 
+  const loadAllCapabilities = async (clusterList) => {
+    // Fetch token permissions for every cluster in parallel (best-effort).
+    setCapsLoading(true);
+    await Promise.all((clusterList || []).map(async (cluster) => {
+      try {
+        const res = await adminApi.getClusterCapabilities(cluster.id);
+        setClusterCaps(prev => ({ ...prev, [cluster.id]: res.data.capabilities }));
+      } catch (_) {
+        setClusterCaps(prev => ({ ...prev, [cluster.id]: { error: true } }));
+      }
+    }));
+    setCapsLoading(false);
+  };
+
   const handleCheckCapabilities = async (clusterId) => {
+    // "Token prüfen" re-fetches just this cluster and updates the badges live,
+    // no tab switch or page reload needed.
     try {
-      setActionLoading(true);
+      setCheckingCapsId(clusterId);
       setError('');
       const res = await adminApi.getClusterCapabilities(clusterId);
       setClusterCaps(prev => ({ ...prev, [clusterId]: res.data.capabilities }));
     } catch (err) {
       setError(getErrorMessage(err, 'Berechtigungen konnten nicht geprüft werden.'));
+      setClusterCaps(prev => ({ ...prev, [clusterId]: { error: true } }));
+    } finally {
+      setCheckingCapsId(null);
+    }
+  };
+
+  const openResourceCreds = (resource) => setResourceCredsFor(resource);
+
+  const openCreateCred = () => { setEditCredId(null); setNewCred(emptyAdminCred); setShowCredModal(true); };
+  const openEditCred = (item) => {
+    setEditCredId(item.id);
+    setNewCred({
+      label: item.label || '', username: item.username || '', secret: '',
+      url: item.url || '', notes: item.notes || '',
+      clusterId: item.cluster_id || '', userId: item.user_id || ''
+    });
+    setShowCredModal(true);
+  };
+  const closeCredModal = () => { setShowCredModal(false); setEditCredId(null); setNewCred(emptyAdminCred); };
+
+  const handleSaveCred = async (e) => {
+    e.preventDefault();
+    if (!newCred.label.trim()) { setError('Bitte eine Bezeichnung eingeben.'); return; }
+    try {
+      setActionLoading(true);
+      setError('');
+      const payload = {
+        ...newCred,
+        clusterId: newCred.clusterId || null,
+        userId: newCred.userId || null
+      };
+      if (editCredId) {
+        await adminApi.updateAdminCredential(editCredId, payload);
+        showSuccess('Zugangsdaten gespeichert.');
+      } else {
+        await adminApi.createAdminCredential(payload);
+        showSuccess('Zugangsdaten angelegt.');
+      }
+      closeCredModal();
+      await loadData('settings');
+    } catch (err) {
+      setError(getErrorMessage(err, 'Zugangsdaten konnten nicht gespeichert werden.'));
     } finally {
       setActionLoading(false);
+    }
+  };
+
+  const handleDeleteCred = async (credId) => {
+    if (!window.confirm('Diese Zugangsdaten löschen?')) return;
+    try {
+      setActionLoading(true);
+      await adminApi.deleteAdminCredential(credId);
+      showSuccess('Zugangsdaten gelöscht.');
+      await loadData('settings');
+    } catch (err) {
+      setError(getErrorMessage(err, 'Zugangsdaten konnten nicht gelöscht werden.'));
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const toggleRevealCred = async (credId) => {
+    if (revealedCreds[credId] !== undefined) {
+      setRevealedCreds(prev => { const next = { ...prev }; delete next[credId]; return next; });
+      return;
+    }
+    try {
+      const res = await adminApi.revealAdminCredential(credId);
+      setRevealedCreds(prev => ({ ...prev, [credId]: res.data.secret || '' }));
+    } catch (err) {
+      setError(getErrorMessage(err, 'Passwort konnte nicht angezeigt werden.'));
     }
   };
 
@@ -694,13 +787,19 @@ export default function AdminDashboard() {
                       <span className="resource-id">Proxmox{item.allow_provisioning ? ' · Self-Service aktiv' : ''}</span>
                       <h2>{item.name}</h2>
                       <p>{item.url}</p>
-                      {item.allow_provisioning ? (
-                        <p className="hint-text">VMID {item.vmid_min}–{item.vmid_max} · IP {item.ip_start}–{item.ip_end}</p>
+                      {item.allow_provisioning && item.vmid_min ? (
+                        <p className="hint-text">{renderAllowTypes(item.allow_types)} · VMID {item.vmid_min}–{item.vmid_max} · IP {item.ip_start}–{item.ip_end}</p>
+                      ) : item.allow_provisioning ? (
+                        <p className="hint-text">Self-Service an – noch nicht konfiguriert (Einstellungen → Self-Service)</p>
                       ) : null}
-                      {clusterCaps[item.id] && <CapabilityBadges caps={clusterCaps[item.id]} />}
+                      {clusterCaps[item.id]
+                        ? (clusterCaps[item.id].error
+                            ? <p className="hint-text caps-error">Berechtigungen nicht abrufbar – Token/Verbindung prüfen.</p>
+                            : <CapabilityBadges caps={clusterCaps[item.id]} />)
+                        : <p className="hint-text caps-loading">{capsLoading ? 'Berechtigungen werden geladen…' : '—'}</p>}
                     </div>
                     <div className="card-actions">
-                      <button type="button" className="btn-secondary btn-small" onClick={() => handleCheckCapabilities(item.id)} disabled={actionLoading}>Token prüfen</button>
+                      <button type="button" className="btn-secondary btn-small" onClick={() => handleCheckCapabilities(item.id)} disabled={checkingCapsId === item.id}>{checkingCapsId === item.id ? 'Prüfe…' : 'Token prüfen'}</button>
                       <button type="button" className="btn-secondary btn-small" onClick={() => openEditCluster(item)}>Bearbeiten</button>
                       <button type="button" className="btn-danger btn-small" onClick={() => handleDeleteCluster(item.id)} disabled={actionLoading}>Löschen</button>
                     </div>
@@ -718,7 +817,7 @@ export default function AdminDashboard() {
               <div className="empty-state soft-box"><h2>Keine Dienste</h2></div>
             ) : (
               <div className="resource-grid admin-resource-grid">
-                {resources.map(item => <ResourceCard key={item.id} resource={item} onEdit={openEditResource} onDelete={handleDeleteResource} actionLoading={actionLoading} />)}
+                {resources.map(item => <ResourceCard key={item.id} resource={item} onEdit={openEditResource} onDelete={handleDeleteResource} onManageCredentials={openResourceCreds} actionLoading={actionLoading} />)}
               </div>
             )}
           </section>
@@ -765,7 +864,76 @@ export default function AdminDashboard() {
             {smtpTestResult && <div className={`test-result ${smtpTestResult.success ? 'success' : 'error'}`}>{translateMessage(smtpTestResult.message)}</div>}
           </section>
         )}
+
+        {!loading && activeTab === 'settings' && (
+          <ProvisioningSettings
+            clusters={clusters}
+            onSaved={() => loadData('settings')}
+            onError={(msg) => setError(msg)}
+            onSuccess={showSuccess}
+          />
+        )}
+
+        {!loading && activeTab === 'settings' && (
+          <section className="panel-card">
+            <PanelHeader title="Zugangsdaten" action="Hinzufügen" onAction={openCreateCred} />
+            <p className="hint-text panel-hint">Zentral verwaltete Zugangsdaten – optional an einen Cluster oder Benutzer gekoppelt.</p>
+            {adminCredentials.length === 0 ? (
+              <div className="empty-state soft-box"><h2>Keine Zugangsdaten</h2></div>
+            ) : (
+              <div className="list-grid">
+                {adminCredentials.map(item => (
+                  <article key={item.id} className="list-card credential-card">
+                    <div className="credential-main">
+                      <strong>{item.label}</strong>
+                      {item.username && <span className="credential-user">{item.username}</span>}
+                      <span className="credential-scope">
+                        {item.cluster_name ? `Cluster: ${item.cluster_name}` : ''}
+                        {item.cluster_name && item.user_name ? ' · ' : ''}
+                        {item.user_name ? `Benutzer: ${item.user_name}` : ''}
+                        {!item.cluster_name && !item.user_name ? 'Allgemein' : ''}
+                      </span>
+                      {item.url && <a href={item.url} target="_blank" rel="noreferrer" className="credential-url">{item.url}</a>}
+                      {item.notes && <small className="credential-notes">{item.notes}</small>}
+                      <code className="credential-secret">{revealedCreds[item.id] !== undefined ? (revealedCreds[item.id] || '(leer)') : '••••••••'}</code>
+                    </div>
+                    <div className="card-actions">
+                      <button type="button" className="btn-secondary btn-small" onClick={() => toggleRevealCred(item.id)}>{revealedCreds[item.id] !== undefined ? 'Verbergen' : 'Anzeigen'}</button>
+                      <button type="button" className="btn-secondary btn-small" onClick={() => openEditCred(item)}>Bearbeiten</button>
+                      <button type="button" className="btn-danger btn-small" onClick={() => handleDeleteCred(item.id)} disabled={actionLoading}>Löschen</button>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
       </main>
+
+      {showCredModal && (
+        <Modal title={editCredId ? 'Zugangsdaten bearbeiten' : 'Zugangsdaten anlegen'} onClose={closeCredModal}>
+          <form className="form-stack" onSubmit={handleSaveCred}>
+            <label className="form-group"><span>Bezeichnung</span><input type="text" value={newCred.label} onChange={e => setNewCred(prev => ({ ...prev, label: e.target.value }))} placeholder="z. B. Cluster-Root-Login" /></label>
+            <label className="form-group"><span>Benutzername</span><input type="text" value={newCred.username} onChange={e => setNewCred(prev => ({ ...prev, username: e.target.value }))} placeholder="Optional" autoComplete="off" /></label>
+            <label className="form-group"><span>Passwort / Secret</span><input type="password" value={newCred.secret} onChange={e => setNewCred(prev => ({ ...prev, secret: e.target.value }))} placeholder={editCredId ? 'Leer lassen, wenn unverändert' : 'Wird verschlüsselt gespeichert'} autoComplete="new-password" /></label>
+            <label className="form-group"><span>URL</span><input type="url" value={newCred.url} onChange={e => setNewCred(prev => ({ ...prev, url: e.target.value }))} placeholder="Optional" /></label>
+            <div className="form-row-2">
+              <label className="form-group"><span>Cluster (optional)</span><select value={newCred.clusterId} onChange={e => setNewCred(prev => ({ ...prev, clusterId: e.target.value }))}><option value="">Keiner</option>{clusters.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+              <label className="form-group"><span>Benutzer (optional)</span><select value={newCred.userId} onChange={e => setNewCred(prev => ({ ...prev, userId: e.target.value }))}><option value="">Keiner</option>{users.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+            </div>
+            <label className="form-group"><span>Notizen</span><textarea rows="2" value={newCred.notes} onChange={e => setNewCred(prev => ({ ...prev, notes: e.target.value }))} placeholder="Optional"></textarea></label>
+            <div className="form-actions"><button type="button" className="btn-secondary" onClick={closeCredModal}>Abbrechen</button><button type="submit" className="btn-primary" disabled={actionLoading}>{editCredId ? 'Speichern' : 'Anlegen'}</button></div>
+          </form>
+        </Modal>
+      )}
+
+      {resourceCredsFor && (
+        <AdminResourceCredentials
+          resource={resourceCredsFor}
+          onClose={() => setResourceCredsFor(null)}
+          onError={(msg) => setError(msg)}
+        />
+      )}
 
       {showSetupCheckModal && (
         <Modal title="Einrichtung prüfen" onClose={closeSetupCheck}>
@@ -828,39 +996,18 @@ export default function AdminDashboard() {
             {clusterTestResult && <div className={`test-result ${clusterTestResult.success ? 'success' : 'error'}`}>{translateMessage(clusterTestResult.message)}</div>}
 
             <div className="form-section-divider">
-              <label className="checkbox-row">
-                <input type="checkbox" checked={newCluster.allowProvisioning} onChange={e => handleClusterChange('allowProvisioning', e.target.checked)} />
-                <span>Self-Service: Benutzer dürfen Maschinen erstellen</span>
+              <label className="toggle-row">
+                <span className="toggle-label">Self-Service: Benutzer dürfen Maschinen erstellen</span>
+                <span className="toggle-switch">
+                  <input type="checkbox" checked={newCluster.allowProvisioning} onChange={e => handleClusterChange('allowProvisioning', e.target.checked)} />
+                  <span className="toggle-track"><span className="toggle-thumb"></span></span>
+                </span>
               </label>
+              {newCluster.allowProvisioning && (
+                <p className="hint-text">Die Details (VMID-/IP-Bereich, Typen, Templates, Limits) konfigurierst du unter <strong>Einstellungen → Self-Service</strong>.</p>
+              )}
             </div>
 
-            {newCluster.allowProvisioning && (
-              <div className="provisioning-fields">
-                <div className="form-row-2">
-                  <label className="form-group"><span>VMID von</span><input type="number" min="100" value={newCluster.vmidMin} onChange={e => handleClusterChange('vmidMin', e.target.value)} placeholder="900" /></label>
-                  <label className="form-group"><span>VMID bis</span><input type="number" min="100" value={newCluster.vmidMax} onChange={e => handleClusterChange('vmidMax', e.target.value)} placeholder="999" /></label>
-                </div>
-                <div className="form-row-2">
-                  <label className="form-group"><span>IP von</span><input type="text" value={newCluster.ipStart} onChange={e => handleClusterChange('ipStart', e.target.value)} placeholder="10.0.10.100" /></label>
-                  <label className="form-group"><span>IP bis</span><input type="text" value={newCluster.ipEnd} onChange={e => handleClusterChange('ipEnd', e.target.value)} placeholder="10.0.10.150" /></label>
-                </div>
-                <div className="form-row-2">
-                  <label className="form-group"><span>Präfix (CIDR)</span><input type="number" min="8" max="32" value={newCluster.ipPrefix} onChange={e => handleClusterChange('ipPrefix', e.target.value)} placeholder="24" /></label>
-                  <label className="form-group"><span>Gateway</span><input type="text" value={newCluster.gateway} onChange={e => handleClusterChange('gateway', e.target.value)} placeholder="10.0.10.1" /></label>
-                </div>
-                <div className="form-row-2">
-                  <label className="form-group"><span>Bridge</span><input type="text" value={newCluster.bridge} onChange={e => handleClusterChange('bridge', e.target.value)} placeholder="vmbr0" /></label>
-                  <label className="form-group"><span>Storage</span><input type="text" value={newCluster.storage} onChange={e => handleClusterChange('storage', e.target.value)} placeholder="local-lvm" /></label>
-                </div>
-                <label className="form-group"><span>Template-Storage</span><input type="text" value={newCluster.templateStorage} onChange={e => handleClusterChange('templateStorage', e.target.value)} placeholder="local" /></label>
-                <div className="form-row-3">
-                  <label className="form-group"><span>Max. Kerne</span><input type="number" min="1" value={newCluster.maxCores} onChange={e => handleClusterChange('maxCores', e.target.value)} /></label>
-                  <label className="form-group"><span>Max. RAM (MB)</span><input type="number" min="256" step="256" value={newCluster.maxMemoryMb} onChange={e => handleClusterChange('maxMemoryMb', e.target.value)} /></label>
-                  <label className="form-group"><span>Max. Disk (GB)</span><input type="number" min="4" value={newCluster.maxDiskGb} onChange={e => handleClusterChange('maxDiskGb', e.target.value)} /></label>
-                </div>
-                <p className="hint-text">Der API-Token braucht dafür VM.Allocate – mit „Token prüfen" kontrollierbar.</p>
-              </div>
-            )}
             <div className="form-actions"><button type="button" className="btn-secondary" onClick={closeClusterModal}>Abbrechen</button><button type="submit" className="btn-primary" disabled={actionLoading}>Speichern</button></div>
           </form>
         </Modal>
@@ -905,6 +1052,341 @@ export default function AdminDashboard() {
   );
 }
 
+/**
+ * Admin management of credentials attached to a specific resource.
+ * The admin can add/edit/delete only its own entries (created_by_role='admin').
+ * User-created entries are shown read-only and can never be touched by the admin.
+ */
+function AdminResourceCredentials({ resource, onClose, onError }) {
+  const emptyForm = { label: '', username: '', secret: '', url: '', notes: '' };
+  const [credentials, setCredentials] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [editId, setEditId] = useState(null);
+  const [form, setForm] = useState(emptyForm);
+  const [busy, setBusy] = useState(false);
+  const [revealed, setRevealed] = useState({});
+
+  const load = async () => {
+    try {
+      setLoading(true);
+      const res = await adminApi.getResourceCredentials(resource.id);
+      setCredentials(res.data.credentials || []);
+    } catch (err) {
+      onError(getErrorMessage(err, 'Zugangsdaten konnten nicht geladen werden.'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { load(); /* eslint-disable-next-line */ }, [resource.id]);
+
+  const openCreate = () => { setEditId(null); setForm(emptyForm); setShowForm(true); };
+  const openEdit = (item) => {
+    setEditId(item.id);
+    setForm({ label: item.label || '', username: item.username || '', secret: '', url: item.url || '', notes: item.notes || '' });
+    setShowForm(true);
+  };
+
+  const save = async (e) => {
+    e.preventDefault();
+    if (!form.label.trim()) { onError('Bitte eine Bezeichnung eingeben.'); return; }
+    try {
+      setBusy(true);
+      if (editId) await adminApi.updateResourceCredential(resource.id, editId, form);
+      else await adminApi.createResourceCredential(resource.id, form);
+      setShowForm(false); setEditId(null); setForm(emptyForm);
+      await load();
+    } catch (err) {
+      onError(getErrorMessage(err, 'Zugangsdaten konnten nicht gespeichert werden.'));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const remove = async (item) => {
+    if (!window.confirm(`"${item.label}" wirklich löschen?`)) return;
+    try {
+      setBusy(true);
+      await adminApi.deleteResourceCredential(resource.id, item.id);
+      await load();
+    } catch (err) {
+      onError(getErrorMessage(err, 'Zugangsdaten konnten nicht gelöscht werden.'));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const toggleReveal = async (item) => {
+    if (revealed[item.id] !== undefined) {
+      setRevealed(prev => { const next = { ...prev }; delete next[item.id]; return next; });
+      return;
+    }
+    try {
+      const res = await adminApi.revealResourceCredential(resource.id, item.id);
+      setRevealed(prev => ({ ...prev, [item.id]: res.data.secret || '' }));
+    } catch (err) {
+      onError(getErrorMessage(err, 'Passwort konnte nicht angezeigt werden.'));
+    }
+  };
+
+  const adminCreds = credentials.filter(item => item.canManage);
+  const userCreds = credentials.filter(item => !item.canManage);
+
+  return (
+    <Modal title={`Zugangsdaten · ${resource.name}`} onClose={onClose}>
+      <p className="hint-text panel-hint">Hinterlegte Zugangsdaten erscheinen beim Benutzer. Der Benutzer kann sie behalten oder löschen. Vom Benutzer selbst angelegte Zugangsdaten kannst du nicht sehen oder löschen.</p>
+
+      <div className="tasks-toolbar">
+        <span className="hint-text">{adminCreds.length} von dir · {userCreds.length} vom Benutzer</span>
+        <button type="button" className="btn-primary btn-small" onClick={openCreate}>Hinzufügen</button>
+      </div>
+
+      {loading && <div className="loading inline-loading"><span className="spinner"></span><span>Laden...</span></div>}
+
+      {!loading && adminCreds.map(item => (
+        <div key={item.id} className="credential-row">
+          <div className="credential-main">
+            <strong>{item.label}<span className="cred-tag cred-tag-admin">von Admin</span></strong>
+            {item.username && <span className="credential-user">{item.username}</span>}
+            {item.url && <a href={item.url} target="_blank" rel="noreferrer" className="credential-url">{item.url}</a>}
+            {item.notes && <small className="credential-notes">{item.notes}</small>}
+            <code className="credential-secret">{revealed[item.id] !== undefined ? (revealed[item.id] || '(leer)') : '••••••••'}</code>
+          </div>
+          <div className="credential-actions">
+            <button type="button" className="btn-secondary btn-small" onClick={() => toggleReveal(item)}>{revealed[item.id] !== undefined ? 'Verbergen' : 'Anzeigen'}</button>
+            <button type="button" className="btn-secondary btn-small" onClick={() => openEdit(item)}>Bearbeiten</button>
+            <button type="button" className="btn-danger btn-small" onClick={() => remove(item)} disabled={busy}>Löschen</button>
+          </div>
+        </div>
+      ))}
+
+      {!loading && userCreds.map(item => (
+        <div key={item.id} className="credential-row credential-row-locked">
+          <div className="credential-main">
+            <strong>{item.label}<span className="cred-tag cred-tag-user">vom Benutzer</span></strong>
+            {item.username && <span className="credential-user">{item.username}</span>}
+            {item.url && <span className="credential-url">{item.url}</span>}
+            <code className="credential-secret">••••••••</code>
+            <small className="hint-text">Nur für den Benutzer sichtbar – nicht verwaltbar.</small>
+          </div>
+        </div>
+      ))}
+
+      {!loading && credentials.length === 0 && !showForm && (
+        <p className="hint-text tab-empty">Noch keine Zugangsdaten hinterlegt.</p>
+      )}
+
+      {showForm && (
+        <form className="form-stack credential-form" onSubmit={save}>
+          <label className="form-group"><span>Bezeichnung</span><input type="text" value={form.label} onChange={e => setForm(prev => ({ ...prev, label: e.target.value }))} placeholder="z. B. SSH root" /></label>
+          <label className="form-group"><span>Benutzername</span><input type="text" value={form.username} onChange={e => setForm(prev => ({ ...prev, username: e.target.value }))} placeholder="Optional" autoComplete="off" /></label>
+          <label className="form-group"><span>Passwort / Secret</span><input type="password" value={form.secret} onChange={e => setForm(prev => ({ ...prev, secret: e.target.value }))} placeholder={editId ? 'Leer lassen, wenn unverändert' : 'Wird verschlüsselt gespeichert'} autoComplete="new-password" /></label>
+          <label className="form-group"><span>URL</span><input type="url" value={form.url} onChange={e => setForm(prev => ({ ...prev, url: e.target.value }))} placeholder="Optional" /></label>
+          <label className="form-group"><span>Notizen</span><textarea rows="2" value={form.notes} onChange={e => setForm(prev => ({ ...prev, notes: e.target.value }))} placeholder="Optional"></textarea></label>
+          <div className="form-actions"><button type="button" className="btn-secondary" onClick={() => { setShowForm(false); setEditId(null); }}>Abbrechen</button><button type="submit" className="btn-primary" disabled={busy}>{editId ? 'Speichern' : 'Hinzufügen'}</button></div>
+        </form>
+      )}
+    </Modal>
+  );
+}
+
+/**
+ * Self-Service configuration per cluster (Settings tab).
+ * Cluster dropdown → CT/VM type selection, live storages/templates/ISOs
+ * fetched via the cluster API token, VMID/IP ranges and limits.
+ */
+function ProvisioningSettings({ clusters, onSaved, onError, onSuccess }) {
+  const [clusterId, setClusterId] = useState('');
+  const [form, setForm] = useState({
+    allowProvisioning: false, allowTypes: 'ct', vmidMin: '', vmidMax: '',
+    ipStart: '', ipEnd: '', ipPrefix: '24', gateway: '',
+    bridge: 'vmbr0', storage: 'local-lvm', templateStorage: 'local', isoStorage: 'local',
+    maxCores: '2', maxMemoryMb: '2048', maxDiskGb: '20', defaultPassword: ''
+  });
+  const [storages, setStorages] = useState([]);
+  const [templates, setTemplates] = useState([]);
+  const [isos, setIsos] = useState([]);
+  const [caps, setCaps] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+
+  const setField = (field, value) => setForm(prev => ({ ...prev, [field]: value }));
+
+  useEffect(() => {
+    if (!clusterId) { setLoaded(false); return; }
+    let active = true;
+    (async () => {
+      try {
+        setBusy(true);
+        const [provRes, capRes] = await Promise.all([
+          adminApi.getClusterProvisioning(clusterId),
+          adminApi.getClusterCapabilities(clusterId).catch(() => ({ data: { capabilities: null } }))
+        ]);
+        if (!active) return;
+        const p = provRes.data.provisioning;
+        setForm({
+          allowProvisioning: !!p.allowProvisioning,
+          allowTypes: p.allowTypes || 'ct',
+          vmidMin: p.vmidMin === null ? '' : String(p.vmidMin ?? ''),
+          vmidMax: p.vmidMax === null ? '' : String(p.vmidMax ?? ''),
+          ipStart: p.ipStart || '', ipEnd: p.ipEnd || '', ipPrefix: String(p.ipPrefix ?? '24'),
+          gateway: p.gateway || '', bridge: p.bridge || 'vmbr0',
+          storage: p.storage || 'local-lvm', templateStorage: p.templateStorage || 'local',
+          isoStorage: p.isoStorage || 'local',
+          maxCores: String(p.maxCores ?? '2'), maxMemoryMb: String(p.maxMemoryMb ?? '2048'),
+          maxDiskGb: String(p.maxDiskGb ?? '20'), defaultPassword: ''
+        });
+        setCaps(capRes.data.capabilities);
+        setLoaded(true);
+        // storages help pick the right storage names
+        adminApi.getClusterStorages(clusterId).then(res => active && setStorages(res.data.storages || [])).catch(() => setStorages([]));
+      } catch (err) {
+        onError(getErrorMessage(err, 'Konfiguration konnte nicht geladen werden.'));
+      } finally {
+        if (active) setBusy(false);
+      }
+    })();
+    return () => { active = false; };
+  }, [clusterId]);
+
+  const loadTemplates = async () => {
+    try {
+      const res = await adminApi.getClusterTemplates(clusterId, form.templateStorage);
+      setTemplates(res.data.templates || []);
+      if ((res.data.templates || []).length === 0) onError('Keine CT-Templates in diesem Storage gefunden.');
+    } catch (err) {
+      onError(getErrorMessage(err, 'Templates konnten nicht geladen werden.'));
+    }
+  };
+
+  const loadIsos = async () => {
+    try {
+      const res = await adminApi.getClusterIsos(clusterId, form.isoStorage);
+      setIsos(res.data.isos || []);
+      if ((res.data.isos || []).length === 0) onError('Keine ISOs in diesem Storage gefunden.');
+    } catch (err) {
+      onError(getErrorMessage(err, 'ISOs konnten nicht geladen werden.'));
+    }
+  };
+
+  const save = async (e) => {
+    e.preventDefault();
+    try {
+      setBusy(true);
+      await adminApi.updateClusterProvisioning(clusterId, form);
+      onSuccess('Self-Service-Konfiguration gespeichert.');
+      onSaved();
+    } catch (err) {
+      onError(getErrorMessage(err, 'Konfiguration konnte nicht gespeichert werden.'));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const showCt = form.allowTypes === 'ct' || form.allowTypes === 'both';
+  const showVm = form.allowTypes === 'vm' || form.allowTypes === 'both';
+  const storageNames = storages.map(s => s.storage);
+
+  return (
+    <section className="panel-card">
+      <PanelHeader title="Self-Service" />
+      <p className="hint-text panel-hint">Wähle einen Cluster und lege fest, was Benutzer selbst erstellen dürfen. Templates und ISOs werden live über den API-Token abgerufen.</p>
+
+      <label className="form-group">
+        <span>Cluster</span>
+        <select value={clusterId} onChange={e => setClusterId(e.target.value)}>
+          <option value="">Bitte auswählen</option>
+          {clusters.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
+        </select>
+      </label>
+
+      {clusterId && caps && !caps.canProvision && (
+        <div className="alert alert-danger">Der API-Token dieses Clusters hat kein VM.Allocate – Self-Service funktioniert damit nicht. Passe die Token-Rechte in Proxmox an.</div>
+      )}
+
+      {clusterId && loaded && (
+        <form className="form-stack" onSubmit={save}>
+          <label className="toggle-row">
+            <span className="toggle-label">Self-Service für diesen Cluster aktivieren</span>
+            <span className="toggle-switch">
+              <input type="checkbox" checked={form.allowProvisioning} onChange={e => setField('allowProvisioning', e.target.checked)} />
+              <span className="toggle-track"><span className="toggle-thumb"></span></span>
+            </span>
+          </label>
+
+          {form.allowProvisioning && (
+            <>
+              <label className="form-group">
+                <span>Erlaubte Typen</span>
+                <select value={form.allowTypes} onChange={e => setField('allowTypes', e.target.value)}>
+                  <option value="ct">Nur Container (LXC)</option>
+                  <option value="vm">Nur VMs (QEMU)</option>
+                  <option value="both">Beides</option>
+                </select>
+              </label>
+
+              <div className="form-row-2">
+                <label className="form-group"><span>VMID von</span><input type="number" min="100" value={form.vmidMin} onChange={e => setField('vmidMin', e.target.value)} placeholder="900" /></label>
+                <label className="form-group"><span>VMID bis</span><input type="number" min="100" value={form.vmidMax} onChange={e => setField('vmidMax', e.target.value)} placeholder="999" /></label>
+              </div>
+              <div className="form-row-2">
+                <label className="form-group"><span>IP von</span><input type="text" value={form.ipStart} onChange={e => setField('ipStart', e.target.value)} placeholder="10.0.10.100" /></label>
+                <label className="form-group"><span>IP bis</span><input type="text" value={form.ipEnd} onChange={e => setField('ipEnd', e.target.value)} placeholder="10.0.10.150" /></label>
+              </div>
+              <div className="form-row-2">
+                <label className="form-group"><span>Präfix (CIDR)</span><input type="number" min="8" max="32" value={form.ipPrefix} onChange={e => setField('ipPrefix', e.target.value)} placeholder="24" /></label>
+                <label className="form-group"><span>Gateway</span><input type="text" value={form.gateway} onChange={e => setField('gateway', e.target.value)} placeholder="10.0.10.1" /></label>
+              </div>
+              <div className="form-row-2">
+                <label className="form-group"><span>Bridge</span><input type="text" value={form.bridge} onChange={e => setField('bridge', e.target.value)} placeholder="vmbr0" /></label>
+                <label className="form-group"><span>Disk-Storage</span>{storageNames.length > 0 ? <select value={form.storage} onChange={e => setField('storage', e.target.value)}>{!storageNames.includes(form.storage) && <option value={form.storage}>{form.storage}</option>}{storageNames.map(s => <option key={s} value={s}>{s}</option>)}</select> : <input type="text" value={form.storage} onChange={e => setField('storage', e.target.value)} placeholder="local-lvm" />}</label>
+              </div>
+
+              {showCt && (
+                <div className="storage-row">
+                  <label className="form-group"><span>CT-Template-Storage</span><input type="text" value={form.templateStorage} onChange={e => setField('templateStorage', e.target.value)} placeholder="local" /></label>
+                  <button type="button" className="btn-secondary btn-small" onClick={loadTemplates}>Templates abrufen</button>
+                  {templates.length > 0 && <small className="hint-text">{templates.length} Template(s): {templates.slice(0, 3).map(t => t.name).join(', ')}{templates.length > 3 ? '…' : ''}</small>}
+                </div>
+              )}
+
+              {showVm && (
+                <div className="storage-row">
+                  <label className="form-group"><span>ISO-Storage</span><input type="text" value={form.isoStorage} onChange={e => setField('isoStorage', e.target.value)} placeholder="local" /></label>
+                  <button type="button" className="btn-secondary btn-small" onClick={loadIsos}>ISOs abrufen</button>
+                  {isos.length > 0 && <small className="hint-text">{isos.length} ISO(s): {isos.slice(0, 3).map(i => i.name).join(', ')}{isos.length > 3 ? '…' : ''}</small>}
+                </div>
+              )}
+
+              <div className="form-row-3">
+                <label className="form-group"><span>Max. Kerne</span><input type="number" min="1" value={form.maxCores} onChange={e => setField('maxCores', e.target.value)} /></label>
+                <label className="form-group"><span>Max. RAM (MB)</span><input type="number" min="256" step="256" value={form.maxMemoryMb} onChange={e => setField('maxMemoryMb', e.target.value)} /></label>
+                <label className="form-group"><span>Max. Disk (GB)</span><input type="number" min="4" value={form.maxDiskGb} onChange={e => setField('maxDiskGb', e.target.value)} /></label>
+              </div>
+
+              <label className="form-group"><span>Standard-Root-Passwort (optional)</span><input type="password" value={form.defaultPassword} onChange={e => setField('defaultPassword', e.target.value)} placeholder={caps ? 'Leer lassen, wenn unverändert' : ''} autoComplete="new-password" /></label>
+              <p className="hint-text">Wird verschlüsselt gespeichert und für neue Container genutzt, falls der Benutzer keins angibt.</p>
+            </>
+          )}
+
+          <div className="form-actions">
+            <button type="submit" className="btn-primary" disabled={busy}>{busy ? 'Speichern...' : 'Konfiguration speichern'}</button>
+          </div>
+        </form>
+      )}
+
+      {clusterId && busy && !loaded && <div className="loading inline-loading"><span className="spinner"></span><span>Laden...</span></div>}
+    </section>
+  );
+}
+
+function renderAllowTypes(type) {
+  if (type === 'vm') return 'VMs';
+  if (type === 'both') return 'CT + VM';
+  return 'Container';
+}
+
 function CapabilityBadges({ caps }) {
   const items = [
     ['Lesen', true],
@@ -938,6 +1420,11 @@ function renderAuditAction(action) {
     'group.delete': 'Gruppe gelöscht',
     'cluster.create': 'Cluster angelegt',
     'cluster.update': 'Cluster geändert',
+    'cluster.provisioning': 'Self-Service konfiguriert',
+    'admin.credential.create': 'Zugangsdaten angelegt (Vault)',
+    'admin.credential.update': 'Zugangsdaten geändert (Vault)',
+    'admin.credential.delete': 'Zugangsdaten gelöscht (Vault)',
+    'admin.credential.reveal': 'Passwort angezeigt (Vault)',
     'resource.create': 'Dienst angelegt',
     'resource.update': 'Dienst geändert',
     'password.change': 'Passwort geändert'
@@ -945,8 +1432,7 @@ function renderAuditAction(action) {
   return map[action] || action;
 }
 
-function formatAuditTime(value) {
-  if (!value) return '';
+function formatAuditTime(value) {  if (!value) return '';
   const date = new Date(`${value}Z`.replace(' ', 'T'));
   if (Number.isNaN(date.getTime())) return value;
   return date.toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' });
@@ -972,7 +1458,7 @@ function SetupCheckRow({ label, ok, detail }) {
   );
 }
 
-function ResourceCard({ resource, onEdit, onDelete, actionLoading }) {
+function ResourceCard({ resource, onEdit, onDelete, onManageCredentials, actionLoading }) {
   const [detailsOpen, setDetailsOpen] = useState(false);
   const cpuPercent = getCpuPercent(resource);
   const memPercent = getPercent(resource.mem, resource.maxmem);
@@ -1018,6 +1504,7 @@ function ResourceCard({ resource, onEdit, onDelete, actionLoading }) {
             </div>
             <DiskDetails resource={resource} />
             <div className="button-stack">
+              <button type="button" className="btn-secondary full-button" onClick={() => { setDetailsOpen(false); onManageCredentials(resource); }}>Zugangsdaten hinterlegen</button>
               <button type="button" className="btn-secondary full-button" onClick={() => { setDetailsOpen(false); onEdit(resource); }}>Bearbeiten</button>
               <button type="button" className="btn-danger full-button" onClick={() => { setDetailsOpen(false); onDelete(resource.id); }} disabled={actionLoading}>Entfernen</button>
             </div>

@@ -27,14 +27,16 @@ export default function ResourceDetail({ resource, onClose, onChanged }) {
         ))}
       </nav>
 
-      {activeTab === 'overview' && <OverviewTab resource={resource} onChanged={onChanged} />}
-      {activeTab === 'tasks' && <TasksTab resource={resource} />}
-      {activeTab === 'console' && caps.canConsole && (
-        resource.status === 'running'
-          ? <TerminalView resourceId={resource.id} resourceName={resource.name} />
-          : <p className="hint-text tab-empty">Die Maschine ist gestoppt. Starte sie, um die Konsole zu öffnen.</p>
-      )}
-      {activeTab === 'credentials' && <CredentialsTab resource={resource} />}
+      <div className="detail-tab-body">
+        {activeTab === 'overview' && <OverviewTab resource={resource} onChanged={onChanged} />}
+        {activeTab === 'tasks' && <TasksTab resource={resource} />}
+        {activeTab === 'console' && caps.canConsole && (
+          resource.status === 'running'
+            ? <TerminalView resourceId={resource.id} resourceName={resource.name} />
+            : <p className="hint-text tab-empty">Die Maschine ist gestoppt. Starte sie, um die Konsole zu öffnen.</p>
+        )}
+        {activeTab === 'credentials' && <CredentialsTab resource={resource} />}
+      </div>
     </Modal>
   );
 }
@@ -279,7 +281,7 @@ function CredentialsTab({ resource }) {
       {error && <div className="alert alert-danger">{error}</div>}
 
       <div className="tasks-toolbar">
-        <span className="hint-text">Verschlüsselt gespeichert. Jeder Abruf wird protokolliert.</span>
+        <span className="hint-text">Vom Admin hinterlegte Zugangsdaten kannst du behalten oder löschen.</span>
         <button type="button" className="btn-primary btn-small" onClick={openCreate}>Hinzufügen</button>
       </div>
 
@@ -291,7 +293,10 @@ function CredentialsTab({ resource }) {
       {!loading && credentials.map(item => (
         <div key={item.id} className="credential-row">
           <div className="credential-main">
-            <strong>{item.label}</strong>
+            <div className="credential-label-row">
+              <strong>{item.label}</strong>
+              {item.fromAdmin && <span className="credential-badge">vom Admin</span>}
+            </div>
             {item.username && <span className="credential-user">{item.username}</span>}
             {item.url && <a href={item.url} target="_blank" rel="noreferrer" className="credential-url">{item.url}</a>}
             {item.notes && <small className="credential-notes">{item.notes}</small>}
@@ -300,7 +305,7 @@ function CredentialsTab({ resource }) {
           <div className="credential-actions">
             <button type="button" className="btn-secondary btn-small" onClick={() => toggleReveal(item)}>{revealed[item.id] !== undefined ? 'Verbergen' : 'Anzeigen'}</button>
             <button type="button" className="btn-secondary btn-small" onClick={() => copySecret(item)}>{copiedId === item.id ? 'Kopiert ✓' : 'Kopieren'}</button>
-            <button type="button" className="btn-secondary btn-small" onClick={() => openEdit(item)}>Bearbeiten</button>
+            {!item.fromAdmin && <button type="button" className="btn-secondary btn-small" onClick={() => openEdit(item)}>Bearbeiten</button>}
             <button type="button" className="btn-danger btn-small" onClick={() => remove(item)} disabled={busy}>Löschen</button>
           </div>
         </div>

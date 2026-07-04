@@ -6,7 +6,7 @@ const { get, run, all } = require('../config/database');
 const { adminMiddleware } = require('../middleware/auth');
 const { AppError } = require('../middleware/errorHandler');
 const { HTTP_STATUS, ROLES } = require('../config/constants');
-const { getClusterResources, testConnection, getCapabilities, getOnlineNodes, getNodeTemplates } = require('../services/proxmoxService');
+const { getClusterResources, testConnection, getCapabilities, getOnlineNodes, getNodeTemplates, getNodeIsos, getNodeStorages } = require('../services/proxmoxService');
 const { enrichResources } = require('../services/resourceService');
 const { testSmtpConnection, initializeEmailService, encryptString, decryptString } = require('../services/emailService');
 const { encrypt, decrypt } = require('../services/cryptoService');
@@ -233,8 +233,8 @@ router.get('/clusters', async (req, res, next) => {
   try {
     const clusters = await all(`
       SELECT id, name, url, created_at,
-             allow_provisioning, vmid_min, vmid_max, ip_start, ip_end, ip_prefix,
-             gateway, bridge, storage, template_storage, max_cores, max_memory_mb, max_disk_gb
+             allow_provisioning, allow_types, vmid_min, vmid_max, ip_start, ip_end, ip_prefix,
+             gateway, bridge, storage, template_storage, iso_storage, max_cores, max_memory_mb, max_disk_gb
       FROM proxmox_clusters ORDER BY created_at DESC
     `);
     res.json({ clusters });
@@ -257,21 +257,11 @@ router.post('/clusters', async (req, res, next) => {
       throw new AppError(`Failed to connect to Proxmox: ${testResult.message}`, HTTP_STATUS.BAD_REQUEST);
     }
 
-    const provisioning = normalizeProvisioning(req.body);
+    const allowProvisioning = req.body.allowProvisioning ? 1 : 0;
 
     const result = await run(
-      `INSERT INTO proxmox_clusters (
-        name, url, api_token,
-        allow_provisioning, vmid_min, vmid_max, ip_start, ip_end, ip_prefix,
-        gateway, bridge, storage, template_storage, max_cores, max_memory_mb, max_disk_gb
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        String(name).trim(), normalizedUrl, encrypt(String(apiToken).trim()),
-        provisioning.allowProvisioning, provisioning.vmidMin, provisioning.vmidMax,
-        provisioning.ipStart, provisioning.ipEnd, provisioning.ipPrefix,
-        provisioning.gateway, provisioning.bridge, provisioning.storage,
-        provisioning.templateStorage, provisioning.maxCores, provisioning.maxMemoryMb, provisioning.maxDiskGb
-      ]
+      'INSERT INTO proxmox_clusters (name, url, api_token, allow_provisioning) VALUES (?, ?, ?, ?)',
+      [String(name).trim(), normalizedUrl, encrypt(String(apiToken).trim()), allowProvisioning]
     );
 
     await logAudit(req, 'cluster.create', `cluster:${result.lastID}`, String(name).trim());
@@ -288,40 +278,52 @@ router.post('/clusters', async (req, res, next) => {
   }
 });
 
-function normalizeProvisioning(body) {
+/**
+ * Provisioning config is separated from the base cluster form.
+ * It lives under Settings and is edited via PUT /clusters/:id/provisioning.
+ */
+function normalizeProvisioning(body, existing = {}) {
   const toInt = (value, fallback = null) => {
     const parsed = parseInt(value, 10);
     return Number.isInteger(parsed) ? parsed : fallback;
   };
   const isIp = (value) => /^(\d{1,3}\.){3}\d{1,3}$/.test(String(value || '').trim());
 
-  const allowProvisioning = body.allowProvisioning ? 1 : 0;
-  const vmidMin = toInt(body.vmidMin);
-  const vmidMax = toInt(body.vmidMax);
+  const allowProvisioning = (body.allowProvisioning ?? existing.allow_provisioning) ? 1 : 0;
+  const allowTypesRaw = String(body.allowTypes ?? existing.allow_types ?? 'ct').toLowerCase();
+  const allowTypes = ['ct', 'vm', 'both'].includes(allowTypesRaw) ? allowTypesRaw : 'ct';
+
+  const vmidMin = toInt(body.vmidMin ?? existing.vmid_min);
+  const vmidMax = toInt(body.vmidMax ?? existing.vmid_max);
+  const ipStart = body.ipStart ?? existing.ip_start;
+  const ipEnd = body.ipEnd ?? existing.ip_end;
+  const gateway = body.gateway ?? existing.gateway;
 
   if (allowProvisioning) {
     if (!vmidMin || !vmidMax || vmidMin < 100 || vmidMax < vmidMin) {
       throw new AppError('VMID range is invalid', HTTP_STATUS.BAD_REQUEST);
     }
-    if (!isIp(body.ipStart) || !isIp(body.ipEnd) || !isIp(body.gateway)) {
+    if (!isIp(ipStart) || !isIp(ipEnd) || !isIp(gateway)) {
       throw new AppError('IP range or gateway is invalid', HTTP_STATUS.BAD_REQUEST);
     }
   }
 
   return {
     allowProvisioning,
+    allowTypes,
     vmidMin,
     vmidMax,
-    ipStart: isIp(body.ipStart) ? String(body.ipStart).trim() : null,
-    ipEnd: isIp(body.ipEnd) ? String(body.ipEnd).trim() : null,
-    ipPrefix: Math.min(Math.max(toInt(body.ipPrefix, 24), 8), 32),
-    gateway: isIp(body.gateway) ? String(body.gateway).trim() : null,
-    bridge: String(body.bridge || 'vmbr0').trim(),
-    storage: String(body.storage || 'local-lvm').trim(),
-    templateStorage: String(body.templateStorage || 'local').trim(),
-    maxCores: Math.min(Math.max(toInt(body.maxCores, 2), 1), 64),
-    maxMemoryMb: Math.min(Math.max(toInt(body.maxMemoryMb, 2048), 256), 262144),
-    maxDiskGb: Math.min(Math.max(toInt(body.maxDiskGb, 20), 4), 4096)
+    ipStart: isIp(ipStart) ? String(ipStart).trim() : null,
+    ipEnd: isIp(ipEnd) ? String(ipEnd).trim() : null,
+    ipPrefix: Math.min(Math.max(toInt(body.ipPrefix ?? existing.ip_prefix, 24), 8), 32),
+    gateway: isIp(gateway) ? String(gateway).trim() : null,
+    bridge: String(body.bridge ?? existing.bridge ?? 'vmbr0').trim(),
+    storage: String(body.storage ?? existing.storage ?? 'local-lvm').trim(),
+    templateStorage: String(body.templateStorage ?? existing.template_storage ?? 'local').trim(),
+    isoStorage: String(body.isoStorage ?? existing.iso_storage ?? 'local').trim(),
+    maxCores: Math.min(Math.max(toInt(body.maxCores ?? existing.max_cores, 2), 1), 64),
+    maxMemoryMb: Math.min(Math.max(toInt(body.maxMemoryMb ?? existing.max_memory_mb, 2048), 256), 262144),
+    maxDiskGb: Math.min(Math.max(toInt(body.maxDiskGb ?? existing.max_disk_gb, 20), 4), 4096)
   };
 }
 
@@ -348,40 +350,86 @@ router.put('/clusters/:id', async (req, res, next) => {
       throw new AppError(`Failed to connect to Proxmox: ${testResult.message}`, HTTP_STATUS.BAD_REQUEST);
     }
 
-    const provisioning = normalizeProvisioning({
-      allowProvisioning: req.body.allowProvisioning ?? cluster.allow_provisioning,
-      vmidMin: req.body.vmidMin ?? cluster.vmid_min,
-      vmidMax: req.body.vmidMax ?? cluster.vmid_max,
-      ipStart: req.body.ipStart ?? cluster.ip_start,
-      ipEnd: req.body.ipEnd ?? cluster.ip_end,
-      ipPrefix: req.body.ipPrefix ?? cluster.ip_prefix,
-      gateway: req.body.gateway ?? cluster.gateway,
-      bridge: req.body.bridge ?? cluster.bridge,
-      storage: req.body.storage ?? cluster.storage,
-      templateStorage: req.body.templateStorage ?? cluster.template_storage,
-      maxCores: req.body.maxCores ?? cluster.max_cores,
-      maxMemoryMb: req.body.maxMemoryMb ?? cluster.max_memory_mb,
-      maxDiskGb: req.body.maxDiskGb ?? cluster.max_disk_gb
-    });
+    // The base form only edits name/url/token and the self-service toggle.
+    // Detailed provisioning config is managed under Settings.
+    const allowProvisioning = req.body.allowProvisioning !== undefined
+      ? (req.body.allowProvisioning ? 1 : 0)
+      : cluster.allow_provisioning;
 
     await run(
-      `UPDATE proxmox_clusters SET
-        name = ?, url = ?, api_token = ?,
-        allow_provisioning = ?, vmid_min = ?, vmid_max = ?, ip_start = ?, ip_end = ?, ip_prefix = ?,
-        gateway = ?, bridge = ?, storage = ?, template_storage = ?, max_cores = ?, max_memory_mb = ?, max_disk_gb = ?
-      WHERE id = ?`,
-      [
-        nextName, nextUrl, encrypt(nextToken),
-        provisioning.allowProvisioning, provisioning.vmidMin, provisioning.vmidMax,
-        provisioning.ipStart, provisioning.ipEnd, provisioning.ipPrefix,
-        provisioning.gateway, provisioning.bridge, provisioning.storage,
-        provisioning.templateStorage, provisioning.maxCores, provisioning.maxMemoryMb, provisioning.maxDiskGb,
-        clusterId
-      ]
+      'UPDATE proxmox_clusters SET name = ?, url = ?, api_token = ?, allow_provisioning = ? WHERE id = ?',
+      [nextName, nextUrl, encrypt(nextToken), allowProvisioning, clusterId]
     );
 
     await logAudit(req, 'cluster.update', `cluster:${clusterId}`, nextName);
     res.json({ cluster: { id: Number(clusterId), name: nextName, url: nextUrl } });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * Full provisioning config for a cluster (Settings → Self-Service).
+ */
+router.get('/clusters/:id/provisioning', async (req, res, next) => {
+  try {
+    const cluster = await get('SELECT * FROM proxmox_clusters WHERE id = ?', [req.params.id]);
+    if (!cluster) throw new AppError('Cluster not found', HTTP_STATUS.NOT_FOUND);
+
+    res.json({
+      provisioning: {
+        allowProvisioning: !!cluster.allow_provisioning,
+        allowTypes: cluster.allow_types || 'ct',
+        vmidMin: cluster.vmid_min ?? '',
+        vmidMax: cluster.vmid_max ?? '',
+        ipStart: cluster.ip_start || '',
+        ipEnd: cluster.ip_end || '',
+        ipPrefix: cluster.ip_prefix ?? 24,
+        gateway: cluster.gateway || '',
+        bridge: cluster.bridge || 'vmbr0',
+        storage: cluster.storage || 'local-lvm',
+        templateStorage: cluster.template_storage || 'local',
+        isoStorage: cluster.iso_storage || 'local',
+        maxCores: cluster.max_cores ?? 2,
+        maxMemoryMb: cluster.max_memory_mb ?? 2048,
+        maxDiskGb: cluster.max_disk_gb ?? 20
+      }
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.put('/clusters/:id/provisioning', async (req, res, next) => {
+  try {
+    const cluster = await get('SELECT * FROM proxmox_clusters WHERE id = ?', [req.params.id]);
+    if (!cluster) throw new AppError('Cluster not found', HTTP_STATUS.NOT_FOUND);
+
+    const provisioning = normalizeProvisioning(req.body, cluster);
+
+    await run(
+      `UPDATE proxmox_clusters SET
+        allow_provisioning = ?, allow_types = ?, vmid_min = ?, vmid_max = ?, ip_start = ?, ip_end = ?, ip_prefix = ?,
+        gateway = ?, bridge = ?, storage = ?, template_storage = ?, iso_storage = ?, max_cores = ?, max_memory_mb = ?, max_disk_gb = ?
+      WHERE id = ?`,
+      [
+        provisioning.allowProvisioning, provisioning.allowTypes, provisioning.vmidMin, provisioning.vmidMax,
+        provisioning.ipStart, provisioning.ipEnd, provisioning.ipPrefix,
+        provisioning.gateway, provisioning.bridge, provisioning.storage,
+        provisioning.templateStorage, provisioning.isoStorage,
+        provisioning.maxCores, provisioning.maxMemoryMb, provisioning.maxDiskGb,
+        req.params.id
+      ]
+    );
+
+    // Optional default root password for newly provisioned machines
+    if (req.body.defaultPassword !== undefined && req.body.defaultPassword !== '') {
+      await run('UPDATE proxmox_clusters SET default_password_encrypted = ? WHERE id = ?',
+        [encrypt(String(req.body.defaultPassword)), req.params.id]);
+    }
+
+    await logAudit(req, 'cluster.provisioning', `cluster:${req.params.id}`, cluster.name);
+    res.json({ message: 'Provisioning updated' });
   } catch (err) {
     next(err);
   }
@@ -444,8 +492,258 @@ router.get('/clusters/:id/templates', async (req, res, next) => {
     const nodes = await getOnlineNodes(cluster.url, apiToken);
     if (nodes.length === 0) return res.json({ templates: [] });
 
-    const templates = await getNodeTemplates(cluster.url, apiToken, nodes[0].node, cluster.template_storage || 'local');
+    const storage = req.query.storage || cluster.template_storage || 'local';
+    const templates = await getNodeTemplates(cluster.url, apiToken, nodes[0].node, storage);
     res.json({ templates });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get('/clusters/:id/isos', async (req, res, next) => {
+  try {
+    const cluster = await get('SELECT * FROM proxmox_clusters WHERE id = ?', [req.params.id]);
+    if (!cluster) throw new AppError('Cluster not found', HTTP_STATUS.NOT_FOUND);
+
+    const apiToken = decrypt(cluster.api_token);
+    const nodes = await getOnlineNodes(cluster.url, apiToken);
+    if (nodes.length === 0) return res.json({ isos: [] });
+
+    const storage = req.query.storage || cluster.iso_storage || 'local';
+    const isos = await getNodeIsos(cluster.url, apiToken, nodes[0].node, storage);
+    res.json({ isos });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * Storages of the first online node, optionally filtered by content type.
+ * Used in the Settings provisioning form to populate storage dropdowns.
+ */
+router.get('/clusters/:id/storages', async (req, res, next) => {
+  try {
+    const cluster = await get('SELECT * FROM proxmox_clusters WHERE id = ?', [req.params.id]);
+    if (!cluster) throw new AppError('Cluster not found', HTTP_STATUS.NOT_FOUND);
+
+    const apiToken = decrypt(cluster.api_token);
+    const nodes = await getOnlineNodes(cluster.url, apiToken);
+    if (nodes.length === 0) return res.json({ storages: [] });
+
+    const storages = await getNodeStorages(cluster.url, apiToken, nodes[0].node, req.query.content || null);
+    res.json({ storages });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/* --------------------------------------------- ADMIN CREDENTIAL VAULT -- */
+router.get('/credentials', async (req, res, next) => {
+  try {
+    const rows = await all(`
+      SELECT ac.id, ac.label, ac.username, ac.url, ac.notes, ac.cluster_id, ac.user_id,
+             ac.created_at, ac.updated_at,
+             pc.name as cluster_name, u.name as user_name, u.email as user_email
+      FROM admin_credentials ac
+      LEFT JOIN proxmox_clusters pc ON ac.cluster_id = pc.id
+      LEFT JOIN users u ON ac.user_id = u.id
+      ORDER BY ac.label
+    `);
+    res.json({ credentials: rows.map(row => ({ ...row, hasSecret: true })) });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get('/credentials/:id/reveal', async (req, res, next) => {
+  try {
+    const cred = await get('SELECT id, label, secret_encrypted FROM admin_credentials WHERE id = ?', [req.params.id]);
+    if (!cred) throw new AppError('Credential not found', HTTP_STATUS.NOT_FOUND);
+
+    await logAudit(req, 'admin.credential.reveal', `credential:${cred.id}`, cred.label);
+    res.json({ secret: decrypt(cred.secret_encrypted) });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/credentials', async (req, res, next) => {
+  try {
+    const { label, username, secret, url, notes, clusterId, userId } = req.body;
+    if (!label || !String(label).trim()) {
+      throw new AppError('Label is required', HTTP_STATUS.BAD_REQUEST);
+    }
+
+    const result = await run(
+      'INSERT INTO admin_credentials (label, username, secret_encrypted, url, notes, cluster_id, user_id, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      [String(label).trim(), String(username || '').trim(), encrypt(secret || ''), String(url || '').trim(), String(notes || '').trim(), clusterId || null, userId || null, req.user.id]
+    );
+
+    await logAudit(req, 'admin.credential.create', `credential:${result.lastID}`, String(label).trim());
+    res.status(HTTP_STATUS.CREATED).json({ id: result.lastID, message: 'Credential saved' });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.put('/credentials/:id', async (req, res, next) => {
+  try {
+    const cred = await get('SELECT * FROM admin_credentials WHERE id = ?', [req.params.id]);
+    if (!cred) throw new AppError('Credential not found', HTTP_STATUS.NOT_FOUND);
+
+    const { label, username, secret, url, notes, clusterId, userId } = req.body;
+    const nextLabel = String(label ?? cred.label).trim();
+    if (!nextLabel) throw new AppError('Label is required', HTTP_STATUS.BAD_REQUEST);
+
+    const nextSecret = secret !== undefined && secret !== '' ? encrypt(secret) : cred.secret_encrypted;
+
+    await run(
+      'UPDATE admin_credentials SET label = ?, username = ?, secret_encrypted = ?, url = ?, notes = ?, cluster_id = ?, user_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+      [
+        nextLabel, String(username ?? cred.username ?? '').trim(), nextSecret,
+        String(url ?? cred.url ?? '').trim(), String(notes ?? cred.notes ?? '').trim(),
+        clusterId !== undefined ? (clusterId || null) : cred.cluster_id,
+        userId !== undefined ? (userId || null) : cred.user_id,
+        req.params.id
+      ]
+    );
+
+    await logAudit(req, 'admin.credential.update', `credential:${req.params.id}`, nextLabel);
+    res.json({ message: 'Credential saved' });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.delete('/credentials/:id', async (req, res, next) => {
+  try {
+    const cred = await get('SELECT id, label FROM admin_credentials WHERE id = ?', [req.params.id]);
+    if (!cred) throw new AppError('Credential not found', HTTP_STATUS.NOT_FOUND);
+
+    await run('DELETE FROM admin_credentials WHERE id = ?', [req.params.id]);
+    await logAudit(req, 'admin.credential.delete', `credential:${req.params.id}`, cred.label);
+    res.json({ message: 'Credential deleted' });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/* --------------------------- ADMIN → RESOURCE-ATTACHED CREDENTIALS ------ */
+/**
+ * The admin can attach credentials directly to a user's resource. These show
+ * up in the user's resource credential list. Rules:
+ * - Admin sees all credentials of a resource, but may only edit/delete the
+ *   ones the admin created (created_by_role = 'admin').
+ * - User-created credentials (created_by_role = 'user') are NEVER touched or
+ *   deleted by the admin.
+ * - The user themselves may keep or delete admin-provided credentials.
+ */
+router.get('/resources/:id/credentials', async (req, res, next) => {
+  try {
+    const resource = await get('SELECT id FROM resources WHERE id = ?', [req.params.id]);
+    if (!resource) throw new AppError('Resource not found', HTTP_STATUS.NOT_FOUND);
+
+    const rows = await all(
+      'SELECT id, label, username, url, notes, created_by_role, created_at, updated_at FROM resource_credentials WHERE resource_id = ? ORDER BY label',
+      [req.params.id]
+    );
+    res.json({
+      credentials: rows.map(row => ({
+        ...row,
+        hasSecret: true,
+        fromAdmin: row.created_by_role === 'admin',
+        canManage: row.created_by_role === 'admin' // admin may only manage its own entries
+      }))
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get('/resources/:id/credentials/:credId/reveal', async (req, res, next) => {
+  try {
+    const cred = await get(
+      "SELECT id, label, secret_encrypted, created_by_role FROM resource_credentials WHERE id = ? AND resource_id = ?",
+      [req.params.credId, req.params.id]
+    );
+    if (!cred) throw new AppError('Credential not found', HTTP_STATUS.NOT_FOUND);
+    if (cred.created_by_role !== 'admin') {
+      throw new AppError('This credential belongs to the user and cannot be viewed', HTTP_STATUS.FORBIDDEN);
+    }
+
+    await logAudit(req, 'admin.resource_credential.reveal', `resource:${req.params.id}`, cred.label);
+    res.json({ secret: decrypt(cred.secret_encrypted) });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/resources/:id/credentials', async (req, res, next) => {
+  try {
+    const resource = await get('SELECT id, name FROM resources WHERE id = ?', [req.params.id]);
+    if (!resource) throw new AppError('Resource not found', HTTP_STATUS.NOT_FOUND);
+
+    const { label, username, secret, url, notes } = req.body;
+    if (!label || !String(label).trim()) {
+      throw new AppError('Label is required', HTTP_STATUS.BAD_REQUEST);
+    }
+
+    const result = await run(
+      "INSERT INTO resource_credentials (resource_id, label, username, secret_encrypted, url, notes, created_by, created_by_role) VALUES (?, ?, ?, ?, ?, ?, ?, 'admin')",
+      [req.params.id, String(label).trim(), String(username || '').trim(), encrypt(secret || ''), String(url || '').trim(), String(notes || '').trim(), req.user.id]
+    );
+
+    await logAudit(req, 'admin.resource_credential.create', `resource:${req.params.id}`, `${resource.name}: ${String(label).trim()}`);
+    res.status(HTTP_STATUS.CREATED).json({ id: result.lastID, message: 'Credential saved' });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.put('/resources/:id/credentials/:credId', async (req, res, next) => {
+  try {
+    const cred = await get(
+      'SELECT * FROM resource_credentials WHERE id = ? AND resource_id = ?',
+      [req.params.credId, req.params.id]
+    );
+    if (!cred) throw new AppError('Credential not found', HTTP_STATUS.NOT_FOUND);
+    if (cred.created_by_role !== 'admin') {
+      throw new AppError('This credential belongs to the user and cannot be edited', HTTP_STATUS.FORBIDDEN);
+    }
+
+    const { label, username, secret, url, notes } = req.body;
+    const nextLabel = String(label ?? cred.label).trim();
+    if (!nextLabel) throw new AppError('Label is required', HTTP_STATUS.BAD_REQUEST);
+
+    const nextSecret = secret !== undefined && secret !== '' ? encrypt(secret) : cred.secret_encrypted;
+
+    await run(
+      'UPDATE resource_credentials SET label = ?, username = ?, secret_encrypted = ?, url = ?, notes = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+      [nextLabel, String(username ?? cred.username ?? '').trim(), nextSecret, String(url ?? cred.url ?? '').trim(), String(notes ?? cred.notes ?? '').trim(), req.params.credId]
+    );
+
+    await logAudit(req, 'admin.resource_credential.update', `resource:${req.params.id}`, nextLabel);
+    res.json({ message: 'Credential saved' });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.delete('/resources/:id/credentials/:credId', async (req, res, next) => {
+  try {
+    const cred = await get(
+      'SELECT id, label, created_by_role FROM resource_credentials WHERE id = ? AND resource_id = ?',
+      [req.params.credId, req.params.id]
+    );
+    if (!cred) throw new AppError('Credential not found', HTTP_STATUS.NOT_FOUND);
+    // Hard rule: admin can never delete user-owned credentials
+    if (cred.created_by_role !== 'admin') {
+      throw new AppError('This credential belongs to the user and cannot be deleted', HTTP_STATUS.FORBIDDEN);
+    }
+
+    await run('DELETE FROM resource_credentials WHERE id = ?', [req.params.credId]);
+    await logAudit(req, 'admin.resource_credential.delete', `resource:${req.params.id}`, cred.label);
+    res.json({ message: 'Credential deleted' });
   } catch (err) {
     next(err);
   }

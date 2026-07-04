@@ -1,6 +1,6 @@
 {
   "name": "hosting-portal-backend",
-  "version": "2.0.0",
+  "version": "2.2.1",
   "description": "Hosting Management Portal - Backend",
   "main": "app.js",
   "scripts": {

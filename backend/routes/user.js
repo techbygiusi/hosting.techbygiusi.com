@@ -17,8 +17,10 @@ const {
   createTermProxy,
   getOnlineNodes,
   getNodeTemplates,
+  getNodeIsos,
   getNextVmidInRange,
   createLxcContainer,
+  createQemuVm,
   POWER_ACTIONS
 } = require('../services/proxmoxService');
 const { enrichResources } = require('../services/resourceService');
@@ -289,10 +291,10 @@ router.get('/resources/:id/credentials', async (req, res, next) => {
   try {
     await assertResourceAccess(req.user.id, req.params.id);
     const rows = await all(
-      'SELECT id, label, username, url, notes, created_at, updated_at FROM resource_credentials WHERE resource_id = ? ORDER BY label',
+      'SELECT id, label, username, url, notes, created_by_role, created_at, updated_at FROM resource_credentials WHERE resource_id = ? ORDER BY label',
       [req.params.id]
     );
-    res.json({ credentials: rows.map(row => ({ ...row, hasSecret: true })) });
+    res.json({ credentials: rows.map(row => ({ ...row, hasSecret: true, fromAdmin: row.created_by_role === 'admin' })) });
   } catch (err) {
     next(err);
   }
@@ -324,8 +326,8 @@ router.post('/resources/:id/credentials', async (req, res, next) => {
     }
 
     const result = await run(
-      'INSERT INTO resource_credentials (resource_id, label, username, secret_encrypted, url, notes, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [req.params.id, String(label).trim(), String(username || '').trim(), encrypt(secret || ''), String(url || '').trim(), String(notes || '').trim(), req.user.id]
+      'INSERT INTO resource_credentials (resource_id, label, username, secret_encrypted, url, notes, created_by, created_by_role) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      [req.params.id, String(label).trim(), String(username || '').trim(), encrypt(secret || ''), String(url || '').trim(), String(notes || '').trim(), req.user.id, 'user']
     );
 
     await logAudit(req, 'credential.create', `resource:${req.params.id}`, String(label).trim());
@@ -343,8 +345,10 @@ router.put('/resources/:id/credentials/:credId', async (req, res, next) => {
       [req.params.credId, req.params.id]
     );
     if (!cred) throw new AppError('Credential not found', HTTP_STATUS.NOT_FOUND);
-
-    const { label, username, secret, url, notes } = req.body;
+    // Users may keep or delete admin-provided credentials, but not edit them.
+    if (cred.created_by_role === 'admin') {
+      throw new AppError('Admin-provided credentials cannot be edited', HTTP_STATUS.FORBIDDEN);
+    }
     const nextLabel = String(label ?? cred.label).trim();
     if (!nextLabel) throw new AppError('Label is required', HTTP_STATUS.BAD_REQUEST);
 
@@ -382,7 +386,8 @@ router.delete('/resources/:id/credentials/:credId', async (req, res, next) => {
 /* ------------------------------------------------------ PROVISIONING ---- */
 /**
  * Clusters where self-service provisioning is enabled AND the API token
- * actually has VM.Allocate. Includes templates and limits for the wizard.
+ * actually has VM.Allocate. Includes templates (CT), ISOs (VM), allowed
+ * types and limits for the wizard.
  */
 router.get('/provisioning/options', async (req, res, next) => {
   try {
@@ -396,21 +401,33 @@ router.get('/provisioning/options', async (req, res, next) => {
       const caps = await getClusterCapabilities(cluster.id, cluster.url, apiToken);
       if (!caps.canProvision) continue;
 
+      const allowTypes = cluster.allow_types || 'ct';
       let templates = [];
+      let isos = [];
+
       try {
         const nodes = await getOnlineNodes(cluster.url, apiToken);
         if (nodes.length > 0) {
-          templates = await getNodeTemplates(cluster.url, apiToken, nodes[0].node, cluster.template_storage || 'local');
+          const node = nodes[0].node;
+          if (allowTypes === 'ct' || allowTypes === 'both') {
+            templates = await getNodeTemplates(cluster.url, apiToken, node, cluster.template_storage || 'local');
+          }
+          if (allowTypes === 'vm' || allowTypes === 'both') {
+            isos = await getNodeIsos(cluster.url, apiToken, node, cluster.iso_storage || 'local');
+          }
         }
-      } catch (_) { /* templates optional */ }
+      } catch (_) { /* templates/isos optional */ }
 
       options.push({
         clusterId: cluster.id,
         clusterName: cluster.name,
+        allowTypes,
+        hasDefaultPassword: !!cluster.default_password_encrypted,
         maxCores: cluster.max_cores || 2,
         maxMemoryMb: cluster.max_memory_mb || 2048,
         maxDiskGb: cluster.max_disk_gb || 20,
-        templates
+        templates,
+        isos
       });
     }
 
@@ -422,7 +439,8 @@ router.get('/provisioning/options', async (req, res, next) => {
 
 router.post('/provisioning/create', async (req, res, next) => {
   try {
-    const { clusterId, hostname, template, cores, memoryMb, diskGb, rootPassword } = req.body;
+    const { clusterId, type, hostname, template, iso, cores, memoryMb, diskGb, rootPassword } = req.body;
+    const kind = type === 'vm' ? 'vm' : 'ct';
 
     const cluster = await get(
       'SELECT * FROM proxmox_clusters WHERE id = ? AND allow_provisioning = 1',
@@ -433,14 +451,30 @@ router.post('/provisioning/create', async (req, res, next) => {
       throw new AppError('Provisioning is not fully configured for this cluster', HTTP_STATUS.BAD_REQUEST);
     }
 
+    // Enforce the admin-selected allowed types
+    const allowTypes = cluster.allow_types || 'ct';
+    if (kind === 'ct' && allowTypes === 'vm') throw new AppError('Container are not allowed on this cluster', HTTP_STATUS.FORBIDDEN);
+    if (kind === 'vm' && allowTypes === 'ct') throw new AppError('VMs are not allowed on this cluster', HTTP_STATUS.FORBIDDEN);
+
     const cleanHostname = String(hostname || '').trim().toLowerCase();
     if (!/^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/.test(cleanHostname)) {
       throw new AppError('Hostname is invalid', HTTP_STATUS.BAD_REQUEST);
     }
-    if (!template || !String(template).includes('vztmpl')) {
+
+    if (kind === 'ct' && (!template || !String(template).includes('vztmpl'))) {
       throw new AppError('Template is invalid', HTTP_STATUS.BAD_REQUEST);
     }
-    if (!rootPassword || String(rootPassword).length < 8) {
+    if (kind === 'vm' && (!iso || !String(iso).includes('iso'))) {
+      throw new AppError('ISO is invalid', HTTP_STATUS.BAD_REQUEST);
+    }
+
+    // CT needs a root password; VM boots from ISO so a password is optional.
+    // Use the cluster default password if configured and none was provided.
+    let password = rootPassword;
+    if (!password && cluster.default_password_encrypted) {
+      password = decrypt(cluster.default_password_encrypted);
+    }
+    if (kind === 'ct' && (!password || String(password).length < 8)) {
       throw new AppError('Root password must be at least 8 characters', HTTP_STATUS.BAD_REQUEST);
     }
 
@@ -468,20 +502,36 @@ router.post('/provisioning/create', async (req, res, next) => {
     if (nodes.length === 0) throw new AppError('No online node available', HTTP_STATUS.BAD_REQUEST);
     const node = nodes[0].node;
 
-    const createResult = await createLxcContainer(cluster.url, apiToken, node, {
-      vmid,
-      hostname: cleanHostname,
-      ostemplate: template,
-      storage: cluster.storage || 'local-lvm',
-      diskGb: safeDisk,
-      cores: safeCores,
-      memoryMb: safeMemory,
-      password: rootPassword,
-      bridge: cluster.bridge || 'vmbr0',
-      ip,
-      ipPrefix: cluster.ip_prefix || 24,
-      gateway: cluster.gateway
-    });
+    let createResult;
+    if (kind === 'vm') {
+      // Empty VM booting from the selected ISO. Network gets a bridge; the
+      // static IP is reserved in the portal (guest OS configures it at install).
+      createResult = await createQemuVm(cluster.url, apiToken, node, {
+        vmid,
+        hostname: cleanHostname,
+        iso,
+        storage: cluster.storage || 'local-lvm',
+        diskGb: safeDisk,
+        cores: safeCores,
+        memoryMb: safeMemory,
+        bridge: cluster.bridge || 'vmbr0'
+      });
+    } else {
+      createResult = await createLxcContainer(cluster.url, apiToken, node, {
+        vmid,
+        hostname: cleanHostname,
+        ostemplate: template,
+        storage: cluster.storage || 'local-lvm',
+        diskGb: safeDisk,
+        cores: safeCores,
+        memoryMb: safeMemory,
+        password,
+        bridge: cluster.bridge || 'vmbr0',
+        ip,
+        ipPrefix: cluster.ip_prefix || 24,
+        gateway: cluster.gateway
+      });
+    }
 
     await run(
       'INSERT INTO provisioned_machines (cluster_id, vmid, ip, hostname, user_id) VALUES (?, ?, ?, ?, ?)',
@@ -494,11 +544,12 @@ router.post('/provisioning/create', async (req, res, next) => {
       [cleanHostname, String(vmid), cluster.id, req.user.id, '', '', '']
     );
 
-    await logAudit(req, 'machine.create', `resource:${resourceResult.lastID}`, `${cleanHostname} (VMID ${vmid}, ${ip})`);
+    await logAudit(req, 'machine.create', `resource:${resourceResult.lastID}`, `${kind.toUpperCase()} ${cleanHostname} (VMID ${vmid}, ${ip})`);
 
     res.status(HTTP_STATUS.CREATED).json({
       message: 'Machine creation started',
       resourceId: resourceResult.lastID,
+      type: kind,
       vmid,
       ip,
       node,

@@ -367,7 +367,8 @@ async function getOnlineNodes(clusterUrl, apiToken) {
 }
 
 /**
- * LXC templates available on the configured template storage of a node.
+/**
+ * LXC templates available on a template storage of a node.
  */
 async function getNodeTemplates(clusterUrl, apiToken, node, storage) {
   const client = createProxmoxClient(clusterUrl, apiToken);
@@ -377,6 +378,35 @@ async function getNodeTemplates(clusterUrl, apiToken, node, storage) {
     volid: item.volid,
     name: String(item.volid || '').split('/').pop()
   }));
+}
+
+/**
+ * ISO images available on a storage of a node (for VM provisioning).
+ */
+async function getNodeIsos(clusterUrl, apiToken, node, storage) {
+  const client = createProxmoxClient(clusterUrl, apiToken);
+  const response = await client.get(`/api2/json/nodes/${node}/storage/${storage}/content?content=iso`);
+  if (response.status < 200 || response.status >= 300) return [];
+  return (response.data?.data || []).map(item => ({
+    volid: item.volid,
+    name: String(item.volid || '').split('/').pop()
+  }));
+}
+
+/**
+ * Storages of a node, optionally filtered by a content type (iso, vztmpl, images, rootdir).
+ */
+async function getNodeStorages(clusterUrl, apiToken, node, contentType = null) {
+  const client = createProxmoxClient(clusterUrl, apiToken);
+  const response = await client.get(`/api2/json/nodes/${node}/storage`);
+  if (response.status < 200 || response.status >= 300) return [];
+  return (response.data?.data || [])
+    .filter(item => !contentType || String(item.content || '').split(',').includes(contentType))
+    .map(item => ({
+      storage: item.storage,
+      content: item.content,
+      type: item.type
+    }));
 }
 
 /**
@@ -419,6 +449,32 @@ async function createLxcContainer(clusterUrl, apiToken, node, options) {
   return { upid: response.data?.data || '', node };
 }
 
+/**
+ * Create an empty QEMU VM booting from an ISO and return the task UPID.
+ * Network is configured but the guest OS must be installed via the console.
+ */
+async function createQemuVm(clusterUrl, apiToken, node, options) {
+  const client = createProxmoxClient(clusterUrl, apiToken);
+  const payload = {
+    vmid: options.vmid,
+    name: options.hostname,
+    cores: options.cores,
+    sockets: 1,
+    memory: options.memoryMb,
+    scsihw: 'virtio-scsi-single',
+    scsi0: `${options.storage}:${options.diskGb},iothread=1`,
+    ide2: `${options.iso},media=cdrom`,
+    net0: `virtio,bridge=${options.bridge},firewall=1`,
+    ostype: 'l26',
+    boot: 'order=ide2;scsi0',
+    agent: 1
+  };
+
+  const response = await client.post(`/api2/json/nodes/${node}/qemu`, payload);
+  ensureSuccess(response, 'VM konnte nicht erstellt werden:');
+  return { upid: response.data?.data || '', node };
+}
+
 module.exports = {
   getAllContainers,
   getClusterResources,
@@ -435,7 +491,10 @@ module.exports = {
   createTermProxy,
   getOnlineNodes,
   getNodeTemplates,
+  getNodeIsos,
+  getNodeStorages,
   getNextVmidInRange,
   createLxcContainer,
+  createQemuVm,
   POWER_ACTIONS
 };

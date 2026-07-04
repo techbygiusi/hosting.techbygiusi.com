@@ -136,6 +136,31 @@ async function initDatabase() {
       database.run(`ALTER TABLE proxmox_clusters ADD COLUMN max_cores INTEGER DEFAULT 2`, () => {});
       database.run(`ALTER TABLE proxmox_clusters ADD COLUMN max_memory_mb INTEGER DEFAULT 2048`, () => {});
       database.run(`ALTER TABLE proxmox_clusters ADD COLUMN max_disk_gb INTEGER DEFAULT 20`, () => {});
+      // v2.1: which resource types may be self-service provisioned: 'ct', 'vm', or 'both'
+      database.run(`ALTER TABLE proxmox_clusters ADD COLUMN allow_types TEXT DEFAULT 'ct'`, () => {});
+      // v2.1: ISO storage for VM provisioning
+      database.run(`ALTER TABLE proxmox_clusters ADD COLUMN iso_storage TEXT DEFAULT 'local'`, () => {});
+      // v2.1: default root password stored (encrypted) for newly provisioned machines
+      database.run(`ALTER TABLE proxmox_clusters ADD COLUMN default_password_encrypted TEXT`, () => {});
+
+      // v2.1: admin-managed credential vault (cluster default logins + free entries)
+      database.run(`
+        CREATE TABLE IF NOT EXISTS admin_credentials (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          label TEXT NOT NULL,
+          username TEXT,
+          secret_encrypted TEXT,
+          url TEXT,
+          notes TEXT,
+          cluster_id INTEGER,
+          user_id INTEGER,
+          created_by INTEGER,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (cluster_id) REFERENCES proxmox_clusters(id) ON DELETE CASCADE,
+          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        )
+      `);
 
       // v2.0: encrypted credentials attached to resources
       database.run(`
@@ -153,6 +178,9 @@ async function initDatabase() {
           FOREIGN KEY (resource_id) REFERENCES resources(id) ON DELETE CASCADE
         )
       `);
+
+      // v2.2: track whether a resource credential was added by admin or user
+      database.run(`ALTER TABLE resource_credentials ADD COLUMN created_by_role TEXT DEFAULT 'user'`, () => {});
 
       // v2.0: audit log
       database.run(`

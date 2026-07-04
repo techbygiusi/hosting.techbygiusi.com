@@ -72,7 +72,12 @@ const MESSAGE_TRANSLATIONS = {
   'No free IP address available in the configured range': 'Keine freie IP-Adresse im konfigurierten Bereich verfügbar.',
   'No online node available': 'Kein Node ist gerade online.',
   'Machine creation started': 'Maschine wird erstellt.',
-  'Power action started': 'Aktion wurde gestartet.'
+  'Power action started': 'Aktion wurde gestartet.',
+  'ISO is invalid': 'Das ISO-Image ist ungültig.',
+  'Container are not allowed on this cluster': 'Auf diesem Cluster sind keine Container erlaubt.',
+  'VMs are not allowed on this cluster': 'Auf diesem Cluster sind keine VMs erlaubt.',
+  'Provisioning updated': 'Self-Service-Konfiguration gespeichert.',
+  'Admin-provided credentials cannot be edited': 'Vom Admin hinterlegte Zugangsdaten können nicht bearbeitet werden.'
 };
 
 export function translateMessage(message) {
@@ -180,8 +185,24 @@ export const adminApi = {
   updateGroup: (groupId, data) => apiClient.put(`/admin/groups/${groupId}`, data),
   deleteGroup: (groupId) => apiClient.delete(`/admin/groups/${groupId}`),
   getClusterCapabilities: (clusterId) => apiClient.get(`/admin/clusters/${clusterId}/capabilities`),
-  getClusterTemplates: (clusterId) => apiClient.get(`/admin/clusters/${clusterId}/templates`),
-  getAudit: (limit = 100) => apiClient.get(`/admin/audit?limit=${limit}`)
+  getClusterTemplates: (clusterId, storage) => apiClient.get(`/admin/clusters/${clusterId}/templates${storage ? `?storage=${encodeURIComponent(storage)}` : ''}`),
+  getClusterIsos: (clusterId, storage) => apiClient.get(`/admin/clusters/${clusterId}/isos${storage ? `?storage=${encodeURIComponent(storage)}` : ''}`),
+  getClusterStorages: (clusterId, content) => apiClient.get(`/admin/clusters/${clusterId}/storages${content ? `?content=${encodeURIComponent(content)}` : ''}`),
+  getClusterProvisioning: (clusterId) => apiClient.get(`/admin/clusters/${clusterId}/provisioning`),
+  updateClusterProvisioning: (clusterId, data) => apiClient.put(`/admin/clusters/${clusterId}/provisioning`, data),
+  getAudit: (limit = 100) => apiClient.get(`/admin/audit?limit=${limit}`),
+  // Admin credential vault
+  getAdminCredentials: () => apiClient.get('/admin/credentials'),
+  revealAdminCredential: (credId) => apiClient.get(`/admin/credentials/${credId}/reveal`),
+  createAdminCredential: (data) => apiClient.post('/admin/credentials', data),
+  updateAdminCredential: (credId, data) => apiClient.put(`/admin/credentials/${credId}`, data),
+  deleteAdminCredential: (credId) => apiClient.delete(`/admin/credentials/${credId}`),
+  // Admin → credentials attached to a specific resource
+  getResourceCredentials: (resourceId) => apiClient.get(`/admin/resources/${resourceId}/credentials`),
+  revealResourceCredential: (resourceId, credId) => apiClient.get(`/admin/resources/${resourceId}/credentials/${credId}/reveal`),
+  createResourceCredential: (resourceId, data) => apiClient.post(`/admin/resources/${resourceId}/credentials`, data),
+  updateResourceCredential: (resourceId, credId, data) => apiClient.put(`/admin/resources/${resourceId}/credentials/${credId}`, data),
+  deleteResourceCredential: (resourceId, credId) => apiClient.delete(`/admin/resources/${resourceId}/credentials/${credId}`)
 };
 
 export const userApi = {
