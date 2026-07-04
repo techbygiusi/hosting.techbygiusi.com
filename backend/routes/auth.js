@@ -186,7 +186,7 @@ router.post('/setup', async (req, res, next) => {
 
       await run(
         'INSERT INTO proxmox_clusters (name, url, api_token) VALUES (?, ?, ?)',
-        [proxmoxName.trim(), normalizedProxmoxUrl, proxmoxApiToken.trim()]
+        [proxmoxName.trim(), normalizedProxmoxUrl, encryptString(proxmoxApiToken.trim())]
       );
     }
 
@@ -230,6 +230,33 @@ router.post('/setup', async (req, res, next) => {
   }
 });
 
+// Brute-force lockout: 5 failed attempts per email lock login for 15 minutes
+const LOGIN_MAX_ATTEMPTS = 5;
+const LOGIN_LOCK_MS = 15 * 60 * 1000;
+const loginAttempts = new Map();
+
+function checkLoginLock(email) {
+  const entry = loginAttempts.get(email);
+  if (!entry) return;
+  if (entry.lockedUntil && Date.now() < entry.lockedUntil) {
+    throw new AppError('Account temporarily locked. Try again later.', HTTP_STATUS.UNAUTHORIZED);
+  }
+}
+
+function registerFailedLogin(email) {
+  const entry = loginAttempts.get(email) || { count: 0, lockedUntil: 0 };
+  entry.count += 1;
+  if (entry.count >= LOGIN_MAX_ATTEMPTS) {
+    entry.lockedUntil = Date.now() + LOGIN_LOCK_MS;
+    entry.count = 0;
+  }
+  loginAttempts.set(email, entry);
+}
+
+function clearFailedLogins(email) {
+  loginAttempts.delete(email);
+}
+
 router.post('/login', async (req, res, next) => {
   try {
     const { email, password } = req.body;
@@ -243,18 +270,24 @@ router.post('/login', async (req, res, next) => {
       throw new AppError(ERROR_MESSAGES.SETUP_REQUIRED, HTTP_STATUS.FORBIDDEN);
     }
 
-    const user = await get('SELECT * FROM users WHERE email = ?', [email.trim().toLowerCase()]);
+    const normalizedEmail = email.trim().toLowerCase();
+    checkLoginLock(normalizedEmail);
+
+    const user = await get('SELECT * FROM users WHERE email = ?', [normalizedEmail]);
 
     if (!user) {
+      registerFailedLogin(normalizedEmail);
       throw new AppError(ERROR_MESSAGES.INVALID_CREDENTIALS, HTTP_STATUS.UNAUTHORIZED);
     }
 
     const passwordMatch = await bcryptjs.compare(password, user.password_hash);
 
     if (!passwordMatch) {
+      registerFailedLogin(normalizedEmail);
       throw new AppError(ERROR_MESSAGES.INVALID_CREDENTIALS, HTTP_STATUS.UNAUTHORIZED);
     }
 
+    clearFailedLogins(normalizedEmail);
     const token = generateToken(user.id, user.email, user.role);
 
     res.json({

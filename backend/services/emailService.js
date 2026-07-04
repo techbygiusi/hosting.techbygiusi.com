@@ -98,15 +98,17 @@ async function testSmtpConnection(smtpHost, smtpPort, smtpUser, smtpPassword) {
 }
 
 /**
- * Encryption utilities
+ * Encryption utilities – delegate to cryptoService (AES-256-GCM).
+ * decrypt() transparently handles legacy base64 values from older versions.
  */
+const cryptoService = require('./cryptoService');
+
 function encryptString(str) {
-  // Simple encryption for demo - use proper encryption in production
-  return Buffer.from(str).toString('base64');
+  return cryptoService.encrypt(str);
 }
 
 function decryptString(str) {
-  return Buffer.from(str, 'base64').toString('utf-8');
+  return cryptoService.decrypt(str);
 }
 
 // Initialize on startup

@@ -9,9 +9,10 @@ services:
     environment:
       NODE_ENV: production
       BACKEND_PORT: 3001
-      JWT_SECRET: ${JWT_SECRET:-dev-secret-key-change-in-production}
+      JWT_SECRET: ${JWT_SECRET:-}  # leer lassen = wird automatisch generiert und in ./backend/data persistiert
       JWT_EXPIRATION: 24h
-      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-dev-encryption-key-32-chars!!!}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-}  # leer lassen = wird automatisch generiert (data/.encryption-key)
+      FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-}  # z. B. https://portal.example.com – in Produktion setzen!
       DB_PATH: ./data/hosting.db
     volumes:
       - ./backend/data:/app/data

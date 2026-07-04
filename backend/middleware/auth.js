@@ -1,7 +1,42 @@
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
+const fs = require('fs');
+const path = require('path');
 const { HTTP_STATUS, ERROR_MESSAGES, ROLES } = require('../config/constants');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-key';
+/**
+ * JWT secret resolution (no hardcoded fallback):
+ * 1. JWT_SECRET env – recommended for production
+ * 2. Auto-generated secret persisted at data/.jwt-secret (chmod 600)
+ */
+function resolveJwtSecret() {
+  const envSecret = String(process.env.JWT_SECRET || '').trim();
+  if (envSecret) return envSecret;
+
+  const dataDir = path.dirname(process.env.DB_PATH || path.join(__dirname, '../data/hosting.db'));
+  const secretFile = path.join(dataDir, '.jwt-secret');
+
+  try {
+    if (fs.existsSync(secretFile)) {
+      const stored = fs.readFileSync(secretFile, 'utf8').trim();
+      if (stored.length >= 32) return stored;
+    }
+  } catch (err) {
+    console.error('Could not read JWT secret file:', err.message);
+  }
+
+  const generated = crypto.randomBytes(48).toString('hex');
+  try {
+    if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
+    fs.writeFileSync(secretFile, generated, { mode: 0o600 });
+    console.log('✓ Generated new JWT secret at', secretFile);
+  } catch (err) {
+    console.error('Could not persist JWT secret – set JWT_SECRET env!', err.message);
+  }
+  return generated;
+}
+
+const JWT_SECRET = resolveJwtSecret();
 
 /**
  * Authentication middleware - verify JWT token

@@ -246,6 +246,179 @@ async function testConnection(clusterUrl, apiToken) {
   }
 }
 
+/* ------------------------------------------------------------------ v2.0 */
+
+const POWER_ACTIONS = ['start', 'stop', 'shutdown', 'reboot'];
+
+/**
+ * Start / stop / shutdown / reboot a VM or container. Returns the task UPID.
+ */
+async function powerAction(clusterUrl, apiToken, node, type, vmid, action) {
+  if (!POWER_ACTIONS.includes(action)) {
+    throw new Error(`Unsupported power action: ${action}`);
+  }
+  const client = createProxmoxClient(clusterUrl, apiToken);
+  const kind = type === 'lxc' ? 'lxc' : 'qemu';
+  const response = await client.post(`/api2/json/nodes/${node}/${kind}/${vmid}/status/${action}`, {});
+  ensureSuccess(response, `Proxmox ${action} fehlgeschlagen:`);
+  return { upid: response.data?.data || '' };
+}
+
+/**
+ * Recent tasks for a specific VM/CT on its node.
+ */
+async function getVmTasks(clusterUrl, apiToken, node, vmid, limit = 30) {
+  const client = createProxmoxClient(clusterUrl, apiToken);
+  const response = await client.get(`/api2/json/nodes/${node}/tasks?vmid=${vmid}&limit=${limit}`);
+  ensureSuccess(response, 'Proxmox Task-Abfrage fehlgeschlagen:');
+  const tasks = response.data?.data || [];
+  return tasks.map(task => ({
+    upid: task.upid,
+    type: task.type,
+    status: task.status || (task.endtime ? 'unknown' : 'running'),
+    user: task.user,
+    starttime: task.starttime,
+    endtime: task.endtime || null
+  }));
+}
+
+/**
+ * Log lines of a single task (UPID).
+ */
+async function getTaskLog(clusterUrl, apiToken, node, upid, start = 0, limit = 500) {
+  const client = createProxmoxClient(clusterUrl, apiToken);
+  const response = await client.get(
+    `/api2/json/nodes/${node}/tasks/${encodeURIComponent(upid)}/log?start=${start}&limit=${limit}`
+  );
+  ensureSuccess(response, 'Proxmox Log-Abfrage fehlgeschlagen:');
+  const lines = response.data?.data || [];
+  return lines.map(line => ({ n: line.n, t: line.t }));
+}
+
+async function getTaskStatus(clusterUrl, apiToken, node, upid) {
+  const client = createProxmoxClient(clusterUrl, apiToken);
+  const response = await client.get(`/api2/json/nodes/${node}/tasks/${encodeURIComponent(upid)}/status`);
+  ensureSuccess(response, 'Proxmox Task-Status fehlgeschlagen:');
+  return response.data?.data || {};
+}
+
+/**
+ * Read the permissions of the configured API token and derive portal capabilities.
+ * Read-only tokens automatically hide power/console/provisioning in the UI.
+ */
+async function getCapabilities(clusterUrl, apiToken) {
+  const client = createProxmoxClient(clusterUrl, apiToken);
+  const response = await client.get('/api2/json/access/permissions');
+
+  if (response.status < 200 || response.status >= 300) {
+    // Older Proxmox or restricted token: assume read-only, portal stays usable
+    return { readOnly: true, canPower: false, canConsole: false, canProvision: false, privileges: [] };
+  }
+
+  const perms = response.data?.data || {};
+  const privileges = new Set();
+  for (const path of Object.keys(perms)) {
+    for (const priv of Object.keys(perms[path] || {})) {
+      if (perms[path][priv]) privileges.add(priv);
+    }
+  }
+
+  const canPower = privileges.has('VM.PowerMgmt');
+  const canConsole = privileges.has('VM.Console');
+  const canProvision = privileges.has('VM.Allocate');
+
+  return {
+    readOnly: !canPower && !canConsole && !canProvision,
+    canPower,
+    canConsole,
+    canProvision,
+    privileges: Array.from(privileges).sort()
+  };
+}
+
+/**
+ * Create a termproxy session (xterm.js console) for a VM/CT.
+ * Returns ticket, port and user needed to open the websocket.
+ */
+async function createTermProxy(clusterUrl, apiToken, node, type, vmid) {
+  const client = createProxmoxClient(clusterUrl, apiToken);
+  const kind = type === 'lxc' ? 'lxc' : 'qemu';
+  const response = await client.post(`/api2/json/nodes/${node}/${kind}/${vmid}/termproxy`, {});
+  ensureSuccess(response, 'Konsole konnte nicht geöffnet werden:');
+  const data = response.data?.data || {};
+  return { ticket: data.ticket, port: data.port, user: data.user };
+}
+
+/**
+ * List online cluster nodes sorted by free memory (best target first).
+ */
+async function getOnlineNodes(clusterUrl, apiToken) {
+  const client = createProxmoxClient(clusterUrl, apiToken);
+  const response = await client.get('/api2/json/cluster/resources?type=node');
+  ensureSuccess(response, 'Proxmox Node-Abfrage fehlgeschlagen:');
+  const nodes = (response.data?.data || [])
+    .filter(item => item.type === 'node' && item.status === 'online')
+    .map(item => ({
+      node: item.node,
+      freeMem: Number(item.maxmem || 0) - Number(item.mem || 0)
+    }))
+    .sort((a, b) => b.freeMem - a.freeMem);
+  return nodes;
+}
+
+/**
+ * LXC templates available on the configured template storage of a node.
+ */
+async function getNodeTemplates(clusterUrl, apiToken, node, storage) {
+  const client = createProxmoxClient(clusterUrl, apiToken);
+  const response = await client.get(`/api2/json/nodes/${node}/storage/${storage}/content?content=vztmpl`);
+  if (response.status < 200 || response.status >= 300) return [];
+  return (response.data?.data || []).map(item => ({
+    volid: item.volid,
+    name: String(item.volid || '').split('/').pop()
+  }));
+}
+
+/**
+ * Next free VMID within the admin-configured range, checked against live cluster IDs.
+ */
+async function getNextVmidInRange(clusterUrl, apiToken, min, max, reservedIds = []) {
+  const resources = await getClusterResources(clusterUrl, apiToken);
+  const used = new Set(resources.map(item => Number(item.vmid)));
+  reservedIds.forEach(id => used.add(Number(id)));
+
+  for (let vmid = Number(min); vmid <= Number(max); vmid += 1) {
+    if (!used.has(vmid)) return vmid;
+  }
+  throw new Error('Keine freie VMID im konfigurierten Bereich verfügbar.');
+}
+
+/**
+ * Create an LXC container and return the task UPID.
+ */
+async function createLxcContainer(clusterUrl, apiToken, node, options) {
+  const client = createProxmoxClient(clusterUrl, apiToken);
+  const payload = {
+    vmid: options.vmid,
+    hostname: options.hostname,
+    ostemplate: options.ostemplate,
+    storage: options.storage,
+    rootfs: `${options.storage}:${options.diskGb}`,
+    cores: options.cores,
+    memory: options.memoryMb,
+    swap: 0,
+    password: options.password,
+    unprivileged: 1,
+    features: 'nesting=1',
+    net0: `name=eth0,bridge=${options.bridge},ip=${options.ip}/${options.ipPrefix},gw=${options.gateway},firewall=1`,
+    start: 1
+  };
+
+  const response = await client.post(`/api2/json/nodes/${node}/lxc`, payload);
+  ensureSuccess(response, 'Container konnte nicht erstellt werden:');
+  return { upid: response.data?.data || '', node };
+}
+
 module.exports = {
   getAllContainers,
   getClusterResources,
@@ -253,5 +426,16 @@ module.exports = {
   getContainerIps,
   getResourceDiskDetails,
   testConnection,
-  createProxmoxClient
+  createProxmoxClient,
+  powerAction,
+  getVmTasks,
+  getTaskLog,
+  getTaskStatus,
+  getCapabilities,
+  createTermProxy,
+  getOnlineNodes,
+  getNodeTemplates,
+  getNextVmidInRange,
+  createLxcContainer,
+  POWER_ACTIONS
 };

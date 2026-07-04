@@ -119,6 +119,69 @@ async function initDatabase() {
       database.run(`ALTER TABLE resources ADD COLUMN public_url TEXT`, () => {});
       database.run(`ALTER TABLE resources ADD COLUMN admin_url TEXT`, () => {});
 
+      // v2.0: shared access via groups (owner stays user_id, group_id grants shared access)
+      database.run(`ALTER TABLE resources ADD COLUMN group_id INTEGER REFERENCES customer_groups(id) ON DELETE SET NULL`, () => {});
+
+      // v2.0: provisioning configuration per cluster
+      database.run(`ALTER TABLE proxmox_clusters ADD COLUMN allow_provisioning INTEGER DEFAULT 0`, () => {});
+      database.run(`ALTER TABLE proxmox_clusters ADD COLUMN vmid_min INTEGER`, () => {});
+      database.run(`ALTER TABLE proxmox_clusters ADD COLUMN vmid_max INTEGER`, () => {});
+      database.run(`ALTER TABLE proxmox_clusters ADD COLUMN ip_start TEXT`, () => {});
+      database.run(`ALTER TABLE proxmox_clusters ADD COLUMN ip_end TEXT`, () => {});
+      database.run(`ALTER TABLE proxmox_clusters ADD COLUMN ip_prefix INTEGER DEFAULT 24`, () => {});
+      database.run(`ALTER TABLE proxmox_clusters ADD COLUMN gateway TEXT`, () => {});
+      database.run(`ALTER TABLE proxmox_clusters ADD COLUMN bridge TEXT DEFAULT 'vmbr0'`, () => {});
+      database.run(`ALTER TABLE proxmox_clusters ADD COLUMN storage TEXT DEFAULT 'local-lvm'`, () => {});
+      database.run(`ALTER TABLE proxmox_clusters ADD COLUMN template_storage TEXT DEFAULT 'local'`, () => {});
+      database.run(`ALTER TABLE proxmox_clusters ADD COLUMN max_cores INTEGER DEFAULT 2`, () => {});
+      database.run(`ALTER TABLE proxmox_clusters ADD COLUMN max_memory_mb INTEGER DEFAULT 2048`, () => {});
+      database.run(`ALTER TABLE proxmox_clusters ADD COLUMN max_disk_gb INTEGER DEFAULT 20`, () => {});
+
+      // v2.0: encrypted credentials attached to resources
+      database.run(`
+        CREATE TABLE IF NOT EXISTS resource_credentials (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          resource_id INTEGER NOT NULL,
+          label TEXT NOT NULL,
+          username TEXT,
+          secret_encrypted TEXT,
+          url TEXT,
+          notes TEXT,
+          created_by INTEGER,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (resource_id) REFERENCES resources(id) ON DELETE CASCADE
+        )
+      `);
+
+      // v2.0: audit log
+      database.run(`
+        CREATE TABLE IF NOT EXISTS audit_log (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id INTEGER,
+          user_email TEXT,
+          action TEXT NOT NULL,
+          target TEXT,
+          details TEXT,
+          ip TEXT,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+
+      // v2.0: IPs allocated via self-service provisioning
+      database.run(`
+        CREATE TABLE IF NOT EXISTS provisioned_machines (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          cluster_id INTEGER NOT NULL,
+          vmid INTEGER NOT NULL,
+          ip TEXT,
+          hostname TEXT,
+          user_id INTEGER,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (cluster_id) REFERENCES proxmox_clusters(id) ON DELETE CASCADE
+        )
+      `);
+
       // Settings (key-value store)
       database.run(`
         CREATE TABLE IF NOT EXISTS settings (

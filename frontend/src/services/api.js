@@ -47,7 +47,32 @@ const MESSAGE_TRANSLATIONS = {
   'SMTP port is invalid': 'Der SMTP-Port ist ungültig.',
   'Current and new password required': 'Aktuelles und neues Passwort sind erforderlich.',
   'Current password is incorrect': 'Das aktuelle Passwort ist falsch.',
-  'New password must be at least 6 characters': 'Das neue Passwort muss mindestens 6 Zeichen lang sein.'
+  'New password must be at least 6 characters': 'Das neue Passwort muss mindestens 6 Zeichen lang sein.',
+  'New password must be at least 8 characters': 'Das neue Passwort muss mindestens 8 Zeichen lang sein.',
+  'Account temporarily locked. Try again later.': 'Konto vorübergehend gesperrt. Bitte später erneut versuchen.',
+  'Too many login attempts. Please try again later.': 'Zu viele Anmeldeversuche. Bitte später erneut versuchen.',
+  'Rate limit exceeded.': 'Zu viele Anfragen. Bitte kurz warten.',
+  'Invalid power action': 'Ungültige Power-Aktion.',
+  'Power management is not permitted for this cluster token': 'Der API-Token dieses Clusters erlaubt keine Power-Aktionen.',
+  'Console access is not permitted for this cluster token': 'Der API-Token dieses Clusters erlaubt keinen Konsolen-Zugriff.',
+  'Provisioning is not permitted for this cluster token': 'Der API-Token dieses Clusters erlaubt kein Erstellen von Maschinen.',
+  'Provisioning is not fully configured for this cluster': 'Self-Service ist für diesen Cluster nicht vollständig konfiguriert.',
+  'Credential not found': 'Zugangsdaten wurden nicht gefunden.',
+  'Credential saved': 'Zugangsdaten gespeichert.',
+  'Credential deleted': 'Zugangsdaten gelöscht.',
+  'Label is required': 'Bitte eine Bezeichnung eingeben.',
+  'Group not found': 'Gruppe wurde nicht gefunden.',
+  'Group name is required': 'Bitte einen Gruppennamen eingeben.',
+  'Group deleted successfully': 'Gruppe erfolgreich gelöscht.',
+  'VMID range is invalid': 'Der VMID-Bereich ist ungültig.',
+  'IP range or gateway is invalid': 'IP-Bereich oder Gateway ist ungültig.',
+  'Hostname is invalid': 'Der Hostname ist ungültig (nur Kleinbuchstaben, Zahlen, Bindestriche).',
+  'Template is invalid': 'Das Template ist ungültig.',
+  'Root password must be at least 8 characters': 'Das Root-Passwort muss mindestens 8 Zeichen lang sein.',
+  'No free IP address available in the configured range': 'Keine freie IP-Adresse im konfigurierten Bereich verfügbar.',
+  'No online node available': 'Kein Node ist gerade online.',
+  'Machine creation started': 'Maschine wird erstellt.',
+  'Power action started': 'Aktion wurde gestartet.'
 };
 
 export function translateMessage(message) {
@@ -148,7 +173,15 @@ export const adminApi = {
   getSettings: () => apiClient.get('/admin/settings'),
   updateSettings: (data) => apiClient.put('/admin/settings', data),
   testSmtp: (data) => apiClient.post('/admin/settings/test-smtp', data),
-  testProxmox: (data) => apiClient.post('/admin/settings/test-proxmox', data)
+  testProxmox: (data) => apiClient.post('/admin/settings/test-proxmox', data),
+  // v2.0
+  getGroups: () => apiClient.get('/admin/groups'),
+  createGroup: (data) => apiClient.post('/admin/groups', data),
+  updateGroup: (groupId, data) => apiClient.put(`/admin/groups/${groupId}`, data),
+  deleteGroup: (groupId) => apiClient.delete(`/admin/groups/${groupId}`),
+  getClusterCapabilities: (clusterId) => apiClient.get(`/admin/clusters/${clusterId}/capabilities`),
+  getClusterTemplates: (clusterId) => apiClient.get(`/admin/clusters/${clusterId}/templates`),
+  getAudit: (limit = 100) => apiClient.get(`/admin/audit?limit=${limit}`)
 };
 
 export const userApi = {
@@ -157,7 +190,19 @@ export const userApi = {
   getContainers: () => apiClient.get('/user/containers'),
   getContainerDetails: (containerId) => apiClient.get(`/user/containers/${containerId}`),
   getProfile: () => apiClient.get('/user/profile'),
-  updateProfile: (data) => apiClient.put('/user/profile', data)
+  updateProfile: (data) => apiClient.put('/user/profile', data),
+  // v2.0
+  powerAction: (resourceId, action) => apiClient.post(`/user/resources/${resourceId}/power`, { action }),
+  getTasks: (resourceId) => apiClient.get(`/user/resources/${resourceId}/tasks`),
+  getTaskLog: (resourceId, upid) => apiClient.get(`/user/resources/${resourceId}/tasks/${encodeURIComponent(upid)}/log`),
+  openConsole: (resourceId) => apiClient.post(`/user/resources/${resourceId}/console`),
+  getCredentials: (resourceId) => apiClient.get(`/user/resources/${resourceId}/credentials`),
+  revealCredential: (resourceId, credId) => apiClient.get(`/user/resources/${resourceId}/credentials/${credId}/reveal`),
+  createCredential: (resourceId, data) => apiClient.post(`/user/resources/${resourceId}/credentials`, data),
+  updateCredential: (resourceId, credId, data) => apiClient.put(`/user/resources/${resourceId}/credentials/${credId}`, data),
+  deleteCredential: (resourceId, credId) => apiClient.delete(`/user/resources/${resourceId}/credentials/${credId}`),
+  getProvisioningOptions: () => apiClient.get('/user/provisioning/options'),
+  createMachine: (data) => apiClient.post('/user/provisioning/create', data)
 };
 
 export default apiClient;

@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { authApi, adminApi, getErrorMessage, translateMessage } from '../services/api';
 import '../styles/globals.css';
 import ThemeButton from '../components/ThemeButton';
+import Modal from '../components/Modal';
 
 function LogoutIcon() {
   return (
@@ -15,8 +16,15 @@ function LogoutIcon() {
 }
 
 const emptyUser = { email: '', name: '', password: '', role: 'user' };
-const emptyCluster = { name: '', url: '', apiToken: '' };
-const emptyResource = { name: '', containerId: '', clusterId: '', userId: '', publicUrl: '', adminUrl: '' };
+const emptyCluster = {
+  name: '', url: '', apiToken: '',
+  allowProvisioning: false, vmidMin: '', vmidMax: '',
+  ipStart: '', ipEnd: '', ipPrefix: '24', gateway: '',
+  bridge: 'vmbr0', storage: 'local-lvm', templateStorage: 'local',
+  maxCores: '2', maxMemoryMb: '2048', maxDiskGb: '20'
+};
+const emptyResource = { name: '', containerId: '', clusterId: '', userId: '', groupId: '', publicUrl: '', adminUrl: '' };
+const emptyGroup = { name: '', memberIds: [] };
 const emptySmtp = { smtpHost: '', smtpPort: '587', smtpUser: '', smtpPassword: '' };
 
 export default function AdminDashboard() {
@@ -48,12 +56,20 @@ export default function AdminDashboard() {
   const [setupSmtpTestResult, setSetupSmtpTestResult] = useState(null);
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+  const [groups, setGroups] = useState([]);
+  const [newGroup, setNewGroup] = useState(emptyGroup);
+  const [editGroupId, setEditGroupId] = useState(null);
+  const [showGroupModal, setShowGroupModal] = useState(false);
+  const [auditEntries, setAuditEntries] = useState([]);
+  const [clusterCaps, setClusterCaps] = useState({}); // clusterId -> capabilities
 
   const tabs = [
     ['overview', 'Übersicht'],
     ['users', 'Benutzer'],
+    ['groups', 'Gruppen'],
     ['clusters', 'Proxmox'],
     ['resources', 'Dienste'],
+    ['audit', 'Protokoll'],
     ['settings', 'Einstellungen']
   ];
 
@@ -75,14 +91,18 @@ export default function AdminDashboard() {
       setError('');
 
       const requests = [];
-      const needsUsers = ['overview', 'users', 'resources'].includes(tab);
+      const needsUsers = ['overview', 'users', 'groups', 'resources'].includes(tab);
       const needsClusters = ['overview', 'clusters', 'resources'].includes(tab);
       const needsResources = ['overview', 'resources'].includes(tab);
+      const needsGroups = ['groups', 'resources', 'overview'].includes(tab);
+      const needsAudit = tab === 'audit';
       const needsSettings = tab === 'settings';
 
       if (needsUsers) requests.push(adminApi.getUsers().then(res => setUsers(res.data.users || [])));
       if (needsClusters) requests.push(adminApi.getClusters().then(res => setClusters(res.data.clusters || [])));
       if (needsResources) requests.push(adminApi.getResources().then(res => setResources(res.data.resources || [])));
+      if (needsGroups) requests.push(adminApi.getGroups().then(res => setGroups(res.data.groups || [])));
+      if (needsAudit) requests.push(adminApi.getAudit(200).then(res => setAuditEntries(res.data.entries || [])));
       if (needsSettings) requests.push(loadSettings());
 
       await Promise.all(requests);
@@ -189,7 +209,24 @@ export default function AdminDashboard() {
 
   const openEditCluster = (item) => {
     setEditClusterId(item.id);
-    setNewCluster({ name: item.name || '', url: item.url || '', apiToken: '' });
+    setNewCluster({
+      name: item.name || '',
+      url: item.url || '',
+      apiToken: '',
+      allowProvisioning: !!item.allow_provisioning,
+      vmidMin: item.vmid_min ?? '',
+      vmidMax: item.vmid_max ?? '',
+      ipStart: item.ip_start || '',
+      ipEnd: item.ip_end || '',
+      ipPrefix: String(item.ip_prefix ?? '24'),
+      gateway: item.gateway || '',
+      bridge: item.bridge || 'vmbr0',
+      storage: item.storage || 'local-lvm',
+      templateStorage: item.template_storage || 'local',
+      maxCores: String(item.max_cores ?? '2'),
+      maxMemoryMb: String(item.max_memory_mb ?? '2048'),
+      maxDiskGb: String(item.max_disk_gb ?? '20')
+    });
     setClusterTestResult(null);
     setShowClusterModal(true);
   };
@@ -267,6 +304,91 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleCheckCapabilities = async (clusterId) => {
+    try {
+      setActionLoading(true);
+      setError('');
+      const res = await adminApi.getClusterCapabilities(clusterId);
+      setClusterCaps(prev => ({ ...prev, [clusterId]: res.data.capabilities }));
+    } catch (err) {
+      setError(getErrorMessage(err, 'Berechtigungen konnten nicht geprüft werden.'));
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const openCreateGroup = () => {
+    setEditGroupId(null);
+    setNewGroup(emptyGroup);
+    setShowGroupModal(true);
+  };
+
+  const openEditGroup = (item) => {
+    setEditGroupId(item.id);
+    setNewGroup({ name: item.name || '', memberIds: (item.members || []).map(member => member.id) });
+    setShowGroupModal(true);
+  };
+
+  const closeGroupModal = () => {
+    setShowGroupModal(false);
+    setEditGroupId(null);
+    setNewGroup(emptyGroup);
+  };
+
+  const toggleGroupMember = (userId) => {
+    setNewGroup(prev => ({
+      ...prev,
+      memberIds: prev.memberIds.includes(userId)
+        ? prev.memberIds.filter(id => id !== userId)
+        : [...prev.memberIds, userId]
+    }));
+  };
+
+  const handleSaveGroup = async (e) => {
+    e.preventDefault();
+    if (!newGroup.name.trim()) {
+      setError('Bitte einen Gruppennamen eingeben.');
+      return;
+    }
+
+    try {
+      setActionLoading(true);
+      setError('');
+      if (editGroupId) {
+        await adminApi.updateGroup(editGroupId, newGroup);
+        showSuccess('Gruppe wurde gespeichert.');
+      } else {
+        const res = await adminApi.createGroup({ name: newGroup.name });
+        if (newGroup.memberIds.length > 0) {
+          await adminApi.updateGroup(res.data.group.id, newGroup);
+        }
+        showSuccess('Gruppe wurde angelegt.');
+      }
+      closeGroupModal();
+      await loadData(activeTab);
+    } catch (err) {
+      setError(getErrorMessage(err, 'Gruppe konnte nicht gespeichert werden.'));
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleDeleteGroup = async (groupId) => {
+    if (!window.confirm('Diese Gruppe löschen? Zugeordnete Dienste verlieren die Gruppen-Freigabe.')) return;
+
+    try {
+      setActionLoading(true);
+      setError('');
+      await adminApi.deleteGroup(groupId);
+      showSuccess('Gruppe wurde gelöscht.');
+      await loadData(activeTab);
+    } catch (err) {
+      setError(getErrorMessage(err, 'Gruppe konnte nicht gelöscht werden.'));
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const openCreateResource = () => {
     setEditResourceId(null);
     setNewResource(emptyResource);
@@ -281,6 +403,7 @@ export default function AdminDashboard() {
       containerId: item.containerId || '',
       clusterId: item.clusterId || '',
       userId: item.userId || '',
+      groupId: item.groupId || '',
       publicUrl: item.publicUrl || item.webUrl || '',
       adminUrl: item.adminUrl || ''
     });
@@ -507,6 +630,7 @@ export default function AdminDashboard() {
           <section className="dashboard-grid">
             <MetricCard label="Benutzer" value={userCount} onClick={() => setActiveTab('users')} />
             <MetricCard label="Administratoren" value={adminCount} onClick={() => setActiveTab('users')} />
+            <MetricCard label="Gruppen" value={groups.length} onClick={() => setActiveTab('groups')} />
             <MetricCard label="Cluster" value={clusters.length} onClick={() => setActiveTab('clusters')} />
             <MetricCard label="Dienste" value={resources.length} onClick={() => setActiveTab('resources')} />
             <MetricCard label="Online" value={onlineCount} onClick={() => setActiveTab('resources')} />
@@ -531,6 +655,32 @@ export default function AdminDashboard() {
           </section>
         )}
 
+        {!loading && activeTab === 'groups' && (
+          <section className="panel-card">
+            <PanelHeader title="Gruppen" action="Gruppe anlegen" onAction={openCreateGroup} />
+            <p className="hint-text panel-hint">Dienste, die einer Gruppe zugewiesen sind, sehen alle Mitglieder der Gruppe.</p>
+            {groups.length === 0 ? (
+              <div className="empty-state soft-box"><h2>Keine Gruppen</h2></div>
+            ) : (
+              <div className="list-grid">
+                {groups.map(item => (
+                  <article key={item.id} className="list-card">
+                    <div>
+                      <span className="resource-id">{item.member_count} {item.member_count === 1 ? 'Mitglied' : 'Mitglieder'} · {item.resource_count} {item.resource_count === 1 ? 'Dienst' : 'Dienste'}</span>
+                      <h2>{item.name}</h2>
+                      <p>{(item.members || []).map(member => member.name).join(', ') || 'Noch keine Mitglieder'}</p>
+                    </div>
+                    <div className="card-actions">
+                      <button type="button" className="btn-secondary btn-small" onClick={() => openEditGroup(item)}>Bearbeiten</button>
+                      <button type="button" className="btn-danger btn-small" onClick={() => handleDeleteGroup(item.id)} disabled={actionLoading}>Löschen</button>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
+
         {!loading && activeTab === 'clusters' && (
           <section className="panel-card">
             <PanelHeader title="Proxmox" action="Cluster hinzufügen" onAction={openCreateCluster} />
@@ -540,8 +690,20 @@ export default function AdminDashboard() {
               <div className="list-grid">
                 {clusters.map(item => (
                   <article key={item.id} className="list-card">
-                    <div><span className="resource-id">Proxmox</span><h2>{item.name}</h2><p>{item.url}</p></div>
-                    <div className="card-actions"><button type="button" className="btn-secondary btn-small" onClick={() => openEditCluster(item)}>Bearbeiten</button><button type="button" className="btn-danger btn-small" onClick={() => handleDeleteCluster(item.id)} disabled={actionLoading}>Löschen</button></div>
+                    <div>
+                      <span className="resource-id">Proxmox{item.allow_provisioning ? ' · Self-Service aktiv' : ''}</span>
+                      <h2>{item.name}</h2>
+                      <p>{item.url}</p>
+                      {item.allow_provisioning ? (
+                        <p className="hint-text">VMID {item.vmid_min}–{item.vmid_max} · IP {item.ip_start}–{item.ip_end}</p>
+                      ) : null}
+                      {clusterCaps[item.id] && <CapabilityBadges caps={clusterCaps[item.id]} />}
+                    </div>
+                    <div className="card-actions">
+                      <button type="button" className="btn-secondary btn-small" onClick={() => handleCheckCapabilities(item.id)} disabled={actionLoading}>Token prüfen</button>
+                      <button type="button" className="btn-secondary btn-small" onClick={() => openEditCluster(item)}>Bearbeiten</button>
+                      <button type="button" className="btn-danger btn-small" onClick={() => handleDeleteCluster(item.id)} disabled={actionLoading}>Löschen</button>
+                    </div>
                   </article>
                 ))}
               </div>
@@ -557,6 +719,31 @@ export default function AdminDashboard() {
             ) : (
               <div className="resource-grid admin-resource-grid">
                 {resources.map(item => <ResourceCard key={item.id} resource={item} onEdit={openEditResource} onDelete={handleDeleteResource} actionLoading={actionLoading} />)}
+              </div>
+            )}
+          </section>
+        )}
+
+        {!loading && activeTab === 'audit' && (
+          <section className="panel-card">
+            <PanelHeader title="Protokoll" action="Aktualisieren" onAction={() => loadData('audit')} />
+            {auditEntries.length === 0 ? (
+              <div className="empty-state soft-box"><h2>Keine Einträge</h2></div>
+            ) : (
+              <div className="audit-list">
+                {auditEntries.map(entry => (
+                  <div key={entry.id} className="audit-row">
+                    <div className="audit-main">
+                      <strong>{renderAuditAction(entry.action)}</strong>
+                      <span>{entry.details || entry.target || ''}</span>
+                    </div>
+                    <div className="audit-meta">
+                      <span>{entry.user_email || 'System'}</span>
+                      <span>{formatAuditTime(entry.created_at)}</span>
+                      {entry.ip && <span>{entry.ip}</span>}
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </section>
@@ -639,6 +826,41 @@ export default function AdminDashboard() {
             <label className="form-group"><span>API-Token</span><input type="password" value={newCluster.apiToken} onChange={e => handleClusterChange('apiToken', e.target.value)} placeholder={editClusterId ? 'Leer lassen, vorhandenen Token verwenden' : 'api@pam!hosting=secret'} /></label>
             <button type="button" className="btn-secondary full-button" onClick={handleTestCluster} disabled={actionLoading}>Proxmox-Verbindung testen</button>
             {clusterTestResult && <div className={`test-result ${clusterTestResult.success ? 'success' : 'error'}`}>{translateMessage(clusterTestResult.message)}</div>}
+
+            <div className="form-section-divider">
+              <label className="checkbox-row">
+                <input type="checkbox" checked={newCluster.allowProvisioning} onChange={e => handleClusterChange('allowProvisioning', e.target.checked)} />
+                <span>Self-Service: Benutzer dürfen Maschinen erstellen</span>
+              </label>
+            </div>
+
+            {newCluster.allowProvisioning && (
+              <div className="provisioning-fields">
+                <div className="form-row-2">
+                  <label className="form-group"><span>VMID von</span><input type="number" min="100" value={newCluster.vmidMin} onChange={e => handleClusterChange('vmidMin', e.target.value)} placeholder="900" /></label>
+                  <label className="form-group"><span>VMID bis</span><input type="number" min="100" value={newCluster.vmidMax} onChange={e => handleClusterChange('vmidMax', e.target.value)} placeholder="999" /></label>
+                </div>
+                <div className="form-row-2">
+                  <label className="form-group"><span>IP von</span><input type="text" value={newCluster.ipStart} onChange={e => handleClusterChange('ipStart', e.target.value)} placeholder="10.0.10.100" /></label>
+                  <label className="form-group"><span>IP bis</span><input type="text" value={newCluster.ipEnd} onChange={e => handleClusterChange('ipEnd', e.target.value)} placeholder="10.0.10.150" /></label>
+                </div>
+                <div className="form-row-2">
+                  <label className="form-group"><span>Präfix (CIDR)</span><input type="number" min="8" max="32" value={newCluster.ipPrefix} onChange={e => handleClusterChange('ipPrefix', e.target.value)} placeholder="24" /></label>
+                  <label className="form-group"><span>Gateway</span><input type="text" value={newCluster.gateway} onChange={e => handleClusterChange('gateway', e.target.value)} placeholder="10.0.10.1" /></label>
+                </div>
+                <div className="form-row-2">
+                  <label className="form-group"><span>Bridge</span><input type="text" value={newCluster.bridge} onChange={e => handleClusterChange('bridge', e.target.value)} placeholder="vmbr0" /></label>
+                  <label className="form-group"><span>Storage</span><input type="text" value={newCluster.storage} onChange={e => handleClusterChange('storage', e.target.value)} placeholder="local-lvm" /></label>
+                </div>
+                <label className="form-group"><span>Template-Storage</span><input type="text" value={newCluster.templateStorage} onChange={e => handleClusterChange('templateStorage', e.target.value)} placeholder="local" /></label>
+                <div className="form-row-3">
+                  <label className="form-group"><span>Max. Kerne</span><input type="number" min="1" value={newCluster.maxCores} onChange={e => handleClusterChange('maxCores', e.target.value)} /></label>
+                  <label className="form-group"><span>Max. RAM (MB)</span><input type="number" min="256" step="256" value={newCluster.maxMemoryMb} onChange={e => handleClusterChange('maxMemoryMb', e.target.value)} /></label>
+                  <label className="form-group"><span>Max. Disk (GB)</span><input type="number" min="4" value={newCluster.maxDiskGb} onChange={e => handleClusterChange('maxDiskGb', e.target.value)} /></label>
+                </div>
+                <p className="hint-text">Der API-Token braucht dafür VM.Allocate – mit „Token prüfen" kontrollierbar.</p>
+              </div>
+            )}
             <div className="form-actions"><button type="button" className="btn-secondary" onClick={closeClusterModal}>Abbrechen</button><button type="submit" className="btn-primary" disabled={actionLoading}>Speichern</button></div>
           </form>
         </Modal>
@@ -652,14 +874,82 @@ export default function AdminDashboard() {
             <label className="form-group"><span>Container oder VM</span>{clusterContainers.length > 0 ? <select value={newResource.containerId} onChange={e => handleResourceContainerChange(e.target.value)}><option value="">Bitte auswählen</option>{clusterContainers.map(item => <option key={`${item.type}-${item.vmid}`} value={item.vmid}>{item.vmid} · {item.name || item.type} · {renderType(item.type)} · {renderStatus(item.status)}</option>)}</select> : <input type="text" value={newResource.containerId} onChange={e => setNewResource(prev => ({ ...prev, containerId: e.target.value }))} placeholder="VMID oder CTID" />}</label>
             <label className="form-group"><span>Anzeigename</span><input type="text" value={newResource.name} onChange={e => setNewResource(prev => ({ ...prev, name: e.target.value }))} placeholder="Optional" /></label>
             <label className="form-group"><span>Benutzer</span><select value={newResource.userId} onChange={e => setNewResource(prev => ({ ...prev, userId: e.target.value }))}><option value="">Bitte auswählen</option>{users.map(item => <option key={item.id} value={item.id}>{item.name} · {item.email}</option>)}</select></label>
+            <label className="form-group"><span>Gruppe (geteilter Zugriff)</span><select value={newResource.groupId} onChange={e => setNewResource(prev => ({ ...prev, groupId: e.target.value }))}><option value="">Keine Gruppe</option>{groups.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
             <label className="form-group"><span>Öffentliche Seite</span><input type="url" value={newResource.publicUrl} onChange={e => setNewResource(prev => ({ ...prev, publicUrl: e.target.value }))} placeholder="https://app.example.com" /></label>
             <label className="form-group"><span>Verwaltungsseite</span><input type="url" value={newResource.adminUrl} onChange={e => setNewResource(prev => ({ ...prev, adminUrl: e.target.value }))} placeholder="https://admin.example.com" /></label>
             <div className="form-actions"><button type="button" className="btn-secondary" onClick={closeResourceModal}>Abbrechen</button><button type="submit" className="btn-primary" disabled={actionLoading}>{editResourceId ? 'Speichern' : 'Anlegen'}</button></div>
           </form>
         </Modal>
       )}
+      {showGroupModal && (
+        <Modal title={editGroupId ? 'Gruppe bearbeiten' : 'Gruppe anlegen'} onClose={closeGroupModal}>
+          <form className="form-stack" onSubmit={handleSaveGroup}>
+            <label className="form-group"><span>Name</span><input type="text" value={newGroup.name} onChange={e => setNewGroup(prev => ({ ...prev, name: e.target.value }))} placeholder="z. B. Minecraft-Team" /></label>
+            <div className="form-group">
+              <span>Mitglieder</span>
+              <div className="member-checklist">
+                {users.length === 0 && <p className="hint-text">Noch keine Benutzer vorhanden.</p>}
+                {users.map(item => (
+                  <label key={item.id} className="checkbox-row">
+                    <input type="checkbox" checked={newGroup.memberIds.includes(item.id)} onChange={() => toggleGroupMember(item.id)} />
+                    <span>{item.name} · {item.email}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+            <div className="form-actions"><button type="button" className="btn-secondary" onClick={closeGroupModal}>Abbrechen</button><button type="submit" className="btn-primary" disabled={actionLoading}>{editGroupId ? 'Speichern' : 'Anlegen'}</button></div>
+          </form>
+        </Modal>
+      )}
     </div>
   );
+}
+
+function CapabilityBadges({ caps }) {
+  const items = [
+    ['Lesen', true],
+    ['Power', caps.canPower],
+    ['Konsole', caps.canConsole],
+    ['Erstellen', caps.canProvision]
+  ];
+  return (
+    <div className="capability-badges">
+      {items.map(([label, ok]) => (
+        <span key={label} className={`capability-badge ${ok ? 'capability-ok' : 'capability-missing'}`}>{label}</span>
+      ))}
+    </div>
+  );
+}
+
+function renderAuditAction(action) {
+  const map = {
+    'power.start': 'Maschine gestartet',
+    'power.stop': 'Maschine gestoppt',
+    'power.shutdown': 'Maschine heruntergefahren',
+    'power.reboot': 'Maschine neu gestartet',
+    'console.open': 'Konsole geöffnet',
+    'credential.create': 'Zugangsdaten angelegt',
+    'credential.update': 'Zugangsdaten geändert',
+    'credential.delete': 'Zugangsdaten gelöscht',
+    'credential.reveal': 'Passwort angezeigt',
+    'machine.create': 'Maschine erstellt',
+    'group.create': 'Gruppe angelegt',
+    'group.update': 'Gruppe geändert',
+    'group.delete': 'Gruppe gelöscht',
+    'cluster.create': 'Cluster angelegt',
+    'cluster.update': 'Cluster geändert',
+    'resource.create': 'Dienst angelegt',
+    'resource.update': 'Dienst geändert',
+    'password.change': 'Passwort geändert'
+  };
+  return map[action] || action;
+}
+
+function formatAuditTime(value) {
+  if (!value) return '';
+  const date = new Date(`${value}Z`.replace(' ', 'T'));
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' });
 }
 
 function PanelHeader({ title, action, onAction }) {
@@ -698,6 +988,7 @@ function ResourceCard({ resource, onEdit, onDelete, actionLoading }) {
       <div className="resource-summary">
         <div><span>Benutzer</span><strong>{resource.userName || resource.userEmail || 'Nicht gesetzt'}</strong></div>
         <div><span>Cluster</span><strong>{resource.clusterName || 'Unbekannt'}</strong></div>
+        {resource.groupName && <div><span>Gruppe</span><strong>{resource.groupName}</strong></div>}
       </div>
 
       <Metric label="CPU" percent={cpuPercent} detail={`${cpuPercent.toFixed(1)} %`} />
@@ -778,10 +1069,6 @@ function DiskMetric({ disk }) {
 function Metric({ label, percent, detail }) {
   const safePercent = Math.min(Math.max(Number(percent) || 0, 0), 100);
   return <div className="metric-line"><div><span>{label}</span><span>{safePercent.toFixed(1)}%</span></div><div className="progress-bar"><span style={{ width: `${safePercent}%` }}></span></div><small>{detail}</small></div>;
-}
-
-function Modal({ title, children, onClose, className = '' }) {
-  return <div className="modal-overlay active" role="dialog" aria-modal="true"><div className={`modal-card ${className}`.trim()}><div className="modal-header"><h2>{title}</h2><button type="button" className="icon-button" onClick={onClose} aria-label="Schließen">×</button></div>{children}</div></div>;
 }
 
 function getPercent(value, max) {

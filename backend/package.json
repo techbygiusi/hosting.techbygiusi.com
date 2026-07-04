@@ -1,6 +1,6 @@
 {
   "name": "hosting-portal-backend",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "Hosting Management Portal - Backend",
   "main": "app.js",
   "scripts": {
@@ -8,7 +8,11 @@
     "dev": "nodemon app.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": ["hosting", "proxmox", "management"],
+  "keywords": [
+    "hosting",
+    "proxmox",
+    "management"
+  ],
   "author": "",
   "license": "MIT",
   "dependencies": {
@@ -23,7 +27,9 @@
     "crypto": "^1.0.1",
     "body-parser": "^1.20.2",
     "helmet": "^7.0.0",
-    "express-validator": "^7.0.0"
+    "express-validator": "^7.0.0",
+    "ws": "^8.17.0",
+    "express-rate-limit": "^7.2.0"
   },
   "devDependencies": {
     "nodemon": "^2.0.20"

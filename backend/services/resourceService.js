@@ -1,4 +1,5 @@
 const { getClusterResources, getResourceDiskDetails } = require('./proxmoxService');
+const { decrypt } = require('./cryptoService');
 
 function normalizeResourceRow(row, liveResource = null, error = null, diskInfo = null) {
   const liveName = liveResource?.name || liveResource?.id || liveResource?.vmid;
@@ -27,6 +28,8 @@ function normalizeResourceRow(row, liveResource = null, error = null, diskInfo =
     userId: row.user_id,
     userName: row.user_name || '',
     userEmail: row.user_email || '',
+    groupId: row.group_id || null,
+    groupName: row.group_name || '',
     webUrl: row.public_url || row.web_url || '',
     publicUrl: row.public_url || row.web_url || '',
     adminUrl: row.admin_url || '',
@@ -42,7 +45,7 @@ async function enrichResources(rows) {
     if (!acc[key]) {
       acc[key] = {
         clusterUrl: row.cluster_url,
-        apiToken: row.api_token,
+        apiToken: decrypt(row.api_token),
         rows: []
       };
     }

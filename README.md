@@ -1,5 +1,16 @@
 # Hosting Portal - Changelog
 
+## v1.0.32 - 2026-06-29
+
+**Commit:** `fix: lock modal scroll and refine dark surfaces`
+
+- Locked the page background while a popup is open so the dashboard behind it no longer scrolls on desktop or mobile.
+- Replaced the rotating close icon with a subtle button wiggle/hover effect.
+- Reworked dark-mode surface hierarchy so page, main containers, service cards, inner boxes and popups are easier to distinguish while keeping the same dark base background.
+- Strengthened dark-mode danger button contrast for clearer destructive actions.
+
+---
+
 ## v1.0.31 - 2026-06-29
 
 **Commit:** `style: improve modal field contrast and close hover`
@@ -373,3 +384,39 @@
 - JWT auth + Bcrypt
 - Email service
 - 100% responsive
+
+---
+
+## 🚀 v2.0.0 – Was ist neu
+
+### Für Benutzer
+- **Power-Aktionen**: Starten, Herunterfahren, Neustarten und Hard-Stop direkt von der Karte oder aus der Detailansicht (mit Bestätigung).
+- **Aufgaben & Logs**: Die letzten Proxmox-Tasks jeder Maschine inkl. aufklappbarem Log direkt im Portal.
+- **Web-Konsole**: Vollwertiges xterm.js-Terminal im Browser. Der Proxmox-API-Token bleibt dabei ausschließlich auf dem Backend (WebSocket-Relay mit Einmal-Token, 30 s gültig).
+- **Zugangsdaten**: Pro Dienst können Logins/Secrets hinterlegt werden – AES-256-GCM-verschlüsselt gespeichert, jeder Abruf wird protokolliert.
+- **Self-Service**: „Neue Maschine erstellen" (LXC) mit Template-Auswahl und Slidern für CPU/RAM/Disk. VMID und IP werden automatisch aus dem vom Admin freigegebenen Bereich vergeben.
+
+### Für Gruppen
+- Dienste können zusätzlich zum Besitzer einer **Gruppe** zugewiesen werden – alle Mitglieder sehen und steuern die Ressource.
+- Gruppenverwaltung mit Mitglieder-Checkliste im Admin-Bereich.
+
+### Für Admins
+- **Self-Service-Konfiguration pro Cluster**: VMID-Bereich, IP-Pool (von–bis, Präfix, Gateway), Bridge, Storage, Template-Storage sowie Limits für Kerne/RAM/Disk.
+- **Token prüfen**: Live-Anzeige der Berechtigungen des API-Tokens (Lesen / Power / Konsole / Erstellen). Kann der Token nur lesen, blendet das Portal die entsprechenden Funktionen automatisch aus.
+- **Protokoll-Tab**: Audit-Log aller sicherheitsrelevanten Aktionen (Power, Konsole, Zugangsdaten-Abruf, Maschinen-Erstellung, …) mit Benutzer, Zeit und IP.
+
+### Sicherheit
+- Proxmox-API-Tokens und Secrets werden **AES-256-GCM-verschlüsselt** gespeichert (Schlüssel via `ENCRYPTION_KEY` oder automatisch generiert in `data/.encryption-key`). Bestehende Klartext-/Base64-Werte werden transparent weiter gelesen und beim nächsten Speichern verschlüsselt.
+- Kein hartkodiertes JWT-Secret mehr: `JWT_SECRET` per Env oder automatisch generiert und persistiert (`data/.jwt-secret`).
+- **Rate-Limiting** (streng auf Login/Passwort-Reset, moderat auf der API) und **Login-Lockout** (5 Fehlversuche → 15 Minuten Sperre).
+- CORS auf konfigurierte Origin(s) einschränkbar (`FRONTEND_ORIGIN`), Body-Limit 1 MB, `trust proxy` konfigurierbar.
+- Konsolen-WebSocket nur über Einmal-Session-Tokens; Log-Zugriff nur auf Tasks der eigenen Maschine.
+
+### Mobile
+- Alle Modals werden auf Mobilgeräten zu **Bottom-Sheets**: volle Breite, sliden von unten hoch, Grab-Handle, Safe-Area-Padding. Desktop behält die zentrierten Dialoge.
+
+### Update-Hinweise
+1. `npm install` in `backend/` (neu: `ws`, `express-rate-limit`) und `frontend/` (neu: `@xterm/xterm`, `@xterm/addon-fit`) – bzw. einfach neu bauen: `docker compose up -d --build`.
+2. Die Datenbank migriert sich beim ersten Start selbst (neue Tabellen/Spalten, keine Daten gehen verloren).
+3. Für die Web-Konsole muss der Reverse Proxy WebSocket-Upgrades für `/api/console/ws` durchreichen (im mitgelieferten `nginx.conf` bereits enthalten; bei Cloudflare Tunnel funktionieren WebSockets out of the box).
+4. Empfohlener Proxmox-API-Token für den vollen Funktionsumfang: Rolle mit `VM.Audit`, `VM.PowerMgmt`, `VM.Console`, `VM.Allocate` (+ `Datastore.AllocateSpace` und `SDN.Use`/Bridge-Zugriff für Self-Service). Nur-Lese-Token funktionieren weiterhin – das Portal blendet dann Power/Konsole/Erstellen aus.

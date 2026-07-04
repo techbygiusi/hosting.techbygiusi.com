@@ -1,8 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { userApi, getErrorMessage } from '../services/api';
 import '../styles/globals.css';
 import ThemeButton from '../components/ThemeButton';
+import ResourceDetail, { PowerControls, getPercent, formatBytes, renderStatus, renderType } from '../components/ResourceDetail';
+import CreateMachineModal from '../components/CreateMachineModal';
 
 function LogoutIcon() {
   return (
@@ -19,23 +21,40 @@ export default function UserDashboard() {
   const [resources, setResources] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [detailId, setDetailId] = useState(null);
+  const [provisioningOptions, setProvisioningOptions] = useState([]);
+  const [showCreate, setShowCreate] = useState(false);
 
-  useEffect(() => {
-    fetchResources();
-  }, []);
-
-  const fetchResources = async () => {
+  const fetchResources = useCallback(async (withSpinner = true) => {
     try {
-      setLoading(true);
+      if (withSpinner) setLoading(true);
       setError('');
       const response = await userApi.getResources();
       setResources(response.data.resources || []);
     } catch (err) {
       setError(getErrorMessage(err, 'Dienste konnten nicht geladen werden.'));
     } finally {
-      setLoading(false);
+      if (withSpinner) setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchResources();
+    // Provisioning available? (silently – read-only tokens simply return no clusters)
+    userApi.getProvisioningOptions()
+      .then(res => setProvisioningOptions(res.data.clusters || []))
+      .catch(() => setProvisioningOptions([]));
+  }, [fetchResources]);
+
+  // Auto-refresh metrics every 30s while the tab is visible
+  useEffect(() => {
+    const timer = setInterval(() => {
+      if (document.visibilityState === 'visible') fetchResources(false);
+    }, 30 * 1000);
+    return () => clearInterval(timer);
+  }, [fetchResources]);
+
+  const detailResource = resources.find(item => item.id === detailId) || null;
 
   return (
     <div className="app-page">
@@ -54,25 +73,56 @@ export default function UserDashboard() {
       <main className="app-container compact-container">
         {error && <div className="alert alert-danger">{error}</div>}
 
+        {provisioningOptions.length > 0 && (
+          <div className="dashboard-actions">
+            <button type="button" className="btn-primary" onClick={() => setShowCreate(true)}>Neue Maschine erstellen</button>
+          </div>
+        )}
+
         {loading ? (
           <div className="loading"><span className="spinner"></span><span>Dienste werden geladen...</span></div>
         ) : resources.length === 0 ? (
           <section className="empty-state panel-card">
             <h2>Keine Dienste</h2>
             <p>Dir sind noch keine Dienste zugewiesen.</p>
+            {provisioningOptions.length > 0 && (
+              <button type="button" className="btn-primary" onClick={() => setShowCreate(true)}>Erste Maschine erstellen</button>
+            )}
           </section>
         ) : (
           <section className="resource-grid">
-            {resources.map(resource => <ResourceCard key={resource.id} resource={resource} />)}
+            {resources.map(resource => (
+              <ResourceCard
+                key={resource.id}
+                resource={resource}
+                onOpenDetails={() => setDetailId(resource.id)}
+                onChanged={() => fetchResources(false)}
+              />
+            ))}
           </section>
         )}
       </main>
+
+      {detailResource && (
+        <ResourceDetail
+          resource={detailResource}
+          onClose={() => setDetailId(null)}
+          onChanged={() => fetchResources(false)}
+        />
+      )}
+
+      {showCreate && (
+        <CreateMachineModal
+          options={provisioningOptions}
+          onClose={() => setShowCreate(false)}
+          onCreated={() => fetchResources(false)}
+        />
+      )}
     </div>
   );
 }
 
-function ResourceCard({ resource }) {
-  const [detailsOpen, setDetailsOpen] = useState(false);
+function ResourceCard({ resource, onOpenDetails, onChanged }) {
   const cpuPercent = getCpuPercent(resource);
   const memPercent = getPercent(resource.mem, resource.maxmem);
   const publicUrl = resource.publicUrl || resource.webUrl;
@@ -81,7 +131,10 @@ function ResourceCard({ resource }) {
     <article className="resource-card compact-resource-card">
       <div className="resource-card-header">
         <div>
-          <span className="resource-id">{renderType(resource.type)} · {resource.containerId}</span>
+          <span className="resource-id">
+            {renderType(resource.type)} · {resource.containerId}
+            {resource.groupName && <span className="group-chip">{resource.groupName}</span>}
+          </span>
           <h2>{resource.name}</h2>
         </div>
         <span className={`status-badge status-${resource.status || 'unknown'}`}>{renderStatus(resource.status)}</span>
@@ -95,88 +148,16 @@ function ResourceCard({ resource }) {
       <Metric label="CPU" percent={cpuPercent} detail={`${cpuPercent.toFixed(1)} %`} />
       <Metric label="RAM" percent={memPercent} detail={`${formatBytes(resource.mem)} / ${formatBytes(resource.maxmem)}`} />
 
+      <PowerControls resource={resource} onChanged={onChanged} compact />
+
       {publicUrl ? (
         <a className="btn-primary full-button" href={publicUrl} target="_blank" rel="noreferrer">Öffentliche Seite</a>
-      ) : (
-        <button type="button" className="btn-secondary full-button" disabled>Keine öffentliche Seite</button>
-      )}
+      ) : null}
 
-      <button type="button" className="btn-secondary full-button service-detail-toggle" onClick={() => setDetailsOpen(true)}>
+      <button type="button" className="btn-secondary full-button service-detail-toggle" onClick={onOpenDetails}>
         Details anzeigen
       </button>
-
-      {detailsOpen && (
-        <Modal title={`Details · ${resource.name}`} onClose={() => setDetailsOpen(false)} className="detail-modal-card">
-          <div className="resource-details detail-modal-content">
-            <div className="resource-meta">
-              <span>Cluster</span><span>{resource.clusterName || 'Unbekannt'}</span>
-              <span>Node</span><span>{resource.node || 'Unbekannt'}</span>
-              <span>Typ</span><span>{renderType(resource.type)}</span>
-              <span>ID</span><span>{resource.containerId || 'Unbekannt'}</span>
-              <span>Status</span><span>{renderStatus(resource.status)}</span>
-            </div>
-            <DiskDetails resource={resource} />
-            {resource.monitorError && <p className="hint-text">Monitoring ist gerade nicht erreichbar.</p>}
-          </div>
-        </Modal>
-      )}
     </article>
-  );
-}
-
-function Modal({ title, children, onClose, className = '' }) {
-  return (
-    <div className="modal-overlay active" role="dialog" aria-modal="true">
-      <div className={`modal-card ${className}`.trim()}>
-        <div className="modal-header">
-          <h2>{title}</h2>
-          <button type="button" className="icon-button" onClick={onClose} aria-label="Schließen">×</button>
-        </div>
-        {children}
-      </div>
-    </div>
-  );
-}
-
-function DiskDetails({ resource }) {
-  const filesystems = Array.isArray(resource.filesystems) ? resource.filesystems : [];
-  const disks = Array.isArray(resource.disks) ? resource.disks : [];
-
-  if (filesystems.length > 0 || disks.length > 0) {
-    return (
-      <div className="disk-details">
-        {filesystems.length > 0 && <span className="disk-section-title">Dateisysteme</span>}
-        {filesystems.map((disk) => <DiskMetric key={`fs-${disk.id || disk.name}`} disk={disk} />)}
-        {disks.length > 0 && <span className="disk-section-title">Datenträger</span>}
-        {disks.map((disk) => <DiskMetric key={`disk-${disk.id || disk.name}`} disk={disk} />)}
-      </div>
-    );
-  }
-
-  const diskPercent = getPercent(resource.disk, resource.maxdisk);
-  return <Metric label="Datenträger" percent={diskPercent} detail={`${formatBytes(resource.disk)} / ${formatBytes(resource.maxdisk)}`} />;
-}
-
-function DiskMetric({ disk }) {
-  const hasUsed = disk.used !== null && disk.used !== undefined && Number.isFinite(Number(disk.used));
-  const maxdisk = Number(disk.maxdisk || 0);
-  const percent = hasUsed && maxdisk ? getPercent(disk.used, maxdisk) : 0;
-  const title = disk.name || disk.id || 'Disk';
-  const subtitle = [disk.storage, disk.volume].filter(Boolean).join(' · ');
-  const detail = hasUsed && maxdisk
-    ? `${formatBytes(disk.used)} / ${formatBytes(maxdisk)}`
-    : maxdisk ? `Größe ${formatBytes(maxdisk)}` : 'Größe nicht gemeldet';
-
-  return (
-    <div className="disk-row">
-      <div className="disk-row-header">
-        <span>{title}</span>
-        <small>{hasUsed ? `${percent.toFixed(1)}%` : 'Belegung nicht gemeldet'}</small>
-      </div>
-      {hasUsed && <div className="progress-bar"><span style={{ width: `${percent}%` }}></span></div>}
-      <small>{detail}</small>
-      {subtitle && <small className="disk-source">{subtitle}</small>}
-    </div>
   );
 }
 
@@ -191,37 +172,8 @@ function Metric({ label, percent, detail }) {
   );
 }
 
-function getPercent(value, max) {
-  if (!max) return 0;
-  return Math.min(Math.max((Number(value) / Number(max)) * 100, 0), 100);
-}
-
 function getCpuPercent(resource) {
   const cpu = Number(resource.cpu || 0);
   if (cpu <= 1) return Math.min(Math.max(cpu * 100, 0), 100);
   return Math.min(Math.max(cpu, 0), 100);
-}
-
-function formatBytes(bytes) {
-  if (!bytes) return '0 B';
-  const k = 1024;
-  const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
-  const i = Math.min(Math.floor(Math.log(bytes) / Math.log(k)), sizes.length - 1);
-  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
-}
-
-function renderStatus(status) {
-  switch (status) {
-    case 'running': return 'Online';
-    case 'stopped': return 'Offline';
-    case 'paused': return 'Pausiert';
-    case 'suspended': return 'Angehalten';
-    default: return 'Unbekannt';
-  }
-}
-
-function renderType(type) {
-  if (type === 'lxc') return 'LXC';
-  if (type === 'qemu') return 'VM';
-  return 'Dienst';
 }

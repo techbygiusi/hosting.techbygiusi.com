@@ -1,0 +1,431 @@
+import React, { useCallback, useEffect, useState } from 'react';
+import Modal from './Modal';
+import TerminalView from './TerminalView';
+import { userApi, getErrorMessage } from '../services/api';
+
+/**
+ * Detail modal for one resource. Capability-driven:
+ * - capabilities.canPower   -> power controls + reboot
+ * - capabilities.canConsole -> console tab
+ * Read-only tokens only see overview, tasks/logs and credentials.
+ */
+export default function ResourceDetail({ resource, onClose, onChanged }) {
+  const caps = resource.capabilities || {};
+  const tabs = [
+    ['overview', 'Übersicht'],
+    ['tasks', 'Aufgaben & Logs'],
+    ...(caps.canConsole ? [['console', 'Konsole']] : []),
+    ['credentials', 'Zugangsdaten']
+  ];
+  const [activeTab, setActiveTab] = useState('overview');
+
+  return (
+    <Modal title={resource.name} onClose={onClose} className="detail-modal-card">
+      <nav className="modal-tabs" aria-label="Detailbereiche">
+        {tabs.map(([key, label]) => (
+          <button key={key} type="button" className={activeTab === key ? 'active' : ''} onClick={() => setActiveTab(key)}>{label}</button>
+        ))}
+      </nav>
+
+      {activeTab === 'overview' && <OverviewTab resource={resource} onChanged={onChanged} />}
+      {activeTab === 'tasks' && <TasksTab resource={resource} />}
+      {activeTab === 'console' && caps.canConsole && (
+        resource.status === 'running'
+          ? <TerminalView resourceId={resource.id} resourceName={resource.name} />
+          : <p className="hint-text tab-empty">Die Maschine ist gestoppt. Starte sie, um die Konsole zu öffnen.</p>
+      )}
+      {activeTab === 'credentials' && <CredentialsTab resource={resource} />}
+    </Modal>
+  );
+}
+
+/* ---------------------------------------------------------------- POWER */
+export function PowerControls({ resource, onChanged, compact = false }) {
+  const caps = resource.capabilities || {};
+  const [busyAction, setBusyAction] = useState('');
+  const [error, setError] = useState('');
+  const running = resource.status === 'running';
+
+  if (!caps.canPower) return null;
+
+  const runAction = async (action, confirmText) => {
+    if (confirmText && !window.confirm(confirmText)) return;
+    try {
+      setBusyAction(action);
+      setError('');
+      await userApi.powerAction(resource.id, action);
+      // Give Proxmox a moment before refreshing the status
+      setTimeout(() => onChanged?.(), 2500);
+    } catch (err) {
+      setError(getErrorMessage(err, 'Aktion fehlgeschlagen.'));
+    } finally {
+      setBusyAction('');
+    }
+  };
+
+  return (
+    <div className={compact ? 'power-row power-row-compact' : 'power-row'}>
+      {!running && (
+        <button type="button" className="btn-primary btn-small" disabled={!!busyAction} onClick={() => runAction('start')}>
+          {busyAction === 'start' ? 'Startet...' : 'Starten'}
+        </button>
+      )}
+      {running && (
+        <>
+          <button type="button" className="btn-secondary btn-small" disabled={!!busyAction} onClick={() => runAction('reboot', `${resource.name} jetzt neu starten?`)}>
+            {busyAction === 'reboot' ? 'Neustart...' : 'Neu starten'}
+          </button>
+          <button type="button" className="btn-secondary btn-small" disabled={!!busyAction} onClick={() => runAction('shutdown', `${resource.name} herunterfahren?`)}>
+            {busyAction === 'shutdown' ? 'Fährt herunter...' : 'Herunterfahren'}
+          </button>
+          <button type="button" className="btn-danger btn-small" disabled={!!busyAction} onClick={() => runAction('stop', `${resource.name} hart stoppen? Nicht gespeicherte Daten gehen verloren.`)}>
+            {busyAction === 'stop' ? 'Stoppt...' : 'Stopp'}
+          </button>
+        </>
+      )}
+      {error && <small className="power-error">{error}</small>}
+    </div>
+  );
+}
+
+function OverviewTab({ resource, onChanged }) {
+  return (
+    <div className="resource-details detail-modal-content">
+      <PowerControls resource={resource} onChanged={onChanged} />
+      <div className="resource-meta">
+        {resource.groupName && (<><span>Gruppe</span><span>{resource.groupName}</span></>)}
+        <span>Cluster</span><span>{resource.clusterName || 'Unbekannt'}</span>
+        <span>Node</span><span>{resource.node || 'Unbekannt'}</span>
+        <span>Typ</span><span>{renderType(resource.type)}</span>
+        <span>ID</span><span>{resource.containerId || 'Unbekannt'}</span>
+        <span>Status</span><span>{renderStatus(resource.status)}</span>
+        {resource.uptime > 0 && (<><span>Laufzeit</span><span>{formatUptime(resource.uptime)}</span></>)}
+      </div>
+      <DiskDetails resource={resource} />
+      {resource.monitorError && <p className="hint-text">Monitoring ist gerade nicht erreichbar.</p>}
+    </div>
+  );
+}
+
+/* ----------------------------------------------------------- TASKS/LOGS */
+function TasksTab({ resource }) {
+  const [tasks, setTasks] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [openUpid, setOpenUpid] = useState('');
+  const [log, setLog] = useState([]);
+  const [logLoading, setLogLoading] = useState(false);
+
+  const loadTasks = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError('');
+      const res = await userApi.getTasks(resource.id);
+      setTasks(res.data.tasks || []);
+    } catch (err) {
+      setError(getErrorMessage(err, 'Aufgaben konnten nicht geladen werden.'));
+    } finally {
+      setLoading(false);
+    }
+  }, [resource.id]);
+
+  useEffect(() => { loadTasks(); }, [loadTasks]);
+
+  const openLog = async (upid) => {
+    if (openUpid === upid) { setOpenUpid(''); setLog([]); return; }
+    try {
+      setOpenUpid(upid);
+      setLogLoading(true);
+      const res = await userApi.getTaskLog(resource.id, upid);
+      setLog(res.data.log || []);
+    } catch (err) {
+      setLog([{ n: 1, t: getErrorMessage(err, 'Log konnte nicht geladen werden.') }]);
+    } finally {
+      setLogLoading(false);
+    }
+  };
+
+  return (
+    <div className="tasks-tab">
+      <div className="tasks-toolbar">
+        <span className="hint-text">Letzte Proxmox-Aufgaben dieser Maschine.</span>
+        <button type="button" className="btn-secondary btn-small" onClick={loadTasks} disabled={loading}>Aktualisieren</button>
+      </div>
+
+      {error && <div className="alert alert-danger">{error}</div>}
+      {loading && <div className="loading inline-loading"><span className="spinner"></span><span>Laden...</span></div>}
+
+      {!loading && tasks.length === 0 && <p className="hint-text tab-empty">Keine Aufgaben gefunden.</p>}
+
+      {!loading && tasks.map(task => (
+        <div key={task.upid} className="task-row">
+          <button type="button" className="task-row-header" onClick={() => openLog(task.upid)}>
+            <span className="task-type">{renderTaskType(task.type)}</span>
+            <span className={`task-status task-status-${taskStatusKind(task.status)}`}>{renderTaskStatus(task.status)}</span>
+            <span className="task-time">{formatTimestamp(task.starttime)}</span>
+          </button>
+          {openUpid === task.upid && (
+            <pre className="task-log">
+              {logLoading ? 'Log wird geladen...' : (log.length > 0 ? log.map(line => line.t).join('\n') : 'Kein Log vorhanden.')}
+            </pre>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* ---------------------------------------------------------- CREDENTIALS */
+const emptyCredential = { label: '', username: '', secret: '', url: '', notes: '' };
+
+function CredentialsTab({ resource }) {
+  const [credentials, setCredentials] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [showForm, setShowForm] = useState(false);
+  const [editId, setEditId] = useState(null);
+  const [form, setForm] = useState(emptyCredential);
+  const [busy, setBusy] = useState(false);
+  const [revealed, setRevealed] = useState({}); // credId -> secret
+  const [copiedId, setCopiedId] = useState(null);
+
+  const load = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError('');
+      const res = await userApi.getCredentials(resource.id);
+      setCredentials(res.data.credentials || []);
+    } catch (err) {
+      setError(getErrorMessage(err, 'Zugangsdaten konnten nicht geladen werden.'));
+    } finally {
+      setLoading(false);
+    }
+  }, [resource.id]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const openCreate = () => { setEditId(null); setForm(emptyCredential); setShowForm(true); };
+  const openEdit = (item) => {
+    setEditId(item.id);
+    setForm({ label: item.label || '', username: item.username || '', secret: '', url: item.url || '', notes: item.notes || '' });
+    setShowForm(true);
+  };
+
+  const save = async (event) => {
+    event.preventDefault();
+    if (!form.label.trim()) { setError('Bitte eine Bezeichnung eingeben.'); return; }
+    try {
+      setBusy(true);
+      setError('');
+      if (editId) {
+        await userApi.updateCredential(resource.id, editId, form);
+      } else {
+        await userApi.createCredential(resource.id, form);
+      }
+      setShowForm(false);
+      setForm(emptyCredential);
+      setEditId(null);
+      await load();
+    } catch (err) {
+      setError(getErrorMessage(err, 'Zugangsdaten konnten nicht gespeichert werden.'));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const remove = async (item) => {
+    if (!window.confirm(`"${item.label}" wirklich löschen?`)) return;
+    try {
+      setBusy(true);
+      await userApi.deleteCredential(resource.id, item.id);
+      await load();
+    } catch (err) {
+      setError(getErrorMessage(err, 'Zugangsdaten konnten nicht gelöscht werden.'));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const toggleReveal = async (item) => {
+    if (revealed[item.id] !== undefined) {
+      setRevealed(prev => { const next = { ...prev }; delete next[item.id]; return next; });
+      return;
+    }
+    try {
+      const res = await userApi.revealCredential(resource.id, item.id);
+      setRevealed(prev => ({ ...prev, [item.id]: res.data.secret || '' }));
+    } catch (err) {
+      setError(getErrorMessage(err, 'Passwort konnte nicht angezeigt werden.'));
+    }
+  };
+
+  const copySecret = async (item) => {
+    try {
+      let secret = revealed[item.id];
+      if (secret === undefined) {
+        const res = await userApi.revealCredential(resource.id, item.id);
+        secret = res.data.secret || '';
+      }
+      await navigator.clipboard.writeText(secret);
+      setCopiedId(item.id);
+      setTimeout(() => setCopiedId(null), 1800);
+    } catch (err) {
+      setError('Kopieren fehlgeschlagen.');
+    }
+  };
+
+  return (
+    <div className="credentials-tab">
+      {error && <div className="alert alert-danger">{error}</div>}
+
+      <div className="tasks-toolbar">
+        <span className="hint-text">Verschlüsselt gespeichert. Jeder Abruf wird protokolliert.</span>
+        <button type="button" className="btn-primary btn-small" onClick={openCreate}>Hinzufügen</button>
+      </div>
+
+      {loading && <div className="loading inline-loading"><span className="spinner"></span><span>Laden...</span></div>}
+      {!loading && credentials.length === 0 && !showForm && (
+        <p className="hint-text tab-empty">Noch keine Zugangsdaten hinterlegt.</p>
+      )}
+
+      {!loading && credentials.map(item => (
+        <div key={item.id} className="credential-row">
+          <div className="credential-main">
+            <strong>{item.label}</strong>
+            {item.username && <span className="credential-user">{item.username}</span>}
+            {item.url && <a href={item.url} target="_blank" rel="noreferrer" className="credential-url">{item.url}</a>}
+            {item.notes && <small className="credential-notes">{item.notes}</small>}
+            <code className="credential-secret">{revealed[item.id] !== undefined ? (revealed[item.id] || '(leer)') : '••••••••'}</code>
+          </div>
+          <div className="credential-actions">
+            <button type="button" className="btn-secondary btn-small" onClick={() => toggleReveal(item)}>{revealed[item.id] !== undefined ? 'Verbergen' : 'Anzeigen'}</button>
+            <button type="button" className="btn-secondary btn-small" onClick={() => copySecret(item)}>{copiedId === item.id ? 'Kopiert ✓' : 'Kopieren'}</button>
+            <button type="button" className="btn-secondary btn-small" onClick={() => openEdit(item)}>Bearbeiten</button>
+            <button type="button" className="btn-danger btn-small" onClick={() => remove(item)} disabled={busy}>Löschen</button>
+          </div>
+        </div>
+      ))}
+
+      {showForm && (
+        <form className="form-stack credential-form" onSubmit={save}>
+          <label className="form-group"><span>Bezeichnung</span><input type="text" value={form.label} onChange={event => setForm(prev => ({ ...prev, label: event.target.value }))} placeholder="z. B. SSH root" /></label>
+          <label className="form-group"><span>Benutzername</span><input type="text" value={form.username} onChange={event => setForm(prev => ({ ...prev, username: event.target.value }))} placeholder="Optional" autoComplete="off" /></label>
+          <label className="form-group"><span>Passwort / Secret</span><input type="password" value={form.secret} onChange={event => setForm(prev => ({ ...prev, secret: event.target.value }))} placeholder={editId ? 'Leer lassen, wenn unverändert' : 'Wird verschlüsselt gespeichert'} autoComplete="new-password" /></label>
+          <label className="form-group"><span>URL</span><input type="url" value={form.url} onChange={event => setForm(prev => ({ ...prev, url: event.target.value }))} placeholder="Optional" /></label>
+          <label className="form-group"><span>Notizen</span><textarea rows="2" value={form.notes} onChange={event => setForm(prev => ({ ...prev, notes: event.target.value }))} placeholder="Optional"></textarea></label>
+          <div className="form-actions">
+            <button type="button" className="btn-secondary" onClick={() => { setShowForm(false); setEditId(null); }}>Abbrechen</button>
+            <button type="submit" className="btn-primary" disabled={busy}>{editId ? 'Speichern' : 'Hinzufügen'}</button>
+          </div>
+        </form>
+      )}
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------- HELPERS */
+function DiskDetails({ resource }) {
+  const filesystems = Array.isArray(resource.filesystems) ? resource.filesystems : [];
+  const disks = Array.isArray(resource.disks) ? resource.disks : [];
+
+  if (filesystems.length > 0 || disks.length > 0) {
+    return (
+      <div className="disk-details">
+        {filesystems.length > 0 && <span className="disk-section-title">Dateisysteme</span>}
+        {filesystems.map(disk => <DiskMetric key={`fs-${disk.id || disk.name}`} disk={disk} />)}
+        {disks.length > 0 && <span className="disk-section-title">Datenträger</span>}
+        {disks.map(disk => <DiskMetric key={`disk-${disk.id || disk.name}`} disk={disk} />)}
+      </div>
+    );
+  }
+
+  const diskPercent = getPercent(resource.disk, resource.maxdisk);
+  return (
+    <div className="metric-line">
+      <div><span>Datenträger</span><span>{diskPercent.toFixed(1)}%</span></div>
+      <div className="progress-bar"><span style={{ width: `${diskPercent}%` }}></span></div>
+      <small>{formatBytes(resource.disk)} / {formatBytes(resource.maxdisk)}</small>
+    </div>
+  );
+}
+
+function DiskMetric({ disk }) {
+  const hasUsed = disk.used !== null && disk.used !== undefined && Number.isFinite(Number(disk.used));
+  const maxdisk = Number(disk.maxdisk || 0);
+  const percent = hasUsed && maxdisk ? getPercent(disk.used, maxdisk) : 0;
+  const subtitle = [disk.storage, disk.volume].filter(Boolean).join(' · ');
+
+  return (
+    <div className="disk-row">
+      <div className="disk-row-header"><span>{disk.name || disk.id || 'Disk'}</span><small>{hasUsed ? `${percent.toFixed(1)}%` : 'Belegung nicht gemeldet'}</small></div>
+      {hasUsed && <div className="progress-bar"><span style={{ width: `${percent}%` }}></span></div>}
+      <small>{hasUsed && maxdisk ? `${formatBytes(disk.used)} / ${formatBytes(maxdisk)}` : maxdisk ? `Größe ${formatBytes(maxdisk)}` : 'Größe nicht gemeldet'}</small>
+      {subtitle && <small className="disk-source">{subtitle}</small>}
+    </div>
+  );
+}
+
+export function getPercent(value, max) {
+  if (!max) return 0;
+  return Math.min(Math.max((Number(value) / Number(max)) * 100, 0), 100);
+}
+
+export function formatBytes(bytes) {
+  if (!bytes) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+  const i = Math.min(Math.floor(Math.log(bytes) / Math.log(k)), sizes.length - 1);
+  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
+}
+
+export function renderStatus(status) {
+  switch (status) {
+    case 'running': return 'Online';
+    case 'stopped': return 'Offline';
+    case 'paused': return 'Pausiert';
+    case 'suspended': return 'Angehalten';
+    default: return 'Unbekannt';
+  }
+}
+
+export function renderType(type) {
+  if (type === 'lxc') return 'LXC';
+  if (type === 'qemu') return 'VM';
+  return 'Dienst';
+}
+
+function formatUptime(seconds) {
+  const days = Math.floor(seconds / 86400);
+  const hours = Math.floor((seconds % 86400) / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  if (days > 0) return `${days} T ${hours} Std`;
+  if (hours > 0) return `${hours} Std ${minutes} Min`;
+  return `${minutes} Min`;
+}
+
+function formatTimestamp(unix) {
+  if (!unix) return '';
+  return new Date(unix * 1000).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' });
+}
+
+function renderTaskType(type) {
+  const map = {
+    vzstart: 'Start', vzstop: 'Stopp', vzshutdown: 'Herunterfahren', vzreboot: 'Neustart',
+    qmstart: 'Start', qmstop: 'Stopp', qmshutdown: 'Herunterfahren', qmreboot: 'Neustart',
+    vzcreate: 'Erstellen', qmcreate: 'Erstellen', vzdump: 'Backup',
+    vncproxy: 'Konsole', vncshell: 'Konsole'
+  };
+  return map[type] || type;
+}
+
+function taskStatusKind(status) {
+  if (status === 'OK') return 'ok';
+  if (status === 'running' || !status) return 'running';
+  return 'error';
+}
+
+function renderTaskStatus(status) {
+  if (status === 'OK') return 'OK';
+  if (status === 'running' || !status) return 'Läuft';
+  return status;
+}

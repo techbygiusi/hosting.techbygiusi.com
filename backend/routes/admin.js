@@ -6,9 +6,11 @@ const { get, run, all } = require('../config/database');
 const { adminMiddleware } = require('../middleware/auth');
 const { AppError } = require('../middleware/errorHandler');
 const { HTTP_STATUS, ROLES } = require('../config/constants');
-const { getClusterResources, testConnection } = require('../services/proxmoxService');
+const { getClusterResources, testConnection, getCapabilities, getOnlineNodes, getNodeTemplates } = require('../services/proxmoxService');
 const { enrichResources } = require('../services/resourceService');
 const { testSmtpConnection, initializeEmailService, encryptString, decryptString } = require('../services/emailService');
+const { encrypt, decrypt } = require('../services/cryptoService');
+const { logAudit } = require('../services/auditService');
 
 router.use(adminMiddleware);
 
@@ -84,7 +86,7 @@ async function resolveClusterTestData(input) {
 
     return {
       url: normalizeUrl(input.url || cluster.url),
-      apiToken: String(input.apiToken || cluster.api_token || '').trim()
+      apiToken: String(input.apiToken || decrypt(cluster.api_token) || '').trim()
     };
   }
 
@@ -102,10 +104,12 @@ async function getResourceRows(where = '', params = []) {
       pc.url as cluster_url,
       pc.api_token,
       u.name as user_name,
-      u.email as user_email
+      u.email as user_email,
+      cg.name as group_name
     FROM resources r
     JOIN proxmox_clusters pc ON r.cluster_id = pc.id
     JOIN users u ON r.user_id = u.id
+    LEFT JOIN customer_groups cg ON r.group_id = cg.id
     ${where}
     ORDER BY r.created_at DESC
   `, params);
@@ -227,7 +231,12 @@ router.delete('/users/:id', async (req, res, next) => {
 
 router.get('/clusters', async (req, res, next) => {
   try {
-    const clusters = await all('SELECT id, name, url, created_at FROM proxmox_clusters ORDER BY created_at DESC');
+    const clusters = await all(`
+      SELECT id, name, url, created_at,
+             allow_provisioning, vmid_min, vmid_max, ip_start, ip_end, ip_prefix,
+             gateway, bridge, storage, template_storage, max_cores, max_memory_mb, max_disk_gb
+      FROM proxmox_clusters ORDER BY created_at DESC
+    `);
     res.json({ clusters });
   } catch (err) {
     next(err);
@@ -248,10 +257,24 @@ router.post('/clusters', async (req, res, next) => {
       throw new AppError(`Failed to connect to Proxmox: ${testResult.message}`, HTTP_STATUS.BAD_REQUEST);
     }
 
+    const provisioning = normalizeProvisioning(req.body);
+
     const result = await run(
-      'INSERT INTO proxmox_clusters (name, url, api_token) VALUES (?, ?, ?)',
-      [String(name).trim(), normalizedUrl, String(apiToken).trim()]
+      `INSERT INTO proxmox_clusters (
+        name, url, api_token,
+        allow_provisioning, vmid_min, vmid_max, ip_start, ip_end, ip_prefix,
+        gateway, bridge, storage, template_storage, max_cores, max_memory_mb, max_disk_gb
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        String(name).trim(), normalizedUrl, encrypt(String(apiToken).trim()),
+        provisioning.allowProvisioning, provisioning.vmidMin, provisioning.vmidMax,
+        provisioning.ipStart, provisioning.ipEnd, provisioning.ipPrefix,
+        provisioning.gateway, provisioning.bridge, provisioning.storage,
+        provisioning.templateStorage, provisioning.maxCores, provisioning.maxMemoryMb, provisioning.maxDiskGb
+      ]
     );
+
+    await logAudit(req, 'cluster.create', `cluster:${result.lastID}`, String(name).trim());
 
     res.status(HTTP_STATUS.CREATED).json({
       cluster: {
@@ -265,6 +288,43 @@ router.post('/clusters', async (req, res, next) => {
   }
 });
 
+function normalizeProvisioning(body) {
+  const toInt = (value, fallback = null) => {
+    const parsed = parseInt(value, 10);
+    return Number.isInteger(parsed) ? parsed : fallback;
+  };
+  const isIp = (value) => /^(\d{1,3}\.){3}\d{1,3}$/.test(String(value || '').trim());
+
+  const allowProvisioning = body.allowProvisioning ? 1 : 0;
+  const vmidMin = toInt(body.vmidMin);
+  const vmidMax = toInt(body.vmidMax);
+
+  if (allowProvisioning) {
+    if (!vmidMin || !vmidMax || vmidMin < 100 || vmidMax < vmidMin) {
+      throw new AppError('VMID range is invalid', HTTP_STATUS.BAD_REQUEST);
+    }
+    if (!isIp(body.ipStart) || !isIp(body.ipEnd) || !isIp(body.gateway)) {
+      throw new AppError('IP range or gateway is invalid', HTTP_STATUS.BAD_REQUEST);
+    }
+  }
+
+  return {
+    allowProvisioning,
+    vmidMin,
+    vmidMax,
+    ipStart: isIp(body.ipStart) ? String(body.ipStart).trim() : null,
+    ipEnd: isIp(body.ipEnd) ? String(body.ipEnd).trim() : null,
+    ipPrefix: Math.min(Math.max(toInt(body.ipPrefix, 24), 8), 32),
+    gateway: isIp(body.gateway) ? String(body.gateway).trim() : null,
+    bridge: String(body.bridge || 'vmbr0').trim(),
+    storage: String(body.storage || 'local-lvm').trim(),
+    templateStorage: String(body.templateStorage || 'local').trim(),
+    maxCores: Math.min(Math.max(toInt(body.maxCores, 2), 1), 64),
+    maxMemoryMb: Math.min(Math.max(toInt(body.maxMemoryMb, 2048), 256), 262144),
+    maxDiskGb: Math.min(Math.max(toInt(body.maxDiskGb, 20), 4), 4096)
+  };
+}
+
 router.put('/clusters/:id', async (req, res, next) => {
   try {
     const clusterId = req.params.id;
@@ -277,7 +337,7 @@ router.put('/clusters/:id', async (req, res, next) => {
 
     const nextName = String(name || cluster.name).trim();
     const nextUrl = normalizeUrl(url || cluster.url);
-    const nextToken = String(apiToken || cluster.api_token).trim();
+    const nextToken = String(apiToken || decrypt(cluster.api_token)).trim();
 
     if (!nextName || !nextUrl || !nextToken) {
       throw new AppError('Name, URL, and API token are required', HTTP_STATUS.BAD_REQUEST);
@@ -288,11 +348,39 @@ router.put('/clusters/:id', async (req, res, next) => {
       throw new AppError(`Failed to connect to Proxmox: ${testResult.message}`, HTTP_STATUS.BAD_REQUEST);
     }
 
+    const provisioning = normalizeProvisioning({
+      allowProvisioning: req.body.allowProvisioning ?? cluster.allow_provisioning,
+      vmidMin: req.body.vmidMin ?? cluster.vmid_min,
+      vmidMax: req.body.vmidMax ?? cluster.vmid_max,
+      ipStart: req.body.ipStart ?? cluster.ip_start,
+      ipEnd: req.body.ipEnd ?? cluster.ip_end,
+      ipPrefix: req.body.ipPrefix ?? cluster.ip_prefix,
+      gateway: req.body.gateway ?? cluster.gateway,
+      bridge: req.body.bridge ?? cluster.bridge,
+      storage: req.body.storage ?? cluster.storage,
+      templateStorage: req.body.templateStorage ?? cluster.template_storage,
+      maxCores: req.body.maxCores ?? cluster.max_cores,
+      maxMemoryMb: req.body.maxMemoryMb ?? cluster.max_memory_mb,
+      maxDiskGb: req.body.maxDiskGb ?? cluster.max_disk_gb
+    });
+
     await run(
-      'UPDATE proxmox_clusters SET name = ?, url = ?, api_token = ? WHERE id = ?',
-      [nextName, nextUrl, nextToken, clusterId]
+      `UPDATE proxmox_clusters SET
+        name = ?, url = ?, api_token = ?,
+        allow_provisioning = ?, vmid_min = ?, vmid_max = ?, ip_start = ?, ip_end = ?, ip_prefix = ?,
+        gateway = ?, bridge = ?, storage = ?, template_storage = ?, max_cores = ?, max_memory_mb = ?, max_disk_gb = ?
+      WHERE id = ?`,
+      [
+        nextName, nextUrl, encrypt(nextToken),
+        provisioning.allowProvisioning, provisioning.vmidMin, provisioning.vmidMax,
+        provisioning.ipStart, provisioning.ipEnd, provisioning.ipPrefix,
+        provisioning.gateway, provisioning.bridge, provisioning.storage,
+        provisioning.templateStorage, provisioning.maxCores, provisioning.maxMemoryMb, provisioning.maxDiskGb,
+        clusterId
+      ]
     );
 
+    await logAudit(req, 'cluster.update', `cluster:${clusterId}`, nextName);
     res.json({ cluster: { id: Number(clusterId), name: nextName, url: nextUrl } });
   } catch (err) {
     next(err);
@@ -324,8 +412,134 @@ router.get('/clusters/:id/containers', async (req, res, next) => {
       throw new AppError('Cluster not found', HTTP_STATUS.NOT_FOUND);
     }
 
-    const containers = await getClusterResources(cluster.url, cluster.api_token);
+    const containers = await getClusterResources(cluster.url, decrypt(cluster.api_token));
     res.json({ containers });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * Live permissions of the configured API token – shows in the UI which
+ * portal features (power, console, provisioning) the token allows.
+ */
+router.get('/clusters/:id/capabilities', async (req, res, next) => {
+  try {
+    const cluster = await get('SELECT * FROM proxmox_clusters WHERE id = ?', [req.params.id]);
+    if (!cluster) throw new AppError('Cluster not found', HTTP_STATUS.NOT_FOUND);
+
+    const capabilities = await getCapabilities(cluster.url, decrypt(cluster.api_token));
+    res.json({ capabilities });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get('/clusters/:id/templates', async (req, res, next) => {
+  try {
+    const cluster = await get('SELECT * FROM proxmox_clusters WHERE id = ?', [req.params.id]);
+    if (!cluster) throw new AppError('Cluster not found', HTTP_STATUS.NOT_FOUND);
+
+    const apiToken = decrypt(cluster.api_token);
+    const nodes = await getOnlineNodes(cluster.url, apiToken);
+    if (nodes.length === 0) return res.json({ templates: [] });
+
+    const templates = await getNodeTemplates(cluster.url, apiToken, nodes[0].node, cluster.template_storage || 'local');
+    res.json({ templates });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/* -------------------------------------------------------------- GROUPS -- */
+router.get('/groups', async (req, res, next) => {
+  try {
+    const groups = await all(`
+      SELECT cg.id, cg.name, cg.created_at,
+        (SELECT COUNT(*) FROM user_groups ug WHERE ug.group_id = cg.id) as member_count,
+        (SELECT COUNT(*) FROM resources r WHERE r.group_id = cg.id) as resource_count
+      FROM customer_groups cg ORDER BY cg.name
+    `);
+
+    const memberships = await all(`
+      SELECT ug.group_id, u.id, u.name, u.email
+      FROM user_groups ug JOIN users u ON ug.user_id = u.id
+    `);
+
+    res.json({
+      groups: groups.map(group => ({
+        ...group,
+        members: memberships.filter(member => member.group_id === group.id)
+          .map(member => ({ id: member.id, name: member.name, email: member.email }))
+      }))
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/groups', async (req, res, next) => {
+  try {
+    const name = String(req.body.name || '').trim();
+    if (!name) throw new AppError('Group name is required', HTTP_STATUS.BAD_REQUEST);
+
+    const result = await run('INSERT INTO customer_groups (name) VALUES (?)', [name]);
+    await logAudit(req, 'group.create', `group:${result.lastID}`, name);
+    res.status(HTTP_STATUS.CREATED).json({ group: { id: result.lastID, name } });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.put('/groups/:id', async (req, res, next) => {
+  try {
+    const group = await get('SELECT * FROM customer_groups WHERE id = ?', [req.params.id]);
+    if (!group) throw new AppError('Group not found', HTTP_STATUS.NOT_FOUND);
+
+    const name = String(req.body.name || group.name).trim();
+    if (!name) throw new AppError('Group name is required', HTTP_STATUS.BAD_REQUEST);
+
+    await run('UPDATE customer_groups SET name = ? WHERE id = ?', [name, req.params.id]);
+
+    if (Array.isArray(req.body.memberIds)) {
+      await run('DELETE FROM user_groups WHERE group_id = ?', [req.params.id]);
+      for (const memberId of req.body.memberIds) {
+        const user = await get('SELECT id FROM users WHERE id = ?', [memberId]);
+        if (user) {
+          await run('INSERT OR IGNORE INTO user_groups (user_id, group_id) VALUES (?, ?)', [memberId, req.params.id]);
+        }
+      }
+    }
+
+    await logAudit(req, 'group.update', `group:${req.params.id}`, name);
+    res.json({ group: { id: Number(req.params.id), name } });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.delete('/groups/:id', async (req, res, next) => {
+  try {
+    const group = await get('SELECT * FROM customer_groups WHERE id = ?', [req.params.id]);
+    if (!group) throw new AppError('Group not found', HTTP_STATUS.NOT_FOUND);
+
+    await run('DELETE FROM customer_groups WHERE id = ?', [req.params.id]);
+    await logAudit(req, 'group.delete', `group:${req.params.id}`, group.name);
+    res.json({ message: 'Group deleted successfully' });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/* --------------------------------------------------------------- AUDIT -- */
+router.get('/audit', async (req, res, next) => {
+  try {
+    const limit = Math.min(parseInt(req.query.limit, 10) || 100, 500);
+    const entries = await all(
+      'SELECT id, user_id, user_email, action, target, details, ip, created_at FROM audit_log ORDER BY id DESC LIMIT ?',
+      [limit]
+    );
+    res.json({ entries });
   } catch (err) {
     next(err);
   }
@@ -343,7 +557,7 @@ router.get('/resources', async (req, res, next) => {
 
 router.post('/resources', async (req, res, next) => {
   try {
-    const { name, containerId, clusterId, userId, webUrl, publicUrl, adminUrl } = req.body;
+    const { name, containerId, clusterId, userId, groupId, webUrl, publicUrl, adminUrl } = req.body;
 
     if (!containerId || !clusterId || !userId) {
       throw new AppError('Resource, cluster, and user are required', HTTP_STATUS.BAD_REQUEST);
@@ -359,9 +573,16 @@ router.post('/resources', async (req, res, next) => {
       throw new AppError('User not found', HTTP_STATUS.NOT_FOUND);
     }
 
+    let cleanGroupId = null;
+    if (groupId) {
+      const group = await get('SELECT id FROM customer_groups WHERE id = ?', [groupId]);
+      if (!group) throw new AppError('Group not found', HTTP_STATUS.NOT_FOUND);
+      cleanGroupId = group.id;
+    }
+
     let resourceName = String(name || '').trim();
     try {
-      const containers = await getClusterResources(cluster.url, cluster.api_token);
+      const containers = await getClusterResources(cluster.url, decrypt(cluster.api_token));
       const selected = containers.find(item => String(item.vmid) === String(containerId));
       if (!selected) {
         throw new AppError('Selected Proxmox resource was not found', HTTP_STATUS.BAD_REQUEST);
@@ -376,9 +597,11 @@ router.post('/resources', async (req, res, next) => {
     const cleanAdminUrl = validateWebUrl(adminUrl, 'Admin link');
 
     const result = await run(
-      'INSERT INTO resources (name, container_id, cluster_id, user_id, web_url, public_url, admin_url) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [resourceName, String(containerId), clusterId, userId, cleanPublicUrl, cleanPublicUrl, cleanAdminUrl]
+      'INSERT INTO resources (name, container_id, cluster_id, user_id, group_id, web_url, public_url, admin_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      [resourceName, String(containerId), clusterId, userId, cleanGroupId, cleanPublicUrl, cleanPublicUrl, cleanAdminUrl]
     );
+
+    await logAudit(req, 'resource.create', `resource:${result.lastID}`, resourceName);
 
     const rows = await getResourceRows('WHERE r.id = ?', [result.lastID]);
     const resources = await enrichResources(rows);
@@ -391,7 +614,7 @@ router.post('/resources', async (req, res, next) => {
 router.put('/resources/:id', async (req, res, next) => {
   try {
     const resourceId = req.params.id;
-    const { name, containerId, clusterId, userId, webUrl, publicUrl, adminUrl } = req.body;
+    const { name, containerId, clusterId, userId, groupId, webUrl, publicUrl, adminUrl } = req.body;
     const resource = await get('SELECT * FROM resources WHERE id = ?', [resourceId]);
 
     if (!resource) {
@@ -401,6 +624,17 @@ router.put('/resources/:id', async (req, res, next) => {
     const nextClusterId = clusterId || resource.cluster_id;
     const nextContainerId = String(containerId || resource.container_id);
     const nextUserId = userId || resource.user_id;
+
+    let nextGroupId = resource.group_id;
+    if (groupId !== undefined) {
+      if (groupId === null || groupId === '' || groupId === 0) {
+        nextGroupId = null;
+      } else {
+        const group = await get('SELECT id FROM customer_groups WHERE id = ?', [groupId]);
+        if (!group) throw new AppError('Group not found', HTTP_STATUS.NOT_FOUND);
+        nextGroupId = group.id;
+      }
+    }
 
     const cluster = await get('SELECT * FROM proxmox_clusters WHERE id = ?', [nextClusterId]);
     if (!cluster) throw new AppError('Cluster not found', HTTP_STATUS.NOT_FOUND);
@@ -415,9 +649,11 @@ router.put('/resources/:id', async (req, res, next) => {
     const cleanAdminUrl = validateWebUrl(adminUrl ?? resource.admin_url, 'Admin link');
 
     await run(
-      'UPDATE resources SET name = ?, container_id = ?, cluster_id = ?, user_id = ?, web_url = ?, public_url = ?, admin_url = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-      [nextName, nextContainerId, nextClusterId, nextUserId, cleanPublicUrl, cleanPublicUrl, cleanAdminUrl, resourceId]
+      'UPDATE resources SET name = ?, container_id = ?, cluster_id = ?, user_id = ?, group_id = ?, web_url = ?, public_url = ?, admin_url = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+      [nextName, nextContainerId, nextClusterId, nextUserId, nextGroupId, cleanPublicUrl, cleanPublicUrl, cleanAdminUrl, resourceId]
     );
+
+    await logAudit(req, 'resource.update', `resource:${resourceId}`, nextName);
 
     const rows = await getResourceRows('WHERE r.id = ?', [resourceId]);
     const resources = await enrichResources(rows);
