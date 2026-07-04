@@ -405,15 +405,26 @@ router.get('/provisioning/options', async (req, res, next) => {
       let templates = [];
       let isos = [];
 
+      const parseList = (json) => { try { const p = JSON.parse(json || '[]'); return Array.isArray(p) ? p : []; } catch (_) { return []; } };
+      const allowedTemplates = parseList(cluster.allowed_templates);
+      const allowedIsos = parseList(cluster.allowed_isos);
+
       try {
         const nodes = await getOnlineNodes(cluster.url, apiToken);
         if (nodes.length > 0) {
           const node = nodes[0].node;
           if (allowTypes === 'ct' || allowTypes === 'both') {
             templates = await getNodeTemplates(cluster.url, apiToken, node, cluster.template_storage || 'local');
+            // If the admin picked a subset, only expose those; otherwise show all found
+            if (allowedTemplates.length > 0) {
+              templates = templates.filter(t => allowedTemplates.includes(t.volid));
+            }
           }
           if (allowTypes === 'vm' || allowTypes === 'both') {
             isos = await getNodeIsos(cluster.url, apiToken, node, cluster.iso_storage || 'local');
+            if (allowedIsos.length > 0) {
+              isos = isos.filter(i => allowedIsos.includes(i.volid));
+            }
           }
         }
       } catch (_) { /* templates/isos optional */ }

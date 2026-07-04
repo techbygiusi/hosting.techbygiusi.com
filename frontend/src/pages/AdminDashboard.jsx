@@ -1202,6 +1202,7 @@ function ProvisioningSettings({ clusters, onSaved, onError, onSuccess }) {
     allowProvisioning: false, allowTypes: 'ct', vmidMin: '', vmidMax: '',
     ipStart: '', ipEnd: '', ipPrefix: '24', gateway: '',
     bridge: 'vmbr0', storage: 'local-lvm', templateStorage: 'local', isoStorage: 'local',
+    allowedTemplates: [], allowedIsos: [],
     maxCores: '2', maxMemoryMb: '2048', maxDiskGb: '20', defaultPassword: ''
   });
   const [storages, setStorages] = useState([]);
@@ -1212,6 +1213,13 @@ function ProvisioningSettings({ clusters, onSaved, onError, onSuccess }) {
   const [loaded, setLoaded] = useState(false);
 
   const setField = (field, value) => setForm(prev => ({ ...prev, [field]: value }));
+  const toggleAllowed = (field, volid, checked) => {
+    setForm(prev => {
+      const current = new Set(prev[field] || []);
+      if (checked) current.add(volid); else current.delete(volid);
+      return { ...prev, [field]: Array.from(current) };
+    });
+  };
 
   useEffect(() => {
     if (!clusterId) { setLoaded(false); return; }
@@ -1234,13 +1242,25 @@ function ProvisioningSettings({ clusters, onSaved, onError, onSuccess }) {
           gateway: p.gateway || '', bridge: p.bridge || 'vmbr0',
           storage: p.storage || 'local-lvm', templateStorage: p.templateStorage || 'local',
           isoStorage: p.isoStorage || 'local',
+          allowedTemplates: Array.isArray(p.allowedTemplates) ? p.allowedTemplates : [],
+          allowedIsos: Array.isArray(p.allowedIsos) ? p.allowedIsos : [],
           maxCores: String(p.maxCores ?? '2'), maxMemoryMb: String(p.maxMemoryMb ?? '2048'),
           maxDiskGb: String(p.maxDiskGb ?? '20'), defaultPassword: ''
         });
         setCaps(capRes.data.capabilities);
         setLoaded(true);
         // storages help pick the right storage names
-        adminApi.getClusterStorages(clusterId).then(res => active && setStorages(res.data.storages || [])).catch(() => setStorages([]));
+        // Disk-Storage: only list storages that can actually hold VM disks
+        // (content 'images') or CT rootfs (content 'rootdir'), fetched live.
+        adminApi.getClusterStorages(clusterId).then(res => {
+          if (!active) return;
+          const all = res.data.storages || [];
+          const diskCapable = all.filter(s => {
+            const content = String(s.content || '').split(',').map(c => c.trim());
+            return content.includes('images') || content.includes('rootdir');
+          });
+          setStorages(diskCapable.length > 0 ? diskCapable : all);
+        }).catch(() => setStorages([]));
       } catch (err) {
         onError(getErrorMessage(err, 'Konfiguration konnte nicht geladen werden.'));
       } finally {
@@ -1253,8 +1273,10 @@ function ProvisioningSettings({ clusters, onSaved, onError, onSuccess }) {
   const loadTemplates = async () => {
     try {
       const res = await adminApi.getClusterTemplates(clusterId, form.templateStorage);
-      setTemplates(res.data.templates || []);
-      if ((res.data.templates || []).length === 0) onError('Keine CT-Templates in diesem Storage gefunden.');
+      const found = res.data.templates || [];
+      setTemplates(found);
+      if (found.length === 0) onError('Keine CT-Templates in diesem Storage gefunden.');
+      else if (form.allowedTemplates.length === 0) setField('allowedTemplates', found.map(t => t.volid));
     } catch (err) {
       onError(getErrorMessage(err, 'Templates konnten nicht geladen werden.'));
     }
@@ -1263,8 +1285,10 @@ function ProvisioningSettings({ clusters, onSaved, onError, onSuccess }) {
   const loadIsos = async () => {
     try {
       const res = await adminApi.getClusterIsos(clusterId, form.isoStorage);
-      setIsos(res.data.isos || []);
-      if ((res.data.isos || []).length === 0) onError('Keine ISOs in diesem Storage gefunden.');
+      const found = res.data.isos || [];
+      setIsos(found);
+      if (found.length === 0) onError('Keine ISOs in diesem Storage gefunden.');
+      else if (form.allowedIsos.length === 0) setField('allowedIsos', found.map(i => i.volid));
     } catch (err) {
       onError(getErrorMessage(err, 'ISOs konnten nicht geladen werden.'));
     }
@@ -1340,22 +1364,66 @@ function ProvisioningSettings({ clusters, onSaved, onError, onSuccess }) {
               </div>
               <div className="form-row-2">
                 <label className="form-group"><span>Bridge</span><input type="text" value={form.bridge} onChange={e => setField('bridge', e.target.value)} placeholder="vmbr0" /></label>
-                <label className="form-group"><span>Disk-Storage</span>{storageNames.length > 0 ? <select value={form.storage} onChange={e => setField('storage', e.target.value)}>{!storageNames.includes(form.storage) && <option value={form.storage}>{form.storage}</option>}{storageNames.map(s => <option key={s} value={s}>{s}</option>)}</select> : <input type="text" value={form.storage} onChange={e => setField('storage', e.target.value)} placeholder="local-lvm" />}</label>
+                <label className="form-group"><span>Disk-Storage</span>{storages.length > 0 ? <select value={form.storage} onChange={e => setField('storage', e.target.value)}>{!storageNames.includes(form.storage) && <option value={form.storage}>{form.storage}</option>}{storages.map(s => <option key={s.storage} value={s.storage}>{s.storage}{s.type ? ` (${s.type})` : ''}</option>)}</select> : <input type="text" value={form.storage} onChange={e => setField('storage', e.target.value)} placeholder="local-lvm" />}</label>
               </div>
 
               {showCt && (
-                <div className="storage-row">
-                  <label className="form-group"><span>CT-Template-Storage</span><input type="text" value={form.templateStorage} onChange={e => setField('templateStorage', e.target.value)} placeholder="local" /></label>
-                  <button type="button" className="btn-secondary btn-small" onClick={loadTemplates}>Templates abrufen</button>
-                  {templates.length > 0 && <small className="hint-text">{templates.length} Template(s): {templates.slice(0, 3).map(t => t.name).join(', ')}{templates.length > 3 ? '…' : ''}</small>}
+                <div className="provision-block">
+                  <div className="storage-row">
+                    <label className="form-group"><span>CT-Template-Storage</span><input type="text" value={form.templateStorage} onChange={e => setField('templateStorage', e.target.value)} placeholder="local" /></label>
+                    <button type="button" className="btn-secondary storage-fetch-btn" onClick={loadTemplates}>Templates abrufen</button>
+                  </div>
+                  {templates.length > 0 && (
+                    <div className="select-list">
+                      <div className="select-list-head">
+                        <span>{templates.length} Template(s) gefunden – wähle die freigegebenen</span>
+                        <div className="select-list-actions">
+                          <button type="button" onClick={() => setField('allowedTemplates', templates.map(t => t.volid))}>Alle</button>
+                          <button type="button" onClick={() => setField('allowedTemplates', [])}>Keine</button>
+                        </div>
+                      </div>
+                      {templates.map(t => (
+                        <label key={t.volid} className="select-list-item">
+                          <input type="checkbox" checked={form.allowedTemplates.includes(t.volid)} onChange={e => toggleAllowed('allowedTemplates', t.volid, e.target.checked)} />
+                          <span>{t.name}</span>
+                        </label>
+                      ))}
+                      <small className="hint-text">Keine Auswahl = alle gefundenen Templates sind für Benutzer verfügbar.</small>
+                    </div>
+                  )}
+                  {form.allowedTemplates.length > 0 && templates.length === 0 && (
+                    <small className="hint-text">{form.allowedTemplates.length} Template(s) freigegeben. „Templates abrufen", um die Auswahl zu ändern.</small>
+                  )}
                 </div>
               )}
 
               {showVm && (
-                <div className="storage-row">
-                  <label className="form-group"><span>ISO-Storage</span><input type="text" value={form.isoStorage} onChange={e => setField('isoStorage', e.target.value)} placeholder="local" /></label>
-                  <button type="button" className="btn-secondary btn-small" onClick={loadIsos}>ISOs abrufen</button>
-                  {isos.length > 0 && <small className="hint-text">{isos.length} ISO(s): {isos.slice(0, 3).map(i => i.name).join(', ')}{isos.length > 3 ? '…' : ''}</small>}
+                <div className="provision-block">
+                  <div className="storage-row">
+                    <label className="form-group"><span>ISO-Storage</span><input type="text" value={form.isoStorage} onChange={e => setField('isoStorage', e.target.value)} placeholder="local" /></label>
+                    <button type="button" className="btn-secondary storage-fetch-btn" onClick={loadIsos}>ISOs abrufen</button>
+                  </div>
+                  {isos.length > 0 && (
+                    <div className="select-list">
+                      <div className="select-list-head">
+                        <span>{isos.length} ISO(s) gefunden – wähle die freigegebenen</span>
+                        <div className="select-list-actions">
+                          <button type="button" onClick={() => setField('allowedIsos', isos.map(i => i.volid))}>Alle</button>
+                          <button type="button" onClick={() => setField('allowedIsos', [])}>Keine</button>
+                        </div>
+                      </div>
+                      {isos.map(i => (
+                        <label key={i.volid} className="select-list-item">
+                          <input type="checkbox" checked={form.allowedIsos.includes(i.volid)} onChange={e => toggleAllowed('allowedIsos', i.volid, e.target.checked)} />
+                          <span>{i.name}</span>
+                        </label>
+                      ))}
+                      <small className="hint-text">Keine Auswahl = alle gefundenen ISOs sind für Benutzer verfügbar.</small>
+                    </div>
+                  )}
+                  {form.allowedIsos.length > 0 && isos.length === 0 && (
+                    <small className="hint-text">{form.allowedIsos.length} ISO(s) freigegeben. „ISOs abrufen", um die Auswahl zu ändern.</small>
+                  )}
                 </div>
               )}
 

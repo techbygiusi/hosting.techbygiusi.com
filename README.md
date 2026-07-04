@@ -1,96 +1,123 @@
 # Hosting Portal - Changelog
 
+## v2.3.1 - 2026-07-04
+
+**Commit:** `fix: v2.3.1 - disk-storage dropdown only lists disk-capable storages (content images/rootdir), fetched live`
+
+### Self-service
+- The Disk-Storage dropdown now only lists storages that can actually hold VM disks (`images`) or CT rootfs (`rootdir`), fetched live from the cluster - pure ISO/template storages like plain `local` are no longer offered.
+- Each option shows its storage type (e.g. `local-lvm (lvmthin)`). If no disk-capable storage is reported, the field falls back to free-text input.
+
+---
+
+## v2.3.0 - 2026-07-04
+
+**Commit:** `feat: v2.3.0 - selectable allowed templates/ISOs per cluster, fix self-service storage-row layout`
+
+### Self-service
+- After fetching templates/ISOs the admin can now **select which ones users may choose** (multi-select checkbox list, with "All"/"None" shortcuts). The selection is stored per cluster.
+- Users only see the released templates/ISOs in the creation wizard's dropdown. No selection = all found entries are available (unchanged behaviour).
+- New per-cluster columns `allowed_templates` / `allowed_isos` (JSON lists of volids).
+
+### UI fixes
+- Fixed the broken self-service storage row: the "Fetch templates/ISOs" button now matches the input height and no longer wraps or overflows; the fetched list renders as a proper selectable list below it.
+
+### Update notes
+- Rebuild with `docker compose up -d --build`. The database migrates itself (new columns `allowed_templates`, `allowed_isos`).
+
+---
+
 ## v2.2.1 - 2026-07-04
 
-**Commit:** `fix: v2.2.1 – token-berechtigungen immer anzeigen (live-refresh via token prüfen), verschlüsselungs-hinweise entfernt`
+**Commit:** `fix: v2.2.1 - always show token permissions (live refresh via check token), remove encryption hints`
 
-### Cluster / Token-Berechtigungen
-- Die Token-Berechtigungen (Lesen / Power / Konsole / Erstellen) werden jetzt **automatisch beim Öffnen des Cluster-Tabs** angezeigt – nicht mehr erst nach „Token prüfen".
-- „Token prüfen" bleibt und aktualisiert die Anzeige des jeweiligen Clusters **live**, ohne Tab-Wechsel oder Reload; der Button zeigt währenddessen „Prüfe…".
-- Neue Lade- und Fehlerzustände: „Berechtigungen werden geladen…" bzw. ein Hinweis, wenn der Token/die Verbindung nicht abrufbar ist.
+### Cluster / token permissions
+- Token permissions (read / power / console / create) are now shown **automatically when the clusters tab opens** - no longer only after "Check token".
+- "Check token" stays and refreshes a single cluster's badges **live**, with no tab switch or reload; the button shows "Checking..." while it runs.
+- Added loading and error states: "Loading permissions..." and a hint when the token/connection cannot be reached.
 
-### UI-Text
-- Entfernt: die Hinweise „Verschlüsselt gespeichert. Jeder Abruf wird protokolliert." / „AES-256-GCM-verschlüsselt gespeichert" im Zugangsdaten-Bereich (Verschlüsselung/Protokollierung passieren weiterhin, werden aber nicht mehr im UI erwähnt).
+### UI text
+- Removed the "Stored encrypted. Every reveal is logged." / "Stored AES-256-GCM encrypted" hints from the credentials area (encryption and logging still happen, they're just no longer mentioned in the UI).
 
 ---
 
 ## v2.2.0 - 2026-07-04
 
-**Commit:** `feat: v2.2.0 – admin kann ressourcen-zugangsdaten hinterlegen; user behält/löscht sie, admin kann user-daten nicht anfassen`
+**Commit:** `feat: v2.2.0 - admin can attach resource credentials; user keeps/deletes them, admin cannot touch user credentials`
 
-### Zugangsdaten pro Ressource
-- Der **Admin** kann jetzt direkt an einer Ressource Zugangsdaten hinterlegen (Dienste → Karte → „Zugangsdaten hinterlegen"). Diese erscheinen beim Benutzer im Zugangsdaten-Tab mit der Markierung „vom Admin".
-- Der **Benutzer** kann admin-hinterlegte Zugangsdaten ansehen, kopieren und **löschen oder behalten** – aber nicht bearbeiten.
-- **Trennung der Rechte** (serverseitig erzwungen):
-  - Admin sieht/verwaltet nur die von ihm angelegten Einträge; vom Benutzer erstellte Zugangsdaten werden ihm nur als gesperrt angezeigt (kein Klartext, kein Bearbeiten, kein Löschen).
-  - Benutzer-eigene Zugangsdaten kann der Admin weder aufdecken (403) noch löschen (403).
-  - Der Benutzer kann admin-hinterlegte Einträge nicht bearbeiten (403), nur löschen.
-- Neue Spalte `created_by_role` an `resource_credentials` unterscheidet Admin- und Benutzer-Einträge. Jeder Passwort-Abruf wird im Audit-Log protokolliert.
+### Per-resource credentials
+- The **admin** can now attach credentials directly to a resource (Services -> card -> "Add credentials"). These appear in the user's credentials tab marked "from admin".
+- The **user** can view, copy and **keep or delete** admin-provided credentials - but not edit them.
+- **Permission separation** (enforced server-side):
+  - The admin only sees/manages its own entries; user-created credentials are shown to the admin as locked (no plaintext, no editing, no deleting).
+  - The admin can neither reveal (403) nor delete (403) user-owned credentials.
+  - The user cannot edit admin-provided entries (403), only delete them.
+- New `created_by_role` column on `resource_credentials` distinguishes admin and user entries. Every reveal is written to the audit log.
 
-### Update-Hinweise
-- Rebuild mit `docker compose up -d --build`. Die Datenbank migriert sich selbst (neue Spalte `created_by_role`, Standard `user` für bestehende Einträge).
+### Update notes
+- Rebuild with `docker compose up -d --build`. The database migrates itself (new `created_by_role` column, defaulting to `user` for existing entries).
 
 ---
 
 ## v2.1.0 - 2026-07-04
 
-**Commit:** `feat: v2.1.0 – self-service als toggle, provisioning & credentials in settings, CT/VM-typwahl mit live templates/ISOs, log-scroll fix`
+**Commit:** `feat: v2.1.0 - self-service as toggle, provisioning & credentials in settings, CT/VM type choice with live templates/ISOs, log scroll fix`
 
-### Self-Service
-- Der Self-Service-Schalter im Proxmox-Modal ist jetzt ein echter **Toggle**; die Detail-Konfiguration ist von dort entfernt.
-- Neuer Bereich **Einstellungen → Self-Service**: Cluster im Dropdown wählen, dann pro Cluster VMID-/IP-Bereich, Gateway/Bridge, Storages und Limits konfigurieren.
-- **CT/VM-Unterscheidung**: pro Cluster festlegbar, ob Benutzer Container (LXC), VMs (QEMU) oder beides erstellen dürfen.
-- CT-Templates und VM-ISOs werden **live über den API-Token** abgerufen (Storage frei wählbar, „Templates/ISOs abrufen"-Buttons).
-- Optionales, verschlüsseltes **Standard-Root-Passwort** pro Cluster für neue Container.
-- Der Erstell-Wizard unterscheidet nun CT (Template + Root-Passwort) und VM (leere QEMU-VM, bootet vom ausgewählten ISO; OS-Installation über die Konsole).
+### Self-service
+- The self-service switch in the Proxmox modal is now a real **toggle**; the detailed configuration has been moved out of it.
+- New **Settings -> Self-Service** section: pick a cluster from a dropdown, then configure VMID/IP range, gateway/bridge, storages and limits per cluster.
+- **CT/VM distinction**: configurable per cluster whether users may create containers (LXC), VMs (QEMU) or both.
+- CT templates and VM ISOs are fetched **live via the API token** (storage freely selectable, "Fetch templates/ISOs" buttons).
+- Optional, encrypted **default root password** per cluster for new containers.
+- The creation wizard now distinguishes CT (template + root password) and VM (empty QEMU VM booting from the selected ISO; OS installed via the console).
 
-### Zugangsdaten
-- Neuer **Zugangsdaten-Vault** unter Einstellungen: Admin kann zentrale Zugangsdaten hinterlegen, optional an einen Cluster oder Benutzer gekoppelt. AES-256-GCM-verschlüsselt, Anzeigen/Bearbeiten/Löschen, jeder Abruf im Audit-Log.
+### Credentials
+- New **credential vault** under Settings: the admin can store central credentials, optionally linked to a cluster or user. AES-256-GCM encrypted, with reveal/edit/delete and every reveal in the audit log.
 
-### UI-Fixes
-- In der Detailansicht scrollt jetzt **nur der Tab-Inhalt** (z. B. die Log-/Aufgabenliste), Titel und Tabs bleiben fixiert – auf Desktop und im mobilen Bottom-Sheet.
+### UI fixes
+- In the detail view, **only the tab content** scrolls now (e.g. the log/task list); the title and tabs stay fixed - on desktop and in the mobile bottom sheet.
 
-### Update-Hinweise
-- Rebuild mit `docker compose up -d --build`. Die Datenbank migriert sich selbst (neue Spalten `allow_types`, `iso_storage`, `default_password_encrypted`, Tabelle `admin_credentials`).
-- Bestehende Cluster mit aktiviertem Self-Service: Konfiguration einmalig unter Einstellungen → Self-Service prüfen und speichern.
-- Für VM-Self-Service braucht der Token zusätzlich Storage-Rechte für das ISO-Storage; für CT wie gehabt `VM.Allocate`.
+### Update notes
+- Rebuild with `docker compose up -d --build`. The database migrates itself (new columns `allow_types`, `iso_storage`, `default_password_encrypted`, table `admin_credentials`).
+- For existing clusters with self-service enabled: review and save the configuration once under Settings -> Self-Service.
+- VM self-service additionally needs storage rights for the ISO storage on the token; CT works with `VM.Allocate` as before.
 
 ---
 
 ## v2.0.0 - 2026-07-04
 
-**Commit:** `feat: v2.0.0 – power actions, web console, logs, credentials, groups, self-service provisioning & security hardening`
+**Commit:** `feat: v2.0.0 - power actions, web console, logs, credentials, groups, self-service provisioning & security hardening`
 
-### Benutzer
+### Users
 - Added power actions (start, reboot, shutdown, hard stop) on service cards and in the details dialog, with confirmation prompts.
-- Added an **Aufgaben & Logs** tab showing the latest Proxmox tasks per machine with expandable task logs.
-- Added an in-browser **web console** (xterm.js) via a backend WebSocket relay – the Proxmox API token never leaves the server; console sessions use one-time tokens (30 s validity).
-- Added **Zugangsdaten** per service: credentials are stored AES-256-GCM encrypted, can be revealed/copied on demand, and every reveal is written to the audit log.
+- Added a **Tasks & Logs** tab showing the latest Proxmox tasks per machine with expandable task logs.
+- Added an in-browser **web console** (xterm.js) via a backend WebSocket relay - the Proxmox API token never leaves the server; console sessions use one-time tokens (30 s validity).
+- Added **credentials** per service: stored AES-256-GCM encrypted, can be revealed/copied on demand, and every reveal is written to the audit log.
 - Added **self-service machine creation** (LXC) with template selection and CPU/RAM/disk sliders; VMID and IP are allocated automatically from the admin-defined ranges.
 
-### Gruppen
-- Services can now be shared with a **group** in addition to their owner – all group members see and control the resource.
+### Groups
+- Services can now be shared with a **group** in addition to their owner - all group members see and control the resource.
 - Added group management with a member checklist in the admin area.
 
 ### Admin
-- Added per-cluster self-service configuration: VMID range, IP pool (start–end, prefix, gateway), bridge, storage, template storage and limits for cores/RAM/disk.
-- Added **Token prüfen**: live display of the API token permissions (read / power / console / create). Read-only tokens automatically hide power, console and provisioning for all users.
-- Added a **Protokoll** tab with a full audit log (power actions, console opens, credential reveals, machine creation, admin changes) including user, timestamp and IP.
+- Added per-cluster self-service configuration: VMID range, IP pool (start-end, prefix, gateway), bridge, storage, template storage and limits for cores/RAM/disk.
+- Added **Check token**: live display of the API token permissions (read / power / console / create). Read-only tokens automatically hide power, console and provisioning for all users.
+- Added an **Audit** tab with a full audit log (power actions, console opens, credential reveals, machine creation, admin changes) including user, timestamp and IP.
 
-### Sicherheit
+### Security
 - Proxmox API tokens and stored secrets are now encrypted at rest with AES-256-GCM (`ENCRYPTION_KEY` env or auto-generated key in `data/.encryption-key`); legacy plaintext/base64 values keep working and are re-encrypted on save.
 - Removed the hardcoded JWT fallback secret: `JWT_SECRET` env or an auto-generated secret persisted in `data/.jwt-secret`.
-- Added rate limiting (strict on login/password reset, moderate on the API) and a login lockout (5 failed attempts → 15 minutes).
+- Added rate limiting (strict on login/password reset, moderate on the API) and a login lockout (5 failed attempts -> 15 minutes).
 - CORS restrictable via `FRONTEND_ORIGIN`, request body limit lowered to 1 MB, `trust proxy` configurable via `TRUST_PROXY_HOPS`.
 - Task log access is restricted to tasks of the user's own machine.
 
 ### Mobile
 - All modals become full-width **bottom sheets** on mobile: they slide up from the bottom edge with a grab handle and safe-area padding, while desktop keeps centered dialogs.
 
-### Update-Hinweise
-- Rebuild with `docker compose up -d --build` (new deps: `ws`, `express-rate-limit`, `@xterm/xterm`, `@xterm/addon-fit`). The database migrates itself on first start – no data is lost.
+### Update notes
+- Rebuild with `docker compose up -d --build` (new deps: `ws`, `express-rate-limit`, `@xterm/xterm`, `@xterm/addon-fit`). The database migrates itself on first start - no data is lost.
 - The reverse proxy must pass WebSocket upgrades for `/api/console/ws` (already included in the shipped `nginx.conf`; Cloudflare Tunnel handles WebSockets out of the box).
-- Recommended Proxmox token role for full functionality: `VM.Audit`, `VM.PowerMgmt`, `VM.Console`, `VM.Allocate` (+ `Datastore.AllocateSpace` for self-service). Read-only tokens keep working – the portal hides the unavailable features.
+- Recommended Proxmox token role for full functionality: `VM.Audit`, `VM.PowerMgmt`, `VM.Console`, `VM.Allocate` (+ `Datastore.AllocateSpace` for self-service). Read-only tokens keep working - the portal hides the unavailable features.
 
 ---
 

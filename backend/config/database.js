@@ -140,6 +140,9 @@ async function initDatabase() {
       database.run(`ALTER TABLE proxmox_clusters ADD COLUMN allow_types TEXT DEFAULT 'ct'`, () => {});
       // v2.1: ISO storage for VM provisioning
       database.run(`ALTER TABLE proxmox_clusters ADD COLUMN iso_storage TEXT DEFAULT 'local'`, () => {});
+      // v2.3: admin-selected templates/ISOs users may choose from (JSON arrays of volids)
+      database.run(`ALTER TABLE proxmox_clusters ADD COLUMN allowed_templates TEXT`, () => {});
+      database.run(`ALTER TABLE proxmox_clusters ADD COLUMN allowed_isos TEXT`, () => {});
       // v2.1: default root password stored (encrypted) for newly provisioned machines
       database.run(`ALTER TABLE proxmox_clusters ADD COLUMN default_password_encrypted TEXT`, () => {});
 

@@ -282,6 +282,15 @@ router.post('/clusters', async (req, res, next) => {
  * Provisioning config is separated from the base cluster form.
  * It lives under Settings and is edited via PUT /clusters/:id/provisioning.
  */
+function safeParseList(json) {
+  try {
+    const parsed = JSON.parse(json || '[]');
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (_) {
+    return [];
+  }
+}
+
 function normalizeProvisioning(body, existing = {}) {
   const toInt = (value, fallback = null) => {
     const parsed = parseInt(value, 10);
@@ -308,6 +317,13 @@ function normalizeProvisioning(body, existing = {}) {
     }
   }
 
+  const toJsonList = (value, fallbackJson) => {
+    if (value === undefined) return fallbackJson ?? null;
+    if (!Array.isArray(value)) return fallbackJson ?? null;
+    const clean = value.map(v => String(v)).filter(Boolean);
+    return clean.length ? JSON.stringify(clean) : null;
+  };
+
   return {
     allowProvisioning,
     allowTypes,
@@ -321,6 +337,8 @@ function normalizeProvisioning(body, existing = {}) {
     storage: String(body.storage ?? existing.storage ?? 'local-lvm').trim(),
     templateStorage: String(body.templateStorage ?? existing.template_storage ?? 'local').trim(),
     isoStorage: String(body.isoStorage ?? existing.iso_storage ?? 'local').trim(),
+    allowedTemplates: toJsonList(body.allowedTemplates, existing.allowed_templates ?? null),
+    allowedIsos: toJsonList(body.allowedIsos, existing.allowed_isos ?? null),
     maxCores: Math.min(Math.max(toInt(body.maxCores ?? existing.max_cores, 2), 1), 64),
     maxMemoryMb: Math.min(Math.max(toInt(body.maxMemoryMb ?? existing.max_memory_mb, 2048), 256), 262144),
     maxDiskGb: Math.min(Math.max(toInt(body.maxDiskGb ?? existing.max_disk_gb, 20), 4), 4096)
@@ -390,6 +408,8 @@ router.get('/clusters/:id/provisioning', async (req, res, next) => {
         storage: cluster.storage || 'local-lvm',
         templateStorage: cluster.template_storage || 'local',
         isoStorage: cluster.iso_storage || 'local',
+        allowedTemplates: safeParseList(cluster.allowed_templates),
+        allowedIsos: safeParseList(cluster.allowed_isos),
         maxCores: cluster.max_cores ?? 2,
         maxMemoryMb: cluster.max_memory_mb ?? 2048,
         maxDiskGb: cluster.max_disk_gb ?? 20
@@ -410,13 +430,14 @@ router.put('/clusters/:id/provisioning', async (req, res, next) => {
     await run(
       `UPDATE proxmox_clusters SET
         allow_provisioning = ?, allow_types = ?, vmid_min = ?, vmid_max = ?, ip_start = ?, ip_end = ?, ip_prefix = ?,
-        gateway = ?, bridge = ?, storage = ?, template_storage = ?, iso_storage = ?, max_cores = ?, max_memory_mb = ?, max_disk_gb = ?
+        gateway = ?, bridge = ?, storage = ?, template_storage = ?, iso_storage = ?, allowed_templates = ?, allowed_isos = ?, max_cores = ?, max_memory_mb = ?, max_disk_gb = ?
       WHERE id = ?`,
       [
         provisioning.allowProvisioning, provisioning.allowTypes, provisioning.vmidMin, provisioning.vmidMax,
         provisioning.ipStart, provisioning.ipEnd, provisioning.ipPrefix,
         provisioning.gateway, provisioning.bridge, provisioning.storage,
         provisioning.templateStorage, provisioning.isoStorage,
+        provisioning.allowedTemplates, provisioning.allowedIsos,
         provisioning.maxCores, provisioning.maxMemoryMb, provisioning.maxDiskGb,
         req.params.id
       ]
