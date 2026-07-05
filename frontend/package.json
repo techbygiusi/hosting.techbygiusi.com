@@ -1,6 +1,6 @@
 {
   "name": "hosting-portal-frontend",
-  "version": "2.3.1",
+  "version": "2.4.1",
   "description": "Hosting Management Portal - Frontend",
   "private": true,
   "dependencies": {
@@ -37,5 +37,6 @@
   },
   "devDependencies": {
     "nodemon": "^2.0.20"
-  }
+  },
+  "license": "AGPL-3.0-or-later"
 }

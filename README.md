@@ -1,507 +1,301 @@
-# Hosting Portal - Changelog
+# Hosting Portal
 
-## v2.3.1 - 2026-07-04
+A lightweight self-hosted customer portal for Proxmox-based hosting. The portal gives administrators a clean web interface for users, groups, Proxmox clusters, services, credentials, SMTP settings and audit logs. Users can view their assigned services, start/stop them when the token allows it, open a browser console, read task logs, manage service credentials and create/delete their own LXC containers through self-service.
 
-**Commit:** `fix: v2.3.1 - disk-storage dropdown only lists disk-capable storages (content images/rootdir), fetched live`
+The frontend is built with React and the backend with Express + SQLite. Proxmox API tokens and stored secrets are encrypted at rest.
 
-### Self-service
-- The Disk-Storage dropdown now only lists storages that can actually hold VM disks (`images`) or CT rootfs (`rootdir`), fetched live from the cluster - pure ISO/template storages like plain `local` are no longer offered.
-- Each option shows its storage type (e.g. `local-lvm (lvmthin)`). If no disk-capable storage is reported, the field falls back to free-text input.
+## Version
 
----
+Current version: **v2.4.1**
 
-## v2.3.0 - 2026-07-04
+Versioning now follows a clean semantic sequence:
 
-**Commit:** `feat: v2.3.0 - selectable allowed templates/ISOs per cluster, fix self-service storage-row layout`
+- **Patch** versions for small fixes and UI polish.
+- **Minor** versions for user-visible features.
+- **Major** versions only for breaking changes.
 
-### Self-service
-- After fetching templates/ISOs the admin can now **select which ones users may choose** (multi-select checkbox list, with "All"/"None" shortcuts). The selection is stored per cluster.
-- Users only see the released templates/ISOs in the creation wizard's dropdown. No selection = all found entries are available (unchanged behaviour).
-- New per-cluster columns `allowed_templates` / `allowed_isos` (JSON lists of volids).
+The old history is kept below, but new releases should continue from the current `v2.x` line without date or numbering jumps.
 
-### UI fixes
-- Fixed the broken self-service storage row: the "Fetch templates/ISOs" button now matches the input height and no longer wraps or overflows; the fetched list renders as a proper selectable list below it.
+## Highlights
 
-### Update notes
-- Rebuild with `docker compose up -d --build`. The database migrates itself (new columns `allowed_templates`, `allowed_isos`).
+### Admin area
 
----
+- Manage users and administrators.
+- Manage customer groups and share services with group members.
+- Add Proxmox clusters by URL and API token.
+- Show token capabilities directly on the cluster card.
+- Keep the Proxmox cluster card focused on the cluster address and permissions.
+- Assign existing Proxmox LXCs/VMs to users.
+- Store central credentials and optionally link them to users or clusters.
+- Attach credentials to a specific service without exposing user-created credentials back to the admin.
+- Configure SMTP after the first setup.
+- Configure LXC self-service per cluster.
+- Review audit events for power actions, console access, credentials and provisioning.
 
-## v2.2.1 - 2026-07-04
+### User area
 
-**Commit:** `fix: v2.2.1 - always show token permissions (live refresh via check token), remove encryption hints`
+- View assigned services with live status, CPU, RAM and disk information.
+- See the reachable container IP address directly on the service card and in the detail view.
+- Start, stop, reboot or shut down services when the Proxmox token permits it.
+- Open a web console when the Proxmox token permits it.
+- Read recent Proxmox tasks and logs for the assigned service.
+- Manage service credentials.
+- Create new LXC containers through self-service.
+- Delete containers that the user created through self-service.
 
-### Cluster / token permissions
-- Token permissions (read / power / console / create) are now shown **automatically when the clusters tab opens** - no longer only after "Check token".
-- "Check token" stays and refreshes a single cluster's badges **live**, with no tab switch or reload; the button shows "Checking..." while it runs.
-- Added loading and error states: "Loading permissions..." and a hint when the token/connection cannot be reached.
+### Self-service provisioning
 
-### UI text
-- Removed the "Stored encrypted. Every reveal is logged." / "Stored AES-256-GCM encrypted" hints from the credentials area (encryption and logging still happen, they're just no longer mentioned in the UI).
+Self-service has been intentionally LXC-only since v2.4.0. VM creation is no longer exposed to users and stays an administrator task in Proxmox.
 
----
+The backend automatically allocates:
 
-## v2.2.0 - 2026-07-04
+- The next free VMID from the configured VMID range.
+- The next free IPv4 address from the configured IP pool.
 
-**Commit:** `feat: v2.2.0 - admin can attach resource credentials; user keeps/deletes them, admin cannot touch user credentials`
+The IP allocator checks both the portal reservation table and live LXC interface addresses from Proxmox, so containers created outside the portal are respected as well.
 
-### Per-resource credentials
-- The **admin** can now attach credentials directly to a resource (Services -> card -> "Add credentials"). These appear in the user's credentials tab marked "from admin".
-- The **user** can view, copy and **keep or delete** admin-provided credentials - but not edit them.
-- **Permission separation** (enforced server-side):
-  - The admin only sees/manages its own entries; user-created credentials are shown to the admin as locked (no plaintext, no editing, no deleting).
-  - The admin can neither reveal (403) nor delete (403) user-owned credentials.
-  - The user cannot edit admin-provided entries (403), only delete them.
-- New `created_by_role` column on `resource_credentials` distinguishes admin and user entries. Every reveal is written to the audit log.
+Admins configure per cluster:
 
-### Update notes
-- Rebuild with `docker compose up -d --build`. The database migrates itself (new `created_by_role` column, defaulting to `user` for existing entries).
+- Self-service on/off.
+- VMID range.
+- IP range, CIDR prefix and gateway.
+- Bridge.
+- Disk storage, selected from live storages reported by the selected Proxmox node.
+- CT template storage.
+- Allowed CT templates.
+- CPU, RAM and disk limits.
+- Optional default root password for newly created containers.
 
----
+## Recommended Proxmox token rights
 
-## v2.1.0 - 2026-07-04
+A read-only token is enough for monitoring. Extra features appear only when the token has the matching permissions.
 
-**Commit:** `feat: v2.1.0 - self-service as toggle, provisioning & credentials in settings, CT/VM type choice with live templates/ISOs, log scroll fix`
+Recommended role for full portal functionality:
 
-### Self-service
-- The self-service switch in the Proxmox modal is now a real **toggle**; the detailed configuration has been moved out of it.
-- New **Settings -> Self-Service** section: pick a cluster from a dropdown, then configure VMID/IP range, gateway/bridge, storages and limits per cluster.
-- **CT/VM distinction**: configurable per cluster whether users may create containers (LXC), VMs (QEMU) or both.
-- CT templates and VM ISOs are fetched **live via the API token** (storage freely selectable, "Fetch templates/ISOs" buttons).
-- Optional, encrypted **default root password** per cluster for new containers.
-- The creation wizard now distinguishes CT (template + root password) and VM (empty QEMU VM booting from the selected ISO; OS installed via the console).
+- `VM.Audit`
+- `VM.PowerMgmt`
+- `VM.Console`
+- `VM.Allocate`
+- `Datastore.AllocateSpace` on the storage used for LXC disks/templates
 
-### Credentials
-- New **credential vault** under Settings: the admin can store central credentials, optionally linked to a cluster or user. AES-256-GCM encrypted, with reveal/edit/delete and every reveal in the audit log.
+The portal hides unavailable actions when the token does not provide the matching capability.
 
-### UI fixes
-- In the detail view, **only the tab content** scrolls now (e.g. the log/task list); the title and tabs stay fixed - on desktop and in the mobile bottom sheet.
+## Docker Compose
 
-### Update notes
-- Rebuild with `docker compose up -d --build`. The database migrates itself (new columns `allow_types`, `iso_storage`, `default_password_encrypted`, table `admin_credentials`).
-- For existing clusters with self-service enabled: review and save the configuration once under Settings -> Self-Service.
-- VM self-service additionally needs storage rights for the ISO storage on the token; CT works with `VM.Allocate` as before.
+```yaml
+services:
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      DB_PATH: /app/data/hosting.db
+      FRONTEND_ORIGIN: https://your-domain.example
+      TRUST_PROXY_HOPS: 1
+    volumes:
+      - hosting-data:/app/data
 
----
+  frontend:
+    build: ./frontend
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
 
-## v2.0.0 - 2026-07-04
+volumes:
+  hosting-data:
+```
 
-**Commit:** `feat: v2.0.0 - power actions, web console, logs, credentials, groups, self-service provisioning & security hardening`
+Start or update the portal:
 
-### Users
-- Added power actions (start, reboot, shutdown, hard stop) on service cards and in the details dialog, with confirmation prompts.
-- Added a **Tasks & Logs** tab showing the latest Proxmox tasks per machine with expandable task logs.
-- Added an in-browser **web console** (xterm.js) via a backend WebSocket relay - the Proxmox API token never leaves the server; console sessions use one-time tokens (30 s validity).
-- Added **credentials** per service: stored AES-256-GCM encrypted, can be revealed/copied on demand, and every reveal is written to the audit log.
-- Added **self-service machine creation** (LXC) with template selection and CPU/RAM/disk sliders; VMID and IP are allocated automatically from the admin-defined ranges.
+```bash
+docker compose up -d --build
+```
 
-### Groups
-- Services can now be shared with a **group** in addition to their owner - all group members see and control the resource.
-- Added group management with a member checklist in the admin area.
+Open the frontend on port `3000` or place it behind your reverse proxy.
 
-### Admin
-- Added per-cluster self-service configuration: VMID range, IP pool (start-end, prefix, gateway), bridge, storage, template storage and limits for cores/RAM/disk.
-- Added **Check token**: live display of the API token permissions (read / power / console / create). Read-only tokens automatically hide power, console and provisioning for all users.
-- Added an **Audit** tab with a full audit log (power actions, console opens, credential reveals, machine creation, admin changes) including user, timestamp and IP.
+## Environment variables
 
-### Security
-- Proxmox API tokens and stored secrets are now encrypted at rest with AES-256-GCM (`ENCRYPTION_KEY` env or auto-generated key in `data/.encryption-key`); legacy plaintext/base64 values keep working and are re-encrypted on save.
-- Removed the hardcoded JWT fallback secret: `JWT_SECRET` env or an auto-generated secret persisted in `data/.jwt-secret`.
-- Added rate limiting (strict on login/password reset, moderate on the API) and a login lockout (5 failed attempts -> 15 minutes).
-- CORS restrictable via `FRONTEND_ORIGIN`, request body limit lowered to 1 MB, `trust proxy` configurable via `TRUST_PROXY_HOPS`.
-- Task log access is restricted to tasks of the user's own machine.
+### Backend
 
-### Mobile
-- All modals become full-width **bottom sheets** on mobile: they slide up from the bottom edge with a grab handle and safe-area padding, while desktop keeps centered dialogs.
+| Variable | Default | Description |
+| --- | --- | --- |
+| `PORT` | `3001` | Backend API port inside the container. |
+| `DB_PATH` | `backend/data/hosting.db` | SQLite database path. |
+| `JWT_SECRET` | auto-generated in data volume | JWT signing secret. Set it manually for strict production control. |
+| `ENCRYPTION_KEY` | auto-generated in data volume | AES key for Proxmox tokens and stored secrets. Set it manually for strict production control. |
+| `FRONTEND_ORIGIN` | empty | Optional CORS origin, for example `https://portal.example.com`. |
+| `TRUST_PROXY_HOPS` | `0` | Express trust proxy setting for reverse proxy deployments. |
 
-### Update notes
-- Rebuild with `docker compose up -d --build` (new deps: `ws`, `express-rate-limit`, `@xterm/xterm`, `@xterm/addon-fit`). The database migrates itself on first start - no data is lost.
-- The reverse proxy must pass WebSocket upgrades for `/api/console/ws` (already included in the shipped `nginx.conf`; Cloudflare Tunnel handles WebSockets out of the box).
-- Recommended Proxmox token role for full functionality: `VM.Audit`, `VM.PowerMgmt`, `VM.Console`, `VM.Allocate` (+ `Datastore.AllocateSpace` for self-service). Read-only tokens keep working - the portal hides the unavailable features.
+### Frontend
 
----
+| Variable | Default | Description |
+| --- | --- | --- |
+| `REACT_APP_API_URL` | `/api` | API base URL. The shipped Nginx config proxies `/api` to the backend. |
 
-## v1.0.32 - 2026-06-29
+## Reverse proxy notes
 
-**Commit:** `fix: lock modal scroll and refine dark surfaces`
+The frontend container serves the React build through Nginx and proxies `/api/` to the backend. The console feature uses WebSockets, so the reverse proxy must pass WebSocket upgrades for `/api/console/ws`.
 
-- Locked the page background while a popup is open so the dashboard behind it no longer scrolls on desktop or mobile.
-- Replaced the rotating close icon with a subtle button wiggle/hover effect.
-- Reworked dark-mode surface hierarchy so page, main containers, service cards, inner boxes and popups are easier to distinguish while keeping the same dark base background.
-- Strengthened dark-mode danger button contrast for clearer destructive actions.
+The included `frontend/nginx.conf` already contains the required upgrade headers.
 
----
+## Data and security
 
-## v1.0.31 - 2026-06-29
+- SQLite data is stored in the backend data volume.
+- JWT and encryption keys are generated once and persisted in the data volume if they are not supplied by environment variables.
+- Proxmox tokens and stored credentials are encrypted with AES-256-GCM.
+- Legacy plaintext/base64 values are still accepted and are re-encrypted on save.
+- Credential reveal actions are logged in the audit log.
+- User self-service deletion is restricted to containers the same user created through the portal.
 
-**Commit:** `style: improve modal field contrast and close hover`
+## Update notes
 
-- Increased the contrast between light-mode popup backgrounds and the white fields/inner sections so inputs are easier to distinguish.
-- Kept the popup surface neutral grey while making form fields and detail boxes clearly white with a stronger border.
-- Added a subtle hover/focus animation to the modal close button with rotation and contrast feedback.
-- Preserved the service-card light-mode hierarchy and the neutral dark-mode popup styling.
+For normal updates:
 
----
+```bash
+git pull --ff-only
+docker compose up -d --build
+docker image prune -f
+```
 
-## v1.0.30 - 2026-06-29
+The database migrates itself on startup. Keep the backend data volume before updating.
 
-**Commit:** `style: tune light modal surface`
+## Changelog
 
-- Changed the light-mode popup background to the same neutral gray surface used in the app cards instead of the brighter modal look.
-- Kept form fields and inner popup sections white for clear contrast and readability.
-- Preserved the service-card light-mode hierarchy and the neutral dark-mode popup styling.
+### v2.4.1 - 2026-07-05
 
----
+**Commit:** `fix: use only live Proxmox storages in self-service settings`
 
-## v1.0.29 - 2026-06-29
+#### Self-service storage selection
 
-**Commit:** `fix: separate service cards in light mode`
+- The Disk Storage dropdown now shows only live storages returned by the selected Proxmox node.
+- Stale database defaults such as `local-lvm` are no longer injected into the dropdown when that storage is not present on the node.
+- If an old saved storage no longer exists, the settings form automatically switches to the first live storage reported by Proxmox.
+- Saving self-service settings now validates that the selected disk storage is available on the selected node.
+- User-created LXC containers also re-check live storages before provisioning, so stale storage names are not used for new containers.
 
-- Fixed the light-mode **Dienste** section so individual service cards stand out clearly from the surrounding panel.
-- Changed the service cards themselves to white in light mode and set the inner summary boxes back to a light neutral grey.
-- Kept the improved light-mode styling for Benutzer and Proxmox, and kept the darker neutral popup styling in dark mode.
+#### Interface cleanup
 
----
+- Removed explanatory helper text from the credential and template sections to keep the settings page cleaner.
+- Removed the encrypted-storage helper sentence below the default root password field.
+- Removed new-secret placeholders that repeated encryption wording.
 
-## v1.0.28 - 2026-06-28
+### v2.4.0 - 2026-07-05
 
-**Commit:** `style: refine modal and nested surface contrast`
+**Commit:** `feat: make self-service LXC-only and add user-owned container deletion`
 
-- Fixed light-mode nested surfaces so box-in-box layouts stand out more clearly, especially in Proxmox and Benutzer sections.
-- Changed dark-mode popups from a blue-tinted look to a more neutral black/gray surface.
-- Made danger actions in dark mode more visible with stronger red contrast.
-- Kept the compact Dienste cards and the new details modal behavior.
+#### Proxmox cluster cards
 
----
+- Simplified the Proxmox admin card so it shows the cluster name, cluster address and token permissions only.
+- Removed the noisy self-service range details from the card.
+- Kept the token check action for live permission refresh.
 
-## v1.0.27 - 2026-06-29
+#### Settings layout
 
-**Commit:** `feat: show service details in modal`
+- Added spacing between settings panels so SMTP, self-service and credential sections no longer visually touch each other.
 
-- Changed **Details anzeigen** on Dienst cards so it opens a dedicated details popup instead of expanding the card inline.
-- Kept the compact Dienst overview stable while moving metadata, disks and admin actions into the details dialog.
-- On mobile, the details dialog uses the existing full-width bottom-sheet behavior and slides up from the bottom.
-- Updated the README changelog.
+#### Self-service
 
----
+- Removed VM/QEMU creation from the user self-service flow.
+- Kept self-service focused on LXC containers only.
+- Removed VM/ISO choices from the creation modal and admin self-service UI.
+- The backend rejects user VM creation requests even if an old client sends them.
+- The allocator now checks live LXC interface IPs in Proxmox in addition to portal reservations before choosing the next free IP.
 
-## v1.0.26 - 2026-06-29
+#### User container management
 
-**Commit:** `style: remove beige light surfaces`
+- Users can delete containers they created through self-service.
+- Deletion removes the Proxmox resource, portal resource entry, related credentials and IP reservation.
+- Users cannot delete manually assigned admin resources or resources shared through a group.
 
-- Removed the remaining warm/beige-looking light-mode surfaces.
-- Set the light-mode page background to pure white, main containers and popups to neutral cold grey, and nested boxes back to white.
-- Added final light-mode surface overrides so older component rules cannot reintroduce warm tones.
-- Left dark mode unchanged.
+#### IP visibility
 
----
+- The user dashboard now shows the reachable container IP on the service card.
+- The service detail view also shows the primary IP address.
+- Admin service cards and details show the same IP information.
 
-## v1.0.25 - 2026-06-29
+#### Version cleanup
 
-**Commit:** `style: alternate light mode surfaces`
+- Frontend and backend package versions are now `2.4.0`.
+- Backend startup output now reports `v2.4.0`.
+- Package licenses now match the repository license: `AGPL-3.0-or-later`.
 
-- Changed the light-mode page background back to pure white.
-- Kept main cards, panels and popup dialogs on the neutral grey surface.
-- Changed nested boxes inside cards, such as service summary fields and detail rows, back to white so the hierarchy is clearer.
-- Left dark mode unchanged.
+### v2.3.1 - 2026-07-04
 
----
+**Commit:** `fix: limit disk-storage choices to disk-capable Proxmox storages`
 
-## v1.0.24 - 2026-06-28
+- The disk-storage dropdown lists storages that can hold VM disks or CT root filesystems.
+- Storage options show their Proxmox storage type.
+- The field falls back to free text if no disk-capable storage is reported.
 
-**Commit:** `style: restore neutral gray light cards`
+### v2.3.0 - 2026-07-04
 
-- Changed the light-mode container and service card surfaces back to a neutral gray palette instead of the warmer beige tones.
-- Kept the stronger separation between outer cards and inner boxes so the Dienste overview remains readable.
-- Left the dark-mode styling unchanged.
+**Commit:** `feat: add per-cluster template and ISO allowlists`
 
----
+- Admins can select which templates or ISOs users may choose.
+- Users only see released entries in the creation wizard.
+- Added `allowed_templates` and `allowed_isos` database columns.
+- Fixed self-service storage-row wrapping.
 
-## v1.0.23 - 2026-06-28
+### v2.2.1 - 2026-07-04
 
-**Commit:** `style: widen desktop admin layout`
+**Commit:** `fix: show token permissions automatically`
 
-- Increased the desktop app and header width so the admin area uses more available screen space.
-- Let the **Dienste** grid use wider desktop layouts while keeping the mobile layout unchanged.
-- Kept login and setup pages visually centered and preserved the existing light/dark theme behavior.
+- Token permissions are loaded automatically when opening the Proxmox tab.
+- The token check button refreshes a single cluster live.
+- Added permission loading and error states.
+- Removed visible encryption hints from the credentials UI while keeping encryption and logging active.
 
----
+### v2.2.0 - 2026-07-04
 
-## v1.0.22 - 2026-06-28
+**Commit:** `feat: add admin-attached resource credentials`
 
-**Commit:** `fix: increase light mode service card contrast`
+- Admins can attach credentials to a service.
+- Users can reveal, copy or delete admin-provided credentials.
+- Users cannot edit admin-provided credentials.
+- Admins cannot reveal, edit or delete user-created credentials.
+- Added the `created_by_role` column to `resource_credentials`.
 
-- Increased the visual contrast of inner boxes on light-mode **Dienste** cards so Benutzer/Cluster and detail boxes stand out more clearly from the outer card.
-- Kept the dark-mode card styling unchanged because that view already had good contrast.
-- Preserved the compact Dienste overview, the direct website links and the German-only frontend wording.
+### v2.1.0 - 2026-07-04
 
----
+**Commit:** `feat: move provisioning and credentials into settings`
 
-## v1.0.21 - 2026-06-28
+- Moved detailed self-service configuration into Settings.
+- Added per-cluster VMID/IP ranges, gateway, bridge, storage and limits.
+- Added live template and ISO fetching.
+- Added an optional encrypted default root password.
+- Added the admin credential vault.
+- Fixed scrolling in the detail view so only tab content scrolls.
 
-**Commit:** `fix: show service links outside details`
+### v2.0.0 - 2026-07-04
 
-- Shows configured service website links directly on admin service cards again.
-- Keeps technical metadata, disks and admin actions behind **Details anzeigen** so the service overview stays compact.
-- Keeps the existing user dashboard behavior where the public website link is visible directly on the card.
-- Preserves the German-only frontend wording and current TechByGiusi styling.
+**Commit:** `feat: add power actions, console, logs, credentials, groups and self-service`
 
----
+- Added power actions for assigned services.
+- Added browser console support through a backend WebSocket relay.
+- Added tasks and log viewing per machine.
+- Added encrypted credentials per service.
+- Added groups and shared service access.
+- Added self-service provisioning.
+- Added the audit log.
+- Added API token capability detection.
+- Added security hardening for secrets, rate limits, CORS and task access.
 
-## v1.0.20 - 2026-06-28
+### v1.0.x - 2026-06-28 to 2026-06-29
 
-**Commit:** `feat: rename resources to services and collapse details`
+- Initial Dockerized React + Express + SQLite portal.
+- First setup wizard.
+- Proxmox cluster integration.
+- User and admin dashboards.
+- Resource assignment and monitoring.
+- SMTP configuration.
+- Light/dark desktop theme handling.
+- Mobile layout refinements.
+- Disk reporting improvements.
+- UI cleanup, modal fixes and card polish.
 
-- Renamed the frontend resource area to **Dienste** so the portal wording better matches the hosted customer services.
-- Reduced service cards to the most important overview data first: name, type, status, assigned user or cluster, CPU and RAM.
-- Moved detailed metadata, disks, management links and admin actions behind a **Details anzeigen** toggle so the overview stays clean.
-- Applied the collapsed service card behavior to both the admin dashboard and the user dashboard.
-- Kept all visible frontend labels in German and preserved the current TechByGiusi theme behavior.
+## License
 
----
-
-## v1.0.19 - 2026-06-28
-
-**Commit:** `fix: center desktop login card`
-
-- Centered the login card vertically on desktop as well as mobile.
-- Kept setup pages scroll-friendly and unchanged.
-- Preserved the mobile header, mobile theme toggle and floating mobile logout behavior from v1.0.18.
-
----
-
-## v1.0.18 - 2026-06-28
-
-**Commit:** `fix: enable mobile theme toggle and center login`
-
-- Enabled the same dark/light SVG theme toggle on mobile instead of forcing mobile clients to light mode.
-- Kept the mobile header layout with `Hosting by TechByGiusi` on the left and the theme toggle aligned on the right.
-- Kept the mobile logout action as a floating bottom-right SVG button so it does not disturb the header layout.
-- Centered the mobile login card vertically while keeping setup pages scroll-friendly.
-- Preserved the German-only visible frontend labels and the clean TechByGiusi-style surfaces.
-
----
-
-## v1.0.17 - 2026-06-28
-
-**Commit:** `feat: add setup check in settings`
-
-- Added an **Einrichtung prüfen** action to the admin settings area so the initial configuration can be checked again after setup has already been completed.
-- Added a setup check dialog showing administrator, Proxmox and SMTP status without deleting or changing existing configuration.
-- Added direct Proxmox and SMTP test actions inside the setup check dialog; both reuse the already stored credentials where possible.
-- Kept the existing setup route protected for incomplete setup only and kept the UI German-only.
-
----
-
-## v1.0.16 - 2026-06-28
-
-**Commit:** `fix: use solid surfaces for readable dialogs`
-
-- Replaced transparent light-mode surfaces with solid `#ebe9e6` cards so nested elements no longer bleed through each other.
-- Kept the page background at `#F7F5F3` and kept forms on solid white input fields for readable contrast.
-- Reworked modal dialogs with a solid panel, clear overlay, better spacing and mobile scrolling so background cards no longer overlap visually with form fields.
-- Preserved the reduced TechByGiusi-style layout, German-only frontend labels and mobile-only light mode.
-
----
-
-## v1.0.15 - 2026-06-28
-
-**Commit:** `fix: update brand title and mobile logout action`
-
-- Changed the header brand text to `Hosting by TechByGiusi`.
-- Changed the browser tab title to `Tech by Giusi | Hosting`.
-- Changed the mobile logout action to a floating bottom-right SVG icon button.
-- Kept the desktop logout button as a normal text action in the header.
-- Kept mobile locked to light mode and preserved the German-only frontend labels.
-
----
-
-## v1.0.14 - 2026-06-28
-
-**Commit:** `feat: add resource links and edit flows`
-
-- Changed the light mode card surfaces to the simpler `#cccccc45` style from the TechByGiusi reference while keeping the page background `#F7F5F3`.
-- Added separate resource links for public pages and management pages.
-- Added edit dialogs for Benutzer, Proxmox clusters and Ressourcen.
-- Added Proxmox cluster editing with optional token reuse when no new API token is entered.
-- Added resource editing for name, assigned user, cluster, VM/CT ID, public page and management page.
-- Made the overview cards clickable so they open the related admin areas.
-- Kept mobile locked to light mode and preserved the German-only frontend labels.
-
----
-
-## v1.0.13 - 2026-06-28
-
-**Commit:** `fix: reuse saved smtp password for tests`
-
-- Changed the admin SMTP test so an empty password field reuses the already saved SMTP password.
-- Kept the current SMTP host, port and user values editable while still falling back to saved values if a field is not submitted.
-- Updated the SMTP password placeholder to make the saved-password behavior clear.
-
----
-
-## v1.0.12 - 2026-06-28
-
-**Commit:** `style: update light mode background`
-
-- Changed the light mode page background to `#F7F5F3`.
-- Kept cards and input surfaces white so the UI keeps its clean contrast.
-- Kept mobile locked to light mode with the same `#F7F5F3` background.
-
----
-
-## v1.0.11 - 2026-06-28
-
-**Commit:** `fix: replace theme button with neutral icon toggle`
-
-- Replaced the visible Hell/Dunkel text button with a compact neutral icon toggle.
-- Added simple inline SVG sun and moon icons without colored accent styling.
-- Kept the desktop-only theme toggle behavior unchanged and continued to force light mode on mobile.
-- Kept the switch aligned with the header actions.
-
----
-## v1.0.10 - 2026-06-28
-
-**Commit:** `fix: improve resource disk reporting`
-
-- Changed the admin and user header brand text to `TechByGiusi - Hosting`.
-- Expanded Proxmox disk reporting for VMs and LXCs so configured disks are shown individually instead of only showing a single zero value.
-- Added optional QEMU guest-agent filesystem usage detection. If the guest agent reports filesystem usage, the portal shows used and total values; otherwise it shows configured disk size and clearly marks usage as not reported.
-- Added support for multiple configured VM disks such as SCSI, SATA, IDE and VirtIO disks.
-- Kept LXC root disk and mount point detection based on Proxmox config and live status values.
-- Changed the Einstellungen panel to use the same width as Benutzer, Proxmox and Ressourcen.
-- Updated resource cards to display disk details in German with a cleaner layout.
-
----
-
-## v1.0.9 - 2026-06-28
-
-**Commit:** `fix: modernize header and remove tg mark`
-
-- Removed the TG mark from the admin and user headers.
-- Replaced the decorative lamp theme switch with a simple desktop-only light/dark button.
-- Moved the theme button into the header next to Abmelden so all header actions are aligned.
-- Kept mobile locked to light mode and hid the theme button on small screens.
-- Reduced visual decoration, heavy borders, large spacing and oversized typography for a cleaner modern layout.
-- Updated login and setup pages to use the same simple desktop theme action without showing anything on mobile.
-
----
-
-## v1.0.8 - 2026-06-28
-
-**Commit:** `fix: clean ui and add proxmox test action`
-
-- Removed helper/comment-style frontend text from the admin panels, login page and setup sections so the UI stays cleaner and more direct.
-- Removed the logged-in user chip from the top-right header on admin and user pages; only the logout action remains.
-- Added a Proxmox connection test button to the admin cluster creation dialog.
-- Reset the Proxmox test result when cluster fields are changed or the dialog is closed.
-- Reduced remaining heavy font weights across headings, buttons and table headers.
-- Kept all visible frontend labels and messages in German and mobile locked to light mode.
-
----
-
-## v1.0.7 - 2026-06-28
-
-**Commit:** `feat: add monitored resources tab`
-
-- Added a new admin tab named Ressourcen for managed Proxmox containers and VMs.
-- Added resource creation with cluster selection, Proxmox resource loading, user assignment and optional web link.
-- Added backend API routes for creating, listing, updating and deleting resources.
-- Added a new resources database table while keeping the old assignment routes for compatibility.
-- Switched Proxmox monitoring to the read-friendly cluster resources endpoint so PVEAuditor-style API tokens can show live status, CPU, RAM and disk values.
-- Updated the user dashboard so users see their assigned resources with online/offline state, utilization and the configured web link.
-- Cleaned the frontend wording to German-only visible text and reduced heavy font weights and oversized headings.
-- Refined the layout toward the Tech by Giusi design, kept desktop light/dark mode and forced mobile to light mode only.
-
----
-
-## v1.0.6 - 2026-06-28
-
-**Commit:** `feat: simplify admin settings and polish responsive ui`
-
-- Moved the desktop header layout so the logout button no longer sits underneath the lamp light/dark switch.
-- Kept mobile clients locked to light mode and hid the light/dark switch on mobile.
-- Added an admin settings page for SMTP so the mail configuration can be changed after the first setup.
-- Changed user creation so an administrator can set the start password manually and hand it to the user.
-- Removed customer group management from the frontend and simplified assignments to direct user assignments only.
-- Replaced the old role handling with a simple dropdown for Benutzer or Administrator. The first setup user remains administrator automatically.
-- Cleaned and modernized the admin and user dashboards with responsive cards, cleaner tables, mobile-friendly modals and a layout closer to the Tech by Giusi site colors.
-- Rewrote broken inline dashboard CSS and fixed backend route syntax issues from the previous package.
-
----
-
-## v1.0.5 - 2026-06-28
-
-**Commit:** `fix: serve frontend through nginx api proxy`
-
-- Changed the frontend container from the React development server to a production Nginx build. This removes the React development WebSocket errors and prevents the browser from trying to connect to `:3000/ws`.
-- Added an internal Nginx proxy for `/api/` so the browser now calls the same domain instead of `https://domain:3001`. This fixes the API timeout that prevented the first setup wizard from opening.
-- Updated Docker Compose so only the frontend is publicly exposed on port `3000`; the backend remains reachable locally on the server and internally inside the Docker network.
-- Changed the frontend API default to `/api` and updated the frontend environment example.
-- Fixed the login card layout so it no longer stretches across the whole screen.
-- Added a clear backend-unreachable screen instead of silently falling back to the login page when the API cannot be reached.
-- Reset Proxmox and SMTP test results when the related input values are changed.
-- Removed leftover frontend styling comments and fixed an invalid extra brace in the admin dashboard CSS.
-
----
-
-## v1.0.4 - 2026-06-28
-
-**Commit:** `fix: localize frontend and force mobile light mode`
-
-- Forced the mobile frontend to always use light mode and hide the lamp light/dark toggle on mobile screens.
-- Kept the desktop light/dark lamp toggle intact.
-- Translated visible frontend UI texts to German across login, setup, admin dashboard, user dashboard, status messages, confirmations, and fallback error messages.
-- Removed the unfinished password reset link from the login UI until a matching frontend page exists.
-- Added frontend-side translation for common backend/API response messages so errors shown in the UI stay German.
-- Cleaned visible setup text so the interface no longer shows random English helper comments.
-
----
-
-## v1.0.3 - 2026-06-28
-
-**Commit:** `feat: require complete first setup wizard`
-
-- Changed initial setup so it is only complete when all required parts are saved: administrator, Proxmox API, and SMTP.
-- Added setup status detection for missing admin, Proxmox, or SMTP configuration. The portal now redirects to setup on every start until all required parts exist.
-- Reworked the setup wizard into three tabs: Administrator, Proxmox API, and SMTP Mail.
-- Added public first-setup-only test endpoints for Proxmox and SMTP, so both can be tested before the first login.
-- Fixed Proxmox connection tests so HTTP errors like 401/403 are treated as failed tests instead of false success.
-- Matched the portal light and dark mode colors to the WordPress site theme: white/black base, soft card surfaces, muted text, green link accent, dark mode surfaces, and the lamp-style theme toggle.
-- Improved frontend API URL detection so a localhost build value no longer breaks access from another device on the network.
-
----
-
-## v1.0.2 - 2026-06-28
-
-**Commit:** `fix: use node based docker healthchecks`
-
-- Replaced the backend Docker Compose healthcheck from `curl` to a Node.js based check, because the Alpine Node image does not include `curl` by default.
-- Reduced the backend healthcheck waiting time with a shorter `start_period` and faster retry interval.
-- Updated the standalone backend Dockerfile healthcheck to use the same robust Node.js logic.
-- Backend should no longer stay on `waiting` and then become `unhealthy` only because the healthcheck command is missing.
-
----
-
-## v1.0.1 - 2024-06-28
-
-**Commit:** `fix: remove version from docker-compose.yml + npm ci to npm install`
-
-- Changed `npm ci` to `npm install` in Dockerfiles
-- Removed version line from docker-compose.yml
-
----
-
-## v1.0.0 - 2024-06-28
-
-**Commit:** `init: complete hosting portal project scaffold`
-
-- Full backend (Express + SQLite)
-- Full frontend (React 18)
-- 26 API endpoints
-- Admin & User dashboards
-- Proxmox integration
-- Docker Compose setup
-- JWT auth + Bcrypt
-- Email service
-- 100% responsive
+AGPL-3.0-or-later. See `LICENSE`.

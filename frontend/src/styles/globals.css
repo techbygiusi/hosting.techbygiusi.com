@@ -1955,3 +1955,15 @@ body.theme-dark .task-log { background: #111418; }
 /* v2.2.1 – Token-Berechtigungen: Lade-/Fehlerhinweis */
 .caps-loading { opacity: 0.6; }
 .caps-error { color: var(--color-danger); }
+
+/* v2.4 polish */
+.app-container > .panel-card + .panel-card {
+  margin-top: var(--spacing-md);
+}
+.cluster-list-card h2 {
+  margin-top: 0;
+}
+.cluster-address {
+  margin-top: 6px;
+  overflow-wrap: anywhere;
+}

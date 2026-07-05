@@ -131,7 +131,7 @@ async function initDatabase() {
       database.run(`ALTER TABLE proxmox_clusters ADD COLUMN ip_prefix INTEGER DEFAULT 24`, () => {});
       database.run(`ALTER TABLE proxmox_clusters ADD COLUMN gateway TEXT`, () => {});
       database.run(`ALTER TABLE proxmox_clusters ADD COLUMN bridge TEXT DEFAULT 'vmbr0'`, () => {});
-      database.run(`ALTER TABLE proxmox_clusters ADD COLUMN storage TEXT DEFAULT 'local-lvm'`, () => {});
+      database.run(`ALTER TABLE proxmox_clusters ADD COLUMN storage TEXT DEFAULT 'local'`, () => {});
       database.run(`ALTER TABLE proxmox_clusters ADD COLUMN template_storage TEXT DEFAULT 'local'`, () => {});
       database.run(`ALTER TABLE proxmox_clusters ADD COLUMN max_cores INTEGER DEFAULT 2`, () => {});
       database.run(`ALTER TABLE proxmox_clusters ADD COLUMN max_memory_mb INTEGER DEFAULT 2048`, () => {});

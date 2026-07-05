@@ -401,11 +401,15 @@ async function getNodeStorages(clusterUrl, apiToken, node, contentType = null) {
   const response = await client.get(`/api2/json/nodes/${node}/storage`);
   if (response.status < 200 || response.status >= 300) return [];
   return (response.data?.data || [])
-    .filter(item => !contentType || String(item.content || '').split(',').includes(contentType))
+    .filter(item => item && item.storage)
+    .filter(item => item.enabled !== 0 && item.active !== 0 && item.status !== 'disabled')
+    .filter(item => !contentType || String(item.content || '').split(',').map(value => value.trim()).includes(contentType))
     .map(item => ({
       storage: item.storage,
       content: item.content,
-      type: item.type
+      type: item.type,
+      active: item.active,
+      enabled: item.enabled
     }));
 }
 
@@ -446,6 +450,22 @@ async function createLxcContainer(clusterUrl, apiToken, node, options) {
 
   const response = await client.post(`/api2/json/nodes/${node}/lxc`, payload);
   ensureSuccess(response, 'Container konnte nicht erstellt werden:');
+  return { upid: response.data?.data || '', node };
+}
+
+/**
+ * Destroy a VM or LXC and return the task UPID. Used only for user-owned
+ * self-service machines after the backend has verified ownership.
+ */
+async function destroyProxmoxResource(clusterUrl, apiToken, node, type, vmid) {
+  const client = createProxmoxClient(clusterUrl, apiToken);
+  const kind = type === 'lxc' ? 'lxc' : 'qemu';
+  const params = type === 'lxc'
+    ? { purge: 1, force: 1 }
+    : { purge: 1, 'destroy-unreferenced-disks': 1, skiplock: 1 };
+
+  const response = await client.delete(`/api2/json/nodes/${node}/${kind}/${vmid}`, { params });
+  ensureSuccess(response, 'Maschine konnte nicht gelöscht werden:');
   return { upid: response.data?.data || '', node };
 }
 
@@ -496,5 +516,6 @@ module.exports = {
   getNextVmidInRange,
   createLxcContainer,
   createQemuVm,
+  destroyProxmoxResource,
   POWER_ACTIONS
 };

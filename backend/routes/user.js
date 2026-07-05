@@ -1,6 +1,5 @@
 const express = require('express');
 const bcryptjs = require('bcryptjs');
-const crypto = require('crypto');
 const router = express.Router();
 
 const { get, run, all } = require('../config/database');
@@ -17,10 +16,10 @@ const {
   createTermProxy,
   getOnlineNodes,
   getNodeTemplates,
-  getNodeIsos,
+  getNodeStorages,
   getNextVmidInRange,
   createLxcContainer,
-  createQemuVm,
+  destroyProxmoxResource,
   POWER_ACTIONS
 } = require('../services/proxmoxService');
 const { enrichResources } = require('../services/resourceService');
@@ -55,11 +54,15 @@ async function getResourceRowsForUser(userId, resourceId = null) {
       pc.api_token,
       u.name as user_name,
       u.email as user_email,
-      cg.name as group_name
+      cg.name as group_name,
+      pm.id as provisioned_id,
+      pm.ip as provisioned_ip,
+      pm.user_id as provisioned_user_id
     FROM resources r
     JOIN proxmox_clusters pc ON r.cluster_id = pc.id
     JOIN users u ON r.user_id = u.id
     LEFT JOIN customer_groups cg ON r.group_id = cg.id
+    LEFT JOIN provisioned_machines pm ON pm.cluster_id = r.cluster_id AND CAST(pm.vmid AS TEXT) = CAST(r.container_id AS TEXT)
     ${filter}
     ORDER BY r.created_at DESC
   `, params);
@@ -169,6 +172,7 @@ router.get('/resources', async (req, res, next) => {
     res.json({
       resources: resources.map(resource => ({
         ...resource,
+        canDelete: !!resource.canDelete && String(resource.userId) === String(req.user.id) && !!capsByCluster[resource.clusterId]?.canProvision,
         capabilities: capsByCluster[resource.clusterId] || { readOnly: true }
       }))
     });
@@ -184,7 +188,59 @@ router.get('/resources/:id', async (req, res, next) => {
 
     const resources = (await enrichResources(rows)).map(resource => ({ ...resource, adminUrl: '' }));
     const caps = await getClusterCapabilities(rows[0].cluster_id, rows[0].cluster_url, decrypt(rows[0].api_token));
-    res.json({ resource: { ...resources[0], capabilities: caps } });
+    res.json({ resource: { ...resources[0], canDelete: !!resources[0].canDelete && String(resources[0].userId) === String(req.user.id) && !!caps.canProvision, capabilities: caps } });
+  } catch (err) {
+    next(err);
+  }
+});
+
+
+router.delete('/resources/:id', async (req, res, next) => {
+  try {
+    const row = await get(`
+      SELECT
+        r.*,
+        pc.name as cluster_name,
+        pc.url as cluster_url,
+        pc.api_token,
+        pm.id as provisioned_id,
+        pm.vmid as provisioned_vmid,
+        pm.ip as provisioned_ip,
+        pm.user_id as provisioned_user_id
+      FROM resources r
+      JOIN proxmox_clusters pc ON r.cluster_id = pc.id
+      JOIN provisioned_machines pm ON pm.cluster_id = r.cluster_id AND CAST(pm.vmid AS TEXT) = CAST(r.container_id AS TEXT)
+      WHERE r.id = ? AND r.user_id = ? AND pm.user_id = ?
+    `, [req.params.id, req.user.id, req.user.id]);
+
+    if (!row) {
+      throw new AppError('Only self-created machines can be deleted by the user', HTTP_STATUS.FORBIDDEN);
+    }
+
+    const apiToken = decrypt(row.api_token);
+    const caps = await getClusterCapabilities(row.cluster_id, row.cluster_url, apiToken);
+    if (!caps.canProvision) {
+      throw new AppError('Machine deletion is not permitted for this cluster token', HTTP_STATUS.FORBIDDEN);
+    }
+
+    const liveResources = await getAllContainers(row.cluster_url, apiToken);
+    const live = liveResources.find(item => String(item.vmid) === String(row.container_id));
+    let upid = '';
+    let node = live?.node || '';
+
+    if (live) {
+      const result = await destroyProxmoxResource(row.cluster_url, apiToken, live.node, live.type, live.vmid);
+      upid = result.upid || '';
+      node = result.node || live.node;
+    }
+
+    await run('DELETE FROM resource_credentials WHERE resource_id = ?', [req.params.id]);
+    await run('DELETE FROM resources WHERE id = ?', [req.params.id]);
+    await run('DELETE FROM provisioned_machines WHERE id = ?', [row.provisioned_id]);
+
+    await logAudit(req, 'machine.delete', `resource:${req.params.id}`, `${row.name || row.hostname || row.container_id} (VMID ${row.container_id})`);
+
+    res.json({ message: 'Machine deleted', upid, node });
   } catch (err) {
     next(err);
   }
@@ -340,6 +396,7 @@ router.post('/resources/:id/credentials', async (req, res, next) => {
 router.put('/resources/:id/credentials/:credId', async (req, res, next) => {
   try {
     await assertResourceAccess(req.user.id, req.params.id);
+    const { label, username, secret, url, notes } = req.body;
     const cred = await get(
       'SELECT * FROM resource_credentials WHERE id = ? AND resource_id = ?',
       [req.params.credId, req.params.id]
@@ -386,8 +443,8 @@ router.delete('/resources/:id/credentials/:credId', async (req, res, next) => {
 /* ------------------------------------------------------ PROVISIONING ---- */
 /**
  * Clusters where self-service provisioning is enabled AND the API token
- * actually has VM.Allocate. Includes templates (CT), ISOs (VM), allowed
- * types and limits for the wizard.
+ * actually has VM.Allocate. Self-service intentionally exposes only LXC
+ * containers; VM creation stays an admin-only Proxmox task.
  */
 router.get('/provisioning/options', async (req, res, next) => {
   try {
@@ -401,30 +458,20 @@ router.get('/provisioning/options', async (req, res, next) => {
       const caps = await getClusterCapabilities(cluster.id, cluster.url, apiToken);
       if (!caps.canProvision) continue;
 
-      const allowTypes = cluster.allow_types || 'ct';
+      const allowTypes = 'ct';
       let templates = [];
-      let isos = [];
 
       const parseList = (json) => { try { const p = JSON.parse(json || '[]'); return Array.isArray(p) ? p : []; } catch (_) { return []; } };
       const allowedTemplates = parseList(cluster.allowed_templates);
-      const allowedIsos = parseList(cluster.allowed_isos);
 
       try {
         const nodes = await getOnlineNodes(cluster.url, apiToken);
         if (nodes.length > 0) {
           const node = nodes[0].node;
-          if (allowTypes === 'ct' || allowTypes === 'both') {
-            templates = await getNodeTemplates(cluster.url, apiToken, node, cluster.template_storage || 'local');
-            // If the admin picked a subset, only expose those; otherwise show all found
-            if (allowedTemplates.length > 0) {
-              templates = templates.filter(t => allowedTemplates.includes(t.volid));
-            }
-          }
-          if (allowTypes === 'vm' || allowTypes === 'both') {
-            isos = await getNodeIsos(cluster.url, apiToken, node, cluster.iso_storage || 'local');
-            if (allowedIsos.length > 0) {
-              isos = isos.filter(i => allowedIsos.includes(i.volid));
-            }
+          templates = await getNodeTemplates(cluster.url, apiToken, node, cluster.template_storage || 'local');
+          // If the admin picked a subset, only expose those; otherwise show all found
+          if (allowedTemplates.length > 0) {
+            templates = templates.filter(t => allowedTemplates.includes(t.volid));
           }
         }
       } catch (_) { /* templates/isos optional */ }
@@ -437,8 +484,7 @@ router.get('/provisioning/options', async (req, res, next) => {
         maxCores: cluster.max_cores || 2,
         maxMemoryMb: cluster.max_memory_mb || 2048,
         maxDiskGb: cluster.max_disk_gb || 20,
-        templates,
-        isos
+        templates
       });
     }
 
@@ -450,8 +496,11 @@ router.get('/provisioning/options', async (req, res, next) => {
 
 router.post('/provisioning/create', async (req, res, next) => {
   try {
-    const { clusterId, type, hostname, template, iso, cores, memoryMb, diskGb, rootPassword } = req.body;
-    const kind = type === 'vm' ? 'vm' : 'ct';
+    const { clusterId, type, hostname, template, cores, memoryMb, diskGb, rootPassword } = req.body;
+    if (type && type !== 'ct') {
+      throw new AppError('VMs are not allowed on this cluster', HTTP_STATUS.FORBIDDEN);
+    }
+    const kind = 'ct';
 
     const cluster = await get(
       'SELECT * FROM proxmox_clusters WHERE id = ? AND allow_provisioning = 1',
@@ -462,30 +511,22 @@ router.post('/provisioning/create', async (req, res, next) => {
       throw new AppError('Provisioning is not fully configured for this cluster', HTTP_STATUS.BAD_REQUEST);
     }
 
-    // Enforce the admin-selected allowed types
-    const allowTypes = cluster.allow_types || 'ct';
-    if (kind === 'ct' && allowTypes === 'vm') throw new AppError('Container are not allowed on this cluster', HTTP_STATUS.FORBIDDEN);
-    if (kind === 'vm' && allowTypes === 'ct') throw new AppError('VMs are not allowed on this cluster', HTTP_STATUS.FORBIDDEN);
-
     const cleanHostname = String(hostname || '').trim().toLowerCase();
     if (!/^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/.test(cleanHostname)) {
       throw new AppError('Hostname is invalid', HTTP_STATUS.BAD_REQUEST);
     }
 
-    if (kind === 'ct' && (!template || !String(template).includes('vztmpl'))) {
+    if (!template || !String(template).includes('vztmpl')) {
       throw new AppError('Template is invalid', HTTP_STATUS.BAD_REQUEST);
     }
-    if (kind === 'vm' && (!iso || !String(iso).includes('iso'))) {
-      throw new AppError('ISO is invalid', HTTP_STATUS.BAD_REQUEST);
-    }
 
-    // CT needs a root password; VM boots from ISO so a password is optional.
-    // Use the cluster default password if configured and none was provided.
+    // CT needs a root password. Use the cluster default password if configured
+    // and none was provided.
     let password = rootPassword;
     if (!password && cluster.default_password_encrypted) {
       password = decrypt(cluster.default_password_encrypted);
     }
-    if (kind === 'ct' && (!password || String(password).length < 8)) {
+    if (!password || String(password).length < 8) {
       throw new AppError('Root password must be at least 8 characters', HTTP_STATUS.BAD_REQUEST);
     }
 
@@ -504,8 +545,22 @@ router.post('/provisioning/create', async (req, res, next) => {
     const vmid = await getNextVmidInRange(cluster.url, apiToken, cluster.vmid_min, cluster.vmid_max, reserved.map(row => row.vmid));
 
     const usedIps = new Set(
-      (await all('SELECT ip FROM provisioned_machines WHERE cluster_id = ? AND ip IS NOT NULL', [cluster.id])).map(row => row.ip)
+      (await all('SELECT ip FROM provisioned_machines WHERE cluster_id = ? AND ip IS NOT NULL', [cluster.id]))
+        .map(row => stripCidr(row.ip))
+        .filter(Boolean)
     );
+
+    // Also scan live LXC interfaces so the next-free-IP logic respects
+    // containers that were created outside this portal.
+    const liveResources = await getAllContainers(cluster.url, apiToken).catch(() => []);
+    for (const item of liveResources.filter(resource => resource.type === 'lxc')) {
+      const ips = await getContainerIps(cluster.url, apiToken, item.node, item.type, item.vmid).catch(() => []);
+      ips.forEach(entry => {
+        const ipv4 = stripCidr(entry.ipv4 || entry.ip || '');
+        if (ipv4) usedIps.add(ipv4);
+      });
+    }
+
     const ip = allocateIp(cluster.ip_start, cluster.ip_end, usedIps);
     if (!ip) throw new AppError('No free IP address available in the configured range', HTTP_STATUS.BAD_REQUEST);
 
@@ -513,36 +568,26 @@ router.post('/provisioning/create', async (req, res, next) => {
     if (nodes.length === 0) throw new AppError('No online node available', HTTP_STATUS.BAD_REQUEST);
     const node = nodes[0].node;
 
-    let createResult;
-    if (kind === 'vm') {
-      // Empty VM booting from the selected ISO. Network gets a bridge; the
-      // static IP is reserved in the portal (guest OS configures it at install).
-      createResult = await createQemuVm(cluster.url, apiToken, node, {
-        vmid,
-        hostname: cleanHostname,
-        iso,
-        storage: cluster.storage || 'local-lvm',
-        diskGb: safeDisk,
-        cores: safeCores,
-        memoryMb: safeMemory,
-        bridge: cluster.bridge || 'vmbr0'
-      });
-    } else {
-      createResult = await createLxcContainer(cluster.url, apiToken, node, {
-        vmid,
-        hostname: cleanHostname,
-        ostemplate: template,
-        storage: cluster.storage || 'local-lvm',
-        diskGb: safeDisk,
-        cores: safeCores,
-        memoryMb: safeMemory,
-        password,
-        bridge: cluster.bridge || 'vmbr0',
-        ip,
-        ipPrefix: cluster.ip_prefix || 24,
-        gateway: cluster.gateway
-      });
-    }
+    const liveStorages = await getNodeStorages(cluster.url, apiToken, node);
+    const liveStorageNames = liveStorages.map(item => item.storage);
+    const configuredStorage = cluster.storage || 'local';
+    const selectedStorage = liveStorageNames.includes(configuredStorage) ? configuredStorage : liveStorageNames[0];
+    if (!selectedStorage) throw new AppError('No available Proxmox storage found on the selected node', HTTP_STATUS.BAD_REQUEST);
+
+    const createResult = await createLxcContainer(cluster.url, apiToken, node, {
+      vmid,
+      hostname: cleanHostname,
+      ostemplate: template,
+      storage: selectedStorage,
+      diskGb: safeDisk,
+      cores: safeCores,
+      memoryMb: safeMemory,
+      password,
+      bridge: cluster.bridge || 'vmbr0',
+      ip,
+      ipPrefix: cluster.ip_prefix || 24,
+      gateway: cluster.gateway
+    });
 
     await run(
       'INSERT INTO provisioned_machines (cluster_id, vmid, ip, hostname, user_id) VALUES (?, ?, ?, ?, ?)',
@@ -570,6 +615,10 @@ router.post('/provisioning/create', async (req, res, next) => {
     next(err);
   }
 });
+
+function stripCidr(ip) {
+  return String(ip || '').split('/')[0].trim();
+}
 
 function ipToLong(ip) {
   const parts = String(ip || '').split('.').map(Number);

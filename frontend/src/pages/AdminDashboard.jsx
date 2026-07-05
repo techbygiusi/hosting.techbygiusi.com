@@ -17,12 +17,6 @@ function LogoutIcon() {
 
 const emptyUser = { email: '', name: '', password: '', role: 'user' };
 const emptyCluster = { name: '', url: '', apiToken: '', allowProvisioning: false };
-const emptyProvisioning = {
-  allowProvisioning: false, allowTypes: 'ct', vmidMin: '', vmidMax: '',
-  ipStart: '', ipEnd: '', ipPrefix: '24', gateway: '',
-  bridge: 'vmbr0', storage: 'local-lvm', templateStorage: 'local', isoStorage: 'local',
-  maxCores: '2', maxMemoryMb: '2048', maxDiskGb: '20', defaultPassword: ''
-};
 const emptyResource = { name: '', containerId: '', clusterId: '', userId: '', groupId: '', publicUrl: '', adminUrl: '' };
 const emptyGroup = { name: '', memberIds: [] };
 const emptyAdminCred = { label: '', username: '', secret: '', url: '', notes: '', clusterId: '', userId: '' };
@@ -782,16 +776,10 @@ export default function AdminDashboard() {
             ) : (
               <div className="list-grid">
                 {clusters.map(item => (
-                  <article key={item.id} className="list-card">
+                  <article key={item.id} className="list-card cluster-list-card">
                     <div>
-                      <span className="resource-id">Proxmox{item.allow_provisioning ? ' · Self-Service aktiv' : ''}</span>
                       <h2>{item.name}</h2>
-                      <p>{item.url}</p>
-                      {item.allow_provisioning && item.vmid_min ? (
-                        <p className="hint-text">{renderAllowTypes(item.allow_types)} · VMID {item.vmid_min}–{item.vmid_max} · IP {item.ip_start}–{item.ip_end}</p>
-                      ) : item.allow_provisioning ? (
-                        <p className="hint-text">Self-Service an – noch nicht konfiguriert (Einstellungen → Self-Service)</p>
-                      ) : null}
+                      <p className="cluster-address">{item.url}</p>
                       {clusterCaps[item.id]
                         ? (clusterCaps[item.id].error
                             ? <p className="hint-text caps-error">Berechtigungen nicht abrufbar – Token/Verbindung prüfen.</p>
@@ -877,7 +865,6 @@ export default function AdminDashboard() {
         {!loading && activeTab === 'settings' && (
           <section className="panel-card">
             <PanelHeader title="Zugangsdaten" action="Hinzufügen" onAction={openCreateCred} />
-            <p className="hint-text panel-hint">Zentral verwaltete Zugangsdaten – optional an einen Cluster oder Benutzer gekoppelt.</p>
             {adminCredentials.length === 0 ? (
               <div className="empty-state soft-box"><h2>Keine Zugangsdaten</h2></div>
             ) : (
@@ -915,7 +902,7 @@ export default function AdminDashboard() {
           <form className="form-stack" onSubmit={handleSaveCred}>
             <label className="form-group"><span>Bezeichnung</span><input type="text" value={newCred.label} onChange={e => setNewCred(prev => ({ ...prev, label: e.target.value }))} placeholder="z. B. Cluster-Root-Login" /></label>
             <label className="form-group"><span>Benutzername</span><input type="text" value={newCred.username} onChange={e => setNewCred(prev => ({ ...prev, username: e.target.value }))} placeholder="Optional" autoComplete="off" /></label>
-            <label className="form-group"><span>Passwort / Secret</span><input type="password" value={newCred.secret} onChange={e => setNewCred(prev => ({ ...prev, secret: e.target.value }))} placeholder={editCredId ? 'Leer lassen, wenn unverändert' : 'Wird verschlüsselt gespeichert'} autoComplete="new-password" /></label>
+            <label className="form-group"><span>Passwort / Secret</span><input type="password" value={newCred.secret} onChange={e => setNewCred(prev => ({ ...prev, secret: e.target.value }))} placeholder={editCredId ? 'Leer lassen, wenn unverändert' : ''} autoComplete="new-password" /></label>
             <label className="form-group"><span>URL</span><input type="url" value={newCred.url} onChange={e => setNewCred(prev => ({ ...prev, url: e.target.value }))} placeholder="Optional" /></label>
             <div className="form-row-2">
               <label className="form-group"><span>Cluster (optional)</span><select value={newCred.clusterId} onChange={e => setNewCred(prev => ({ ...prev, clusterId: e.target.value }))}><option value="">Keiner</option>{clusters.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
@@ -1181,7 +1168,7 @@ function AdminResourceCredentials({ resource, onClose, onError }) {
         <form className="form-stack credential-form" onSubmit={save}>
           <label className="form-group"><span>Bezeichnung</span><input type="text" value={form.label} onChange={e => setForm(prev => ({ ...prev, label: e.target.value }))} placeholder="z. B. SSH root" /></label>
           <label className="form-group"><span>Benutzername</span><input type="text" value={form.username} onChange={e => setForm(prev => ({ ...prev, username: e.target.value }))} placeholder="Optional" autoComplete="off" /></label>
-          <label className="form-group"><span>Passwort / Secret</span><input type="password" value={form.secret} onChange={e => setForm(prev => ({ ...prev, secret: e.target.value }))} placeholder={editId ? 'Leer lassen, wenn unverändert' : 'Wird verschlüsselt gespeichert'} autoComplete="new-password" /></label>
+          <label className="form-group"><span>Passwort / Secret</span><input type="password" value={form.secret} onChange={e => setForm(prev => ({ ...prev, secret: e.target.value }))} placeholder={editId ? 'Leer lassen, wenn unverändert' : ''} autoComplete="new-password" /></label>
           <label className="form-group"><span>URL</span><input type="url" value={form.url} onChange={e => setForm(prev => ({ ...prev, url: e.target.value }))} placeholder="Optional" /></label>
           <label className="form-group"><span>Notizen</span><textarea rows="2" value={form.notes} onChange={e => setForm(prev => ({ ...prev, notes: e.target.value }))} placeholder="Optional"></textarea></label>
           <div className="form-actions"><button type="button" className="btn-secondary" onClick={() => { setShowForm(false); setEditId(null); }}>Abbrechen</button><button type="submit" className="btn-primary" disabled={busy}>{editId ? 'Speichern' : 'Hinzufügen'}</button></div>
@@ -1193,7 +1180,7 @@ function AdminResourceCredentials({ resource, onClose, onError }) {
 
 /**
  * Self-Service configuration per cluster (Settings tab).
- * Cluster dropdown → CT/VM type selection, live storages/templates/ISOs
+ * Cluster dropdown → LXC-only self-service, live storages/templates
  * fetched via the cluster API token, VMID/IP ranges and limits.
  */
 function ProvisioningSettings({ clusters, onSaved, onError, onSuccess }) {
@@ -1201,13 +1188,12 @@ function ProvisioningSettings({ clusters, onSaved, onError, onSuccess }) {
   const [form, setForm] = useState({
     allowProvisioning: false, allowTypes: 'ct', vmidMin: '', vmidMax: '',
     ipStart: '', ipEnd: '', ipPrefix: '24', gateway: '',
-    bridge: 'vmbr0', storage: 'local-lvm', templateStorage: 'local', isoStorage: 'local',
-    allowedTemplates: [], allowedIsos: [],
+    bridge: 'vmbr0', storage: 'local', templateStorage: 'local',
+    allowedTemplates: [],
     maxCores: '2', maxMemoryMb: '2048', maxDiskGb: '20', defaultPassword: ''
   });
   const [storages, setStorages] = useState([]);
   const [templates, setTemplates] = useState([]);
-  const [isos, setIsos] = useState([]);
   const [caps, setCaps] = useState(null);
   const [busy, setBusy] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -1235,31 +1221,26 @@ function ProvisioningSettings({ clusters, onSaved, onError, onSuccess }) {
         const p = provRes.data.provisioning;
         setForm({
           allowProvisioning: !!p.allowProvisioning,
-          allowTypes: p.allowTypes || 'ct',
+          allowTypes: 'ct',
           vmidMin: p.vmidMin === null ? '' : String(p.vmidMin ?? ''),
           vmidMax: p.vmidMax === null ? '' : String(p.vmidMax ?? ''),
           ipStart: p.ipStart || '', ipEnd: p.ipEnd || '', ipPrefix: String(p.ipPrefix ?? '24'),
           gateway: p.gateway || '', bridge: p.bridge || 'vmbr0',
-          storage: p.storage || 'local-lvm', templateStorage: p.templateStorage || 'local',
-          isoStorage: p.isoStorage || 'local',
+          storage: p.storage || 'local', templateStorage: p.templateStorage || 'local',
           allowedTemplates: Array.isArray(p.allowedTemplates) ? p.allowedTemplates : [],
-          allowedIsos: Array.isArray(p.allowedIsos) ? p.allowedIsos : [],
           maxCores: String(p.maxCores ?? '2'), maxMemoryMb: String(p.maxMemoryMb ?? '2048'),
           maxDiskGb: String(p.maxDiskGb ?? '20'), defaultPassword: ''
         });
         setCaps(capRes.data.capabilities);
         setLoaded(true);
-        // storages help pick the right storage names
-        // Disk-Storage: only list storages that can actually hold VM disks
-        // (content 'images') or CT rootfs (content 'rootdir'), fetched live.
         adminApi.getClusterStorages(clusterId).then(res => {
           if (!active) return;
-          const all = res.data.storages || [];
-          const diskCapable = all.filter(s => {
-            const content = String(s.content || '').split(',').map(c => c.trim());
-            return content.includes('images') || content.includes('rootdir');
-          });
-          setStorages(diskCapable.length > 0 ? diskCapable : all);
+          const liveStorages = (res.data.storages || []).filter(s => s && s.storage);
+          setStorages(liveStorages);
+          if (liveStorages.length > 0) {
+            const names = liveStorages.map(s => s.storage);
+            setForm(prev => names.includes(prev.storage) ? prev : { ...prev, storage: names[0] });
+          }
         }).catch(() => setStorages([]));
       } catch (err) {
         onError(getErrorMessage(err, 'Konfiguration konnte nicht geladen werden.'));
@@ -1282,18 +1263,6 @@ function ProvisioningSettings({ clusters, onSaved, onError, onSuccess }) {
     }
   };
 
-  const loadIsos = async () => {
-    try {
-      const res = await adminApi.getClusterIsos(clusterId, form.isoStorage);
-      const found = res.data.isos || [];
-      setIsos(found);
-      if (found.length === 0) onError('Keine ISOs in diesem Storage gefunden.');
-      else if (form.allowedIsos.length === 0) setField('allowedIsos', found.map(i => i.volid));
-    } catch (err) {
-      onError(getErrorMessage(err, 'ISOs konnten nicht geladen werden.'));
-    }
-  };
-
   const save = async (e) => {
     e.preventDefault();
     try {
@@ -1308,14 +1277,12 @@ function ProvisioningSettings({ clusters, onSaved, onError, onSuccess }) {
     }
   };
 
-  const showCt = form.allowTypes === 'ct' || form.allowTypes === 'both';
-  const showVm = form.allowTypes === 'vm' || form.allowTypes === 'both';
   const storageNames = storages.map(s => s.storage);
 
   return (
     <section className="panel-card">
       <PanelHeader title="Self-Service" />
-      <p className="hint-text panel-hint">Wähle einen Cluster und lege fest, was Benutzer selbst erstellen dürfen. Templates und ISOs werden live über den API-Token abgerufen.</p>
+      <p className="hint-text panel-hint">Wähle einen Cluster und lege fest, welche LXC-Container Benutzer selbst erstellen dürfen. Templates werden live über den API-Token abgerufen.</p>
 
       <label className="form-group">
         <span>Cluster</span>
@@ -1341,15 +1308,6 @@ function ProvisioningSettings({ clusters, onSaved, onError, onSuccess }) {
 
           {form.allowProvisioning && (
             <>
-              <label className="form-group">
-                <span>Erlaubte Typen</span>
-                <select value={form.allowTypes} onChange={e => setField('allowTypes', e.target.value)}>
-                  <option value="ct">Nur Container (LXC)</option>
-                  <option value="vm">Nur VMs (QEMU)</option>
-                  <option value="both">Beides</option>
-                </select>
-              </label>
-
               <div className="form-row-2">
                 <label className="form-group"><span>VMID von</span><input type="number" min="100" value={form.vmidMin} onChange={e => setField('vmidMin', e.target.value)} placeholder="900" /></label>
                 <label className="form-group"><span>VMID bis</span><input type="number" min="100" value={form.vmidMax} onChange={e => setField('vmidMax', e.target.value)} placeholder="999" /></label>
@@ -1364,11 +1322,10 @@ function ProvisioningSettings({ clusters, onSaved, onError, onSuccess }) {
               </div>
               <div className="form-row-2">
                 <label className="form-group"><span>Bridge</span><input type="text" value={form.bridge} onChange={e => setField('bridge', e.target.value)} placeholder="vmbr0" /></label>
-                <label className="form-group"><span>Disk-Storage</span>{storages.length > 0 ? <select value={form.storage} onChange={e => setField('storage', e.target.value)}>{!storageNames.includes(form.storage) && <option value={form.storage}>{form.storage}</option>}{storages.map(s => <option key={s.storage} value={s.storage}>{s.storage}{s.type ? ` (${s.type})` : ''}</option>)}</select> : <input type="text" value={form.storage} onChange={e => setField('storage', e.target.value)} placeholder="local-lvm" />}</label>
+                <label className="form-group"><span>Disk-Storage</span><select value={storageNames.includes(form.storage) ? form.storage : ''} onChange={e => setField('storage', e.target.value)} disabled={storages.length === 0}>{storages.length === 0 && <option value="">Keine Live-Storage gefunden</option>}{storages.length > 0 && !storageNames.includes(form.storage) && <option value="" disabled>Bitte auswählen</option>}{storages.map(s => <option key={s.storage} value={s.storage}>{s.storage}{s.type ? ` (${s.type})` : ''}</option>)}</select></label>
               </div>
 
-              {showCt && (
-                <div className="provision-block">
+              <div className="provision-block">
                   <div className="storage-row">
                     <label className="form-group"><span>CT-Template-Storage</span><input type="text" value={form.templateStorage} onChange={e => setField('templateStorage', e.target.value)} placeholder="local" /></label>
                     <button type="button" className="btn-secondary storage-fetch-btn" onClick={loadTemplates}>Templates abrufen</button>
@@ -1388,44 +1345,12 @@ function ProvisioningSettings({ clusters, onSaved, onError, onSuccess }) {
                           <span>{t.name}</span>
                         </label>
                       ))}
-                      <small className="hint-text">Keine Auswahl = alle gefundenen Templates sind für Benutzer verfügbar.</small>
                     </div>
                   )}
                   {form.allowedTemplates.length > 0 && templates.length === 0 && (
                     <small className="hint-text">{form.allowedTemplates.length} Template(s) freigegeben. „Templates abrufen", um die Auswahl zu ändern.</small>
                   )}
-                </div>
-              )}
-
-              {showVm && (
-                <div className="provision-block">
-                  <div className="storage-row">
-                    <label className="form-group"><span>ISO-Storage</span><input type="text" value={form.isoStorage} onChange={e => setField('isoStorage', e.target.value)} placeholder="local" /></label>
-                    <button type="button" className="btn-secondary storage-fetch-btn" onClick={loadIsos}>ISOs abrufen</button>
-                  </div>
-                  {isos.length > 0 && (
-                    <div className="select-list">
-                      <div className="select-list-head">
-                        <span>{isos.length} ISO(s) gefunden – wähle die freigegebenen</span>
-                        <div className="select-list-actions">
-                          <button type="button" onClick={() => setField('allowedIsos', isos.map(i => i.volid))}>Alle</button>
-                          <button type="button" onClick={() => setField('allowedIsos', [])}>Keine</button>
-                        </div>
-                      </div>
-                      {isos.map(i => (
-                        <label key={i.volid} className="select-list-item">
-                          <input type="checkbox" checked={form.allowedIsos.includes(i.volid)} onChange={e => toggleAllowed('allowedIsos', i.volid, e.target.checked)} />
-                          <span>{i.name}</span>
-                        </label>
-                      ))}
-                      <small className="hint-text">Keine Auswahl = alle gefundenen ISOs sind für Benutzer verfügbar.</small>
-                    </div>
-                  )}
-                  {form.allowedIsos.length > 0 && isos.length === 0 && (
-                    <small className="hint-text">{form.allowedIsos.length} ISO(s) freigegeben. „ISOs abrufen", um die Auswahl zu ändern.</small>
-                  )}
-                </div>
-              )}
+              </div>
 
               <div className="form-row-3">
                 <label className="form-group"><span>Max. Kerne</span><input type="number" min="1" value={form.maxCores} onChange={e => setField('maxCores', e.target.value)} /></label>
@@ -1434,7 +1359,6 @@ function ProvisioningSettings({ clusters, onSaved, onError, onSuccess }) {
               </div>
 
               <label className="form-group"><span>Standard-Root-Passwort (optional)</span><input type="password" value={form.defaultPassword} onChange={e => setField('defaultPassword', e.target.value)} placeholder={caps ? 'Leer lassen, wenn unverändert' : ''} autoComplete="new-password" /></label>
-              <p className="hint-text">Wird verschlüsselt gespeichert und für neue Container genutzt, falls der Benutzer keins angibt.</p>
             </>
           )}
 
@@ -1447,12 +1371,6 @@ function ProvisioningSettings({ clusters, onSaved, onError, onSuccess }) {
       {clusterId && busy && !loaded && <div className="loading inline-loading"><span className="spinner"></span><span>Laden...</span></div>}
     </section>
   );
-}
-
-function renderAllowTypes(type) {
-  if (type === 'vm') return 'VMs';
-  if (type === 'both') return 'CT + VM';
-  return 'Container';
 }
 
 function CapabilityBadges({ caps }) {
@@ -1483,6 +1401,7 @@ function renderAuditAction(action) {
     'credential.delete': 'Zugangsdaten gelöscht',
     'credential.reveal': 'Passwort angezeigt',
     'machine.create': 'Maschine erstellt',
+    'machine.delete': 'Maschine gelöscht',
     'group.create': 'Gruppe angelegt',
     'group.update': 'Gruppe geändert',
     'group.delete': 'Gruppe gelöscht',
@@ -1531,6 +1450,7 @@ function ResourceCard({ resource, onEdit, onDelete, onManageCredentials, actionL
   const cpuPercent = getCpuPercent(resource);
   const memPercent = getPercent(resource.mem, resource.maxmem);
   const publicUrl = resource.publicUrl || resource.webUrl;
+  const ipAddress = getPrimaryIp(resource);
 
   return (
     <article className="resource-card compact-resource-card">
@@ -1542,6 +1462,7 @@ function ResourceCard({ resource, onEdit, onDelete, onManageCredentials, actionL
       <div className="resource-summary">
         <div><span>Benutzer</span><strong>{resource.userName || resource.userEmail || 'Nicht gesetzt'}</strong></div>
         <div><span>Cluster</span><strong>{resource.clusterName || 'Unbekannt'}</strong></div>
+        <div><span>IP-Adresse</span><strong>{ipAddress || 'Nicht bekannt'}</strong></div>
         {resource.groupName && <div><span>Gruppe</span><strong>{resource.groupName}</strong></div>}
       </div>
 
@@ -1568,6 +1489,7 @@ function ResourceCard({ resource, onEdit, onDelete, onManageCredentials, actionL
               <span>Node</span><span>{resource.node || 'Unbekannt'}</span>
               <span>Typ</span><span>{renderType(resource.type)}</span>
               <span>ID</span><span>{resource.containerId || 'Unbekannt'}</span>
+              <span>IP-Adresse</span><span>{ipAddress || 'Nicht bekannt'}</span>
               <span>Status</span><span>{renderStatus(resource.status)}</span>
             </div>
             <DiskDetails resource={resource} />
@@ -1629,6 +1551,12 @@ function Metric({ label, percent, detail }) {
 function getPercent(value, max) {
   if (!max) return 0;
   return Math.min(Math.max((Number(value) / Number(max)) * 100, 0), 100);
+}
+
+function getPrimaryIp(resource) {
+  if (resource.primaryIp) return resource.primaryIp;
+  const ips = Array.isArray(resource.ips) ? resource.ips : [];
+  return ips.find(item => item.ipv4)?.ipv4 || '';
 }
 
 function getCpuPercent(resource) {

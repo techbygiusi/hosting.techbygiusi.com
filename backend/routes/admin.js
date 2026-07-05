@@ -105,11 +105,15 @@ async function getResourceRows(where = '', params = []) {
       pc.api_token,
       u.name as user_name,
       u.email as user_email,
-      cg.name as group_name
+      cg.name as group_name,
+      pm.id as provisioned_id,
+      pm.ip as provisioned_ip,
+      pm.user_id as provisioned_user_id
     FROM resources r
     JOIN proxmox_clusters pc ON r.cluster_id = pc.id
     JOIN users u ON r.user_id = u.id
     LEFT JOIN customer_groups cg ON r.group_id = cg.id
+    LEFT JOIN provisioned_machines pm ON pm.cluster_id = r.cluster_id AND CAST(pm.vmid AS TEXT) = CAST(r.container_id AS TEXT)
     ${where}
     ORDER BY r.created_at DESC
   `, params);
@@ -299,8 +303,9 @@ function normalizeProvisioning(body, existing = {}) {
   const isIp = (value) => /^(\d{1,3}\.){3}\d{1,3}$/.test(String(value || '').trim());
 
   const allowProvisioning = (body.allowProvisioning ?? existing.allow_provisioning) ? 1 : 0;
-  const allowTypesRaw = String(body.allowTypes ?? existing.allow_types ?? 'ct').toLowerCase();
-  const allowTypes = ['ct', 'vm', 'both'].includes(allowTypesRaw) ? allowTypesRaw : 'ct';
+  // Self-service is intentionally limited to LXC containers. VM creation
+  // remains an admin-only task in Proxmox.
+  const allowTypes = 'ct';
 
   const vmidMin = toInt(body.vmidMin ?? existing.vmid_min);
   const vmidMax = toInt(body.vmidMax ?? existing.vmid_max);
@@ -334,11 +339,11 @@ function normalizeProvisioning(body, existing = {}) {
     ipPrefix: Math.min(Math.max(toInt(body.ipPrefix ?? existing.ip_prefix, 24), 8), 32),
     gateway: isIp(gateway) ? String(gateway).trim() : null,
     bridge: String(body.bridge ?? existing.bridge ?? 'vmbr0').trim(),
-    storage: String(body.storage ?? existing.storage ?? 'local-lvm').trim(),
+    storage: String(body.storage ?? existing.storage ?? 'local').trim(),
     templateStorage: String(body.templateStorage ?? existing.template_storage ?? 'local').trim(),
-    isoStorage: String(body.isoStorage ?? existing.iso_storage ?? 'local').trim(),
+    isoStorage: String(existing.iso_storage ?? 'local').trim(),
     allowedTemplates: toJsonList(body.allowedTemplates, existing.allowed_templates ?? null),
-    allowedIsos: toJsonList(body.allowedIsos, existing.allowed_isos ?? null),
+    allowedIsos: null,
     maxCores: Math.min(Math.max(toInt(body.maxCores ?? existing.max_cores, 2), 1), 64),
     maxMemoryMb: Math.min(Math.max(toInt(body.maxMemoryMb ?? existing.max_memory_mb, 2048), 256), 262144),
     maxDiskGb: Math.min(Math.max(toInt(body.maxDiskGb ?? existing.max_disk_gb, 20), 4), 4096)
@@ -397,7 +402,7 @@ router.get('/clusters/:id/provisioning', async (req, res, next) => {
     res.json({
       provisioning: {
         allowProvisioning: !!cluster.allow_provisioning,
-        allowTypes: cluster.allow_types || 'ct',
+        allowTypes: 'ct',
         vmidMin: cluster.vmid_min ?? '',
         vmidMax: cluster.vmid_max ?? '',
         ipStart: cluster.ip_start || '',
@@ -405,7 +410,7 @@ router.get('/clusters/:id/provisioning', async (req, res, next) => {
         ipPrefix: cluster.ip_prefix ?? 24,
         gateway: cluster.gateway || '',
         bridge: cluster.bridge || 'vmbr0',
-        storage: cluster.storage || 'local-lvm',
+        storage: cluster.storage || 'local',
         templateStorage: cluster.template_storage || 'local',
         isoStorage: cluster.iso_storage || 'local',
         allowedTemplates: safeParseList(cluster.allowed_templates),
@@ -426,6 +431,17 @@ router.put('/clusters/:id/provisioning', async (req, res, next) => {
     if (!cluster) throw new AppError('Cluster not found', HTTP_STATUS.NOT_FOUND);
 
     const provisioning = normalizeProvisioning(req.body, cluster);
+
+    if (provisioning.allowProvisioning) {
+      const apiToken = decrypt(cluster.api_token);
+      const nodes = await getOnlineNodes(cluster.url, apiToken);
+      if (nodes.length === 0) throw new AppError('No online node available', HTTP_STATUS.BAD_REQUEST);
+      const liveStorages = await getNodeStorages(cluster.url, apiToken, nodes[0].node);
+      const liveStorageNames = liveStorages.map(item => item.storage);
+      if (!liveStorageNames.includes(provisioning.storage)) {
+        throw new AppError('Disk storage is not available on the selected Proxmox node', HTTP_STATUS.BAD_REQUEST);
+      }
+    }
 
     await run(
       `UPDATE proxmox_clusters SET

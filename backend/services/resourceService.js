@@ -1,10 +1,37 @@
-const { getClusterResources, getResourceDiskDetails } = require('./proxmoxService');
+const { getClusterResources, getResourceDiskDetails, getContainerIps } = require('./proxmoxService');
 const { decrypt } = require('./cryptoService');
 
-function normalizeResourceRow(row, liveResource = null, error = null, diskInfo = null) {
+function stripCidr(ip) {
+  return String(ip || '').split('/')[0].trim();
+}
+
+function normalizeIpEntries(entries = []) {
+  return entries
+    .map((entry) => {
+      const ipv4 = stripCidr(entry.ipv4 || entry.ip || '');
+      const ipv6 = String(entry.ipv6 || '').trim();
+      if (!ipv4 && !ipv6) return null;
+      return {
+        interface: entry.interface || entry.name || '',
+        ipv4,
+        ipv6
+      };
+    })
+    .filter(Boolean);
+}
+
+function normalizeResourceRow(row, liveResource = null, error = null, diskInfo = null, ipEntries = []) {
   const liveName = liveResource?.name || liveResource?.id || liveResource?.vmid;
   const disks = Array.isArray(diskInfo?.disks) ? diskInfo.disks : [];
   const filesystems = Array.isArray(diskInfo?.filesystems) ? diskInfo.filesystems : [];
+  const ips = normalizeIpEntries(ipEntries);
+  const provisionedIp = stripCidr(row.provisioned_ip || '');
+  const livePrimaryIp = ips.find(item => item.ipv4)?.ipv4 || '';
+  const primaryIp = provisionedIp || livePrimaryIp;
+
+  if (provisionedIp && !ips.some(item => item.ipv4 === provisionedIp)) {
+    ips.unshift({ interface: 'reserved', ipv4: provisionedIp, ipv6: '' });
+  }
 
   return {
     id: row.id,
@@ -23,6 +50,8 @@ function normalizeResourceRow(row, liveResource = null, error = null, diskInfo =
     disks,
     filesystems,
     uptime: Number(liveResource?.uptime || 0),
+    ips,
+    primaryIp,
     clusterId: row.cluster_id,
     clusterName: row.cluster_name || '',
     userId: row.user_id,
@@ -33,6 +62,7 @@ function normalizeResourceRow(row, liveResource = null, error = null, diskInfo =
     webUrl: row.public_url || row.web_url || '',
     publicUrl: row.public_url || row.web_url || '',
     adminUrl: row.admin_url || '',
+    canDelete: !!row.provisioned_id,
     monitorError: error || null,
     createdAt: row.created_at,
     updatedAt: row.updated_at
@@ -68,6 +98,7 @@ async function enrichResources(rows) {
     for (const row of group.rows) {
       const liveResource = liveResources.find(item => String(item.vmid) === String(row.container_id));
       let diskInfo = null;
+      let ipEntries = [];
       let rowError = clusterError;
 
       if (liveResource && !clusterError) {
@@ -76,9 +107,15 @@ async function enrichResources(rows) {
         } catch (err) {
           rowError = err.message || 'Disk-Informationen konnten nicht geladen werden.';
         }
+
+        try {
+          ipEntries = await getContainerIps(group.clusterUrl, group.apiToken, liveResource.node, liveResource.type, liveResource.vmid);
+        } catch (_) {
+          ipEntries = [];
+        }
       }
 
-      result.push(normalizeResourceRow(row, liveResource, rowError, diskInfo));
+      result.push(normalizeResourceRow(row, liveResource, rowError, diskInfo, ipEntries));
     }
   }
 

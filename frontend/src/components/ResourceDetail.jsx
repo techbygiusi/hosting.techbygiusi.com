@@ -91,6 +91,7 @@ export function PowerControls({ resource, onChanged, compact = false }) {
 }
 
 function OverviewTab({ resource, onChanged }) {
+  const primaryIp = getPrimaryIp(resource);
   return (
     <div className="resource-details detail-modal-content">
       <PowerControls resource={resource} onChanged={onChanged} />
@@ -100,6 +101,7 @@ function OverviewTab({ resource, onChanged }) {
         <span>Node</span><span>{resource.node || 'Unbekannt'}</span>
         <span>Typ</span><span>{renderType(resource.type)}</span>
         <span>ID</span><span>{resource.containerId || 'Unbekannt'}</span>
+        <span>IP-Adresse</span><span>{primaryIp || 'Nicht bekannt'}</span>
         <span>Status</span><span>{renderStatus(resource.status)}</span>
         {resource.uptime > 0 && (<><span>Laufzeit</span><span>{formatUptime(resource.uptime)}</span></>)}
       </div>
@@ -315,7 +317,7 @@ function CredentialsTab({ resource }) {
         <form className="form-stack credential-form" onSubmit={save}>
           <label className="form-group"><span>Bezeichnung</span><input type="text" value={form.label} onChange={event => setForm(prev => ({ ...prev, label: event.target.value }))} placeholder="z. B. SSH root" /></label>
           <label className="form-group"><span>Benutzername</span><input type="text" value={form.username} onChange={event => setForm(prev => ({ ...prev, username: event.target.value }))} placeholder="Optional" autoComplete="off" /></label>
-          <label className="form-group"><span>Passwort / Secret</span><input type="password" value={form.secret} onChange={event => setForm(prev => ({ ...prev, secret: event.target.value }))} placeholder={editId ? 'Leer lassen, wenn unverändert' : 'Wird verschlüsselt gespeichert'} autoComplete="new-password" /></label>
+          <label className="form-group"><span>Passwort / Secret</span><input type="password" value={form.secret} onChange={event => setForm(prev => ({ ...prev, secret: event.target.value }))} placeholder={editId ? 'Leer lassen, wenn unverändert' : ''} autoComplete="new-password" /></label>
           <label className="form-group"><span>URL</span><input type="url" value={form.url} onChange={event => setForm(prev => ({ ...prev, url: event.target.value }))} placeholder="Optional" /></label>
           <label className="form-group"><span>Notizen</span><textarea rows="2" value={form.notes} onChange={event => setForm(prev => ({ ...prev, notes: event.target.value }))} placeholder="Optional"></textarea></label>
           <div className="form-actions">
@@ -329,6 +331,12 @@ function CredentialsTab({ resource }) {
 }
 
 /* -------------------------------------------------------------- HELPERS */
+function getPrimaryIp(resource) {
+  if (resource.primaryIp) return resource.primaryIp;
+  const ips = Array.isArray(resource.ips) ? resource.ips : [];
+  return ips.find(item => item.ipv4)?.ipv4 || '';
+}
+
 function DiskDetails({ resource }) {
   const filesystems = Array.isArray(resource.filesystems) ? resource.filesystems : [];
   const disks = Array.isArray(resource.disks) ? resource.disks : [];

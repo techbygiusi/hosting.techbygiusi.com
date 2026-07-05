@@ -72,6 +72,9 @@ const MESSAGE_TRANSLATIONS = {
   'No free IP address available in the configured range': 'Keine freie IP-Adresse im konfigurierten Bereich verfügbar.',
   'No online node available': 'Kein Node ist gerade online.',
   'Machine creation started': 'Maschine wird erstellt.',
+  'Machine deleted': 'Maschine wurde gelöscht.',
+  'Only self-created machines can be deleted by the user': 'Nur selbst erstellte Maschinen können gelöscht werden.',
+  'Machine deletion is not permitted for this cluster token': 'Der API-Token dieses Clusters erlaubt kein Löschen von Maschinen.',
   'Power action started': 'Aktion wurde gestartet.',
   'ISO is invalid': 'Das ISO-Image ist ungültig.',
   'Container are not allowed on this cluster': 'Auf diesem Cluster sind keine Container erlaubt.',
@@ -223,7 +226,8 @@ export const userApi = {
   updateCredential: (resourceId, credId, data) => apiClient.put(`/user/resources/${resourceId}/credentials/${credId}`, data),
   deleteCredential: (resourceId, credId) => apiClient.delete(`/user/resources/${resourceId}/credentials/${credId}`),
   getProvisioningOptions: () => apiClient.get('/user/provisioning/options'),
-  createMachine: (data) => apiClient.post('/user/provisioning/create', data)
+  createMachine: (data) => apiClient.post('/user/provisioning/create', data),
+  deleteMachine: (resourceId) => apiClient.delete(`/user/resources/${resourceId}`)
 };
 
 export default apiClient;
