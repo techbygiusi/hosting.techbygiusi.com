@@ -313,6 +313,7 @@ router.post('/resources/:id/console', async (req, res, next) => {
     }
 
     const term = await createTermProxy(target.clusterUrl, target.apiToken, target.node, target.type, target.vmid);
+    const autoLogin = target.type === 'lxc' ? await getRootConsoleCredential(req.params.id) : null;
     const sessionToken = createConsoleSession({
       clusterUrl: target.clusterUrl,
       apiToken: target.apiToken,
@@ -329,7 +330,8 @@ router.post('/resources/:id/console', async (req, res, next) => {
       sessionToken,
       user: term.user,
       ticket: term.ticket,
-      wsPath: `/api/console/ws?token=${sessionToken}`
+      wsPath: `/api/console/ws?token=${sessionToken}`,
+      autoLogin
     });
   } catch (err) {
     next(err);
@@ -341,6 +343,28 @@ async function assertResourceAccess(userId, resourceId) {
   const rows = await getResourceRowsForUser(userId, resourceId);
   if (rows.length === 0) throw new AppError('Resource not accessible', HTTP_STATUS.FORBIDDEN);
   return rows[0];
+}
+
+
+async function getRootConsoleCredential(resourceId) {
+  const rows = await all(
+    `SELECT id, label, username, secret_encrypted
+     FROM resource_credentials
+     WHERE resource_id = ?
+       AND secret_encrypted IS NOT NULL
+       AND (
+         LOWER(TRIM(COALESCE(username, ''))) = 'root'
+         OR LOWER(COALESCE(label, '')) LIKE '%root%'
+       )
+     ORDER BY CASE WHEN LOWER(TRIM(COALESCE(username, ''))) = 'root' THEN 0 ELSE 1 END, id DESC
+     LIMIT 1`,
+    [resourceId]
+  );
+  const cred = rows[0];
+  if (!cred) return null;
+  const secret = decrypt(cred.secret_encrypted);
+  if (!secret) return null;
+  return { username: cred.username || 'root', secret };
 }
 
 router.get('/resources/:id/credentials', async (req, res, next) => {

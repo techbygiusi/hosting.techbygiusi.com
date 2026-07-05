@@ -6,7 +6,7 @@ The frontend is built with React and the backend with Express + SQLite. Proxmox 
 
 ## Version
 
-Current version: **v2.5.1**
+Current version: **v2.5.2**
 
 Versioning now follows a clean semantic sequence:
 
@@ -163,6 +163,14 @@ docker image prune -f
 The database migrates itself on startup. Keep the backend data volume before updating.
 
 ## Changelog
+
+### v2.5.2 - 2026-07-05
+
+**Commit:** `feat: place console beside power actions and auto-login root sessions`
+
+- Moved the desktop console button into the power action row, directly before the stop button.
+- LXC console sessions now look for a saved root credential on the resource and automatically answer the login and password prompts when available.
+- Auto-login only uses credentials already attached to the resource and still keeps the console hidden on mobile.
 
 ### v2.5.1 - 2026-07-05
 

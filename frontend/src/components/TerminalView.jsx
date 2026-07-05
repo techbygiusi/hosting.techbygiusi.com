@@ -54,7 +54,7 @@ export default function TerminalView({ resourceId, resourceName, fullscreen = fa
         const res = await userApi.openConsole(resourceId);
         if (disposed) return;
 
-        const { wsPath, user, ticket } = res.data;
+        const { wsPath, user, ticket, autoLogin } = res.data;
         const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
         ws = new WebSocket(`${protocol}://${window.location.host}${wsPath}`);
         ws.binaryType = 'arraybuffer';
@@ -68,11 +68,43 @@ export default function TerminalView({ resourceId, resourceName, fullscreen = fa
           }, 30 * 1000);
         };
 
+        const sendConsoleInput = (input) => {
+          if (ws && ws.readyState === WebSocket.OPEN) {
+            const bytes = new TextEncoder().encode(input);
+            ws.send(`0:${bytes.length}:${input}`);
+          }
+        };
+
+        const autoLoginState = {
+          enabled: !!(autoLogin?.username && autoLogin?.secret),
+          username: autoLogin?.username || 'root',
+          secret: autoLogin?.secret || '',
+          buffer: '',
+          sentUsername: false,
+          sentSecret: false
+        };
+        const stripAnsi = (value) => String(value || '').replace(/\x1b\[[0-9;?]*[ -/]*[@-~]/g, '');
+        const maybeSendAutoLogin = (chunk) => {
+          if (!autoLoginState.enabled || autoLoginState.sentSecret) return;
+          autoLoginState.buffer = (autoLoginState.buffer + stripAnsi(chunk)).slice(-1200);
+          const visible = autoLoginState.buffer;
+          if (!autoLoginState.sentUsername && /(?:^|[\r\n])[^\r\n]{0,80}(?:login|username)\s*:\s*$/i.test(visible)) {
+            autoLoginState.sentUsername = true;
+            setTimeout(() => sendConsoleInput(`${autoLoginState.username}\r`), 180);
+            return;
+          }
+          if (autoLoginState.sentUsername && !autoLoginState.sentSecret && /password\s*:\s*$/i.test(visible)) {
+            autoLoginState.sentSecret = true;
+            setTimeout(() => sendConsoleInput(`${autoLoginState.secret}\r`), 180);
+          }
+        };
+
         ws.onmessage = (event) => {
           const data = typeof event.data === 'string'
             ? event.data
             : new TextDecoder().decode(event.data);
           term.write(data);
+          maybeSendAutoLogin(data);
         };
 
         ws.onclose = () => {
@@ -85,12 +117,7 @@ export default function TerminalView({ resourceId, resourceName, fullscreen = fa
           setMessage('Verbindung zur Konsole fehlgeschlagen.');
         };
 
-        term.onData((input) => {
-          if (ws && ws.readyState === WebSocket.OPEN) {
-            const bytes = new TextEncoder().encode(input);
-            ws.send(`0:${bytes.length}:${input}`);
-          }
-        });
+        term.onData(sendConsoleInput);
       } catch (err) {
         setStatus('error');
         setMessage(getErrorMessage(err, 'Konsole konnte nicht geöffnet werden.'));

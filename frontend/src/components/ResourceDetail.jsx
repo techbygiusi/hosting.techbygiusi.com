@@ -39,13 +39,14 @@ export default function ResourceDetail({ resource, onClose, onChanged }) {
 }
 
 /* ---------------------------------------------------------------- POWER */
-export function PowerControls({ resource, onChanged, compact = false }) {
+export function PowerControls({ resource, onChanged, compact = false, onOpenConsole }) {
   const caps = resource.capabilities || {};
   const [busyAction, setBusyAction] = useState('');
   const [error, setError] = useState('');
   const running = resource.status === 'running';
+  const canOpenConsole = !!onOpenConsole && caps.canConsole && running;
 
-  if (!caps.canPower) return null;
+  if (!caps.canPower && !caps.canConsole) return null;
 
   const runAction = async (action, confirmText) => {
     if (confirmText && !window.confirm(confirmText)) return;
@@ -64,22 +65,33 @@ export function PowerControls({ resource, onChanged, compact = false }) {
 
   return (
     <div className={compact ? 'power-row power-row-compact' : 'power-row'}>
-      {!running && (
+      {!running && caps.canPower && (
         <button type="button" className="btn-primary btn-small" disabled={!!busyAction} onClick={() => runAction('start')}>
           {busyAction === 'start' ? 'Startet...' : 'Starten'}
         </button>
       )}
       {running && (
         <>
-          <button type="button" className="btn-secondary btn-small" disabled={!!busyAction} onClick={() => runAction('reboot', `${resource.name} jetzt neu starten?`)}>
-            {busyAction === 'reboot' ? 'Neustart...' : 'Neu starten'}
-          </button>
-          <button type="button" className="btn-secondary btn-small" disabled={!!busyAction} onClick={() => runAction('shutdown', `${resource.name} herunterfahren?`)}>
-            {busyAction === 'shutdown' ? 'Fährt herunter...' : 'Herunterfahren'}
-          </button>
-          <button type="button" className="btn-danger btn-small" disabled={!!busyAction} onClick={() => runAction('stop', `${resource.name} hart stoppen? Nicht gespeicherte Daten gehen verloren.`)}>
-            {busyAction === 'stop' ? 'Stoppt...' : 'Stopp'}
-          </button>
+          {caps.canPower && (
+            <>
+              <button type="button" className="btn-secondary btn-small" disabled={!!busyAction} onClick={() => runAction('reboot', `${resource.name} jetzt neu starten?`)}>
+                {busyAction === 'reboot' ? 'Neustart...' : 'Neu starten'}
+              </button>
+              <button type="button" className="btn-secondary btn-small" disabled={!!busyAction} onClick={() => runAction('shutdown', `${resource.name} herunterfahren?`)}>
+                {busyAction === 'shutdown' ? 'Fährt herunter...' : 'Herunterfahren'}
+              </button>
+            </>
+          )}
+          {caps.canConsole && (
+            <button type="button" className="btn-secondary btn-small desktop-only-inline" onClick={onOpenConsole} disabled={!canOpenConsole || !!busyAction}>
+              Konsole
+            </button>
+          )}
+          {caps.canPower && (
+            <button type="button" className="btn-danger btn-small" disabled={!!busyAction} onClick={() => runAction('stop', `${resource.name} hart stoppen? Nicht gespeicherte Daten gehen verloren.`)}>
+              {busyAction === 'stop' ? 'Stoppt...' : 'Stopp'}
+            </button>
+          )}
         </>
       )}
       {error && <small className="power-error">{error}</small>}
@@ -89,18 +101,9 @@ export function PowerControls({ resource, onChanged, compact = false }) {
 
 function OverviewTab({ resource, onChanged, onOpenConsole, onClose }) {
   const primaryIp = getPrimaryIp(resource);
-  const caps = resource.capabilities || {};
-  const canOpenConsole = caps.canConsole && resource.status === 'running';
   return (
     <div className="resource-details detail-modal-content">
-      <PowerControls resource={resource} onChanged={onChanged} />
-      {caps.canConsole && (
-        <div className="detail-console-action desktop-only-inline">
-          <button type="button" className="btn-secondary btn-small" onClick={onOpenConsole} disabled={!canOpenConsole}>
-            {canOpenConsole ? 'Konsole in neuem Tab öffnen' : 'Konsole erst nach dem Start verfügbar'}
-          </button>
-        </div>
-      )}
+      <PowerControls resource={resource} onChanged={onChanged} onOpenConsole={onOpenConsole} />
       <div className="resource-meta">
         {resource.groupName && (<><span>Gruppe</span><span>{resource.groupName}</span></>)}
         <span>Cluster</span><span>{resource.clusterName || 'Unbekannt'}</span>

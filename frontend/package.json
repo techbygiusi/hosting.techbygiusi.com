@@ -1,6 +1,6 @@
 {
   "name": "hosting-portal-frontend",
-  "version": "2.5.1",
+  "version": "2.5.2",
   "description": "Hosting Management Portal - Frontend",
   "private": true,
   "dependencies": {
