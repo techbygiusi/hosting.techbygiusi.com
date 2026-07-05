@@ -58,6 +58,8 @@ export default function AdminDashboard() {
   const [auditEntries, setAuditEntries] = useState([]);
   const [auditPage, setAuditPage] = useState(1);
   const [auditSearch, setAuditSearch] = useState('');
+  const [auditSearchDraft, setAuditSearchDraft] = useState('');
+  const [auditLoading, setAuditLoading] = useState(false);
   const [auditMeta, setAuditMeta] = useState({ total: 0, page: 1, limit: 50, pages: 1 });
   const [clusterCaps, setClusterCaps] = useState({}); // clusterId -> capabilities
   const [capsLoading, setCapsLoading] = useState(false);
@@ -94,6 +96,15 @@ export default function AdminDashboard() {
   useEffect(() => {
     if (activeTab === 'audit') loadAudit();
   }, [activeTab, auditPage, auditSearch]);
+
+  useEffect(() => {
+    if (activeTab !== 'audit') return undefined;
+    const timer = setTimeout(() => {
+      setAuditPage(1);
+      setAuditSearch(auditSearchDraft.trim());
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [activeTab, auditSearchDraft]);
 
   const loadData = async (tab = activeTab) => {
     try {
@@ -134,7 +145,7 @@ export default function AdminDashboard() {
 
   const loadAudit = async () => {
     try {
-      setLoading(true);
+      setAuditLoading(true);
       setError('');
       const res = await adminApi.getAudit({ page: auditPage, search: auditSearch });
       setAuditEntries(res.data.entries || []);
@@ -142,7 +153,7 @@ export default function AdminDashboard() {
     } catch (err) {
       setError(getErrorMessage(err, 'Protokoll konnte nicht geladen werden.'));
     } finally {
-      setLoading(false);
+      setAuditLoading(false);
     }
   };
 
@@ -832,18 +843,21 @@ export default function AdminDashboard() {
 
         {!loading && activeTab === 'audit' && (
           <section className="panel-card audit-panel">
-            <PanelHeader title="Protokoll" action="Aktualisieren" onAction={loadAudit} />
-            <div className="audit-toolbar">
+            <PanelHeader title="Protokoll" action={auditLoading ? 'Lädt…' : 'Aktualisieren'} onAction={loadAudit} />
+            <div className="audit-filter-card">
               <label className="form-group audit-search-field">
                 <span>Suche</span>
                 <input
                   type="search"
-                  value={auditSearch}
-                  onChange={e => { setAuditPage(1); setAuditSearch(e.target.value); }}
+                  value={auditSearchDraft}
+                  onChange={e => setAuditSearchDraft(e.target.value)}
                   placeholder="Aktion, Benutzer, Ziel, Details oder IP filtern"
                 />
               </label>
-              <span className="audit-count">{auditMeta.total || 0} Einträge · 50 pro Seite</span>
+              <div className="audit-filter-footer">
+                <span className="audit-count">{auditMeta.total || 0} Einträge · 50 pro Seite{auditLoading ? ' · wird geladen…' : ''}</span>
+                {auditSearchDraft && <button type="button" className="btn-secondary btn-small" onClick={() => { setAuditSearchDraft(''); setAuditSearch(''); setAuditPage(1); }}>Suche leeren</button>}
+              </div>
             </div>
             {auditEntries.length === 0 ? (
               <div className="empty-state soft-box"><h2>Keine Einträge</h2></div>

@@ -2418,41 +2418,92 @@ body.theme-dark {
 /* v2.7.1 - audit paging and filtering */
 .audit-panel {
   display: grid;
-  gap: var(--ui-gap);
+  gap: var(--layout-gap);
 }
-.audit-toolbar {
-  display: flex;
-  align-items: end;
-  justify-content: space-between;
-  gap: var(--ui-gap);
-  flex-wrap: wrap;
+.audit-filter-card {
+  display: grid;
+  gap: var(--layout-gap-sm);
+  padding: var(--layout-padding);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-alt);
 }
 .audit-search-field {
-  flex: 1 1 360px;
-  min-width: min(100%, 280px);
+  width: 100%;
+}
+.audit-filter-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--layout-gap);
+  flex-wrap: wrap;
 }
 .audit-count {
   color: var(--color-text-light);
   font-size: var(--font-size-sm);
-  white-space: nowrap;
 }
 .pagination-row {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: var(--ui-gap);
+  gap: var(--layout-gap);
   color: var(--color-text-light);
 }
+
+/* v2.7.2 - cleaner create-container source selection */
+.provisioning-source-card {
+  display: grid;
+  gap: var(--layout-gap);
+  padding: var(--layout-padding);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg-alt);
+}
+.provisioning-mode-switch {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--layout-gap-sm);
+  padding: 4px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+}
+.provisioning-mode-switch button {
+  min-height: 42px;
+  border: 1px solid transparent;
+  border-radius: calc(var(--radius-md) - 2px);
+  background: transparent;
+  color: var(--color-text-light);
+}
+.provisioning-mode-switch button.active {
+  background: var(--color-surface);
+  border-color: var(--color-border);
+  color: var(--color-text);
+}
+.provisioning-mode-switch button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.provisioning-mode-content {
+  display: grid;
+  gap: var(--layout-gap);
+}
+.provisioning-mode-content.community-script-picker {
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
 @media (max-width: 767px) {
-  .audit-toolbar,
+  .audit-filter-footer,
   .pagination-row {
     align-items: stretch;
     flex-direction: column;
   }
-  .audit-count {
-    white-space: normal;
-  }
+  .audit-filter-footer button,
   .pagination-row button {
     width: 100%;
+  }
+  .provisioning-mode-switch {
+    grid-template-columns: 1fr;
   }
 }

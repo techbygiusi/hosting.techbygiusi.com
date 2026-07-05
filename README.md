@@ -6,7 +6,7 @@ The frontend is built with React and the backend with Express + SQLite. Proxmox 
 
 ## Version
 
-Current version: **v2.7.1**
+Current version: **v2.7.2**
 
 Versioning now follows a clean semantic sequence:
 
@@ -164,6 +164,16 @@ docker image prune -f
 The database migrates itself on startup. Keep the backend data volume before updating.
 
 ## Changelog
+
+### v2.7.2 - 2026-07-05
+
+**Commit:** `fix: polish audit search and provisioning source selection`
+
+- Reworked the audit search area into a separate filter card so the counter and controls no longer collide with the input.
+- Audit search no longer unmounts the panel while typing, so the input keeps focus between characters.
+- Debounced audit filtering to avoid a backend request on every keystroke.
+- Reworked the create-container dialog so users explicitly choose either a template or a Community Script.
+- Template settings and Community Script search are now shown in separate, cleaner sections instead of side by side.
 
 ### v2.7.1 - 2026-07-05
 

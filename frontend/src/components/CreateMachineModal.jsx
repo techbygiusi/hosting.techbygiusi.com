@@ -11,6 +11,7 @@ export default function CreateMachineModal({ options, onClose, onCreated }) {
   const [form, setForm] = useState({
     hostname: '', template: '', communityScript: '', cores: 1, memoryMb: 1024, diskGb: 8, rootPassword: ''
   });
+  const [provisioningMode, setProvisioningMode] = useState('template');
   const [communityScripts, setCommunityScripts] = useState([]);
   const [scriptSearch, setScriptSearch] = useState('');
   const [scriptsLoading, setScriptsLoading] = useState(false);
@@ -49,15 +50,37 @@ export default function CreateMachineModal({ options, onClose, onCreated }) {
     setError('');
   };
 
+  useEffect(() => {
+    if (!cluster) return;
+    if ((cluster.templates || []).length === 0) setProvisioningMode('community');
+  }, [cluster]);
+
+  const handleClusterChange = (value) => {
+    const selected = options.find(item => String(item.clusterId) === String(value));
+    setClusterId(value);
+    setProvisioningMode((selected?.templates || []).length === 0 ? 'community' : 'template');
+    setForm(prev => ({ ...prev, template: '', communityScript: '' }));
+    setError('');
+  };
+
+  const chooseProvisioningMode = (mode) => {
+    setProvisioningMode(mode);
+    setForm(prev => ({ ...prev, template: '', communityScript: '' }));
+    setError('');
+  };
+
   const handleSubmit = async (event) => {
     event.preventDefault();
     if (!cluster) { setError('Bitte einen Cluster auswählen.'); return; }
-    if (!form.template && !form.communityScript) { setError('Bitte ein Template oder ein Community Script auswählen.'); return; }
-    if (form.template && !/^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/.test(form.hostname)) {
+    const useTemplate = provisioningMode === 'template';
+    const useCommunityScript = provisioningMode === 'community';
+    if (useTemplate && !form.template) { setError('Bitte ein Template auswählen.'); return; }
+    if (useCommunityScript && !form.communityScript) { setError('Bitte ein Community Script auswählen.'); return; }
+    if (useTemplate && !/^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/.test(form.hostname)) {
       setError('Hostname: nur Kleinbuchstaben, Zahlen und Bindestriche.');
       return;
     }
-    if (form.template && !cluster.hasDefaultPassword && form.rootPassword.length < 8) {
+    if (useTemplate && !cluster.hasDefaultPassword && form.rootPassword.length < 8) {
       setError('Das Root-Passwort muss mindestens 8 Zeichen lang sein.');
       return;
     }
@@ -68,9 +91,9 @@ export default function CreateMachineModal({ options, onClose, onCreated }) {
       const res = await userApi.createMachine({
         clusterId: cluster.clusterId,
         type: 'ct',
-        hostname: form.hostname,
-        template: form.template,
-        communityScript: form.communityScript,
+        hostname: useTemplate ? form.hostname : '',
+        template: useTemplate ? form.template : '',
+        communityScript: useCommunityScript ? form.communityScript : '',
         cores: form.cores,
         memoryMb: form.memoryMb,
         diskGb: form.diskGb,
@@ -126,83 +149,103 @@ export default function CreateMachineModal({ options, onClose, onCreated }) {
 
         <label className="form-group">
           <span>Cluster</span>
-          <select value={clusterId} onChange={event => { setClusterId(event.target.value); setField('template', ''); setField('communityScript', ''); }}>
+          <select value={clusterId} onChange={event => handleClusterChange(event.target.value)}>
             <option value="">Bitte auswählen</option>
             {options.map(item => <option key={item.clusterId} value={item.clusterId}>{item.clusterName}</option>)}
           </select>
         </label>
 
-        {cluster && <p className="hint-text">Typ: Container (LXC)</p>}
-
-        <label className="form-group">
-          <span>Hostname</span>
-          <input type="text" value={form.hostname} onChange={event => setField('hostname', event.target.value.toLowerCase())} placeholder="meine-app" autoComplete="off" />
-        </label>
-
         {cluster && (
-          <div className="provisioning-choice-grid">
-            <label className="form-group">
-              <span>Template</span>
-              <select value={form.template} onChange={event => { setField('template', event.target.value); if (event.target.value) setField('communityScript', ''); }}>
-                <option value="">Kein Template auswählen</option>
-                {(cluster.templates || []).map(template => (
-                  <option key={template.volid} value={template.volid}>{template.name}</option>
-                ))}
-              </select>
-              {(cluster.templates || []).length === 0 && (
-                <small className="hint-text">Keine Templates gefunden – alternativ Community Script auswählen.</small>
-              )}
-            </label>
-
-            <div className="form-group community-script-picker">
-              <span>Community Script</span>
-              <input type="search" value={scriptSearch} onChange={event => setScriptSearch(event.target.value)} placeholder="Script suchen, z. B. Jellyfin" autoComplete="off" />
-              <select value={form.communityScript} onChange={event => { setField('communityScript', event.target.value); if (event.target.value) setField('template', ''); }} disabled={scriptsLoading}>
-                <option value="">Kein Community Script auswählen</option>
-                {filteredCommunityScripts.map(script => (
-                  <option key={script.id} value={script.id}>{script.name}</option>
-                ))}
-              </select>
-              <small className="hint-text">VPN-, Proxmox-, Backup- und Cleanup-Scripte werden ausgeblendet.</small>
+          <div className="provisioning-source-card">
+            <div className="provisioning-mode-switch" role="tablist" aria-label="Bereitstellungsart">
+              <button
+                type="button"
+                className={provisioningMode === 'template' ? 'active' : ''}
+                onClick={() => chooseProvisioningMode('template')}
+                disabled={(cluster.templates || []).length === 0}
+              >
+                Template
+              </button>
+              <button
+                type="button"
+                className={provisioningMode === 'community' ? 'active' : ''}
+                onClick={() => chooseProvisioningMode('community')}
+              >
+                Community Script
+              </button>
             </div>
+
+            {provisioningMode === 'template' && (
+              <div className="provisioning-mode-content">
+                <p className="hint-text">Typ: Container (LXC)</p>
+                <label className="form-group">
+                  <span>Hostname</span>
+                  <input type="text" value={form.hostname} onChange={event => setField('hostname', event.target.value.toLowerCase())} placeholder="meine-app" autoComplete="off" />
+                </label>
+                <label className="form-group">
+                  <span>Template</span>
+                  <select value={form.template} onChange={event => setField('template', event.target.value)}>
+                    <option value="">Template auswählen</option>
+                    {(cluster.templates || []).map(template => (
+                      <option key={template.volid} value={template.volid}>{template.name}</option>
+                    ))}
+                  </select>
+                  {(cluster.templates || []).length === 0 && (
+                    <small className="hint-text">Keine Templates gefunden. Verwende stattdessen ein Community Script.</small>
+                  )}
+                </label>
+
+                {form.template && (
+                  <>
+                    <div className="slider-grid">
+                      <label className="form-group">
+                        <span>CPU-Kerne · {form.cores}</span>
+                        <input type="range" min="1" max={cluster.maxCores} value={form.cores} onChange={event => setField('cores', Number(event.target.value))} />
+                      </label>
+                      <label className="form-group">
+                        <span>RAM · {form.memoryMb} MB</span>
+                        <input type="range" min="256" max={cluster.maxMemoryMb} step="256" value={form.memoryMb} onChange={event => setField('memoryMb', Number(event.target.value))} />
+                      </label>
+                      <label className="form-group">
+                        <span>Festplatte · {form.diskGb} GB</span>
+                        <input type="range" min="4" max={cluster.maxDiskGb} value={form.diskGb} onChange={event => setField('diskGb', Number(event.target.value))} />
+                      </label>
+                    </div>
+
+                    <label className="form-group">
+                      <span>Root-Passwort</span>
+                      <input type="password" value={form.rootPassword} onChange={event => setField('rootPassword', event.target.value)} placeholder={cluster.hasDefaultPassword ? 'Leer lassen für Cluster-Standard' : 'Mindestens 8 Zeichen'} autoComplete="new-password" />
+                    </label>
+                    <p className="hint-text">VMID und die nächste freie IP-Adresse werden automatisch aus dem freigegebenen Bereich vergeben.</p>
+                  </>
+                )}
+              </div>
+            )}
+
+            {provisioningMode === 'community' && (
+              <div className="provisioning-mode-content community-script-picker">
+                <label className="form-group">
+                  <span>Community Script suchen</span>
+                  <input type="search" value={scriptSearch} onChange={event => setScriptSearch(event.target.value)} placeholder="z. B. Jellyfin" autoComplete="off" />
+                </label>
+                <label className="form-group">
+                  <span>Community Script</span>
+                  <select value={form.communityScript} onChange={event => setField('communityScript', event.target.value)} disabled={scriptsLoading}>
+                    <option value="">Community Script auswählen</option>
+                    {filteredCommunityScripts.map(script => (
+                      <option key={script.id} value={script.id}>{script.name}</option>
+                    ))}
+                  </select>
+                </label>
+                <div className="info-box">Community Scripts werden mit den Standardwerten des jeweiligen Scripts auf der automatisch ausgewählten Node gestartet. VPN-, Proxmox-, Backup- und Cleanup-Scripte werden ausgeblendet.</div>
+              </div>
+            )}
           </div>
-        )}
-
-        {cluster && form.communityScript && (
-          <div className="info-box">Community Scripts werden mit den Standardwerten des jeweiligen Scripts auf der automatisch ausgewählten Node gestartet.</div>
-        )}
-
-        {cluster && form.template && (
-          <div className="slider-grid">
-            <label className="form-group">
-              <span>CPU-Kerne · {form.cores}</span>
-              <input type="range" min="1" max={cluster.maxCores} value={form.cores} onChange={event => setField('cores', Number(event.target.value))} />
-            </label>
-            <label className="form-group">
-              <span>RAM · {form.memoryMb} MB</span>
-              <input type="range" min="256" max={cluster.maxMemoryMb} step="256" value={form.memoryMb} onChange={event => setField('memoryMb', Number(event.target.value))} />
-            </label>
-            <label className="form-group">
-              <span>Festplatte · {form.diskGb} GB</span>
-              <input type="range" min="4" max={cluster.maxDiskGb} value={form.diskGb} onChange={event => setField('diskGb', Number(event.target.value))} />
-            </label>
-          </div>
-        )}
-
-        {cluster && form.template && (
-          <label className="form-group">
-            <span>Root-Passwort</span>
-            <input type="password" value={form.rootPassword} onChange={event => setField('rootPassword', event.target.value)} placeholder={cluster.hasDefaultPassword ? 'Leer lassen für Cluster-Standard' : 'Mindestens 8 Zeichen'} autoComplete="new-password" />
-          </label>
-        )}
-
-        {cluster && form.template && (
-          <p className="hint-text">VMID und die nächste freie IP-Adresse werden automatisch aus dem freigegebenen Bereich vergeben.</p>
         )}
 
         <div className="form-actions">
           <button type="button" className="btn-secondary" onClick={onClose}>Abbrechen</button>
-          <button type="submit" className="btn-primary" disabled={busy}>{busy ? 'Wird gestartet...' : form.communityScript ? 'Community Script starten' : 'Container erstellen'}</button>
+          <button type="submit" className="btn-primary" disabled={busy}>{busy ? 'Wird gestartet...' : provisioningMode === 'community' ? 'Community Script starten' : 'Container erstellen'}</button>
         </div>
       </form>
     </Modal>
