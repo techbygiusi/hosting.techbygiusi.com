@@ -1280,9 +1280,8 @@ function ProvisioningSettings({ clusters, onSaved, onError, onSuccess }) {
   const storageNames = storages.map(s => s.storage);
 
   return (
-    <section className="panel-card">
+    <section className="panel-card provisioning-settings-panel">
       <PanelHeader title="Self-Service" />
-      <p className="hint-text panel-hint">Wähle einen Cluster und lege fest, welche LXC-Container Benutzer selbst erstellen dürfen. Templates werden live über den API-Token abgerufen.</p>
 
       <label className="form-group">
         <span>Cluster</span>
@@ -1297,7 +1296,7 @@ function ProvisioningSettings({ clusters, onSaved, onError, onSuccess }) {
       )}
 
       {clusterId && loaded && (
-        <form className="form-stack" onSubmit={save}>
+        <form className="form-stack provisioning-form" onSubmit={save}>
           <label className="toggle-row">
             <span className="toggle-label">Self-Service für diesen Cluster aktivieren</span>
             <span className="toggle-switch">

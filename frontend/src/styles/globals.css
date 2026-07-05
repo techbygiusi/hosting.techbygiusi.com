@@ -458,7 +458,7 @@ body.theme-dark .test-result.success { color: #c8f1d5; }
 body.theme-dark .test-result.error   { color: #f8c4c4; }
 
 /* ----------------------------------------------------------- APP SHELL */
-.app-page { min-height: 100dvh; background: var(--color-bg); }
+.app-page { min-height: 100dvh; background: var(--color-bg); overflow-x: clip; }
 
 .site-header, .app-topbar {
   position: sticky;
@@ -1062,18 +1062,54 @@ body.theme-dark .icon-button {
     padding: 18px 16px;
     gap: 14px;
   }
-  .site-brand h1 { font-size: 18px; letter-spacing: -0.01em; }
+  .site-brand {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  .site-brand h1 {
+    font-size: 18px;
+    letter-spacing: -0.01em;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
   .site-actions {
     margin-left: auto;
     justify-content: flex-end;
     gap: 8px;
+    flex-shrink: 0;
   }
   .site-actions > *, .topbar-actions > * { flex: 0 0 auto; }
   .site-actions .btn-secondary { width: auto; }
   .site-actions .theme-toggle { display: inline-grid; }
 
-  .app-container { padding: 18px 16px calc(86px + env(safe-area-inset-bottom)); }
-  .app-tabs { gap: 18px; margin-bottom: 18px; }
+  .app-container {
+    padding: 18px 16px calc(86px + env(safe-area-inset-bottom));
+    overflow-x: clip;
+  }
+  .app-tabs {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+    overflow: visible;
+    margin-bottom: 18px;
+    padding: 0;
+    border-bottom: 0;
+  }
+  .app-tabs button {
+    min-height: 40px;
+    padding: 9px 10px;
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    background: var(--color-surface);
+    text-align: center;
+    white-space: normal;
+    line-height: 1.2;
+  }
+  .app-tabs button.active {
+    box-shadow: none;
+    border-color: color-mix(in srgb, var(--color-primary) 42%, var(--color-border));
+    background: color-mix(in srgb, var(--color-primary) 12%, var(--color-surface));
+  }
 
   .auth-shell { padding: 18px 16px; }
   .login-shell {
@@ -1966,4 +2002,29 @@ body.theme-dark .task-log { background: #111418; }
 .cluster-address {
   margin-top: 6px;
   overflow-wrap: anywhere;
+}
+
+/* v2.4.2 – cleaner self-service settings spacing */
+.provisioning-settings-panel > .form-group {
+  margin-top: var(--spacing-md);
+}
+.provisioning-settings-panel .provisioning-form {
+  margin-top: var(--spacing-lg);
+  gap: 20px;
+}
+.provisioning-settings-panel .toggle-row {
+  min-height: 52px;
+  padding: 10px 0 14px;
+  align-items: center;
+}
+.provisioning-settings-panel .form-row-2,
+.provisioning-settings-panel .form-row-3 {
+  gap: 16px;
+}
+
+
+@media (max-width: 520px) {
+  .app-tabs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }

@@ -6,7 +6,7 @@ The frontend is built with React and the backend with Express + SQLite. Proxmox 
 
 ## Version
 
-Current version: **v2.4.1**
+Current version: **v2.4.3**
 
 Versioning now follows a clean semantic sequence:
 
@@ -35,7 +35,7 @@ The old history is kept below, but new releases should continue from the current
 ### User area
 
 - View assigned services with live status, CPU, RAM and disk information.
-- See the reachable container IP address directly on the service card and in the detail view.
+- See the reachable container IP address directly on the service card and in the detail view. Static LXC IPs are read from the Proxmox network config and loopback addresses are ignored.
 - Start, stop, reboot or shut down services when the Proxmox token permits it.
 - Open a web console when the Proxmox token permits it.
 - Read recent Proxmox tasks and logs for the assigned service.
@@ -52,7 +52,7 @@ The backend automatically allocates:
 - The next free VMID from the configured VMID range.
 - The next free IPv4 address from the configured IP pool.
 
-The IP allocator checks both the portal reservation table and live LXC interface addresses from Proxmox, so containers created outside the portal are respected as well.
+The IP allocator checks the portal reservation table, static LXC network config and live LXC interface addresses from Proxmox, so containers created outside the portal are respected as well.
 
 Admins configure per cluster:
 
@@ -163,6 +163,30 @@ docker image prune -f
 The database migrates itself on startup. Keep the backend data volume before updating.
 
 ## Changelog
+
+### v2.4.3 - 2026-07-05
+
+**Commit:** `fix: remove horizontal scrolling from the mobile admin dashboard`
+
+- Reworked the mobile admin navigation tabs into a wrapped button grid instead of a horizontal scroller.
+- Removed page-level horizontal overflow on the mobile dashboard layout.
+- Improved small-screen header behavior so the site title can wrap cleanly without pushing the layout wider than the viewport.
+
+### v2.4.2 - 2026-07-05
+
+**Commit:** `fix: read LXC IPs from Proxmox network config`
+
+#### LXC IP detection
+
+- LXC IP addresses are now read from the Proxmox container network configuration in addition to the live interface endpoint.
+- Static addresses such as `net0: ip=192.168.1.24/24` are shown correctly on service cards and in detail views.
+- Loopback and link-local addresses such as `127.0.0.1` and `169.254.x.x` are ignored, so they no longer appear as the primary service IP.
+- The next-free-IP allocator now also sees static LXC config IPs, which prevents collisions with containers created outside the portal.
+
+#### Settings layout
+
+- Improved the spacing in the self-service settings section, especially between the cluster selector and the enable toggle.
+- Removed the remaining self-service helper sentence from the settings surface to keep the page cleaner.
 
 ### v2.4.1 - 2026-07-05
 

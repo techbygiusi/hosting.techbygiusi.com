@@ -208,24 +208,115 @@ async function getResourceDiskDetails(clusterUrl, apiToken, resource) {
   };
 }
 
+function stripCidrAddress(value) {
+  return String(value || '').split('/')[0].trim();
+}
+
+function isUsableIpv4(value) {
+  const ip = stripCidrAddress(value);
+  if (!/^(\d{1,3}\.){3}\d{1,3}$/.test(ip)) return false;
+  const parts = ip.split('.').map(Number);
+  if (parts.some(part => part < 0 || part > 255)) return false;
+  if (parts[0] === 127 || parts[0] === 0) return false;
+  if (parts[0] === 169 && parts[1] === 254) return false;
+  if (ip === '255.255.255.255') return false;
+  return true;
+}
+
+function isUsableIpv6(value) {
+  const ip = stripCidrAddress(value).toLowerCase();
+  if (!ip || ip === '::1' || ip.startsWith('fe80:')) return false;
+  return ip.includes(':');
+}
+
+function parseKeyValueOptions(value) {
+  const options = {};
+  String(value || '').split(',').map(part => part.trim()).filter(Boolean).forEach((part) => {
+    const index = part.indexOf('=');
+    if (index === -1) options[part] = true;
+    else options[part.slice(0, index)] = part.slice(index + 1);
+  });
+  return options;
+}
+
+function parseLxcNetworkConfig(key, value) {
+  const options = parseKeyValueOptions(value);
+  const ipv4 = isUsableIpv4(options.ip) ? stripCidrAddress(options.ip) : '';
+  const ipv6 = isUsableIpv6(options.ip6) ? stripCidrAddress(options.ip6) : '';
+  if (!ipv4 && !ipv6) return null;
+  return {
+    interface: options.name || key,
+    ipv4,
+    ipv6,
+    source: 'config'
+  };
+}
+
+function normalizeInterfaceIp(name, iface) {
+  const interfaceName = iface?.name || name;
+  const ipv4 = isUsableIpv4(iface?.inet) ? stripCidrAddress(iface.inet) : '';
+  const ipv6 = isUsableIpv6(iface?.inet6) ? stripCidrAddress(iface.inet6) : '';
+  if (!ipv4 && !ipv6) return null;
+  return {
+    interface: interfaceName,
+    ipv4,
+    ipv6,
+    source: 'live'
+  };
+}
+
+function mergeIpEntries(...groups) {
+  const seen = new Set();
+  return groups.flat().filter((entry) => {
+    if (!entry) return false;
+    const key = `${entry.interface}|${entry.ipv4 || ''}|${entry.ipv6 || ''}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  }).sort((a, b) => {
+    const aEth = /^(eth0|net0)$/i.test(a.interface || '') ? 0 : 1;
+    const bEth = /^(eth0|net0)$/i.test(b.interface || '') ? 0 : 1;
+    if (aEth !== bEth) return aEth - bEth;
+    const aStatic = a.source === 'config' ? 0 : 1;
+    const bStatic = b.source === 'config' ? 0 : 1;
+    if (aStatic !== bStatic) return aStatic - bStatic;
+    return String(a.interface || '').localeCompare(String(b.interface || ''), undefined, { numeric: true });
+  });
+}
+
+async function getLxcConfigIps(client, node, vmid) {
+  const response = await client.get(`/api2/json/nodes/${node}/lxc/${vmid}/config`);
+  if (response.status < 200 || response.status >= 300) return [];
+  const config = response.data?.data || {};
+  return Object.entries(config)
+    .filter(([key]) => /^net\d+$/.test(key))
+    .map(([key, value]) => parseLxcNetworkConfig(key, value))
+    .filter(Boolean);
+}
+
+async function getLxcLiveIps(client, node, vmid) {
+  const response = await client.get(`/api2/json/nodes/${node}/lxc/${vmid}/interfaces`);
+  if (response.status < 200 || response.status >= 300) return [];
+  const interfaces = response.data?.data || {};
+  return Object.entries(interfaces)
+    .map(([name, iface]) => normalizeInterfaceIp(name, iface))
+    .filter(Boolean);
+}
+
 async function getContainerIps(clusterUrl, apiToken, node, type, vmid) {
   try {
+    if (type !== 'lxc') return [];
+
     const client = createProxmoxClient(clusterUrl, apiToken);
+    const [configIps, liveIps] = await Promise.all([
+      getLxcConfigIps(client, node, vmid).catch(() => []),
+      getLxcLiveIps(client, node, vmid).catch(() => [])
+    ]);
 
-    if (type === 'lxc') {
-      const response = await client.get(`/api2/json/nodes/${node}/lxc/${vmid}/interfaces`);
-      if (response.status < 200 || response.status >= 300) return [];
-      const interfaces = response.data?.data || {};
-
-      const ips = [];
-      for (const [name, iface] of Object.entries(interfaces)) {
-        if (iface.inet) ips.push({ interface: name, ipv4: iface.inet });
-        if (iface.inet6) ips.push({ interface: name, ipv6: iface.inet6 });
-      }
-      return ips;
-    }
-
-    return [];
+    // Prefer static LXC config because it is visible in Proxmox even when the
+    // container has not fully reported guest interfaces yet. Loopback and
+    // link-local addresses are filtered out before the UI sees them.
+    return mergeIpEntries(configIps, liveIps);
   } catch (error) {
     return [];
   }

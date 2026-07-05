@@ -5,19 +5,35 @@ function stripCidr(ip) {
   return String(ip || '').split('/')[0].trim();
 }
 
+function isUsableIpv4(ip) {
+  const value = stripCidr(ip);
+  if (!/^(\d{1,3}\.){3}\d{1,3}$/.test(value)) return false;
+  const parts = value.split('.').map(Number);
+  if (parts.some(part => part < 0 || part > 255)) return false;
+  if (parts[0] === 127 || parts[0] === 0) return false;
+  if (parts[0] === 169 && parts[1] === 254) return false;
+  return value !== '255.255.255.255';
+}
+
 function normalizeIpEntries(entries = []) {
   return entries
     .map((entry) => {
       const ipv4 = stripCidr(entry.ipv4 || entry.ip || '');
       const ipv6 = String(entry.ipv6 || '').trim();
-      if (!ipv4 && !ipv6) return null;
+      if (!isUsableIpv4(ipv4) && !ipv6) return null;
       return {
         interface: entry.interface || entry.name || '',
-        ipv4,
+        ipv4: isUsableIpv4(ipv4) ? ipv4 : '',
         ipv6
       };
     })
-    .filter(Boolean);
+    .filter(Boolean)
+    .sort((a, b) => {
+      const aEth = /^(eth0|net0)$/i.test(a.interface || '') ? 0 : 1;
+      const bEth = /^(eth0|net0)$/i.test(b.interface || '') ? 0 : 1;
+      if (aEth !== bEth) return aEth - bEth;
+      return String(a.interface || '').localeCompare(String(b.interface || ''), undefined, { numeric: true });
+    });
 }
 
 function normalizeResourceRow(row, liveResource = null, error = null, diskInfo = null, ipEntries = []) {
