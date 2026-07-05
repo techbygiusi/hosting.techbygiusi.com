@@ -6,7 +6,7 @@ The frontend is built with React and the backend with Express + SQLite. Proxmox 
 
 ## Version
 
-Current version: **v2.7.2**
+Current version: **v2.7.5**
 
 Versioning now follows a clean semantic sequence:
 
@@ -164,6 +164,30 @@ docker image prune -f
 The database migrates itself on startup. Keep the backend data volume before updating.
 
 ## Changelog
+
+### v2.7.5 - 2026-07-05
+
+**Commit:** `fix: use full-width bottom sheets on mobile`
+
+- Mobile dialogs no longer appear as floating centered popups.
+- All modal menus slide up from the bottom edge on mobile.
+- Mobile sheets now take the full viewport width and ignore global layout padding.
+- Detail dialogs keep their internal scrolling while using the same bottom-sheet behavior.
+
+### v2.7.4 - 2026-07-05
+
+**Commit:** `fix: allow desktop console for assigned admin services`
+
+- Desktop console access is now shown for every assigned service when the Proxmox token has `VM.Console`.
+- Console access is no longer visually tied to self-service ownership or delete permissions.
+- Admin-created services assigned directly to users or shared through groups can now open the full-page console from the detail view.
+
+### v2.7.3 - 2026-07-05
+
+**Commit:** `fix: align credential toolbar button heights`
+
+- Matched the height of the management-page credential button with the adjacent add button.
+- Keeps credential toolbar actions visually aligned in modals and detail views.
 
 ### v2.7.2 - 2026-07-05
 

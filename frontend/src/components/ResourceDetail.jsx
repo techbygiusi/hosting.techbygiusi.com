@@ -44,7 +44,11 @@ export function PowerControls({ resource, onChanged, compact = false, onOpenCons
   const [busyAction, setBusyAction] = useState('');
   const [error, setError] = useState('');
   const running = resource.status === 'running';
-  const canOpenConsole = !!onOpenConsole && caps.canConsole && running;
+  // Console availability is based on assigned resource access plus the cluster token's
+  // VM.Console permission. It is intentionally not tied to self-service ownership or
+  // delete rights, so admin-created services shared with users can open a desktop
+  // console too. The full console page still handles stopped/unknown machines safely.
+  const canOpenConsole = !!onOpenConsole && !!caps.canConsole;
 
   if (!caps.canPower && !caps.canConsole) return null;
 
@@ -70,29 +74,25 @@ export function PowerControls({ resource, onChanged, compact = false, onOpenCons
           {busyAction === 'start' ? 'Startet...' : 'Starten'}
         </button>
       )}
-      {running && (
+      {running && caps.canPower && (
         <>
-          {caps.canPower && (
-            <>
-              <button type="button" className="btn-secondary btn-small" disabled={!!busyAction} onClick={() => runAction('reboot', `${resource.name} jetzt neu starten?`)}>
-                {busyAction === 'reboot' ? 'Neustart...' : 'Neu starten'}
-              </button>
-              <button type="button" className="btn-secondary btn-small" disabled={!!busyAction} onClick={() => runAction('shutdown', `${resource.name} herunterfahren?`)}>
-                {busyAction === 'shutdown' ? 'Fährt herunter...' : 'Herunterfahren'}
-              </button>
-            </>
-          )}
-          {caps.canConsole && (
-            <button type="button" className="btn-secondary btn-small desktop-only-inline" onClick={onOpenConsole} disabled={!canOpenConsole || !!busyAction}>
-              Konsole
-            </button>
-          )}
-          {caps.canPower && (
-            <button type="button" className="btn-danger btn-small" disabled={!!busyAction} onClick={() => runAction('stop', `${resource.name} hart stoppen? Nicht gespeicherte Daten gehen verloren.`)}>
-              {busyAction === 'stop' ? 'Stoppt...' : 'Stopp'}
-            </button>
-          )}
+          <button type="button" className="btn-secondary btn-small" disabled={!!busyAction} onClick={() => runAction('reboot', `${resource.name} jetzt neu starten?`)}>
+            {busyAction === 'reboot' ? 'Neustart...' : 'Neu starten'}
+          </button>
+          <button type="button" className="btn-secondary btn-small" disabled={!!busyAction} onClick={() => runAction('shutdown', `${resource.name} herunterfahren?`)}>
+            {busyAction === 'shutdown' ? 'Fährt herunter...' : 'Herunterfahren'}
+          </button>
         </>
+      )}
+      {caps.canConsole && (
+        <button type="button" className="btn-secondary btn-small desktop-only-inline" onClick={onOpenConsole} disabled={!canOpenConsole || !!busyAction}>
+          Konsole
+        </button>
+      )}
+      {running && caps.canPower && (
+        <button type="button" className="btn-danger btn-small" disabled={!!busyAction} onClick={() => runAction('stop', `${resource.name} hart stoppen? Nicht gespeicherte Daten gehen verloren.`)}>
+          {busyAction === 'stop' ? 'Stoppt...' : 'Stopp'}
+        </button>
       )}
       {error && <small className="power-error">{error}</small>}
     </div>

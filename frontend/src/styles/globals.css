@@ -2386,6 +2386,14 @@ body.theme-dark {
   gap: var(--layout-gap-sm);
   flex: 0 1 auto;
 }
+.modal-card .inline-actions .btn-small,
+.credentials-tab .inline-actions .btn-small {
+  min-height: 34px;
+  height: 34px;
+  padding-top: 0;
+  padding-bottom: 0;
+  align-items: center;
+}
 .credential-form {
   margin-top: 0;
 }
@@ -2504,6 +2512,49 @@ body.theme-dark {
     width: 100%;
   }
   .provisioning-mode-switch {
+    grid-template-columns: 1fr;
+  }
+}
+
+
+/* v2.7.5 – enforce true mobile bottom-sheet modals after all layout rules */
+@media (max-width: 767px) {
+  body.modal-open {
+    overflow: hidden;
+  }
+
+  .modal-overlay {
+    align-items: flex-end;
+    justify-content: stretch;
+    overflow: hidden;
+    padding: 0 !important;
+    background: rgba(17, 17, 17, 0.46);
+  }
+
+  .modal-card {
+    width: 100dvw !important;
+    max-width: 100dvw !important;
+    min-width: 100dvw;
+    max-height: 94dvh;
+    margin: 0;
+    overflow-y: auto;
+    border-left: 0;
+    border-right: 0;
+    border-bottom: 0;
+    border-radius: 18px 18px 0 0 !important;
+    padding: var(--layout-gap) var(--layout-gap) calc(var(--layout-gap) + env(safe-area-inset-bottom, 0px)) !important;
+    animation: modalSheetUp 0.26s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .detail-modal-card {
+    width: 100dvw !important;
+    max-width: 100dvw !important;
+    height: 92dvh;
+    max-height: 92dvh;
+  }
+
+  .modal-card .form-actions,
+  .setup-actions {
     grid-template-columns: 1fr;
   }
 }

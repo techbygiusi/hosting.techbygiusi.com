@@ -176,6 +176,10 @@ router.get('/resources', async (req, res, next) => {
       resources: resources.map(resource => ({
         ...resource,
         canDelete: !!resource.canDelete && String(resource.userId) === String(req.user.id) && !!capsByCluster[resource.clusterId]?.canProvision,
+        // Power and console capabilities are cluster-token based for every
+        // accessible resource. They are not limited to self-provisioned machines,
+        // so admin-created services assigned directly or through a group can use
+        // the desktop console when the token has VM.Console.
         capabilities: capsByCluster[resource.clusterId] || { readOnly: true }
       }))
     });
