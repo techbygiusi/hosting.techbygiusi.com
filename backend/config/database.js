@@ -184,6 +184,9 @@ async function initDatabase() {
 
       // v2.2: track whether a resource credential was added by admin or user
       database.run(`ALTER TABLE resource_credentials ADD COLUMN created_by_role TEXT DEFAULT 'user'`, () => {});
+      // v2.6: shared credential slot for the management/admin page of a resource
+      database.run(`ALTER TABLE resource_credentials ADD COLUMN purpose TEXT DEFAULT 'general'`, () => {});
+      database.run(`CREATE UNIQUE INDEX IF NOT EXISTS idx_resource_management_credential ON resource_credentials(resource_id, purpose) WHERE purpose = 'management'`, () => {});
 
       // v2.0: audit log
       database.run(`

@@ -6,7 +6,7 @@ The frontend is built with React and the backend with Express + SQLite. Proxmox 
 
 ## Version
 
-Current version: **v2.5.2**
+Current version: **v2.6.0**
 
 Versioning now follows a clean semantic sequence:
 
@@ -27,7 +27,8 @@ The old history is kept below, but new releases should continue from the current
 - Keep the Proxmox cluster card focused on the cluster address and permissions.
 - Assign existing Proxmox LXCs/VMs to users.
 - Store central credentials and optionally link them to users or clusters.
-- Attach credentials to a specific service without exposing user-created credentials back to the admin.
+- Attach credentials to a specific service without exposing private user-created credentials back to the admin.
+- Maintain one shared management-page credential per service that admins and authorized users can both update.
 - Configure SMTP after the first setup.
 - Configure LXC self-service per cluster.
 - Review audit events for power actions, console access, credentials and provisioning.
@@ -163,6 +164,32 @@ docker image prune -f
 The database migrates itself on startup. Keep the backend data volume before updating.
 
 ## Changelog
+
+### v2.6.0 - 2026-07-05
+
+**Commit:** `feat: add shared management-page credentials`
+
+- Added a dedicated shared credential slot for each service management page.
+- Admins and authorized users can create, reveal, edit and delete the management-page credential.
+- The management credential is kept separate from private user credentials and normal admin-provided service credentials.
+- The management credential defaults to the service's configured management URL when available.
+- Added database migration support for credential purpose metadata and a one-management-credential-per-service guard.
+
+### v2.5.4 - 2026-07-05
+
+**Commit:** `fix: normalize portal spacing across layouts`
+
+- Introduced one shared spacing token for the main portal layout.
+- Normalized vertical and horizontal gaps across cards, grids, forms, tabs, modals, action rows and detail views.
+- Aligned major component padding so spacing stays consistent in light mode, dark mode, desktop and mobile layouts.
+
+### v2.5.3 - 2026-07-05
+
+**Commit:** `fix: keep dropdown arrows clean in dark mode`
+
+- Fixed dark-mode dropdown fields where the custom arrow could repeat across the full input.
+- Switched form-control color overrides from `background` shorthand to `background-color` so dropdown arrow settings are preserved.
+- Re-applied the dropdown arrow position and size after component-specific overrides for consistent desktop and mobile rendering.
 
 ### v2.5.2 - 2026-07-05
 

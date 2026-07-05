@@ -80,7 +80,8 @@ const MESSAGE_TRANSLATIONS = {
   'Container are not allowed on this cluster': 'Auf diesem Cluster sind keine Container erlaubt.',
   'VMs are not allowed on this cluster': 'Auf diesem Cluster sind keine VMs erlaubt.',
   'Provisioning updated': 'Self-Service-Konfiguration gespeichert.',
-  'Admin-provided credentials cannot be edited': 'Vom Admin hinterlegte Zugangsdaten können nicht bearbeitet werden.'
+  'Admin-provided credentials cannot be edited': 'Vom Admin hinterlegte Zugangsdaten können nicht bearbeitet werden.',
+  'Management credential already exists': 'Für diese Verwaltungsseite sind bereits Zugangsdaten hinterlegt.'
 };
 
 export function translateMessage(message) {

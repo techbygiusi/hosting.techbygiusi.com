@@ -681,7 +681,10 @@ router.get('/resources/:id/credentials', async (req, res, next) => {
     if (!resource) throw new AppError('Resource not found', HTTP_STATUS.NOT_FOUND);
 
     const rows = await all(
-      'SELECT id, label, username, url, notes, created_by_role, created_at, updated_at FROM resource_credentials WHERE resource_id = ? ORDER BY label',
+      `SELECT id, label, username, url, notes, created_by_role, COALESCE(purpose, 'general') AS purpose, created_at, updated_at
+       FROM resource_credentials
+       WHERE resource_id = ?
+       ORDER BY CASE WHEN COALESCE(purpose, 'general') = 'management' THEN 0 ELSE 1 END, label`,
       [req.params.id]
     );
     res.json({
@@ -689,7 +692,7 @@ router.get('/resources/:id/credentials', async (req, res, next) => {
         ...row,
         hasSecret: true,
         fromAdmin: row.created_by_role === 'admin',
-        canManage: row.created_by_role === 'admin' // admin may only manage its own entries
+        canManage: row.created_by_role === 'admin' || row.purpose === 'management'
       }))
     });
   } catch (err) {
@@ -700,11 +703,11 @@ router.get('/resources/:id/credentials', async (req, res, next) => {
 router.get('/resources/:id/credentials/:credId/reveal', async (req, res, next) => {
   try {
     const cred = await get(
-      "SELECT id, label, secret_encrypted, created_by_role FROM resource_credentials WHERE id = ? AND resource_id = ?",
+      "SELECT id, label, secret_encrypted, created_by_role, COALESCE(purpose, 'general') AS purpose FROM resource_credentials WHERE id = ? AND resource_id = ?",
       [req.params.credId, req.params.id]
     );
     if (!cred) throw new AppError('Credential not found', HTTP_STATUS.NOT_FOUND);
-    if (cred.created_by_role !== 'admin') {
+    if (cred.created_by_role !== 'admin' && cred.purpose !== 'management') {
       throw new AppError('This credential belongs to the user and cannot be viewed', HTTP_STATUS.FORBIDDEN);
     }
 
@@ -717,20 +720,40 @@ router.get('/resources/:id/credentials/:credId/reveal', async (req, res, next) =
 
 router.post('/resources/:id/credentials', async (req, res, next) => {
   try {
-    const resource = await get('SELECT id, name FROM resources WHERE id = ?', [req.params.id]);
+    const resource = await get('SELECT id, name, admin_url FROM resources WHERE id = ?', [req.params.id]);
     if (!resource) throw new AppError('Resource not found', HTTP_STATUS.NOT_FOUND);
 
-    const { label, username, secret, url, notes } = req.body;
-    if (!label || !String(label).trim()) {
+    const { label, username, secret, url, notes, purpose: requestedPurpose } = req.body;
+    const purpose = requestedPurpose === 'management' ? 'management' : 'general';
+    const nextLabel = String(label || (purpose === 'management' ? 'Verwaltungsseite' : '')).trim();
+    if (!nextLabel) {
       throw new AppError('Label is required', HTTP_STATUS.BAD_REQUEST);
     }
 
+    const nextUrl = String(url || (purpose === 'management' ? (resource.admin_url || '') : '')).trim();
+
+    if (purpose === 'management') {
+      const existing = await get(
+        "SELECT * FROM resource_credentials WHERE resource_id = ? AND COALESCE(purpose, 'general') = 'management'",
+        [req.params.id]
+      );
+      if (existing) {
+        const nextSecret = secret !== undefined && secret !== '' ? encrypt(secret) : existing.secret_encrypted;
+        await run(
+          'UPDATE resource_credentials SET label = ?, username = ?, secret_encrypted = ?, url = ?, notes = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+          [nextLabel, String(username ?? existing.username ?? '').trim(), nextSecret, nextUrl, String(notes ?? existing.notes ?? '').trim(), existing.id]
+        );
+        await logAudit(req, 'admin.resource_credential.update', `resource:${req.params.id}`, `${resource.name}: ${nextLabel}`);
+        return res.json({ id: existing.id, message: 'Credential saved' });
+      }
+    }
+
     const result = await run(
-      "INSERT INTO resource_credentials (resource_id, label, username, secret_encrypted, url, notes, created_by, created_by_role) VALUES (?, ?, ?, ?, ?, ?, ?, 'admin')",
-      [req.params.id, String(label).trim(), String(username || '').trim(), encrypt(secret || ''), String(url || '').trim(), String(notes || '').trim(), req.user.id]
+      "INSERT INTO resource_credentials (resource_id, label, username, secret_encrypted, url, notes, created_by, created_by_role, purpose) VALUES (?, ?, ?, ?, ?, ?, ?, 'admin', ?)",
+      [req.params.id, nextLabel, String(username || '').trim(), encrypt(secret || ''), nextUrl, String(notes || '').trim(), req.user.id, purpose]
     );
 
-    await logAudit(req, 'admin.resource_credential.create', `resource:${req.params.id}`, `${resource.name}: ${String(label).trim()}`);
+    await logAudit(req, 'admin.resource_credential.create', `resource:${req.params.id}`, `${resource.name}: ${nextLabel}`);
     res.status(HTTP_STATUS.CREATED).json({ id: result.lastID, message: 'Credential saved' });
   } catch (err) {
     next(err);
@@ -744,19 +767,28 @@ router.put('/resources/:id/credentials/:credId', async (req, res, next) => {
       [req.params.credId, req.params.id]
     );
     if (!cred) throw new AppError('Credential not found', HTTP_STATUS.NOT_FOUND);
-    if (cred.created_by_role !== 'admin') {
+    if (cred.created_by_role !== 'admin' && cred.purpose !== 'management') {
       throw new AppError('This credential belongs to the user and cannot be edited', HTTP_STATUS.FORBIDDEN);
     }
 
-    const { label, username, secret, url, notes } = req.body;
-    const nextLabel = String(label ?? cred.label).trim();
+    const { label, username, secret, url, notes, purpose: requestedPurpose } = req.body;
+    const purpose = cred.purpose === 'management' || requestedPurpose === 'management' ? 'management' : 'general';
+    const nextLabel = String(label ?? cred.label ?? (purpose === 'management' ? 'Verwaltungsseite' : '')).trim();
     if (!nextLabel) throw new AppError('Label is required', HTTP_STATUS.BAD_REQUEST);
+
+    if (purpose === 'management') {
+      const duplicate = await get(
+        "SELECT id FROM resource_credentials WHERE resource_id = ? AND COALESCE(purpose, 'general') = 'management' AND id != ?",
+        [req.params.id, req.params.credId]
+      );
+      if (duplicate) throw new AppError('Management credential already exists', HTTP_STATUS.BAD_REQUEST);
+    }
 
     const nextSecret = secret !== undefined && secret !== '' ? encrypt(secret) : cred.secret_encrypted;
 
     await run(
-      'UPDATE resource_credentials SET label = ?, username = ?, secret_encrypted = ?, url = ?, notes = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-      [nextLabel, String(username ?? cred.username ?? '').trim(), nextSecret, String(url ?? cred.url ?? '').trim(), String(notes ?? cred.notes ?? '').trim(), req.params.credId]
+      'UPDATE resource_credentials SET label = ?, username = ?, secret_encrypted = ?, url = ?, notes = ?, purpose = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+      [nextLabel, String(username ?? cred.username ?? '').trim(), nextSecret, String(url ?? cred.url ?? '').trim(), String(notes ?? cred.notes ?? '').trim(), purpose, req.params.credId]
     );
 
     await logAudit(req, 'admin.resource_credential.update', `resource:${req.params.id}`, nextLabel);
@@ -769,12 +801,12 @@ router.put('/resources/:id/credentials/:credId', async (req, res, next) => {
 router.delete('/resources/:id/credentials/:credId', async (req, res, next) => {
   try {
     const cred = await get(
-      'SELECT id, label, created_by_role FROM resource_credentials WHERE id = ? AND resource_id = ?',
+      "SELECT id, label, created_by_role, COALESCE(purpose, 'general') AS purpose FROM resource_credentials WHERE id = ? AND resource_id = ?",
       [req.params.credId, req.params.id]
     );
     if (!cred) throw new AppError('Credential not found', HTTP_STATUS.NOT_FOUND);
-    // Hard rule: admin can never delete user-owned credentials
-    if (cred.created_by_role !== 'admin') {
+    // Shared management credentials may be removed by admin or authorized users.
+    if (cred.created_by_role !== 'admin' && cred.purpose !== 'management') {
       throw new AppError('This credential belongs to the user and cannot be deleted', HTTP_STATUS.FORBIDDEN);
     }
 

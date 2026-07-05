@@ -158,7 +158,7 @@ input, select, textarea {
   min-height: 44px;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  background: #ffffff;
+  background-color: #ffffff;
   color: var(--color-text);
   padding: 9px 12px;
   outline: none;
@@ -182,7 +182,7 @@ select::-ms-expand {
 body.theme-dark input,
 body.theme-dark select,
 body.theme-dark textarea {
-  background: rgba(255, 255, 255, 0.06);
+  background-color: rgba(255, 255, 255, 0.06);
   border-color: var(--color-border);
 }
 
@@ -965,13 +965,13 @@ body.theme-dark .modal-card {
 .modal-card .form-stack { gap: 18px; }
 .modal-card .form-group { gap: 8px; }
 .modal-card input, .modal-card select, .modal-card textarea {
-  background: #ffffff;
+  background-color: #ffffff;
   border-color: rgba(17, 17, 17, 0.12);
 }
 body.theme-dark .modal-card input,
 body.theme-dark .modal-card select,
 body.theme-dark .modal-card textarea {
-  background: #252a32;
+  background-color: #252a32;
   border-color: #343a43;
 }
 .modal-header {
@@ -1311,7 +1311,7 @@ body.theme-light .modal-card .disk-row,
 body.theme-light .modal-card input,
 body.theme-light .modal-card select,
 body.theme-light .modal-card textarea {
-  background: #ffffff;
+  background-color: #ffffff;
   border-color: rgba(17, 17, 17, 0.14);
   box-shadow: 0 1px 0 rgba(17, 17, 17, 0.03);
 }
@@ -1406,7 +1406,7 @@ body.theme-dark .modal-card .disk-row {
 body.theme-dark .modal-card input,
 body.theme-dark .modal-card select,
 body.theme-dark .modal-card textarea {
-  background: #252a31;
+  background-color: #252a31;
   border-color: #3a404a;
 }
 
@@ -2132,4 +2132,235 @@ body.theme-dark .task-log { background: #111418; }
   .app-tabs {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+}
+
+/* v2.5.3 – keep native dropdown arrows clean in dark mode */
+select {
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  background-size: 12px 8px;
+}
+body.theme-light select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none'%3E%3Cpath d='M1 1.5L6 6.5L11 1.5' stroke='%236B7280' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+body.theme-dark select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none'%3E%3Cpath d='M1 1.5L6 6.5L11 1.5' stroke='%239AA4B2' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+
+
+/* v2.5.4 – site-wide spacing normalization
+   All major cards, grids and action rows now use one shared spacing token so
+   vertical and horizontal distances stay visually equal across the portal. */
+:root,
+body.theme-light,
+body.theme-dark {
+  --layout-gap: var(--spacing-md);
+  --layout-gap-sm: var(--spacing-sm);
+  --layout-padding: var(--spacing-md);
+}
+
+.site-header-inner,
+.app-container,
+.console-page-header,
+.console-page-main,
+.modal-overlay,
+.auth-shell {
+  padding: var(--layout-gap);
+}
+
+.auth-card,
+.setup-card,
+.intro-card,
+.metric-card,
+.panel-card,
+.resource-card,
+.list-card,
+.soft-box,
+.setup-content,
+.modal-card,
+.app-error-card,
+.console-page-card,
+.provisioning-fields,
+.member-checklist,
+.credential-row,
+.credential-form,
+.task-row-header,
+.resource-meta,
+.disk-row,
+.setup-check-row,
+.setup-check-test,
+.terminal-toolbar,
+.storage-row,
+.storage-picker,
+.select-list-item,
+.audit-row {
+  padding: var(--layout-padding);
+}
+
+.site-header-inner,
+.site-actions,
+.topbar-actions,
+.form-stack,
+.form-grid,
+.form-row-2,
+.form-row-3,
+.setup-tabs,
+.setup-check-grid,
+.setup-check-actions,
+.dashboard-grid,
+.resource-grid,
+.admin-resource-grid,
+.resource-card,
+.resource-summary,
+.resource-health-grid,
+.resource-details,
+.resource-meta,
+.disk-details,
+.ip-list,
+.list-grid,
+.list-card,
+.card-actions,
+.button-stack,
+.power-controls,
+.power-row,
+.card-power-row,
+.dashboard-actions,
+.dashboard-toolbar,
+.panel-header,
+.modal-header,
+.modal-tabs,
+.detail-modal-content,
+.detail-danger-zone,
+.terminal-wrapper,
+.terminal-toolbar,
+.console-page-header,
+.console-page-actions,
+.console-page-card,
+.console-page-meta,
+.tasks-tab,
+.tasks-toolbar,
+.task-row-header,
+.credentials-tab,
+.credential-row,
+.credential-actions,
+.credential-card,
+.credential-label-row,
+.credential-main,
+.audit-list,
+.audit-row,
+.audit-meta,
+.provisioning-fields,
+.member-checklist,
+.slider-grid,
+.create-result,
+.storage-row,
+.storage-picker,
+.select-list,
+.select-list-head,
+.select-list-actions,
+.select-list-item,
+.toggle-row,
+.checkbox-row {
+  gap: var(--layout-gap);
+}
+
+.app-tabs {
+  gap: var(--layout-gap);
+  margin-bottom: var(--layout-gap);
+  padding-bottom: var(--layout-gap);
+}
+
+.auth-header,
+.setup-header,
+.panel-header,
+.section-title,
+.modal-header,
+.modal-tabs,
+.dashboard-actions,
+.dashboard-toolbar,
+.intro-card,
+.alert,
+.power-controls {
+  margin-bottom: var(--layout-gap);
+}
+
+.app-container > .panel-card + .panel-card,
+.provisioning-settings-panel > .form-group,
+.provisioning-settings-panel > .alert,
+.provisioning-settings-panel .provisioning-form,
+.settings-action-row,
+.form-section-divider,
+.power-row-compact {
+  margin-top: var(--layout-gap);
+}
+
+.settings-action-row,
+.panel-hint {
+  margin-bottom: var(--layout-gap);
+}
+
+.form-group,
+.modal-card .form-group,
+.metric-card,
+.metric-line,
+.credential-info,
+.audit-main,
+.audit-action {
+  gap: var(--layout-gap-sm);
+}
+
+.form-actions,
+.setup-actions {
+  gap: var(--layout-gap);
+}
+
+.tab-empty {
+  padding: var(--layout-gap);
+}
+
+@media (max-width: 767px) {
+  .site-header-inner,
+  .app-container,
+  .auth-shell,
+  .console-page-header,
+  .console-page-main {
+    padding: var(--layout-gap);
+  }
+
+  .app-container {
+    padding-bottom: calc(var(--layout-gap) + 70px + env(safe-area-inset-bottom));
+  }
+
+  .modal-card {
+    padding: var(--layout-gap) var(--layout-gap) calc(var(--layout-gap) + env(safe-area-inset-bottom, 0px));
+  }
+
+  .panel-card,
+  .metric-card,
+  .resource-card,
+  .modal-card,
+  .intro-card {
+    padding: var(--layout-padding);
+  }
+}
+
+/* v2.6 – shared management-page credentials */
+.inline-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--spacing-sm);
+  flex-wrap: wrap;
+}
+.credential-purpose-note {
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-alt);
+  color: var(--color-text-light);
+  font-size: var(--font-size-sm);
+}
+@media (max-width: 767px) {
+  .inline-actions { width: 100%; }
+  .inline-actions button { flex: 1 1 100%; }
 }

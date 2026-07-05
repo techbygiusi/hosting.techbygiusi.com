@@ -221,7 +221,7 @@ function TasksTab({ resource }) {
 }
 
 /* ---------------------------------------------------------- CREDENTIALS */
-const emptyCredential = { label: '', username: '', secret: '', url: '', notes: '' };
+const emptyCredential = { label: '', username: '', secret: '', url: '', notes: '', purpose: 'general' };
 
 function CredentialsTab({ resource }) {
   const [credentials, setCredentials] = useState([]);
@@ -249,16 +249,26 @@ function CredentialsTab({ resource }) {
 
   useEffect(() => { load(); }, [load]);
 
+  const managementCredential = credentials.find(item => item.purpose === 'management');
   const openCreate = () => { setEditId(null); setForm(emptyCredential); setShowForm(true); };
+  const openManagement = () => {
+    if (managementCredential) {
+      openEdit(managementCredential);
+      return;
+    }
+    setEditId(null);
+    setForm({ label: 'Verwaltungsseite', username: '', secret: '', url: resource.adminUrl || '', notes: '', purpose: 'management' });
+    setShowForm(true);
+  };
   const openEdit = (item) => {
     setEditId(item.id);
-    setForm({ label: item.label || '', username: item.username || '', secret: '', url: item.url || '', notes: item.notes || '' });
+    setForm({ label: item.label || '', username: item.username || '', secret: '', url: item.url || '', notes: item.notes || '', purpose: item.purpose || 'general' });
     setShowForm(true);
   };
 
   const save = async (event) => {
     event.preventDefault();
-    if (!form.label.trim()) { setError('Bitte eine Bezeichnung eingeben.'); return; }
+    if (!form.label.trim() && form.purpose !== 'management') { setError('Bitte eine Bezeichnung eingeben.'); return; }
     try {
       setBusy(true);
       setError('');
@@ -324,8 +334,11 @@ function CredentialsTab({ resource }) {
       {error && <div className="alert alert-danger">{error}</div>}
 
       <div className="tasks-toolbar">
-        <span className="hint-text">Vom Admin hinterlegte Zugangsdaten kannst du behalten oder löschen.</span>
-        <button type="button" className="btn-primary btn-small" onClick={openCreate}>Hinzufügen</button>
+        <span className="hint-text">Zugangsdaten für die Verwaltungsseite können Admins und berechtigte Benutzer gemeinsam pflegen.</span>
+        <div className="inline-actions">
+          <button type="button" className="btn-secondary btn-small" onClick={openManagement}>{managementCredential ? 'Verwaltungsseite bearbeiten' : 'Verwaltungsseite hinterlegen'}</button>
+          <button type="button" className="btn-primary btn-small" onClick={openCreate}>Hinzufügen</button>
+        </div>
       </div>
 
       {loading && <div className="loading inline-loading"><span className="spinner"></span><span>Laden...</span></div>}
@@ -338,7 +351,8 @@ function CredentialsTab({ resource }) {
           <div className="credential-main">
             <div className="credential-label-row">
               <strong>{item.label}</strong>
-              {item.fromAdmin && <span className="credential-badge">vom Admin</span>}
+              {item.purpose === 'management' && <span className="credential-badge">Verwaltungsseite</span>}
+              {item.fromAdmin && item.purpose !== 'management' && <span className="credential-badge">vom Admin</span>}
             </div>
             {item.username && <span className="credential-user">{item.username}</span>}
             {item.url && <a href={item.url} target="_blank" rel="noreferrer" className="credential-url">{item.url}</a>}
@@ -348,7 +362,7 @@ function CredentialsTab({ resource }) {
           <div className="credential-actions">
             <button type="button" className="btn-secondary btn-small" onClick={() => toggleReveal(item)}>{revealed[item.id] !== undefined ? 'Verbergen' : 'Anzeigen'}</button>
             <button type="button" className="btn-secondary btn-small" onClick={() => copySecret(item)}>{copiedId === item.id ? 'Kopiert ✓' : 'Kopieren'}</button>
-            {!item.fromAdmin && <button type="button" className="btn-secondary btn-small" onClick={() => openEdit(item)}>Bearbeiten</button>}
+            {(item.canManage || !item.fromAdmin) && <button type="button" className="btn-secondary btn-small" onClick={() => openEdit(item)}>Bearbeiten</button>}
             <button type="button" className="btn-danger btn-small" onClick={() => remove(item)} disabled={busy}>Löschen</button>
           </div>
         </div>
@@ -356,7 +370,8 @@ function CredentialsTab({ resource }) {
 
       {showForm && (
         <form className="form-stack credential-form" onSubmit={save}>
-          <label className="form-group"><span>Bezeichnung</span><input type="text" value={form.label} onChange={event => setForm(prev => ({ ...prev, label: event.target.value }))} placeholder="z. B. SSH root" /></label>
+          {form.purpose === 'management' && <div className="credential-purpose-note">Zugangsdaten für die Verwaltungsseite</div>}
+          <label className="form-group"><span>Bezeichnung</span><input type="text" value={form.label} onChange={event => setForm(prev => ({ ...prev, label: event.target.value }))} placeholder={form.purpose === 'management' ? 'Verwaltungsseite' : 'z. B. SSH root'} /></label>
           <label className="form-group"><span>Benutzername</span><input type="text" value={form.username} onChange={event => setForm(prev => ({ ...prev, username: event.target.value }))} placeholder="Optional" autoComplete="off" /></label>
           <label className="form-group"><span>Passwort / Secret</span><input type="password" value={form.secret} onChange={event => setForm(prev => ({ ...prev, secret: event.target.value }))} placeholder={editId ? 'Leer lassen, wenn unverändert' : ''} autoComplete="new-password" /></label>
           <label className="form-group"><span>URL</span><input type="url" value={form.url} onChange={event => setForm(prev => ({ ...prev, url: event.target.value }))} placeholder="Optional" /></label>

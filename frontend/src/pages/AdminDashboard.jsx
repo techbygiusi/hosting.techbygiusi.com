@@ -1041,11 +1041,11 @@ export default function AdminDashboard() {
 
 /**
  * Admin management of credentials attached to a specific resource.
- * The admin can add/edit/delete only its own entries (created_by_role='admin').
- * User-created entries are shown read-only and can never be touched by the admin.
+ * The admin can add/edit/delete its own entries.
+ * A management-page credential is shared: admin and authorized users can edit it.
  */
 function AdminResourceCredentials({ resource, onClose, onError }) {
-  const emptyForm = { label: '', username: '', secret: '', url: '', notes: '' };
+  const emptyForm = { label: '', username: '', secret: '', url: '', notes: '', purpose: 'general' };
   const [credentials, setCredentials] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -1068,16 +1068,26 @@ function AdminResourceCredentials({ resource, onClose, onError }) {
 
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [resource.id]);
 
+  const managementCredential = credentials.find(item => item.purpose === 'management');
   const openCreate = () => { setEditId(null); setForm(emptyForm); setShowForm(true); };
+  const openManagement = () => {
+    if (managementCredential) {
+      openEdit(managementCredential);
+      return;
+    }
+    setEditId(null);
+    setForm({ label: 'Verwaltungsseite', username: '', secret: '', url: resource.adminUrl || '', notes: '', purpose: 'management' });
+    setShowForm(true);
+  };
   const openEdit = (item) => {
     setEditId(item.id);
-    setForm({ label: item.label || '', username: item.username || '', secret: '', url: item.url || '', notes: item.notes || '' });
+    setForm({ label: item.label || '', username: item.username || '', secret: '', url: item.url || '', notes: item.notes || '', purpose: item.purpose || 'general' });
     setShowForm(true);
   };
 
   const save = async (e) => {
     e.preventDefault();
-    if (!form.label.trim()) { onError('Bitte eine Bezeichnung eingeben.'); return; }
+    if (!form.label.trim() && form.purpose !== 'management') { onError('Bitte eine Bezeichnung eingeben.'); return; }
     try {
       setBusy(true);
       if (editId) await adminApi.updateResourceCredential(resource.id, editId, form);
@@ -1122,11 +1132,14 @@ function AdminResourceCredentials({ resource, onClose, onError }) {
 
   return (
     <Modal title={`Zugangsdaten · ${resource.name}`} onClose={onClose}>
-      <p className="hint-text panel-hint">Hinterlegte Zugangsdaten erscheinen beim Benutzer. Der Benutzer kann sie behalten oder löschen. Vom Benutzer selbst angelegte Zugangsdaten kannst du nicht sehen oder löschen.</p>
+      <p className="hint-text panel-hint">Zugangsdaten für die Verwaltungsseite sind gemeinsam bearbeitbar. Sonstige Benutzer-Zugangsdaten bleiben privat.</p>
 
       <div className="tasks-toolbar">
-        <span className="hint-text">{adminCreds.length} von dir · {userCreds.length} vom Benutzer</span>
-        <button type="button" className="btn-primary btn-small" onClick={openCreate}>Hinzufügen</button>
+        <span className="hint-text">{adminCreds.length} verwaltbar · {userCreds.length} privat</span>
+        <div className="inline-actions">
+          <button type="button" className="btn-secondary btn-small" onClick={openManagement}>{managementCredential ? 'Verwaltungsseite bearbeiten' : 'Verwaltungsseite hinterlegen'}</button>
+          <button type="button" className="btn-primary btn-small" onClick={openCreate}>Hinzufügen</button>
+        </div>
       </div>
 
       {loading && <div className="loading inline-loading"><span className="spinner"></span><span>Laden...</span></div>}
@@ -1134,7 +1147,7 @@ function AdminResourceCredentials({ resource, onClose, onError }) {
       {!loading && adminCreds.map(item => (
         <div key={item.id} className="credential-row">
           <div className="credential-main">
-            <strong>{item.label}<span className="cred-tag cred-tag-admin">von Admin</span></strong>
+            <strong>{item.label}<span className={`cred-tag ${item.purpose === 'management' ? 'credential-badge' : item.fromAdmin ? 'cred-tag-admin' : 'cred-tag-user'}`}>{item.purpose === 'management' ? 'Verwaltungsseite' : item.fromAdmin ? 'von Admin' : 'vom Benutzer'}</span></strong>
             {item.username && <span className="credential-user">{item.username}</span>}
             {item.url && <a href={item.url} target="_blank" rel="noreferrer" className="credential-url">{item.url}</a>}
             {item.notes && <small className="credential-notes">{item.notes}</small>}
@@ -1166,7 +1179,8 @@ function AdminResourceCredentials({ resource, onClose, onError }) {
 
       {showForm && (
         <form className="form-stack credential-form" onSubmit={save}>
-          <label className="form-group"><span>Bezeichnung</span><input type="text" value={form.label} onChange={e => setForm(prev => ({ ...prev, label: e.target.value }))} placeholder="z. B. SSH root" /></label>
+          {form.purpose === 'management' && <div className="credential-purpose-note">Zugangsdaten für die Verwaltungsseite</div>}
+          <label className="form-group"><span>Bezeichnung</span><input type="text" value={form.label} onChange={e => setForm(prev => ({ ...prev, label: e.target.value }))} placeholder={form.purpose === 'management' ? 'Verwaltungsseite' : 'z. B. SSH root'} /></label>
           <label className="form-group"><span>Benutzername</span><input type="text" value={form.username} onChange={e => setForm(prev => ({ ...prev, username: e.target.value }))} placeholder="Optional" autoComplete="off" /></label>
           <label className="form-group"><span>Passwort / Secret</span><input type="password" value={form.secret} onChange={e => setForm(prev => ({ ...prev, secret: e.target.value }))} placeholder={editId ? 'Leer lassen, wenn unverändert' : ''} autoComplete="new-password" /></label>
           <label className="form-group"><span>URL</span><input type="url" value={form.url} onChange={e => setForm(prev => ({ ...prev, url: e.target.value }))} placeholder="Optional" /></label>
