@@ -14,7 +14,7 @@ import { userApi, getErrorMessage } from '../services/api';
  * - resize: "1:<cols>:<rows>:"
  * - ping:   "2"
  */
-export default function TerminalView({ resourceId, resourceName }) {
+export default function TerminalView({ resourceId, resourceName, fullscreen = false }) {
   const containerRef = useRef(null);
   const [status, setStatus] = useState('connecting'); // connecting | open | closed | error
   const [message, setMessage] = useState('');
@@ -86,7 +86,7 @@ export default function TerminalView({ resourceId, resourceName }) {
         };
 
         term.onData((input) => {
-          if (ws.readyState === WebSocket.OPEN) {
+          if (ws && ws.readyState === WebSocket.OPEN) {
             const bytes = new TextEncoder().encode(input);
             ws.send(`0:${bytes.length}:${input}`);
           }
@@ -107,7 +107,7 @@ export default function TerminalView({ resourceId, resourceName }) {
   }, [resourceId, reconnectKey]);
 
   return (
-    <div className="terminal-wrapper">
+    <div className={fullscreen ? 'terminal-wrapper terminal-wrapper-fullscreen' : 'terminal-wrapper'}>
       <div className="terminal-toolbar">
         <span className={`terminal-status terminal-status-${status}`}>
           {status === 'connecting' && 'Verbinden...'}

@@ -165,11 +165,29 @@ input, select, textarea {
   transition: var(--transition);
 }
 
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  padding-right: 42px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none'%3E%3Cpath d='M1 1.5L6 6.5L11 1.5' stroke='%236B7280' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  background-size: 12px 8px;
+}
+select::-ms-expand {
+  display: none;
+}
+
 body.theme-dark input,
 body.theme-dark select,
 body.theme-dark textarea {
   background: rgba(255, 255, 255, 0.06);
   border-color: var(--color-border);
+}
+
+body.theme-dark select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none'%3E%3Cpath d='M1 1.5L6 6.5L11 1.5' stroke='%239AA4B2' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
 }
 
 input:focus, select:focus, textarea:focus {
@@ -912,6 +930,15 @@ body.theme-dark .progress-bar {
 .detail-modal-content .resource-meta {
   grid-template-columns: minmax(110px, auto) 1fr;
 }
+.detail-console-action {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.detail-danger-zone {
+  display: grid;
+  gap: 8px;
+}
 
 @keyframes modalOverlayIn {
   from { opacity: 0; }
@@ -1150,6 +1177,12 @@ body.theme-dark .icon-button {
   .panel-card, .resource-card, .list-card, .metric-card,
   .intro-card, .modal-card { border-radius: 14px; }
   .panel-card, .metric-card, .resource-card, .modal-card, .intro-card { padding: 16px; }
+
+  .desktop-only-inline { display: none !important; }
+  .console-page-header { align-items: stretch; flex-direction: column; }
+  .console-page-actions { flex-direction: column; align-items: stretch; }
+  .console-page-actions .btn-primary, .console-page-actions .btn-secondary { width: 100%; }
+  .console-page-main { padding: 12px; }
 
   .resource-card-header { flex-direction: column; }
   .resource-summary { grid-template-columns: 1fr; }
@@ -1517,6 +1550,75 @@ body.theme-dark .btn-danger:hover:not(:disabled) {
 }
 body.theme-dark .terminal-container { background: #111418; }
 .terminal-container .xterm { height: 100%; }
+.terminal-wrapper-fullscreen {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.terminal-wrapper-fullscreen .terminal-container {
+  flex: 1 1 auto;
+  height: auto;
+  min-height: 0;
+}
+
+.console-page {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+.console-page-header {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-md);
+  padding: 16px clamp(18px, 4vw, 32px);
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg);
+}
+.console-page-header h1 {
+  margin: 0;
+  font-size: clamp(20px, 2vw, 28px);
+}
+.console-page-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+.console-page-main {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  padding: 16px;
+}
+.console-page-card {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+  width: 100%;
+  padding: 16px;
+  border: 1px solid var(--color-border);
+  border-radius: 18px;
+  background: var(--color-surface);
+}
+.console-page-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  color: var(--color-text-light);
+  font-size: var(--font-size-sm);
+}
+.console-page-meta span {
+  padding: 5px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-bg-alt);
+}
+.console-page-message {
+  width: min(640px, 100%);
+  margin: auto;
+}
 @media (max-width: 767px) {
   .terminal-container { height: 55dvh; }
 }
@@ -2007,6 +2109,9 @@ body.theme-dark .task-log { background: #111418; }
 /* v2.4.2 – cleaner self-service settings spacing */
 .provisioning-settings-panel > .form-group {
   margin-top: var(--spacing-md);
+}
+.provisioning-settings-panel > .alert {
+  margin-top: var(--spacing-sm);
 }
 .provisioning-settings-panel .provisioning-form {
   margin-top: var(--spacing-lg);

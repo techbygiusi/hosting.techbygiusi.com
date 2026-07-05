@@ -88,10 +88,25 @@ function bridgeToProxmox(clientWs, session) {
     try { upstream.close(); } catch (_) { /* noop */ }
   };
 
+  const pendingClientMessages = [];
+
+  // Register the client message handler immediately. The browser can send the
+  // termproxy auth line as soon as the portal WebSocket opens, while the
+  // upstream Proxmox WebSocket may still be connecting. Queueing prevents the
+  // ticket from being dropped, which otherwise makes Proxmox log
+  // "failed reading ticket: timed out".
+  clientWs.on('message', (data) => {
+    if (upstream.readyState === WebSocket.OPEN) {
+      upstream.send(data);
+      return;
+    }
+    pendingClientMessages.push(data);
+  });
+
   upstream.on('open', () => {
-    clientWs.on('message', (data) => {
-      if (upstream.readyState === WebSocket.OPEN) upstream.send(data);
-    });
+    while (pendingClientMessages.length > 0 && upstream.readyState === WebSocket.OPEN) {
+      upstream.send(pendingClientMessages.shift());
+    }
   });
 
   upstream.on('message', (data) => {

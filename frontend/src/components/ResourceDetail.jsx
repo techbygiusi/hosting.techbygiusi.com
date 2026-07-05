@@ -1,12 +1,11 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import Modal from './Modal';
-import TerminalView from './TerminalView';
 import { userApi, getErrorMessage } from '../services/api';
 
 /**
  * Detail modal for one resource. Capability-driven:
  * - capabilities.canPower   -> power controls + reboot
- * - capabilities.canConsole -> console tab
+ * - capabilities.canConsole -> desktop-only console button
  * Read-only tokens only see overview, tasks/logs and credentials.
  */
 export default function ResourceDetail({ resource, onClose, onChanged }) {
@@ -14,10 +13,13 @@ export default function ResourceDetail({ resource, onClose, onChanged }) {
   const tabs = [
     ['overview', 'Übersicht'],
     ['tasks', 'Aufgaben & Logs'],
-    ...(caps.canConsole ? [['console', 'Konsole']] : []),
     ['credentials', 'Zugangsdaten']
   ];
   const [activeTab, setActiveTab] = useState('overview');
+
+  const openConsole = () => {
+    window.open(`/console/${resource.id}`, '_blank', 'noopener,noreferrer');
+  };
 
   return (
     <Modal title={resource.name} onClose={onClose} className="detail-modal-card">
@@ -28,13 +30,8 @@ export default function ResourceDetail({ resource, onClose, onChanged }) {
       </nav>
 
       <div className="detail-tab-body">
-        {activeTab === 'overview' && <OverviewTab resource={resource} onChanged={onChanged} />}
+        {activeTab === 'overview' && <OverviewTab resource={resource} onChanged={onChanged} onOpenConsole={openConsole} onClose={onClose} />}
         {activeTab === 'tasks' && <TasksTab resource={resource} />}
-        {activeTab === 'console' && caps.canConsole && (
-          resource.status === 'running'
-            ? <TerminalView resourceId={resource.id} resourceName={resource.name} />
-            : <p className="hint-text tab-empty">Die Maschine ist gestoppt. Starte sie, um die Konsole zu öffnen.</p>
-        )}
         {activeTab === 'credentials' && <CredentialsTab resource={resource} />}
       </div>
     </Modal>
@@ -90,11 +87,20 @@ export function PowerControls({ resource, onChanged, compact = false }) {
   );
 }
 
-function OverviewTab({ resource, onChanged }) {
+function OverviewTab({ resource, onChanged, onOpenConsole, onClose }) {
   const primaryIp = getPrimaryIp(resource);
+  const caps = resource.capabilities || {};
+  const canOpenConsole = caps.canConsole && resource.status === 'running';
   return (
     <div className="resource-details detail-modal-content">
       <PowerControls resource={resource} onChanged={onChanged} />
+      {caps.canConsole && (
+        <div className="detail-console-action desktop-only-inline">
+          <button type="button" className="btn-secondary btn-small" onClick={onOpenConsole} disabled={!canOpenConsole}>
+            {canOpenConsole ? 'Konsole in neuem Tab öffnen' : 'Konsole erst nach dem Start verfügbar'}
+          </button>
+        </div>
+      )}
       <div className="resource-meta">
         {resource.groupName && (<><span>Gruppe</span><span>{resource.groupName}</span></>)}
         <span>Cluster</span><span>{resource.clusterName || 'Unbekannt'}</span>
@@ -106,7 +112,39 @@ function OverviewTab({ resource, onChanged }) {
         {resource.uptime > 0 && (<><span>Laufzeit</span><span>{formatUptime(resource.uptime)}</span></>)}
       </div>
       <DiskDetails resource={resource} />
+      <DeleteMachineControl resource={resource} onChanged={onChanged} onClose={onClose} />
       {resource.monitorError && <p className="hint-text">Monitoring ist gerade nicht erreichbar.</p>}
+    </div>
+  );
+}
+
+function DeleteMachineControl({ resource, onChanged, onClose }) {
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
+
+  if (!resource.canDelete) return null;
+
+  const deleteMachine = async () => {
+    if (!window.confirm(`${resource.name} wirklich löschen? Der Container wird in Proxmox entfernt.`)) return;
+    try {
+      setDeleteBusy(true);
+      setDeleteError('');
+      await userApi.deleteMachine(resource.id);
+      onChanged?.();
+      onClose?.();
+    } catch (err) {
+      setDeleteError(getErrorMessage(err, 'Container konnte nicht gelöscht werden.'));
+    } finally {
+      setDeleteBusy(false);
+    }
+  };
+
+  return (
+    <div className="detail-danger-zone">
+      <button type="button" className="btn-danger full-button" onClick={deleteMachine} disabled={deleteBusy}>
+        {deleteBusy ? 'Wird gelöscht...' : 'Container löschen'}
+      </button>
+      {deleteError && <small className="power-error">{deleteError}</small>}
     </div>
   );
 }

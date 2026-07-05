@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { userApi, getErrorMessage } from '../services/api';
 import '../styles/globals.css';
 import ThemeButton from '../components/ThemeButton';
-import ResourceDetail, { PowerControls, getPercent, formatBytes, renderStatus, renderType } from '../components/ResourceDetail';
+import ResourceDetail, { getPercent, formatBytes, renderStatus, renderType } from '../components/ResourceDetail';
 import CreateMachineModal from '../components/CreateMachineModal';
 
 function LogoutIcon() {
@@ -96,7 +96,6 @@ export default function UserDashboard() {
                 key={resource.id}
                 resource={resource}
                 onOpenDetails={() => setDetailId(resource.id)}
-                onChanged={() => fetchResources(false)}
               />
             ))}
           </section>
@@ -122,27 +121,10 @@ export default function UserDashboard() {
   );
 }
 
-function ResourceCard({ resource, onOpenDetails, onChanged }) {
+function ResourceCard({ resource, onOpenDetails }) {
   const cpuPercent = getCpuPercent(resource);
   const memPercent = getPercent(resource.mem, resource.maxmem);
   const publicUrl = resource.publicUrl || resource.webUrl;
-  const ipAddress = getPrimaryIp(resource);
-  const [deleteBusy, setDeleteBusy] = useState(false);
-  const [deleteError, setDeleteError] = useState('');
-
-  const deleteMachine = async () => {
-    if (!window.confirm(`${resource.name} wirklich löschen? Der Container wird in Proxmox entfernt.`)) return;
-    try {
-      setDeleteBusy(true);
-      setDeleteError('');
-      await userApi.deleteMachine(resource.id);
-      onChanged?.();
-    } catch (err) {
-      setDeleteError(getErrorMessage(err, 'Container konnte nicht gelöscht werden.'));
-    } finally {
-      setDeleteBusy(false);
-    }
-  };
 
   return (
     <article className="resource-card compact-resource-card">
@@ -160,13 +142,10 @@ function ResourceCard({ resource, onOpenDetails, onChanged }) {
       <div className="resource-summary">
         <div><span>Cluster</span><strong>{resource.clusterName || 'Unbekannt'}</strong></div>
         <div><span>Node</span><strong>{resource.node || 'Unbekannt'}</strong></div>
-        <div><span>IP-Adresse</span><strong>{ipAddress || 'Nicht bekannt'}</strong></div>
       </div>
 
       <Metric label="CPU" percent={cpuPercent} detail={`${cpuPercent.toFixed(1)} %`} />
       <Metric label="RAM" percent={memPercent} detail={`${formatBytes(resource.mem)} / ${formatBytes(resource.maxmem)}`} />
-
-      <PowerControls resource={resource} onChanged={onChanged} compact />
 
       {publicUrl ? (
         <a className="btn-primary full-button" href={publicUrl} target="_blank" rel="noreferrer">Öffentliche Seite</a>
@@ -176,12 +155,6 @@ function ResourceCard({ resource, onOpenDetails, onChanged }) {
         Details anzeigen
       </button>
 
-      {resource.canDelete && (
-        <button type="button" className="btn-danger full-button" onClick={deleteMachine} disabled={deleteBusy}>
-          {deleteBusy ? 'Wird gelöscht...' : 'Container löschen'}
-        </button>
-      )}
-      {deleteError && <small className="power-error">{deleteError}</small>}
     </article>
   );
 }
@@ -196,13 +169,6 @@ function Metric({ label, percent, detail }) {
     </div>
   );
 }
-
-function getPrimaryIp(resource) {
-  if (resource.primaryIp) return resource.primaryIp;
-  const ips = Array.isArray(resource.ips) ? resource.ips : [];
-  return ips.find(item => item.ipv4)?.ipv4 || '';
-}
-
 function getCpuPercent(resource) {
   const cpu = Number(resource.cpu || 0);
   if (cpu <= 1) return Math.min(Math.max(cpu * 100, 0), 100);

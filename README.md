@@ -1,12 +1,12 @@
 # Hosting Portal
 
-A lightweight self-hosted customer portal for Proxmox-based hosting. The portal gives administrators a clean web interface for users, groups, Proxmox clusters, services, credentials, SMTP settings and audit logs. Users can view their assigned services, start/stop them when the token allows it, open a browser console, read task logs, manage service credentials and create/delete their own LXC containers through self-service.
+A lightweight self-hosted customer portal for Proxmox-based hosting. The portal gives administrators a clean web interface for users, groups, Proxmox clusters, services, credentials, SMTP settings and audit logs. Users can view their assigned services, open service details for power and delete actions when the token allows it, open a full-page desktop console, read task logs, manage service credentials and create/delete their own LXC containers through self-service.
 
 The frontend is built with React and the backend with Express + SQLite. Proxmox API tokens and stored secrets are encrypted at rest.
 
 ## Version
 
-Current version: **v2.4.3**
+Current version: **v2.5.1**
 
 Versioning now follows a clean semantic sequence:
 
@@ -35,11 +35,11 @@ The old history is kept below, but new releases should continue from the current
 ### User area
 
 - View assigned services with live status, CPU, RAM and disk information.
-- See the reachable container IP address directly on the service card and in the detail view. Static LXC IPs are read from the Proxmox network config and loopback addresses are ignored.
-- Start, stop, reboot or shut down services when the Proxmox token permits it.
-- Open a web console when the Proxmox token permits it.
+- See the reachable container IP address in the detail view. Static LXC IPs are read from the Proxmox network config and loopback addresses are ignored.
+- Start, stop, reboot, shut down or delete services from the detail view when the Proxmox token permits it.
+- Open a full-page console in a separate browser tab on desktop when the Proxmox token permits it.
 - Read recent Proxmox tasks and logs for the assigned service.
-- Manage service credentials.
+- Manage service credentials. Root credentials used during self-service provisioning are saved automatically on the created service.
 - Create new LXC containers through self-service.
 - Delete containers that the user created through self-service.
 
@@ -163,6 +163,38 @@ docker image prune -f
 The database migrates itself on startup. Keep the backend data volume before updating.
 
 ## Changelog
+
+### v2.5.1 - 2026-07-05
+
+**Commit:** `fix: move user service actions into the detail view`
+
+- Removed power and delete actions from user service cards.
+- Power controls and self-service container deletion are now only shown after opening the service details.
+- Removed the IP address tile from user service cards because the IP address remains visible in the detail view.
+
+### v2.5.0 - 2026-07-05
+
+**Commit:** `feat: open console in a full-page desktop tab and save root credentials`
+
+- Moved the Proxmox console out of the service detail modal into a dedicated full-page route opened in a new browser tab.
+- The console launch button is desktop-only, so mobile users no longer see an option that does not fit small screens well.
+- Fixed the Proxmox console WebSocket bridge so the initial termproxy ticket is queued until the upstream connection is ready. This prevents dropped tickets and the Proxmox `failed reading ticket: timed out` error.
+- Self-service LXC creation now stores the root password used for the new container as a service credential for the requesting user.
+
+### v2.4.5 - 2026-07-05
+
+**Commit:** `fix: add spacing below the self-service cluster dropdown`
+
+- Added proper spacing between the self-service cluster dropdown and the permission warning message.
+- Keeps the self-service settings panel visually consistent with the rest of the UI.
+
+### v2.4.4 - 2026-07-05
+
+**Commit:** `fix: improve dropdown spacing across the UI`
+
+- Added consistent right-side padding to all dropdown fields.
+- Moved the dropdown arrow inward so it no longer sits too close to the field edge on mobile or desktop.
+- Switched to a consistent custom arrow for a cleaner look across browsers.
 
 ### v2.4.3 - 2026-07-05
 

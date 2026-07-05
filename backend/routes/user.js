@@ -600,6 +600,12 @@ router.post('/provisioning/create', async (req, res, next) => {
       [cleanHostname, String(vmid), cluster.id, req.user.id, '', '', '']
     );
 
+    await run(
+      'INSERT INTO resource_credentials (resource_id, label, username, secret_encrypted, url, notes, created_by, created_by_role) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      [resourceResult.lastID, 'Root-Passwort', 'root', encrypt(password), '', 'Beim Self-Service-Erstellen gespeichert.', req.user.id, 'user']
+    );
+
+    await logAudit(req, 'credential.create', `resource:${resourceResult.lastID}`, 'Root-Passwort');
     await logAudit(req, 'machine.create', `resource:${resourceResult.lastID}`, `${kind.toUpperCase()} ${cleanHostname} (VMID ${vmid}, ${ip})`);
 
     res.status(HTTP_STATUS.CREATED).json({

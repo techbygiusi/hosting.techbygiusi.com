@@ -5,6 +5,7 @@ import Setup from './pages/Setup';
 import Login from './pages/Login';
 import UserDashboard from './pages/UserDashboard';
 import AdminDashboard from './pages/AdminDashboard';
+import ConsolePage from './pages/ConsolePage';
 import { useDocumentTheme } from './components/ThemeButton';
 
 function FullscreenLoader({ text }) {
@@ -95,6 +96,15 @@ export default function App() {
           element={
             <PrivateRoute requiredRole="admin">
               <AdminDashboard />
+            </PrivateRoute>
+          }
+        />
+
+        <Route
+          path="/console/:resourceId"
+          element={
+            <PrivateRoute requiredRole="user">
+              <ConsolePage />
             </PrivateRoute>
           }
         />
