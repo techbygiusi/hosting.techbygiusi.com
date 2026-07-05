@@ -56,6 +56,9 @@ export default function AdminDashboard() {
   const [editGroupId, setEditGroupId] = useState(null);
   const [showGroupModal, setShowGroupModal] = useState(false);
   const [auditEntries, setAuditEntries] = useState([]);
+  const [auditPage, setAuditPage] = useState(1);
+  const [auditSearch, setAuditSearch] = useState('');
+  const [auditMeta, setAuditMeta] = useState({ total: 0, page: 1, limit: 50, pages: 1 });
   const [clusterCaps, setClusterCaps] = useState({}); // clusterId -> capabilities
   const [capsLoading, setCapsLoading] = useState(false);
   const [checkingCapsId, setCheckingCapsId] = useState(null);
@@ -85,8 +88,12 @@ export default function AdminDashboard() {
   }, [clusters, newResource.clusterId]);
 
   useEffect(() => {
-    loadData(activeTab);
+    if (activeTab !== 'audit') loadData(activeTab);
   }, [activeTab]);
+
+  useEffect(() => {
+    if (activeTab === 'audit') loadAudit();
+  }, [activeTab, auditPage, auditSearch]);
 
   const loadData = async (tab = activeTab) => {
     try {
@@ -98,7 +105,6 @@ export default function AdminDashboard() {
       const needsClusters = ['overview', 'clusters', 'resources', 'settings'].includes(tab);
       const needsResources = ['overview', 'resources'].includes(tab);
       const needsGroups = ['groups', 'resources', 'overview'].includes(tab);
-      const needsAudit = tab === 'audit';
       const needsSettings = tab === 'settings';
 
       if (needsUsers) requests.push(adminApi.getUsers().then(res => setUsers(res.data.users || [])));
@@ -113,7 +119,6 @@ export default function AdminDashboard() {
       );
       if (needsResources) requests.push(adminApi.getResources().then(res => setResources(res.data.resources || [])));
       if (needsGroups) requests.push(adminApi.getGroups().then(res => setGroups(res.data.groups || [])));
-      if (needsAudit) requests.push(adminApi.getAudit(200).then(res => setAuditEntries(res.data.entries || [])));
       if (needsSettings) {
         requests.push(loadSettings());
         requests.push(adminApi.getAdminCredentials().then(res => setAdminCredentials(res.data.credentials || [])).catch(() => {}));
@@ -122,6 +127,20 @@ export default function AdminDashboard() {
       await Promise.all(requests);
     } catch (err) {
       setError(getErrorMessage(err, 'Daten konnten nicht geladen werden.'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadAudit = async () => {
+    try {
+      setLoading(true);
+      setError('');
+      const res = await adminApi.getAudit({ page: auditPage, search: auditSearch });
+      setAuditEntries(res.data.entries || []);
+      setAuditMeta(res.data.pagination || { total: 0, page: auditPage, limit: 50, pages: 1 });
+    } catch (err) {
+      setError(getErrorMessage(err, 'Protokoll konnte nicht geladen werden.'));
     } finally {
       setLoading(false);
     }
@@ -812,26 +831,45 @@ export default function AdminDashboard() {
         )}
 
         {!loading && activeTab === 'audit' && (
-          <section className="panel-card">
-            <PanelHeader title="Protokoll" action="Aktualisieren" onAction={() => loadData('audit')} />
+          <section className="panel-card audit-panel">
+            <PanelHeader title="Protokoll" action="Aktualisieren" onAction={loadAudit} />
+            <div className="audit-toolbar">
+              <label className="form-group audit-search-field">
+                <span>Suche</span>
+                <input
+                  type="search"
+                  value={auditSearch}
+                  onChange={e => { setAuditPage(1); setAuditSearch(e.target.value); }}
+                  placeholder="Aktion, Benutzer, Ziel, Details oder IP filtern"
+                />
+              </label>
+              <span className="audit-count">{auditMeta.total || 0} Einträge · 50 pro Seite</span>
+            </div>
             {auditEntries.length === 0 ? (
               <div className="empty-state soft-box"><h2>Keine Einträge</h2></div>
             ) : (
-              <div className="audit-list">
-                {auditEntries.map(entry => (
-                  <div key={entry.id} className="audit-row">
-                    <div className="audit-main">
-                      <strong>{renderAuditAction(entry.action)}</strong>
-                      <span>{entry.details || entry.target || ''}</span>
+              <>
+                <div className="audit-list">
+                  {auditEntries.map(entry => (
+                    <div key={entry.id} className="audit-row">
+                      <div className="audit-main">
+                        <strong>{renderAuditAction(entry.action)}</strong>
+                        <span>{entry.details || entry.target || ''}</span>
+                      </div>
+                      <div className="audit-meta">
+                        <span>{entry.user_email || 'System'}</span>
+                        <span>{formatAuditTime(entry.created_at)}</span>
+                        {entry.ip && <span>{entry.ip}</span>}
+                      </div>
                     </div>
-                    <div className="audit-meta">
-                      <span>{entry.user_email || 'System'}</span>
-                      <span>{formatAuditTime(entry.created_at)}</span>
-                      {entry.ip && <span>{entry.ip}</span>}
-                    </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+                <div className="pagination-row">
+                  <button type="button" className="btn-secondary" onClick={() => setAuditPage(page => Math.max(1, page - 1))} disabled={auditMeta.page <= 1}>Zurück</button>
+                  <span>Seite {auditMeta.page || 1} von {auditMeta.pages || 1}</span>
+                  <button type="button" className="btn-secondary" onClick={() => setAuditPage(page => Math.min(auditMeta.pages || 1, page + 1))} disabled={(auditMeta.page || 1) >= (auditMeta.pages || 1)}>Weiter</button>
+                </div>
+              </>
             )}
           </section>
         )}
@@ -1475,7 +1513,6 @@ function ResourceCard({ resource, onEdit, onDelete, onManageCredentials, actionL
       <div className="resource-summary">
         <div><span>Benutzer</span><strong>{resource.userName || resource.userEmail || 'Nicht gesetzt'}</strong></div>
         <div><span>Cluster</span><strong>{resource.clusterName || 'Unbekannt'}</strong></div>
-        <div><span>IP-Adresse</span><strong>{ipAddress || 'Nicht bekannt'}</strong></div>
         {resource.groupName && <div><span>Gruppe</span><strong>{resource.groupName}</strong></div>}
       </div>
 

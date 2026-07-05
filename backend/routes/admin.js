@@ -901,12 +901,39 @@ router.delete('/groups/:id', async (req, res, next) => {
 /* --------------------------------------------------------------- AUDIT -- */
 router.get('/audit', async (req, res, next) => {
   try {
-    const limit = Math.min(parseInt(req.query.limit, 10) || 100, 500);
+    const limit = Math.min(parseInt(req.query.limit, 10) || 50, 50);
+    const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+    const offset = (page - 1) * limit;
+    const search = String(req.query.search || '').trim();
+    const where = [];
+    const params = [];
+
+    if (search) {
+      where.push('(action LIKE ? OR target LIKE ? OR details LIKE ? OR user_email LIKE ? OR ip LIKE ?)');
+      const like = `%${search}%`;
+      params.push(like, like, like, like, like);
+    }
+
+    const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
+    const countRow = await get(`SELECT COUNT(*) AS total FROM audit_log ${whereSql}`, params);
+    const total = Number(countRow?.total || 0);
     const entries = await all(
-      'SELECT id, user_id, user_email, action, target, details, ip, created_at FROM audit_log ORDER BY id DESC LIMIT ?',
-      [limit]
+      `SELECT id, user_id, user_email, action, target, details, ip, created_at
+       FROM audit_log ${whereSql}
+       ORDER BY id DESC
+       LIMIT ? OFFSET ?`,
+      [...params, limit, offset]
     );
-    res.json({ entries });
+
+    res.json({
+      entries,
+      pagination: {
+        total,
+        page,
+        limit,
+        pages: Math.max(1, Math.ceil(total / limit))
+      }
+    });
   } catch (err) {
     next(err);
   }

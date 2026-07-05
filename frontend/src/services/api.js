@@ -81,7 +81,9 @@ const MESSAGE_TRANSLATIONS = {
   'VMs are not allowed on this cluster': 'Auf diesem Cluster sind keine VMs erlaubt.',
   'Provisioning updated': 'Self-Service-Konfiguration gespeichert.',
   'Admin-provided credentials cannot be edited': 'Vom Admin hinterlegte Zugangsdaten können nicht bearbeitet werden.',
-  'Management credential already exists': 'Für diese Verwaltungsseite sind bereits Zugangsdaten hinterlegt.'
+  'Management credential already exists': 'Für diese Verwaltungsseite sind bereits Zugangsdaten hinterlegt.',
+  'Community script is not allowed': 'Dieses Community Script ist nicht freigegeben.',
+  'Community script started': 'Community Script wurde gestartet.'
 };
 
 export function translateMessage(message) {
@@ -194,7 +196,7 @@ export const adminApi = {
   getClusterStorages: (clusterId, content) => apiClient.get(`/admin/clusters/${clusterId}/storages${content ? `?content=${encodeURIComponent(content)}` : ''}`),
   getClusterProvisioning: (clusterId) => apiClient.get(`/admin/clusters/${clusterId}/provisioning`),
   updateClusterProvisioning: (clusterId, data) => apiClient.put(`/admin/clusters/${clusterId}/provisioning`, data),
-  getAudit: (limit = 100) => apiClient.get(`/admin/audit?limit=${limit}`),
+  getAudit: ({ page = 1, search = '' } = {}) => apiClient.get(`/admin/audit?page=${page}&limit=50${search ? `&search=${encodeURIComponent(search)}` : ''}`),
   // Admin credential vault
   getAdminCredentials: () => apiClient.get('/admin/credentials'),
   revealAdminCredential: (credId) => apiClient.get(`/admin/credentials/${credId}/reveal`),
@@ -227,6 +229,7 @@ export const userApi = {
   updateCredential: (resourceId, credId, data) => apiClient.put(`/user/resources/${resourceId}/credentials/${credId}`, data),
   deleteCredential: (resourceId, credId) => apiClient.delete(`/user/resources/${resourceId}/credentials/${credId}`),
   getProvisioningOptions: () => apiClient.get('/user/provisioning/options'),
+  getCommunityScripts: () => apiClient.get('/user/provisioning/community-scripts'),
   createMachine: (data) => apiClient.post('/user/provisioning/create', data),
   deleteMachine: (resourceId) => apiClient.delete(`/user/resources/${resourceId}`)
 };

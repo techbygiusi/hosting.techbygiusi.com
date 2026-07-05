@@ -1,5 +1,6 @@
 const axios = require('axios');
 const https = require('https');
+const WebSocket = require('ws');
 
 const httpsAgent = new https.Agent({
   rejectUnauthorized: false
@@ -24,6 +25,165 @@ function createProxmoxClient(baseURL, token) {
 function ensureSuccess(response, fallbackMessage) {
   if (response.status >= 200 && response.status < 300) return;
   throw new Error(`${fallbackMessage} HTTP ${response.status}${response.statusText ? ` ${response.statusText}` : ''}`);
+}
+
+
+const COMMUNITY_SCRIPTS_REPO = 'community-scripts/ProxmoxVE';
+const COMMUNITY_SCRIPTS_BRANCH = 'main';
+const COMMUNITY_SCRIPTS_CT_API = `https://api.github.com/repos/${COMMUNITY_SCRIPTS_REPO}/contents/ct?ref=${COMMUNITY_SCRIPTS_BRANCH}`;
+const COMMUNITY_SCRIPTS_RAW = `https://raw.githubusercontent.com/${COMMUNITY_SCRIPTS_REPO}/${COMMUNITY_SCRIPTS_BRANCH}/ct`;
+const COMMUNITY_SCRIPT_CACHE_MS = 30 * 60 * 1000;
+let communityScriptCache = { time: 0, items: [] };
+
+const COMMUNITY_SCRIPT_DENY = [
+  /vpn/i, /wireguard/i, /openvpn/i, /tailscale/i, /headscale/i, /zerotier/i,
+  /firewall/i, /router/i, /gateway/i, /proxy/i, /dnsmasq/i,
+  /proxmox/i, /pve/i, /pbs/i, /backup/i, /cleanup/i, /clean/i, /kernel/i,
+  /microcode/i, /post[-_]?install/i, /tools?/i, /monitoring/i, /grafana/i,
+  /prometheus/i, /zabbix/i, /wazuh/i, /crowdsec/i, /authentik/i, /vault/i
+];
+
+const COMMUNITY_SCRIPT_FALLBACK = [
+  'adguard', 'actualbudget', 'audiobookshelf', 'bookstack', 'changedetection',
+  'dashy', 'dozzle', 'filebrowser', 'gitea', 'homeassistant', 'homepage',
+  'immich', 'jellyfin', 'mealie', 'n8n', 'nextcloud', 'paperless-ngx',
+  'photoprism', 'plex', 'portainer', 'vaultwarden'
+].map(slug => ({
+  id: slug,
+  slug,
+  name: titleFromSlug(slug),
+  path: `ct/${slug}.sh`,
+  url: `${COMMUNITY_SCRIPTS_RAW}/${slug}.sh`,
+  source: 'fallback'
+}));
+
+function titleFromSlug(slug) {
+  return String(slug || '')
+    .replace(/\.sh$/i, '')
+    .split(/[-_]+/)
+    .filter(Boolean)
+    .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
+function isAllowedCommunityScriptName(name) {
+  const raw = String(name || '').toLowerCase();
+  if (!raw.endsWith('.sh')) return false;
+  const slug = raw.replace(/\.sh$/i, '');
+  if (!/^[a-z0-9][a-z0-9-]*$/.test(slug)) return false;
+  return !COMMUNITY_SCRIPT_DENY.some(pattern => pattern.test(slug));
+}
+
+async function getCommunityScripts(force = false) {
+  const now = Date.now();
+  if (!force && communityScriptCache.items.length > 0 && now - communityScriptCache.time < COMMUNITY_SCRIPT_CACHE_MS) {
+    return communityScriptCache.items;
+  }
+
+  try {
+    const response = await axios.get(COMMUNITY_SCRIPTS_CT_API, {
+      httpsAgent,
+      timeout: 10000,
+      headers: { 'User-Agent': 'hosting-portal' },
+      validateStatus: () => true
+    });
+    if (response.status < 200 || response.status >= 300 || !Array.isArray(response.data)) {
+      throw new Error(`GitHub returned HTTP ${response.status}`);
+    }
+
+    const items = response.data
+      .filter(item => item && item.type === 'file' && isAllowedCommunityScriptName(item.name))
+      .map(item => {
+        const slug = String(item.name).replace(/\.sh$/i, '');
+        return {
+          id: slug,
+          slug,
+          name: titleFromSlug(slug),
+          path: item.path || `ct/${item.name}`,
+          url: item.download_url || `${COMMUNITY_SCRIPTS_RAW}/${item.name}`,
+          source: 'github'
+        };
+      })
+      .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+
+    communityScriptCache = { time: now, items: items.length ? items : COMMUNITY_SCRIPT_FALLBACK };
+    return communityScriptCache.items;
+  } catch (_) {
+    communityScriptCache = { time: now, items: COMMUNITY_SCRIPT_FALLBACK };
+    return communityScriptCache.items;
+  }
+}
+
+async function getCommunityScript(slug) {
+  const id = String(slug || '').trim().toLowerCase();
+  if (!/^[a-z0-9][a-z0-9-]*$/.test(id) || COMMUNITY_SCRIPT_DENY.some(pattern => pattern.test(id))) {
+    return null;
+  }
+  const scripts = await getCommunityScripts();
+  return scripts.find(item => item.id === id || item.slug === id) || null;
+}
+
+function consoleInputFrame(input) {
+  const bytes = Buffer.byteLength(input, 'utf8');
+  return `0:${bytes}:${input}`;
+}
+
+function shellQuote(value) {
+  return `'${String(value || '').replace(/'/g, `'"'"'`)}'`;
+}
+
+async function createNodeTermProxy(clusterUrl, apiToken, node) {
+  const client = createProxmoxClient(clusterUrl, apiToken);
+  const response = await client.post(`/api2/json/nodes/${node}/termproxy`, {});
+  ensureSuccess(response, 'Proxmox Node-Konsole konnte nicht geöffnet werden:');
+  const data = response.data?.data || {};
+  return { ticket: data.ticket, port: data.port, user: data.user || 'root@pam' };
+}
+
+async function sendNodeShellCommand(clusterUrl, apiToken, node, command) {
+  const { ticket, port, user } = await createNodeTermProxy(clusterUrl, apiToken, node);
+  const base = clusterUrl.replace(/^http/i, 'ws');
+  const target = `${base}/api2/json/nodes/${node}/vncwebsocket?port=${encodeURIComponent(port)}&vncticket=${encodeURIComponent(ticket)}`;
+
+  return new Promise((resolve, reject) => {
+    const ws = new WebSocket(target, ['binary'], {
+      rejectUnauthorized: false,
+      headers: { Authorization: `PVEAPIToken=${apiToken}` }
+    });
+    const timer = setTimeout(() => {
+      try { ws.close(); } catch (_) { /* noop */ }
+      reject(new Error('Timed out while starting Proxmox node command'));
+    }, 15000);
+
+    ws.on('open', () => {
+      ws.send(`${user}:${ticket}\n`);
+      setTimeout(() => {
+        ws.send('1:120:40:');
+        ws.send(consoleInputFrame(`${command}\r`));
+        setTimeout(() => {
+          clearTimeout(timer);
+          try { ws.close(); } catch (_) { /* noop */ }
+          resolve({ node });
+        }, 1400);
+      }, 500);
+    });
+    ws.on('error', (err) => {
+      clearTimeout(timer);
+      reject(err);
+    });
+  });
+}
+
+async function runCommunityScriptOnNode(clusterUrl, apiToken, node, script) {
+  const url = script?.url || `${COMMUNITY_SCRIPTS_RAW}/${script.slug}.sh`;
+  if (!/^https:\/\/raw\.githubusercontent\.com\/community-scripts\/ProxmoxVE\//.test(url)) {
+    throw new Error('Community script URL is not allowed');
+  }
+  const logPath = `/var/log/hosting-portal-community-${String(script.slug || 'script').replace(/[^a-z0-9-]/gi, '-')}-${Date.now()}.log`;
+  const inner = `printf '\\n%.0s' {1..80} | bash -c \"$(curl -fsSL ${shellQuote(url)})\"`;
+  const command = `nohup bash -lc ${shellQuote(inner)} > ${shellQuote(logPath)} 2>&1 & echo ${shellQuote(`Hosting Portal started ${script.name}. Log: ${logPath}`)}`;
+  await sendNodeShellCommand(clusterUrl, apiToken, node, command);
+  return { node, logPath };
 }
 
 function parseSizeToBytes(value) {
@@ -608,5 +768,8 @@ module.exports = {
   createLxcContainer,
   createQemuVm,
   destroyProxmoxResource,
+  getCommunityScripts,
+  getCommunityScript,
+  runCommunityScriptOnNode,
   POWER_ACTIONS
 };

@@ -6,7 +6,7 @@ The frontend is built with React and the backend with Express + SQLite. Proxmox 
 
 ## Version
 
-Current version: **v2.6.0**
+Current version: **v2.7.1**
 
 Versioning now follows a clean semantic sequence:
 
@@ -164,6 +164,26 @@ docker image prune -f
 The database migrates itself on startup. Keep the backend data volume before updating.
 
 ## Changelog
+
+### v2.7.1 - 2026-07-05
+
+**Commit:** `fix: remove card IPs and paginate audit logs`
+
+- Removed the IP address from service cards because it is already available in the detail view.
+- Added audit log pagination with 50 entries per page.
+- Added a search filter for audit log action, user, target, details and IP address.
+- The backend audit endpoint now returns pagination metadata and supports filtered queries.
+
+### v2.7.0 - 2026-07-05
+
+**Commit:** `feat: add filtered community script provisioning`
+
+- Added a searchable Community Scripts picker to the user self-service creation flow.
+- Users can now start selected LXC scripts from `community-scripts/ProxmoxVE` as an alternative when no local template is selected.
+- VPN, Proxmox host tooling, backup and cleanup style scripts are filtered out before they appear in the picker.
+- Community scripts are started on the selected Proxmox node with their own default values.
+- The backend watches for the newly created LXC and attaches it to the requesting user once detected.
+- Improved spacing in the credentials modal so toolbar buttons no longer touch the container edge.
 
 ### v2.6.0 - 2026-07-05
 

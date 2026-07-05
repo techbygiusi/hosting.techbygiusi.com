@@ -20,6 +20,9 @@ const {
   getNextVmidInRange,
   createLxcContainer,
   destroyProxmoxResource,
+  getCommunityScripts,
+  getCommunityScript,
+  runCommunityScriptOnNode,
   POWER_ACTIONS
 } = require('../services/proxmoxService');
 const { enrichResources } = require('../services/resourceService');
@@ -505,6 +508,49 @@ router.delete('/resources/:id/credentials/:credId', async (req, res, next) => {
   }
 });
 
+
+async function trackCommunityScriptProvisioning({ req, cluster, apiToken, beforeIds, userId, scriptName }) {
+  const maxAttempts = 45; // 15 minutes at 20s
+  const intervalMs = 20000;
+  let attempts = 0;
+
+  const poll = async () => {
+    attempts += 1;
+    try {
+      const resources = await getAllContainers(cluster.url, apiToken);
+      const created = resources
+        .filter(item => item.type === 'lxc')
+        .filter(item => !beforeIds.has(String(item.vmid)))
+        .sort((a, b) => Number(a.vmid) - Number(b.vmid))[0];
+
+      if (created) {
+        const ips = await getContainerIps(cluster.url, apiToken, created.node, created.type, created.vmid).catch(() => []);
+        const ip = stripCidr(ips.find(entry => entry.ipv4)?.ipv4 || ips.find(entry => entry.ip)?.ip || '');
+        const name = created.name || scriptName || `ct-${created.vmid}`;
+
+        const existing = await get('SELECT id FROM resources WHERE cluster_id = ? AND CAST(container_id AS TEXT) = CAST(? AS TEXT)', [cluster.id, created.vmid]);
+        if (!existing) {
+          await run(
+            'INSERT INTO provisioned_machines (cluster_id, vmid, ip, hostname, user_id) VALUES (?, ?, ?, ?, ?)',
+            [cluster.id, created.vmid, ip, name, userId]
+          );
+          const result = await run(
+            'INSERT INTO resources (name, container_id, cluster_id, user_id, web_url, public_url, admin_url) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            [name, String(created.vmid), cluster.id, userId, '', '', '']
+          );
+          await logAudit(req, 'machine.create', `resource:${result.lastID}`, `Community Script ${scriptName} (VMID ${created.vmid}${ip ? `, ${ip}` : ''})`);
+        }
+        return;
+      }
+    } catch (_) {
+      // Background tracking must not crash the API process.
+    }
+    if (attempts < maxAttempts) setTimeout(poll, intervalMs).unref?.();
+  };
+
+  setTimeout(poll, intervalMs).unref?.();
+}
+
 /* ------------------------------------------------------ PROVISIONING ---- */
 /**
  * Clusters where self-service provisioning is enabled AND the API token
@@ -559,13 +605,24 @@ router.get('/provisioning/options', async (req, res, next) => {
   }
 });
 
+
+router.get('/provisioning/community-scripts', async (req, res, next) => {
+  try {
+    const scripts = await getCommunityScripts();
+    res.json({ scripts });
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.post('/provisioning/create', async (req, res, next) => {
   try {
-    const { clusterId, type, hostname, template, cores, memoryMb, diskGb, rootPassword } = req.body;
+    const { clusterId, type, hostname, template, communityScript, cores, memoryMb, diskGb, rootPassword } = req.body;
     if (type && type !== 'ct') {
       throw new AppError('VMs are not allowed on this cluster', HTTP_STATUS.FORBIDDEN);
     }
     const kind = 'ct';
+    const useCommunityScript = !!communityScript && !template;
 
     const cluster = await get(
       'SELECT * FROM proxmox_clusters WHERE id = ? AND allow_provisioning = 1',
@@ -577,32 +634,58 @@ router.post('/provisioning/create', async (req, res, next) => {
     }
 
     const cleanHostname = String(hostname || '').trim().toLowerCase();
-    if (!/^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/.test(cleanHostname)) {
+    if (!useCommunityScript && !/^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/.test(cleanHostname)) {
       throw new AppError('Hostname is invalid', HTTP_STATUS.BAD_REQUEST);
     }
 
-    if (!template || !String(template).includes('vztmpl')) {
+    if (!useCommunityScript && (!template || !String(template).includes('vztmpl'))) {
       throw new AppError('Template is invalid', HTTP_STATUS.BAD_REQUEST);
     }
 
-    // CT needs a root password. Use the cluster default password if configured
-    // and none was provided.
-    let password = rootPassword;
-    if (!password && cluster.default_password_encrypted) {
-      password = decrypt(cluster.default_password_encrypted);
-    }
-    if (!password || String(password).length < 8) {
-      throw new AppError('Root password must be at least 8 characters', HTTP_STATUS.BAD_REQUEST);
-    }
+    // Template-based CT creation needs a root password. Community Scripts use
+    // their own defaults and are started on the Proxmox node instead.
+    let password = '';
+    let safeCores = 1;
+    let safeMemory = 512;
+    let safeDisk = 8;
+    if (!useCommunityScript) {
+      password = rootPassword;
+      if (!password && cluster.default_password_encrypted) {
+        password = decrypt(cluster.default_password_encrypted);
+      }
+      if (!password || String(password).length < 8) {
+        throw new AppError('Root password must be at least 8 characters', HTTP_STATUS.BAD_REQUEST);
+      }
 
-    const safeCores = Math.min(Math.max(parseInt(cores, 10) || 1, 1), cluster.max_cores || 2);
-    const safeMemory = Math.min(Math.max(parseInt(memoryMb, 10) || 512, 256), cluster.max_memory_mb || 2048);
-    const safeDisk = Math.min(Math.max(parseInt(diskGb, 10) || 8, 4), cluster.max_disk_gb || 20);
+      safeCores = Math.min(Math.max(parseInt(cores, 10) || 1, 1), cluster.max_cores || 2);
+      safeMemory = Math.min(Math.max(parseInt(memoryMb, 10) || 512, 256), cluster.max_memory_mb || 2048);
+      safeDisk = Math.min(Math.max(parseInt(diskGb, 10) || 8, 4), cluster.max_disk_gb || 20);
+    }
 
     const apiToken = decrypt(cluster.api_token);
     const caps = await getClusterCapabilities(cluster.id, cluster.url, apiToken);
     if (!caps.canProvision) {
       throw new AppError('Provisioning is not permitted for this cluster token', HTTP_STATUS.FORBIDDEN);
+    }
+
+    if (useCommunityScript) {
+      const script = await getCommunityScript(communityScript);
+      if (!script) throw new AppError('Community script is not allowed', HTTP_STATUS.BAD_REQUEST);
+      const nodes = await getOnlineNodes(cluster.url, apiToken);
+      if (nodes.length === 0) throw new AppError('No online node available', HTTP_STATUS.BAD_REQUEST);
+      const node = nodes[0].node;
+      const before = await getAllContainers(cluster.url, apiToken).catch(() => []);
+      const beforeIds = new Set(before.map(item => String(item.vmid)));
+      const runResult = await runCommunityScriptOnNode(cluster.url, apiToken, node, script);
+      await logAudit(req, 'machine.create', `cluster:${cluster.id}`, `Community Script ${script.name} started on ${node}`);
+      trackCommunityScriptProvisioning({ req, cluster, apiToken, beforeIds, userId: req.user.id, scriptName: script.name });
+      return res.status(HTTP_STATUS.ACCEPTED).json({
+        message: 'Community script started',
+        type: 'community-script',
+        script: script.name,
+        node,
+        logPath: runResult.logPath
+      });
     }
 
     // Allocate VMID within the admin range and a free IP within the pool
