@@ -6,7 +6,7 @@ The frontend is built with React and the backend with Express + SQLite. Proxmox 
 
 ## Version
 
-Current version: **v2.7.11**
+Current version: **v2.7.12**
 
 Versioning now follows a clean semantic sequence:
 
@@ -162,6 +162,14 @@ docker image prune -f
 The database migrates itself on startup. Keep the backend data volume before updating.
 
 ## Changelog
+
+### v2.7.12 - 2026-07-06
+
+**Commit:** `fix: remove incompatible ajv keyword override`
+
+- Removed the global `ajv-keywords` override that broke `fork-ts-checker-webpack-plugin` during Docker frontend builds.
+- Kept a top-level AJV v8 dependency so newer webpack/schema-utils packages can resolve `ajv/dist/compile/codegen`.
+- Allows older schema-utils dependencies to keep their own compatible AJV keyword package version.
 
 ### v2.7.11 - 2026-07-06
 
