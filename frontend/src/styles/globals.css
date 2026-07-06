@@ -27,6 +27,9 @@ body.theme-light {
   --site-cord:      rgba(0, 0, 0, 0.28);
   --site-bulb-off:  #e9ecef;
   --site-bulb-on:   #ffd666;
+  --scrollbar-track: rgba(17, 17, 17, 0.04);
+  --scrollbar-thumb: rgba(122, 135, 111, 0.42);
+  --scrollbar-thumb-hover: rgba(122, 135, 111, 0.66);
 
   /* Semantic aliases used across the app */
   --color-primary:        var(--site-accent);
@@ -88,6 +91,9 @@ body.theme-dark {
   --site-cord:      rgba(255, 255, 255, 0.30);
   --site-bulb-off:  #2a3242;
   --site-bulb-on:   #ffd666;
+  --scrollbar-track: rgba(255, 255, 255, 0.05);
+  --scrollbar-thumb: rgba(154, 164, 178, 0.34);
+  --scrollbar-thumb-hover: rgba(194, 206, 167, 0.58);
 
   --color-primary-dark:  var(--site-accent-strong);
   --button-primary-text: #0B0F14;
@@ -128,6 +134,39 @@ body {
   font-weight: 400;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+}
+
+/* ------------------------------------------------------------- SCROLLBARS */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+  border-radius: 999px;
+}
+
+*::-webkit-scrollbar-thumb {
+  min-height: 44px;
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: var(--scrollbar-thumb);
+  background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+  background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-corner {
+  background: transparent;
 }
 
 button, input, select, textarea { font: inherit; }

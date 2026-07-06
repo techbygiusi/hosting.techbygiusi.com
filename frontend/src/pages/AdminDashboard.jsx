@@ -132,7 +132,6 @@ export default function AdminDashboard() {
       if (needsGroups) requests.push(adminApi.getGroups().then(res => setGroups(res.data.groups || [])));
       if (needsSettings) {
         requests.push(loadSettings());
-        requests.push(adminApi.getAdminCredentials().then(res => setAdminCredentials(res.data.credentials || [])).catch(() => {}));
       }
 
       await Promise.all(requests);
@@ -775,7 +774,6 @@ export default function AdminDashboard() {
         {!loading && activeTab === 'groups' && (
           <section className="panel-card">
             <PanelHeader title="Gruppen" action="Gruppe anlegen" onAction={openCreateGroup} />
-            <p className="hint-text panel-hint">Dienste, die einer Gruppe zugewiesen sind, sehen alle Mitglieder der Gruppe.</p>
             {groups.length === 0 ? (
               <div className="empty-state soft-box"><h2>Keine Gruppen</h2></div>
             ) : (
@@ -914,57 +912,8 @@ export default function AdminDashboard() {
           />
         )}
 
-        {!loading && activeTab === 'settings' && (
-          <section className="panel-card">
-            <PanelHeader title="Zugangsdaten" action="Hinzufügen" onAction={openCreateCred} />
-            {adminCredentials.length === 0 ? (
-              <div className="empty-state soft-box"><h2>Keine Zugangsdaten</h2></div>
-            ) : (
-              <div className="list-grid">
-                {adminCredentials.map(item => (
-                  <article key={item.id} className="list-card credential-card">
-                    <div className="credential-main">
-                      <strong>{item.label}</strong>
-                      {item.username && <span className="credential-user">{item.username}</span>}
-                      <span className="credential-scope">
-                        {item.cluster_name ? `Cluster: ${item.cluster_name}` : ''}
-                        {item.cluster_name && item.user_name ? ' · ' : ''}
-                        {item.user_name ? `Benutzer: ${item.user_name}` : ''}
-                        {!item.cluster_name && !item.user_name ? 'Allgemein' : ''}
-                      </span>
-                      {item.url && <a href={item.url} target="_blank" rel="noreferrer" className="credential-url">{item.url}</a>}
-                      {item.notes && <small className="credential-notes">{item.notes}</small>}
-                      <code className="credential-secret">{revealedCreds[item.id] !== undefined ? (revealedCreds[item.id] || '(leer)') : '••••••••'}</code>
-                    </div>
-                    <div className="card-actions">
-                      <button type="button" className="btn-secondary btn-small" onClick={() => toggleRevealCred(item.id)}>{revealedCreds[item.id] !== undefined ? 'Verbergen' : 'Anzeigen'}</button>
-                      <button type="button" className="btn-secondary btn-small" onClick={() => openEditCred(item)}>Bearbeiten</button>
-                      <button type="button" className="btn-danger btn-small" onClick={() => handleDeleteCred(item.id)} disabled={actionLoading}>Löschen</button>
-                    </div>
-                  </article>
-                ))}
-              </div>
-            )}
-          </section>
-        )}
       </main>
 
-      {showCredModal && (
-        <Modal title={editCredId ? 'Zugangsdaten bearbeiten' : 'Zugangsdaten anlegen'} onClose={closeCredModal}>
-          <form className="form-stack" onSubmit={handleSaveCred}>
-            <label className="form-group"><span>Bezeichnung</span><input type="text" value={newCred.label} onChange={e => setNewCred(prev => ({ ...prev, label: e.target.value }))} placeholder="z. B. Cluster-Root-Login" /></label>
-            <label className="form-group"><span>Benutzername</span><input type="text" value={newCred.username} onChange={e => setNewCred(prev => ({ ...prev, username: e.target.value }))} placeholder="Optional" autoComplete="off" /></label>
-            <label className="form-group"><span>Passwort / Secret</span><input type="password" value={newCred.secret} onChange={e => setNewCred(prev => ({ ...prev, secret: e.target.value }))} placeholder={editCredId ? 'Leer lassen, wenn unverändert' : ''} autoComplete="new-password" /></label>
-            <label className="form-group"><span>URL</span><input type="url" value={newCred.url} onChange={e => setNewCred(prev => ({ ...prev, url: e.target.value }))} placeholder="Optional" /></label>
-            <div className="form-row-2">
-              <label className="form-group"><span>Cluster (optional)</span><select value={newCred.clusterId} onChange={e => setNewCred(prev => ({ ...prev, clusterId: e.target.value }))}><option value="">Keiner</option>{clusters.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
-              <label className="form-group"><span>Benutzer (optional)</span><select value={newCred.userId} onChange={e => setNewCred(prev => ({ ...prev, userId: e.target.value }))}><option value="">Keiner</option>{users.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
-            </div>
-            <label className="form-group"><span>Notizen</span><textarea rows="2" value={newCred.notes} onChange={e => setNewCred(prev => ({ ...prev, notes: e.target.value }))} placeholder="Optional"></textarea></label>
-            <div className="form-actions"><button type="button" className="btn-secondary" onClick={closeCredModal}>Abbrechen</button><button type="submit" className="btn-primary" disabled={actionLoading}>{editCredId ? 'Speichern' : 'Anlegen'}</button></div>
-          </form>
-        </Modal>
-      )}
 
       {resourceCredsFor && (
         <AdminResourceCredentials
@@ -1256,7 +1205,7 @@ function ProvisioningSettings({ clusters, onSaved, onError, onSuccess }) {
     ipStart: '', ipEnd: '', ipPrefix: '24', gateway: '',
     bridge: 'vmbr0', storage: 'local', templateStorage: 'local',
     allowedTemplates: [],
-    maxCores: '2', maxMemoryMb: '2048', maxDiskGb: '20', defaultPassword: ''
+    maxCores: '2', maxMemoryMb: '2048', maxDiskGb: '20'
   });
   const [storages, setStorages] = useState([]);
   const [templates, setTemplates] = useState([]);
@@ -1295,7 +1244,7 @@ function ProvisioningSettings({ clusters, onSaved, onError, onSuccess }) {
           storage: p.storage || 'local', templateStorage: p.templateStorage || 'local',
           allowedTemplates: Array.isArray(p.allowedTemplates) ? p.allowedTemplates : [],
           maxCores: String(p.maxCores ?? '2'), maxMemoryMb: String(p.maxMemoryMb ?? '2048'),
-          maxDiskGb: String(p.maxDiskGb ?? '20'), defaultPassword: ''
+          maxDiskGb: String(p.maxDiskGb ?? '20')
         });
         setCaps(capRes.data.capabilities);
         setLoaded(true);
@@ -1422,8 +1371,6 @@ function ProvisioningSettings({ clusters, onSaved, onError, onSuccess }) {
                 <label className="form-group"><span>Max. RAM (MB)</span><input type="number" min="256" step="256" value={form.maxMemoryMb} onChange={e => setField('maxMemoryMb', e.target.value)} /></label>
                 <label className="form-group"><span>Max. Disk (GB)</span><input type="number" min="4" value={form.maxDiskGb} onChange={e => setField('maxDiskGb', e.target.value)} /></label>
               </div>
-
-              <label className="form-group"><span>Standard-Root-Passwort (optional)</span><input type="password" value={form.defaultPassword} onChange={e => setField('defaultPassword', e.target.value)} placeholder={caps ? 'Leer lassen, wenn unverändert' : ''} autoComplete="new-password" /></label>
             </>
           )}
 

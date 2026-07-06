@@ -6,7 +6,7 @@ The frontend is built with React and the backend with Express + SQLite. Proxmox 
 
 ## Version
 
-Current version: **v2.7.5**
+Current version: **v2.7.8**
 
 Versioning now follows a clean semantic sequence:
 
@@ -26,7 +26,6 @@ The old history is kept below, but new releases should continue from the current
 - Show token capabilities directly on the cluster card.
 - Keep the Proxmox cluster card focused on the cluster address and permissions.
 - Assign existing Proxmox LXCs/VMs to users.
-- Store central credentials and optionally link them to users or clusters.
 - Attach credentials to a specific service without exposing private user-created credentials back to the admin.
 - Maintain one shared management-page credential per service that admins and authorized users can both update.
 - Configure SMTP after the first setup.
@@ -65,7 +64,6 @@ Admins configure per cluster:
 - CT template storage.
 - Allowed CT templates.
 - CPU, RAM and disk limits.
-- Optional default root password for newly created containers.
 
 ## Recommended Proxmox token rights
 
@@ -164,6 +162,29 @@ docker image prune -f
 The database migrates itself on startup. Keep the backend data volume before updating.
 
 ## Changelog
+
+### v2.7.8 - 2026-07-06
+
+**Commit:** `fix: add slim themed scrollbars`
+
+- Added slim custom scrollbars for light and dark mode.
+- Matched scrollbar colors to the portal theme instead of the browser defaults.
+- Kept scrollbars thin and modern across pages, tables, modals and detail panes.
+
+### v2.7.7 - 2026-07-06
+
+**Commit:** `fix: hide unused admin default credentials settings`
+
+- Removed the default root password field from the self-service settings UI for now.
+- Removed the standalone global admin credentials section from the Settings tab for now.
+- Service-level and management-page credentials remain available in each service detail view.
+
+### v2.7.6 - 2026-07-05
+
+**Commit:** `fix: remove group assignment hint from services`
+
+- Removed the visible group-assignment hint from the services area.
+- Kept group-based service access behavior unchanged.
 
 ### v2.7.5 - 2026-07-05
 
