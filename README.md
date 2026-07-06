@@ -6,7 +6,7 @@ The frontend is built with React and the backend with Express + SQLite. Proxmox 
 
 ## Version
 
-Current version: **v2.7.8**
+Current version: **v2.7.9**
 
 Versioning now follows a clean semantic sequence:
 
@@ -162,6 +162,14 @@ docker image prune -f
 The database migrates itself on startup. Keep the backend data volume before updating.
 
 ## Changelog
+
+### v2.7.9 - 2026-07-06
+
+**Commit:** `fix: make Docker npm installs more reliable`
+
+- Updated frontend Docker installs to use legacy peer dependency resolution for React tooling.
+- Disabled npm audit and funding checks during Docker builds to avoid unrelated install failures.
+- Updated backend production installs to use `--omit=dev` with the same reliable install flags.
 
 ### v2.7.8 - 2026-07-06
 
