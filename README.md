@@ -6,7 +6,7 @@ The frontend is built with React and the backend with Express + SQLite. Proxmox 
 
 ## Version
 
-Current version: **v2.7.10**
+Current version: **v2.7.11**
 
 Versioning now follows a clean semantic sequence:
 
@@ -162,6 +162,14 @@ docker image prune -f
 The database migrates itself on startup. Keep the backend data volume before updating.
 
 ## Changelog
+
+### v2.7.11 - 2026-07-06
+
+**Commit:** `fix: pin frontend ajv dependencies for Docker builds`
+
+- Pinned compatible `ajv` and `ajv-keywords` versions in the frontend package.
+- Added npm overrides so Docker builds do not resolve an incompatible AJV dependency tree.
+- Fixes the frontend build error `Cannot find module 'ajv/dist/compile/codegen'`.
 
 ### v2.7.10 - 2026-07-06
 
