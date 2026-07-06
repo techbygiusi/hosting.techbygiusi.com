@@ -725,7 +725,7 @@ export default function AdminDashboard() {
     <div className="app-page">
       <header className="site-header">
         <div className="site-header-inner">
-          <div className="site-brand"><h1>Hosting by TechByGiusi</h1></div>
+          <button type="button" className="site-brand site-brand-button" onClick={() => setActiveTab('overview')} aria-label="Zur Übersicht"><h1>Hosting by TechByGiusi</h1></button>
           <div className="site-actions"><ThemeButton /><button type="button" className="btn-secondary logout-button" onClick={logout} aria-label="Abmelden"><LogoutIcon /><span className="logout-label">Abmelden</span></button></div>
         </div>
       </header>
@@ -736,7 +736,7 @@ export default function AdminDashboard() {
 
         <nav className="app-tabs" aria-label="Admin-Bereiche">
           {tabs.map(([key, label]) => (
-            <button key={key} type="button" className={activeTab === key ? 'active' : ''} onClick={() => setActiveTab(key)}>{label}</button>
+            <button key={key} type="button" className={`${activeTab === key ? 'active' : ''} ${key === 'overview' ? 'mobile-hide-overview-tab' : ''}`.trim()} onClick={() => setActiveTab(key)}>{label}</button>
           ))}
         </nav>
 

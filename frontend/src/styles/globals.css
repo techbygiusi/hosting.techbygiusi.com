@@ -553,6 +553,23 @@ body.theme-dark .test-result.error   { color: #f8c4c4; }
   letter-spacing: -0.02em;
   white-space: nowrap;
 }
+.site-brand-button {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  text-align: left;
+  color: var(--color-text);
+  cursor: pointer;
+}
+.site-brand-button:hover,
+.site-brand-button:focus-visible {
+  text-decoration: none;
+  outline: none;
+}
+.site-brand-button:focus-visible h1 {
+  box-shadow: inset 0 -2px 0 var(--color-primary);
+}
+
 
 .site-actions, .topbar-actions {
   display: flex;
@@ -2595,5 +2612,12 @@ body.theme-dark {
   .modal-card .form-actions,
   .setup-actions {
     grid-template-columns: 1fr;
+  }
+}
+
+
+@media (max-width: 767px) {
+  .app-tabs .mobile-hide-overview-tab {
+    display: none;
   }
 }

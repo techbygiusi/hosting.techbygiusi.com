@@ -6,7 +6,7 @@ The frontend is built with React and the backend with Express + SQLite. Proxmox 
 
 ## Version
 
-Current version: **v2.7.9**
+Current version: **v2.7.10**
 
 Versioning now follows a clean semantic sequence:
 
@@ -162,6 +162,14 @@ docker image prune -f
 The database migrates itself on startup. Keep the backend data volume before updating.
 
 ## Changelog
+
+### v2.7.10 - 2026-07-06
+
+**Commit:** `fix: use brand navigation for mobile overview`
+
+- Removed the separate Overview tab from the mobile admin navigation.
+- The brand title now acts as the Overview navigation target.
+- Desktop navigation keeps the Overview tab unchanged.
 
 ### v2.7.9 - 2026-07-06
 
