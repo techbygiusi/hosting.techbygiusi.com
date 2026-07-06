@@ -7,7 +7,10 @@ function errorHandler(err, req, res, next) {
   console.error('Error:', err);
 
   // Default error response
-  let status = err.status || HTTP_STATUS.INTERNAL_SERVER_ERROR;
+  let status = err.status || err.statusCode || HTTP_STATUS.INTERNAL_SERVER_ERROR;
+  if (!Number.isInteger(status) || status < 100 || status > 599) {
+    status = HTTP_STATUS.INTERNAL_SERVER_ERROR;
+  }
   let message = err.message || ERROR_MESSAGES.SERVER_ERROR;
   let error = err.error || 'Internal Server Error';
 

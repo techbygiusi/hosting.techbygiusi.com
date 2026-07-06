@@ -177,7 +177,6 @@ export default function CreateMachineModal({ options, onClose, onCreated }) {
 
             {provisioningMode === 'template' && (
               <div className="provisioning-mode-content">
-                <p className="hint-text">Typ: Container (LXC)</p>
                 <label className="form-group">
                   <span>Hostname</span>
                   <input type="text" value={form.hostname} onChange={event => setField('hostname', event.target.value.toLowerCase())} placeholder="meine-app" autoComplete="off" />
@@ -237,7 +236,6 @@ export default function CreateMachineModal({ options, onClose, onCreated }) {
                     ))}
                   </select>
                 </label>
-                <div className="info-box">Community Scripts werden mit den Standardwerten des jeweiligen Scripts auf der automatisch ausgewählten Node gestartet. VPN-, Proxmox-, Backup- und Cleanup-Scripte werden ausgeblendet.</div>
               </div>
             )}
           </div>

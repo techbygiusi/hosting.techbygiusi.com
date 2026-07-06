@@ -6,7 +6,7 @@ The frontend is built with React and the backend with Express + SQLite. Proxmox 
 
 ## Version
 
-Current version: **v2.7.12**
+Current version: **v2.7.17**
 
 Versioning now follows a clean semantic sequence:
 
@@ -162,6 +162,41 @@ docker image prune -f
 The database migrates itself on startup. Keep the backend data volume before updating.
 
 ## Changelog
+
+### v2.7.17 - 2026-07-06
+
+**Commit:** `fix: remove self-service configuration hint`
+
+- Removed the extra self-service configuration hint from the Proxmox cluster modal.
+
+### v2.7.16 - 2026-07-06
+
+**Commit:** `fix: return accepted status for community script provisioning`
+
+- Added the missing HTTP 202 Accepted status constant used when a Community Script is started.
+- Fixed the Community Script creation modal error `Invalid status code: undefined`.
+- Hardened backend error handling so invalid status values fall back to HTTP 500 instead of causing another response error.
+
+### v2.7.15 - 2026-07-06
+
+**Commit:** `fix: remove the community script helper text`
+
+- Removed the extra helper text below the Community Script selector in the container creation modal.
+
+### v2.7.14 - 2026-07-06
+
+**Commit:** `fix: remove redundant LXC type hint from creation modal`
+
+- Removed the redundant `Typ: Container (LXC)` text from the user container creation modal.
+- Kept the creation flow focused on the actual choices: cluster, provisioning source, hostname/template or community script.
+
+### v2.7.13 - 2026-07-06
+
+**Commit:** `fix: normalize mobile spacing across the portal`
+
+- Added one consistent UI spacing rhythm for mobile modals, cards, forms and action rows.
+- Removed uneven modal margins that made buttons and sections look randomly spaced.
+- Aligned setup-check, form and action spacing so vertical and horizontal gaps feel consistent across the whole portal.
 
 ### v2.7.12 - 2026-07-06
 

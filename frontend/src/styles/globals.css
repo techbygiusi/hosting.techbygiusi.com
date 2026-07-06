@@ -2621,3 +2621,179 @@ body.theme-dark {
     display: none;
   }
 }
+
+
+/* v2.7.13 – consistent mobile and modal spacing
+   One rhythm for cards, forms, modal sections and action rows. */
+:root,
+body.theme-light,
+body.theme-dark {
+  --ui-gap: 16px;
+  --ui-gap-sm: 8px;
+  --ui-padding: 16px;
+  --ui-control-height: 44px;
+}
+
+input,
+select,
+textarea,
+.btn-primary,
+.btn-secondary,
+.btn-danger,
+.btn-outline {
+  min-height: var(--ui-control-height);
+}
+
+.form-stack,
+.form-grid,
+.form-row-2,
+.form-row-3,
+.setup-check-grid,
+.setup-check-actions,
+.panel-card,
+.resource-card,
+.list-card,
+.metric-card,
+.soft-box,
+.setup-content,
+.detail-modal-content,
+.tasks-tab,
+.credentials-tab,
+.audit-list,
+.provisioning-fields,
+.storage-picker,
+.select-list,
+.create-result {
+  gap: var(--ui-gap);
+}
+
+.form-group,
+.modal-card .form-group,
+.metric-line,
+.credential-info,
+.audit-main,
+.audit-action {
+  gap: var(--ui-gap-sm);
+}
+
+.form-actions,
+.setup-actions,
+.card-actions,
+.button-stack,
+.power-controls,
+.power-row,
+.card-power-row,
+.credential-actions,
+.setup-check-actions,
+.panel-header,
+.dashboard-toolbar,
+.dashboard-actions {
+  gap: var(--ui-gap);
+  padding-top: 0;
+  margin-top: 0;
+}
+
+.modal-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-gap);
+}
+
+.modal-header,
+.modal-tabs,
+.modal-card .form-actions,
+.detail-modal-card .modal-header,
+.detail-modal-card .modal-tabs,
+.auth-header,
+.setup-header,
+.section-title,
+.alert,
+.power-controls {
+  margin-bottom: 0;
+}
+
+.modal-card > .sheet-handle + .modal-header {
+  margin-top: 0;
+}
+
+.setup-check-test,
+.setup-check-row {
+  gap: var(--ui-gap);
+}
+
+.setup-check-test h3,
+.setup-check-row span,
+.setup-check-row small {
+  margin: 0;
+}
+
+.test-result {
+  margin-top: 0;
+}
+
+.panel-card,
+.soft-box,
+.intro-card {
+  display: grid;
+  gap: var(--ui-gap);
+}
+
+.panel-header {
+  margin-bottom: 0;
+}
+
+@media (max-width: 767px) {
+  :root,
+  body.theme-light,
+  body.theme-dark {
+    --ui-gap: 14px;
+    --ui-gap-sm: 8px;
+    --ui-padding: 16px;
+  }
+
+  .modal-overlay {
+    padding: 0;
+  }
+
+  .modal-card {
+    gap: var(--ui-gap);
+    padding: var(--ui-padding) var(--ui-padding) calc(var(--ui-padding) + env(safe-area-inset-bottom));
+  }
+
+  .sheet-handle {
+    margin: 2px auto 6px;
+  }
+
+  .form-actions,
+  .setup-actions,
+  .panel-header,
+  .card-actions,
+  .button-stack,
+  .power-controls,
+  .power-row,
+  .credential-actions,
+  .setup-check-actions {
+    gap: var(--ui-gap);
+  }
+
+  .setup-check-grid,
+  .setup-check-test,
+  .setup-check-row,
+  .form-stack,
+  .form-grid,
+  .form-row-2,
+  .form-row-3 {
+    gap: var(--ui-gap);
+  }
+
+  .setup-check-row,
+  .setup-check-test,
+  .panel-card,
+  .resource-card,
+  .list-card,
+  .metric-card,
+  .soft-box,
+  .setup-content {
+    padding: var(--ui-padding);
+  }
+}

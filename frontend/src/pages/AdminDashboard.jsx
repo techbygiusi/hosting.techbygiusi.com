@@ -924,7 +924,7 @@ export default function AdminDashboard() {
       )}
 
       {showSetupCheckModal && (
-        <Modal title="Einrichtung prüfen" onClose={closeSetupCheck}>
+        <Modal title="Einrichtung prüfen" onClose={closeSetupCheck} className="setup-check-modal">
           {setupCheckLoading ? (
             <div className="loading inline-loading"><span className="spinner"></span><span>Prüfung läuft...</span></div>
           ) : setupCheck?.error ? (
@@ -991,9 +991,6 @@ export default function AdminDashboard() {
                   <span className="toggle-track"><span className="toggle-thumb"></span></span>
                 </span>
               </label>
-              {newCluster.allowProvisioning && (
-                <p className="hint-text">Die Details (VMID-/IP-Bereich, Typen, Templates, Limits) konfigurierst du unter <strong>Einstellungen → Self-Service</strong>.</p>
-              )}
             </div>
 
             <div className="form-actions"><button type="button" className="btn-secondary" onClick={closeClusterModal}>Abbrechen</button><button type="submit" className="btn-primary" disabled={actionLoading}>Speichern</button></div>
