@@ -199,7 +199,7 @@ function buildCommunityScriptCommand(script) {
     `sleep 2`,
     `exit "$status"`
   ].join('; ');
-  return `bash -lc ${shellQuote(inner)}`;
+  return `exec bash -lc ${shellQuote(inner)}`;
 }
 
 async function runCommunityScriptOnNode(clusterUrl, apiToken, node, script) {

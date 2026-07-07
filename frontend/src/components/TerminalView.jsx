@@ -24,6 +24,7 @@ export default function TerminalView({ resourceId, resourceName, fullscreen = fa
     let disposed = false;
     let ws = null;
     let pingTimer = null;
+    let scriptCloseTriggered = false;
 
     const getResponsiveFontSize = () => {
       if (!fullscreen) return 14;
@@ -110,6 +111,8 @@ export default function TerminalView({ resourceId, resourceName, fullscreen = fa
         const sendBootstrapCommand = () => {
           if (!bootstrapCommand || autoLoginState.bootstrapSent) return;
           autoLoginState.bootstrapSent = true;
+          setTimeout(fitAndResize, 100);
+          setTimeout(fitAndResize, 450);
           setTimeout(() => {
             fitAndResize();
             const cols = Math.max(80, term.cols || 120);
@@ -118,9 +121,10 @@ export default function TerminalView({ resourceId, resourceName, fullscreen = fa
               .replace(/__PORTAL_COLS__/g, String(cols))
               .replace(/__PORTAL_ROWS__/g, String(rows));
             sendConsoleInput(`${command}\r`);
-            setTimeout(fitAndResize, 600);
-            setTimeout(fitAndResize, 1600);
-          }, 700);
+            setTimeout(fitAndResize, 450);
+            setTimeout(fitAndResize, 1200);
+            setTimeout(fitAndResize, 2500);
+          }, 950);
         };
 
         ws.onopen = () => {
@@ -138,6 +142,24 @@ export default function TerminalView({ resourceId, resourceName, fullscreen = fa
         };
 
         const stripAnsi = (value) => String(value || '').replace(/\x1b\[[0-9;?]*[ -/]*[@-~]/g, '');
+        const closeCommunityScriptTerminal = () => {
+          if (!autoCloseOnDisconnect || scriptCloseTriggered) return;
+          scriptCloseTriggered = true;
+          setStatus('closed');
+          try {
+            sendConsoleInput('exit\r');
+            setTimeout(() => sendConsoleInput('exit\r'), 180);
+          } catch (_) { /* noop */ }
+          setTimeout(() => {
+            try { ws?.close(1000, 'community-script-ended'); } catch (_) { /* noop */ }
+            if (typeof onDisconnect === 'function') onDisconnect();
+          }, 900);
+        };
+        const didCommunityScriptEnd = (chunk) => {
+          if (!autoCloseOnDisconnect) return false;
+          const visible = stripAnsi(chunk);
+          return /(?:Hosting Portal:\s*Script\s+(?:beendet|abgebrochen)|User\s+exited\s+script|Script\s+beendet)/i.test(visible);
+        };
         const maybeSendAutoLogin = (chunk) => {
           if (!autoLoginState.enabled || autoLoginState.sentSecret) return;
           autoLoginState.buffer = (autoLoginState.buffer + stripAnsi(chunk)).slice(-1200);
@@ -162,17 +184,24 @@ export default function TerminalView({ resourceId, resourceName, fullscreen = fa
             : new TextDecoder().decode(event.data);
           term.write(data);
           maybeSendAutoLogin(data);
+          if (didCommunityScriptEnd(data)) {
+            term.write('\r\n\x1b[90m[Hosting Portal: Terminal wird geschlossen...]\x1b[0m\r\n');
+            closeCommunityScriptTerminal();
+          }
         };
 
         ws.onclose = () => {
           setStatus('closed');
           if (autoCloseOnDisconnect) {
-            term.write('\r\n\x1b[90m[Script beendet. Tab wird geschlossen...]\x1b[0m\r\n');
-            setTimeout(() => {
-              if (typeof onDisconnect === 'function') {
-                onDisconnect();
-              }
-            }, 700);
+            if (!scriptCloseTriggered) {
+              scriptCloseTriggered = true;
+              term.write('\r\n\x1b[90m[Script beendet. Tab wird geschlossen...]\x1b[0m\r\n');
+              setTimeout(() => {
+                if (typeof onDisconnect === 'function') {
+                  onDisconnect();
+                }
+              }, 500);
+            }
             return;
           }
           term.write('\r\n\x1b[90m[Verbindung beendet]\x1b[0m\r\n');
@@ -183,7 +212,9 @@ export default function TerminalView({ resourceId, resourceName, fullscreen = fa
           setMessage('Verbindung zur Konsole fehlgeschlagen.');
         };
 
-        term.onData(sendConsoleInput);
+        term.onData((input) => {
+          if (!scriptCloseTriggered) sendConsoleInput(input);
+        });
       } catch (err) {
         setStatus('error');
         setMessage(getErrorMessage(err, 'Konsole konnte nicht geöffnet werden.'));

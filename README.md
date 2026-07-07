@@ -6,7 +6,7 @@ The frontend is built with React and the backend with Express + SQLite. Proxmox 
 
 ## Version
 
-Current version: **v2.9.3**
+Current version: **v2.9.4**
 
 Versioning now follows a clean semantic sequence:
 
@@ -162,6 +162,15 @@ docker image prune -f
 The database migrates itself on startup. Keep the backend data volume before updating.
 
 ## Changelog
+
+### v2.9.4 - 2026-07-07
+
+**Commit:** `fix: close provisioning terminals and blend terminal edges`
+
+- Community Script terminals now replace the node login shell with the script wrapper so the shell closes when the script ends.
+- The browser locks terminal input and closes/returns as soon as the script exit marker is printed.
+- Provisioning terminal edges now use the same blue background as the script UI to avoid black gaps on the right and bottom.
+- Terminal resizing before and after script launch was tightened for more reliable desktop fitting.
 
 ### v2.9.3 - 2026-07-07
 

@@ -1678,6 +1678,12 @@ body.theme-dark .terminal-container { background: #111418; }
 }
 .provisioning-console-card .terminal-container {
   padding: 0;
+  background: #386aa6;
+}
+.provisioning-console-card .xterm,
+.provisioning-console-card .xterm-viewport,
+.provisioning-console-card .xterm-screen {
+  background-color: #386aa6 !important;
 }
 .provisioning-console-card .terminal-wrapper,
 .provisioning-console-card .terminal-wrapper-fullscreen {
