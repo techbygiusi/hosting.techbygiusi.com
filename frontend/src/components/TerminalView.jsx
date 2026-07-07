@@ -14,7 +14,7 @@ import { userApi, getErrorMessage } from '../services/api';
  * - resize: "1:<cols>:<rows>:"
  * - ping:   "2"
  */
-export default function TerminalView({ resourceId, resourceName, fullscreen = false, sessionInfo = null }) {
+export default function TerminalView({ resourceId, resourceName, fullscreen = false, sessionInfo = null, autoCloseOnDisconnect = false, disableReconnect = false, onDisconnect = null }) {
   const containerRef = useRef(null);
   const [status, setStatus] = useState('connecting'); // connecting | open | closed | error
   const [message, setMessage] = useState('');
@@ -166,6 +166,15 @@ export default function TerminalView({ resourceId, resourceName, fullscreen = fa
 
         ws.onclose = () => {
           setStatus('closed');
+          if (autoCloseOnDisconnect) {
+            term.write('\r\n\x1b[90m[Script beendet. Tab wird geschlossen...]\x1b[0m\r\n');
+            setTimeout(() => {
+              if (typeof onDisconnect === 'function') {
+                onDisconnect();
+              }
+            }, 700);
+            return;
+          }
           term.write('\r\n\x1b[90m[Verbindung beendet]\x1b[0m\r\n');
         };
 
@@ -189,7 +198,7 @@ export default function TerminalView({ resourceId, resourceName, fullscreen = fa
       try { ws?.close(); } catch (_) { /* noop */ }
       term.dispose();
     };
-  }, [resourceId, reconnectKey, sessionInfo]);
+  }, [resourceId, reconnectKey, sessionInfo, autoCloseOnDisconnect, onDisconnect]);
 
   return (
     <div className={fullscreen ? 'terminal-wrapper terminal-wrapper-fullscreen' : 'terminal-wrapper'}>
@@ -200,7 +209,7 @@ export default function TerminalView({ resourceId, resourceName, fullscreen = fa
           {status === 'closed' && 'Getrennt'}
           {status === 'error' && (message || 'Fehler')}
         </span>
-        {(status === 'closed' || status === 'error') && (
+        {!disableReconnect && (status === 'closed' || status === 'error') && (
           <button type="button" className="btn-secondary btn-small" onClick={() => { setStatus('connecting'); setMessage(''); setReconnectKey(key => key + 1); }}>
             Neu verbinden
           </button>

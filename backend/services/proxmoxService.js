@@ -192,7 +192,12 @@ function buildCommunityScriptCommand(script) {
     `echo ${shellQuote(`Hosting Portal startet ${safeName}.`)}`,
     `echo ${shellQuote('Folge den Abfragen im Terminal. Drücke Enter, wenn du die Standardwerte des Scripts verwenden möchtest.')}`,
     `echo`,
-    `bash -c "$(curl -fsSL ${shellQuote(url)})"`
+    `bash -c "$(curl -fsSL ${shellQuote(url)})"`,
+    `status=$?`,
+    `echo`,
+    `if [ "$status" -eq 0 ]; then echo ${shellQuote('Hosting Portal: Script beendet. Die Konsole wird geschlossen.')}; else echo ${shellQuote('Hosting Portal: Script abgebrochen oder mit Fehler beendet. Die Konsole wird geschlossen.')}; fi`,
+    `sleep 2`,
+    `exit "$status"`
   ].join('; ');
   return `bash -lc ${shellQuote(inner)}`;
 }

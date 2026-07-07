@@ -6,7 +6,7 @@ The frontend is built with React and the backend with Express + SQLite. Proxmox 
 
 ## Version
 
-Current version: **v2.9.2**
+Current version: **v2.9.3**
 
 Versioning now follows a clean semantic sequence:
 
@@ -162,6 +162,15 @@ docker image prune -f
 The database migrates itself on startup. Keep the backend data volume before updating.
 
 ## Changelog
+
+### v2.9.3 - 2026-07-07
+
+**Commit:** `fix: close community script terminals after exit`
+
+- Community Script terminals now log out of the Proxmox node shell after the script finishes, fails or is aborted.
+- The provisioning terminal tab closes automatically when the script session ends.
+- The provisioning URL parameters are removed after the first load so restored browser tabs cannot start a new root node shell again.
+- Reconnect is disabled for Community Script provisioning terminals.
 
 ### v2.9.2 - 2026-07-07
 

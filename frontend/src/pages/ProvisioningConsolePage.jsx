@@ -39,6 +39,11 @@ export default function ProvisioningConsolePage() {
         setLoading(false);
         return;
       }
+      // Remove executable URL parameters after the first load. Restored browser
+      // tabs or history entries must not be able to start a new root node shell.
+      if (window.location.search) {
+        window.history.replaceState(null, '', window.location.pathname);
+      }
       try {
         setLoading(true);
         setError('');
@@ -56,6 +61,12 @@ export default function ProvisioningConsolePage() {
   }, [clusterId, communityScript, desktop]);
 
   const closeTab = () => window.close();
+  const closeOrReturn = () => {
+    try { window.close(); } catch (_) { /* noop */ }
+    setTimeout(() => {
+      if (!window.closed) window.location.replace('/dashboard');
+    }, 500);
+  };
 
   return (
     <div className="app-page console-page">
@@ -88,7 +99,14 @@ export default function ProvisioningConsolePage() {
               <span>{sessionInfo.node || 'Unbekannte Node'}</span>
               <span>{sessionInfo.script || 'Community Script'}</span>
             </div>
-            <TerminalView sessionInfo={sessionInfo} resourceName={sessionInfo.script || 'Community Script'} fullscreen />
+            <TerminalView
+              sessionInfo={sessionInfo}
+              resourceName={sessionInfo.script || 'Community Script'}
+              fullscreen
+              autoCloseOnDisconnect
+              disableReconnect
+              onDisconnect={closeOrReturn}
+            />
           </section>
         )}
       </main>
