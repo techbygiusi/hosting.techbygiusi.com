@@ -2801,3 +2801,51 @@ textarea,
 /* v2.8 – desktop-only provisioning */
 .desktop-only-block { display: block; }
 @media (max-width: 767px) { .desktop-only-block { display: none !important; } }
+
+
+.node-credentials-section {
+  display: grid;
+  gap: var(--ui-gap);
+}
+.section-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ui-gap);
+}
+.section-title-row h3 {
+  margin: 0;
+  font-size: var(--font-size-base);
+  font-weight: 600;
+}
+.node-credential-row {
+  display: grid;
+  grid-template-columns: minmax(88px, 0.6fr) minmax(120px, 1fr) minmax(180px, 1.4fr);
+  gap: var(--ui-gap);
+  align-items: center;
+}
+.node-name-pill {
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-surface);
+  color: var(--color-text-light);
+}
+.empty-state.compact {
+  min-height: 54px;
+  padding: 14px;
+  font-size: var(--font-size-sm);
+}
+@media (max-width: 767px) {
+  .section-title-row,
+  .node-credential-row {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+  .section-title-row {
+    display: grid;
+  }
+}

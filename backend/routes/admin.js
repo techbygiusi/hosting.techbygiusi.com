@@ -295,6 +295,17 @@ function safeParseList(json) {
   }
 }
 
+function normalizeNodeCredentialInput(item = {}) {
+  const node = String(item.node || item.nodeName || '').trim();
+  const username = String(item.username || 'root').trim() || 'root';
+  const secret = item.secret !== undefined ? String(item.secret || '') : undefined;
+  if (!node) return null;
+  if (!/^[A-Za-z0-9._-]+$/.test(node)) {
+    throw new AppError('Node name is invalid', HTTP_STATUS.BAD_REQUEST);
+  }
+  return { node, username, secret };
+}
+
 function normalizeProvisioning(body, existing = {}) {
   const toInt = (value, fallback = null) => {
     const parsed = parseInt(value, 10);
@@ -467,6 +478,83 @@ router.put('/clusters/:id/provisioning', async (req, res, next) => {
 
     await logAudit(req, 'cluster.provisioning', `cluster:${req.params.id}`, cluster.name);
     res.json({ message: 'Provisioning updated' });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get('/clusters/:id/node-credentials', async (req, res, next) => {
+  try {
+    const cluster = await get('SELECT * FROM proxmox_clusters WHERE id = ?', [req.params.id]);
+    if (!cluster) throw new AppError('Cluster not found', HTTP_STATUS.NOT_FOUND);
+
+    const storedRows = await all(
+      'SELECT node_name, username, secret_encrypted FROM proxmox_node_credentials WHERE cluster_id = ? ORDER BY node_name',
+      [req.params.id]
+    );
+    const byNode = new Map(storedRows.map(row => [row.node_name, row]));
+
+    let nodeNames = storedRows.map(row => row.node_name);
+    try {
+      const apiToken = decrypt(cluster.api_token);
+      const liveNodes = await getOnlineNodes(cluster.url, apiToken);
+      nodeNames = Array.from(new Set([...liveNodes.map(item => item.node), ...nodeNames])).sort((a, b) => a.localeCompare(b));
+    } catch (_) {
+      nodeNames = Array.from(new Set(nodeNames)).sort((a, b) => a.localeCompare(b));
+    }
+
+    res.json({
+      credentials: nodeNames.map(node => {
+        const row = byNode.get(node);
+        return {
+          node,
+          username: row?.username || 'root',
+          hasSecret: !!row?.secret_encrypted,
+          secret: ''
+        };
+      })
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.put('/clusters/:id/node-credentials', async (req, res, next) => {
+  try {
+    const cluster = await get('SELECT id, name FROM proxmox_clusters WHERE id = ?', [req.params.id]);
+    if (!cluster) throw new AppError('Cluster not found', HTTP_STATUS.NOT_FOUND);
+
+    const credentials = Array.isArray(req.body.credentials) ? req.body.credentials : [];
+    for (const raw of credentials) {
+      const item = normalizeNodeCredentialInput(raw);
+      if (!item) continue;
+
+      const existing = await get(
+        'SELECT * FROM proxmox_node_credentials WHERE cluster_id = ? AND node_name = ?',
+        [req.params.id, item.node]
+      );
+
+      const wantsDelete = item.secret === '' && !item.username && !existing?.secret_encrypted;
+      if (wantsDelete) continue;
+
+      if (existing) {
+        const nextSecret = item.secret !== undefined && item.secret !== ''
+          ? encrypt(item.secret)
+          : existing.secret_encrypted;
+        await run(
+          'UPDATE proxmox_node_credentials SET username = ?, secret_encrypted = ?, updated_at = CURRENT_TIMESTAMP WHERE cluster_id = ? AND node_name = ?',
+          [item.username, nextSecret, req.params.id, item.node]
+        );
+      } else if (item.secret) {
+        await run(
+          'INSERT INTO proxmox_node_credentials (cluster_id, node_name, username, secret_encrypted) VALUES (?, ?, ?, ?)',
+          [req.params.id, item.node, item.username, encrypt(item.secret)]
+        );
+      }
+    }
+
+    await logAudit(req, 'cluster.node-credentials', `cluster:${req.params.id}`, cluster.name);
+    res.json({ message: 'Node credentials saved' });
   } catch (err) {
     next(err);
   }

@@ -648,6 +648,14 @@ router.post('/provisioning/community-console', async (req, res, next) => {
 
     const before = await getAllContainers(cluster.url, apiToken).catch(() => []);
     const beforeIds = new Set(before.map(item => String(item.vmid)));
+    const nodeCredential = await get(
+      'SELECT username, secret_encrypted FROM proxmox_node_credentials WHERE cluster_id = ? AND node_name = ?',
+      [cluster.id, node]
+    );
+    if (!nodeCredential?.secret_encrypted) {
+      throw new AppError('Für diese Proxmox-Node sind keine Zugangsdaten hinterlegt.', HTTP_STATUS.BAD_REQUEST);
+    }
+
     const term = await createNodeTermProxy(cluster.url, apiToken, node);
     const sessionToken = createConsoleSession({
       mode: 'node-shell',
@@ -667,6 +675,10 @@ router.post('/provisioning/community-console', async (req, res, next) => {
       ticket: term.ticket,
       wsPath: `/api/console/ws?token=${sessionToken}`,
       bootstrapCommand: buildCommunityScriptCommand(script),
+      autoLogin: {
+        username: nodeCredential.username || 'root',
+        secret: decrypt(nodeCredential.secret_encrypted)
+      },
       type: 'community-script-console',
       script: script.name,
       node,

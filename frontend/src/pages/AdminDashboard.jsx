@@ -32,6 +32,8 @@ export default function AdminDashboard() {
   const [settings, setSettings] = useState(emptySmtp);
   const [newUser, setNewUser] = useState(emptyUser);
   const [newCluster, setNewCluster] = useState(emptyCluster);
+  const [clusterNodeCredentials, setClusterNodeCredentials] = useState([]);
+  const [nodeCredentialsLoading, setNodeCredentialsLoading] = useState(false);
   const [newResource, setNewResource] = useState(emptyResource);
   const [editUserId, setEditUserId] = useState(null);
   const [editClusterId, setEditClusterId] = useState(null);
@@ -243,9 +245,28 @@ export default function AdminDashboard() {
     }
   };
 
+  const loadClusterNodeCredentials = async (clusterId) => {
+    if (!clusterId) return;
+    try {
+      setNodeCredentialsLoading(true);
+      const res = await adminApi.getClusterNodeCredentials(clusterId);
+      setClusterNodeCredentials(res.data.credentials || []);
+    } catch (err) {
+      setError(getErrorMessage(err, 'Node-Zugangsdaten konnten nicht geladen werden.'));
+      setClusterNodeCredentials([]);
+    } finally {
+      setNodeCredentialsLoading(false);
+    }
+  };
+
+  const handleNodeCredentialChange = (index, field, value) => {
+    setClusterNodeCredentials(prev => prev.map((item, i) => i === index ? { ...item, [field]: value } : item));
+  };
+
   const openCreateCluster = () => {
     setEditClusterId(null);
     setNewCluster(emptyCluster);
+    setClusterNodeCredentials([]);
     setClusterTestResult(null);
     setShowClusterModal(true);
   };
@@ -258,14 +279,17 @@ export default function AdminDashboard() {
       apiToken: '',
       allowProvisioning: !!item.allow_provisioning
     });
+    setClusterNodeCredentials([]);
     setClusterTestResult(null);
     setShowClusterModal(true);
+    loadClusterNodeCredentials(item.id);
   };
 
   const closeClusterModal = () => {
     setShowClusterModal(false);
     setEditClusterId(null);
     setNewCluster(emptyCluster);
+    setClusterNodeCredentials([]);
     setClusterTestResult(null);
   };
 
@@ -305,6 +329,7 @@ export default function AdminDashboard() {
       setError('');
       if (editClusterId) {
         await adminApi.updateCluster(editClusterId, newCluster);
+        await adminApi.updateClusterNodeCredentials(editClusterId, { credentials: clusterNodeCredentials });
         showSuccess('Proxmox-Cluster wurde gespeichert.');
       } else {
         await adminApi.createCluster(newCluster);
@@ -982,6 +1007,25 @@ export default function AdminDashboard() {
             <label className="form-group"><span>API-Token</span><input type="password" value={newCluster.apiToken} onChange={e => handleClusterChange('apiToken', e.target.value)} placeholder={editClusterId ? 'Leer lassen, vorhandenen Token verwenden' : 'api@pam!hosting=secret'} /></label>
             <button type="button" className="btn-secondary full-button" onClick={handleTestCluster} disabled={actionLoading}>Proxmox-Verbindung testen</button>
             {clusterTestResult && <div className={`test-result ${clusterTestResult.success ? 'success' : 'error'}`}>{translateMessage(clusterTestResult.message)}</div>}
+
+            {editClusterId && (
+              <div className="form-section-divider node-credentials-section">
+                <div className="section-title-row">
+                  <h3>Node-Zugangsdaten</h3>
+                  <button type="button" className="btn-secondary btn-small" onClick={() => loadClusterNodeCredentials(editClusterId)} disabled={nodeCredentialsLoading}>
+                    {nodeCredentialsLoading ? 'Lädt...' : 'Neu laden'}
+                  </button>
+                </div>
+                {clusterNodeCredentials.length === 0 && <div className="empty-state compact">Keine Nodes gefunden</div>}
+                {clusterNodeCredentials.map((item, index) => (
+                  <div key={item.node} className="node-credential-row">
+                    <span className="node-name-pill">{item.node}</span>
+                    <input type="text" value={item.username || 'root'} onChange={e => handleNodeCredentialChange(index, 'username', e.target.value)} placeholder="root" autoComplete="off" />
+                    <input type="password" value={item.secret || ''} onChange={e => handleNodeCredentialChange(index, 'secret', e.target.value)} placeholder={item.hasSecret ? 'Leer lassen, vorhandenes Passwort verwenden' : 'Passwort'} autoComplete="new-password" />
+                  </div>
+                ))}
+              </div>
+            )}
 
             <div className="form-section-divider">
               <label className="toggle-row">

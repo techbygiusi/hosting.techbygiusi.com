@@ -199,6 +199,8 @@ export const adminApi = {
   getClusterStorages: (clusterId, content) => apiClient.get(`/admin/clusters/${clusterId}/storages${content ? `?content=${encodeURIComponent(content)}` : ''}`),
   getClusterProvisioning: (clusterId) => apiClient.get(`/admin/clusters/${clusterId}/provisioning`),
   updateClusterProvisioning: (clusterId, data) => apiClient.put(`/admin/clusters/${clusterId}/provisioning`, data),
+  getClusterNodeCredentials: (clusterId) => apiClient.get(`/admin/clusters/${clusterId}/node-credentials`),
+  updateClusterNodeCredentials: (clusterId, data) => apiClient.put(`/admin/clusters/${clusterId}/node-credentials`, data),
   getAudit: ({ page = 1, search = '' } = {}) => apiClient.get(`/admin/audit?page=${page}&limit=50${search ? `&search=${encodeURIComponent(search)}` : ''}`),
   // Admin credential vault
   getAdminCredentials: () => apiClient.get('/admin/credentials'),

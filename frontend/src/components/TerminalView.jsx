@@ -66,11 +66,27 @@ export default function TerminalView({ resourceId, resourceName, fullscreen = fa
           }
         };
 
+        const autoLoginState = {
+          enabled: !!(autoLogin?.username && autoLogin?.secret),
+          username: autoLogin?.username || 'root',
+          secret: autoLogin?.secret || '',
+          buffer: '',
+          sentUsername: false,
+          sentSecret: false,
+          bootstrapSent: false
+        };
+
+        const sendBootstrapCommand = () => {
+          if (!bootstrapCommand || autoLoginState.bootstrapSent) return;
+          autoLoginState.bootstrapSent = true;
+          setTimeout(() => sendConsoleInput(`${bootstrapCommand}\r`), 700);
+        };
+
         ws.onopen = () => {
           setStatus('open');
           ws.send(`${user}:${ticket}\n`);
           setTimeout(() => { fit.fit(); sendResize(); }, 150);
-          if (bootstrapCommand) {
+          if (bootstrapCommand && !autoLoginState.enabled) {
             setTimeout(() => sendConsoleInput(`${bootstrapCommand}\r`), 1200);
           }
           pingTimer = setInterval(() => {
@@ -78,14 +94,6 @@ export default function TerminalView({ resourceId, resourceName, fullscreen = fa
           }, 30 * 1000);
         };
 
-        const autoLoginState = {
-          enabled: !!(autoLogin?.username && autoLogin?.secret),
-          username: autoLogin?.username || 'root',
-          secret: autoLogin?.secret || '',
-          buffer: '',
-          sentUsername: false,
-          sentSecret: false
-        };
         const stripAnsi = (value) => String(value || '').replace(/\x1b\[[0-9;?]*[ -/]*[@-~]/g, '');
         const maybeSendAutoLogin = (chunk) => {
           if (!autoLoginState.enabled || autoLoginState.sentSecret) return;
@@ -98,7 +106,10 @@ export default function TerminalView({ resourceId, resourceName, fullscreen = fa
           }
           if (autoLoginState.sentUsername && !autoLoginState.sentSecret && /password\s*:\s*$/i.test(visible)) {
             autoLoginState.sentSecret = true;
-            setTimeout(() => sendConsoleInput(`${autoLoginState.secret}\r`), 180);
+            setTimeout(() => {
+              sendConsoleInput(`${autoLoginState.secret}\r`);
+              if (bootstrapCommand) sendBootstrapCommand();
+            }, 180);
           }
         };
 

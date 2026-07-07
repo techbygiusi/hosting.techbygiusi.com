@@ -6,7 +6,7 @@ The frontend is built with React and the backend with Express + SQLite. Proxmox 
 
 ## Version
 
-Current version: **v2.8.0**
+Current version: **v2.8.1**
 
 Versioning now follows a clean semantic sequence:
 
@@ -162,6 +162,15 @@ docker image prune -f
 The database migrates itself on startup. Keep the backend data volume before updating.
 
 ## Changelog
+
+### v2.8.1 - 2026-07-07
+
+**Commit:** `feat: add node credentials to Proxmox cluster settings`
+
+- Added per-node login credentials directly to the Proxmox cluster configuration modal.
+- Stores node passwords encrypted at rest and keeps existing secrets when the password field is left empty.
+- Community Script terminals now use the matching node credentials to log in automatically before starting the script.
+- Blocks Community Script startup with a clear error when the selected node has no saved credentials.
 
 ### v2.8.0 - 2026-07-07
 
