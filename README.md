@@ -6,7 +6,7 @@ The frontend is built with React and the backend with Express + SQLite. Proxmox 
 
 ## Version
 
-Current version: **v2.9.0**
+Current version: **v2.9.2**
 
 Versioning now follows a clean semantic sequence:
 
@@ -162,6 +162,23 @@ docker image prune -f
 The database migrates itself on startup. Keep the backend data volume before updating.
 
 ## Changelog
+
+### v2.9.2 - 2026-07-07
+
+**Commit:** `fix: stack cluster status cards and deduplicate shared storage`
+
+- Stacked Proxmox cluster status cards vertically in the admin overview.
+- Fixed cluster storage totals by counting shared storages only once across nodes.
+- Kept local per-node storages counted per node while still using root filesystem values as fallback.
+
+### v2.9.1 - 2026-07-07
+
+**Commit:** `fix: improve desktop terminal fitting for community scripts`
+
+- Improved the full-page community script terminal so it fits and resizes better across desktop resolutions.
+- Added responsive terminal font sizing for fixed-size helper-script dialogs.
+- Re-sends terminal resize events during connection and before script startup.
+- Sets terminal rows and columns before launching the community script for more reliable ncurses layouts.
 
 ### v2.9.0 - 2026-07-07
 

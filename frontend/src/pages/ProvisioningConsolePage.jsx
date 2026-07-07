@@ -82,7 +82,7 @@ export default function ProvisioningConsolePage() {
         {desktop && error && <div className="alert alert-danger">{error}</div>}
 
         {desktop && !loading && !error && sessionInfo && (
-          <section className="console-page-card">
+          <section className="console-page-card provisioning-console-card">
             <div className="console-page-meta">
               <span>{sessionInfo.clusterName || 'Unbekannter Cluster'}</span>
               <span>{sessionInfo.node || 'Unbekannte Node'}</span>

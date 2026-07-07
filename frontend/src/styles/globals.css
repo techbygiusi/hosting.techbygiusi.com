@@ -1671,6 +1671,23 @@ body.theme-dark .terminal-container { background: #111418; }
   border-radius: 999px;
   background: var(--color-bg-alt);
 }
+
+.provisioning-console-card {
+  padding: 14px;
+  gap: 12px;
+}
+.provisioning-console-card .terminal-container {
+  padding: 0;
+}
+.provisioning-console-card .terminal-wrapper,
+.provisioning-console-card .terminal-wrapper-fullscreen {
+  min-height: 0;
+}
+.provisioning-console-card .xterm-viewport,
+.provisioning-console-card .xterm-screen {
+  border-radius: calc(var(--radius-md) - 2px);
+}
+
 .console-page-message {
   width: min(640px, 100%);
   margin: auto;
@@ -2859,7 +2876,7 @@ textarea,
 }
 .cluster-stats-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  grid-template-columns: 1fr;
   gap: var(--layout-gap);
 }
 .cluster-stats-card {

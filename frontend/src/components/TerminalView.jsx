@@ -25,10 +25,21 @@ export default function TerminalView({ resourceId, resourceName, fullscreen = fa
     let ws = null;
     let pingTimer = null;
 
+    const getResponsiveFontSize = () => {
+      if (!fullscreen) return 14;
+      const width = containerRef.current?.clientWidth || window.innerWidth || 1200;
+      const height = containerRef.current?.clientHeight || window.innerHeight || 720;
+      const byWidth = width / 100 / 0.62;
+      const byHeight = height / 34 / 1.25;
+      return Math.max(14, Math.min(22, Math.floor(Math.min(byWidth, byHeight))));
+    };
+
     const term = new Terminal({
       cursorBlink: true,
-      fontSize: 14,
+      fontSize: getResponsiveFontSize(),
       fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
+      lineHeight: fullscreen ? 1.16 : 1,
+      scrollback: 5000,
       theme: document.body.classList.contains('theme-dark')
         ? { background: '#111418', foreground: '#E6E6E6', cursor: '#C2CEA7' }
         : { background: '#1b1e23', foreground: '#e8e8e8', cursor: '#7A876F' }
@@ -38,16 +49,36 @@ export default function TerminalView({ resourceId, resourceName, fullscreen = fa
     term.open(containerRef.current);
     fit.fit();
 
+    const updateTerminalFit = () => {
+      if (disposed) return;
+      try {
+        const nextFontSize = getResponsiveFontSize();
+        if (Math.abs((term.options.fontSize || 14) - nextFontSize) >= 1) {
+          term.options.fontSize = nextFontSize;
+        }
+        fit.fit();
+      } catch (_) { /* noop */ }
+    };
+
     const sendResize = () => {
       if (ws && ws.readyState === WebSocket.OPEN) {
         ws.send(`1:${term.cols}:${term.rows}:`);
       }
     };
 
-    const onWindowResize = () => {
-      try { fit.fit(); sendResize(); } catch (_) { /* noop */ }
+    const fitAndResize = () => {
+      updateTerminalFit();
+      sendResize();
     };
+
+    const onWindowResize = () => fitAndResize();
     window.addEventListener('resize', onWindowResize);
+
+    let resizeObserver = null;
+    if (typeof ResizeObserver !== 'undefined' && containerRef.current) {
+      resizeObserver = new ResizeObserver(() => fitAndResize());
+      resizeObserver.observe(containerRef.current);
+    }
 
     (async () => {
       try {
@@ -79,15 +110,27 @@ export default function TerminalView({ resourceId, resourceName, fullscreen = fa
         const sendBootstrapCommand = () => {
           if (!bootstrapCommand || autoLoginState.bootstrapSent) return;
           autoLoginState.bootstrapSent = true;
-          setTimeout(() => sendConsoleInput(`${bootstrapCommand}\r`), 700);
+          setTimeout(() => {
+            fitAndResize();
+            const cols = Math.max(80, term.cols || 120);
+            const rows = Math.max(24, term.rows || 40);
+            const command = String(bootstrapCommand)
+              .replace(/__PORTAL_COLS__/g, String(cols))
+              .replace(/__PORTAL_ROWS__/g, String(rows));
+            sendConsoleInput(`${command}\r`);
+            setTimeout(fitAndResize, 600);
+            setTimeout(fitAndResize, 1600);
+          }, 700);
         };
 
         ws.onopen = () => {
           setStatus('open');
           ws.send(`${user}:${ticket}\n`);
-          setTimeout(() => { fit.fit(); sendResize(); }, 150);
+          setTimeout(fitAndResize, 150);
+          setTimeout(fitAndResize, 700);
+          setTimeout(fitAndResize, 1500);
           if (bootstrapCommand && !autoLoginState.enabled) {
-            setTimeout(() => sendConsoleInput(`${bootstrapCommand}\r`), 1200);
+            setTimeout(sendBootstrapCommand, 1200);
           }
           pingTimer = setInterval(() => {
             if (ws.readyState === WebSocket.OPEN) ws.send('2');
@@ -141,6 +184,7 @@ export default function TerminalView({ resourceId, resourceName, fullscreen = fa
     return () => {
       disposed = true;
       window.removeEventListener('resize', onWindowResize);
+      try { resizeObserver?.disconnect(); } catch (_) { /* noop */ }
       if (pingTimer) clearInterval(pingTimer);
       try { ws?.close(); } catch (_) { /* noop */ }
       term.dispose();

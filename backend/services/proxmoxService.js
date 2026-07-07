@@ -186,6 +186,8 @@ function buildCommunityScriptCommand(script) {
   const url = getCommunityScriptUrl(script);
   const safeName = String(script?.name || script?.slug || 'Community Script').replace(/[\r\n]+/g, ' ').trim();
   const inner = [
+    `export TERM=xterm-256color`,
+    `stty cols __PORTAL_COLS__ rows __PORTAL_ROWS__ >/dev/null 2>&1 || true`,
     `printf '\\033[2J\\033[H'`,
     `echo ${shellQuote(`Hosting Portal startet ${safeName}.`)}`,
     `echo ${shellQuote('Folge den Abfragen im Terminal. Drücke Enter, wenn du die Standardwerte des Scripts verwenden möchtest.')}`,
@@ -700,6 +702,7 @@ async function getNodeStorageSummary(client, node) {
       return {
         storage: item.storage,
         type: item.type || '',
+        shared: item.shared === true || item.shared === 1 || item.shared === '1',
         used,
         total,
         percent: percentOf(used, total)
@@ -711,6 +714,46 @@ async function getNodeStorageSummary(client, node) {
   return {
     used: items.reduce((sum, item) => sum + item.used, 0),
     total: items.reduce((sum, item) => sum + item.total, 0),
+    items
+  };
+}
+
+function isSharedStorageItem(item) {
+  const type = String(item?.type || '').toLowerCase();
+  return item?.shared === true || item?.shared === 1 || item?.shared === '1' ||
+    ['rbd', 'cephfs', 'nfs', 'cifs', 'pbs', 'iscsi', 'iscsidirect', 'glusterfs', 'zfs over iscsi'].includes(type);
+}
+
+function summarizeClusterStorage(nodes) {
+  const unique = new Map();
+
+  (nodes || []).forEach(node => {
+    (node.storages || []).forEach(item => {
+      const total = safeNumber(item.total);
+      if (!item || !item.storage || total <= 0) return;
+
+      const storageKey = isSharedStorageItem(item)
+        ? `shared:${item.storage}:${item.type || ''}`
+        : `node:${node.node}:${item.storage}:${item.type || ''}`;
+
+      if (!unique.has(storageKey)) {
+        unique.set(storageKey, item);
+        return;
+      }
+
+      const existing = unique.get(storageKey);
+      if (safeNumber(item.total) > safeNumber(existing.total)) unique.set(storageKey, item);
+    });
+  });
+
+  const items = Array.from(unique.values());
+  const used = items.reduce((sum, item) => sum + safeNumber(item.used), 0);
+  const total = items.reduce((sum, item) => sum + safeNumber(item.total), 0);
+
+  return {
+    used,
+    total,
+    percent: percentOf(used, total),
     items
   };
 }
@@ -814,10 +857,10 @@ async function getClusterDashboardStats(clusterUrl, apiToken) {
     acc.maxmem += safeNumber(node.maxmem);
     acc.rootUsed += safeNumber(node.rootUsed);
     acc.rootTotal += safeNumber(node.rootTotal);
-    acc.storageUsed += safeNumber(node.storageUsed);
-    acc.storageTotal += safeNumber(node.storageTotal);
     return acc;
-  }, { nodes: 0, online: 0, cpuPercentSum: 0, cpuSamples: 0, mem: 0, maxmem: 0, rootUsed: 0, rootTotal: 0, storageUsed: 0, storageTotal: 0 });
+  }, { nodes: 0, online: 0, cpuPercentSum: 0, cpuSamples: 0, mem: 0, maxmem: 0, rootUsed: 0, rootTotal: 0 });
+
+  const clusterStorage = summarizeClusterStorage(nodes);
 
   return {
     nodes,
@@ -831,9 +874,9 @@ async function getClusterDashboardStats(clusterUrl, apiToken) {
       rootUsed: totals.rootUsed,
       rootTotal: totals.rootTotal,
       rootPercent: percentOf(totals.rootUsed, totals.rootTotal),
-      storageUsed: totals.storageUsed,
-      storageTotal: totals.storageTotal,
-      storagePercent: percentOf(totals.storageUsed, totals.storageTotal)
+      storageUsed: clusterStorage.used,
+      storageTotal: clusterStorage.total,
+      storagePercent: clusterStorage.percent
     }
   };
 }

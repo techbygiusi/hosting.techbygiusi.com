@@ -1525,12 +1525,12 @@ function ClusterStatsCard({ cluster }) {
           <div className="cluster-stats-summary">
             <MiniMetric label="CPU Ø" value={`${formatFixed(totals.cpuPercent)}%`} />
             <MiniMetric label="RAM" value={`${formatFixed(totals.memPercent)}%`} />
-            <MiniMetric label="Storage" value={`${formatFixed(totals.storagePercent || totals.rootPercent)}%`} />
+            <MiniMetric label="Storage" value={`${formatFixed(totals.storageTotal ? totals.storagePercent : totals.rootPercent)}%`} />
             <MiniMetric label="Online" value={`${totals.online || 0}/${totals.nodes || 0}`} />
           </div>
           <Metric label="CPU" percent={totals.cpuPercent || 0} detail={`${formatFixed(totals.cpuPercent)} % Durchschnitt`} />
           <Metric label="RAM" percent={totals.memPercent || 0} detail={`${formatBytes(totals.mem)} / ${formatBytes(totals.maxmem)}`} />
-          <Metric label="Storage" percent={totals.storagePercent || totals.rootPercent || 0} detail={totals.storageTotal ? `${formatBytes(totals.storageUsed)} / ${formatBytes(totals.storageTotal)}` : `${formatBytes(totals.rootUsed)} / ${formatBytes(totals.rootTotal)}`} />
+          <Metric label="Storage" percent={totals.storageTotal ? totals.storagePercent : totals.rootPercent || 0} detail={totals.storageTotal ? `${formatBytes(totals.storageUsed)} / ${formatBytes(totals.storageTotal)}` : `${formatBytes(totals.rootUsed)} / ${formatBytes(totals.rootTotal)}`} />
           <div className="cluster-node-list">
             {nodes.map(node => <ClusterNodeRow key={node.node} node={node} />)}
           </div>
@@ -1551,7 +1551,7 @@ function ClusterNodeRow({ node }) {
       <div className="cluster-node-metrics">
         <span>CPU {formatFixed(node.cpuPercent)}%</span>
         <span>RAM {formatFixed(node.memPercent)}%</span>
-        <span>Storage {formatFixed(node.storagePercent || node.rootPercent)}%</span>
+        <span>Storage {formatFixed(node.storageTotal ? node.storagePercent : node.rootPercent)}%</span>
         <span>{temp ? `${formatFixed(temp, 0)} °C` : 'Temp. —'}</span>
         <span>Uptime {formatUptime(node.uptime)}</span>
       </div>
