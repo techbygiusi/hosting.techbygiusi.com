@@ -173,6 +173,7 @@ export const adminApi = {
   updateUser: (userId, data) => apiClient.put(`/admin/users/${userId}`, data),
   deleteUser: (userId) => apiClient.delete(`/admin/users/${userId}`),
   getClusters: () => apiClient.get('/admin/clusters'),
+  getClusterStats: () => apiClient.get('/admin/cluster-stats'),
   createCluster: (data) => apiClient.post('/admin/clusters', data),
   updateCluster: (clusterId, data) => apiClient.put(`/admin/clusters/${clusterId}`, data),
   deleteCluster: (clusterId) => apiClient.delete(`/admin/clusters/${clusterId}`),

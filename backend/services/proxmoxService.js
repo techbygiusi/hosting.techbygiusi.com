@@ -635,6 +635,209 @@ async function getOnlineNodes(clusterUrl, apiToken) {
   return nodes;
 }
 
+
+function safeNumber(value, fallback = 0) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : fallback;
+}
+
+function percentOf(value, max) {
+  const used = safeNumber(value);
+  const total = safeNumber(max);
+  if (!total) return 0;
+  return Math.min(Math.max((used / total) * 100, 0), 100);
+}
+
+function collectSensorTemperatures(value, list = []) {
+  if (value === null || value === undefined) return list;
+  if (Array.isArray(value)) {
+    value.forEach(item => collectSensorTemperatures(item, list));
+    return list;
+  }
+  if (typeof value !== 'object') return list;
+
+  Object.entries(value).forEach(([key, entry]) => {
+    if (/temp/i.test(key) && typeof entry === 'number' && Number.isFinite(entry) && entry > -50 && entry < 150) {
+      list.push(entry);
+      return;
+    }
+    if (/temp/i.test(key) && entry && typeof entry === 'object') {
+      const candidate = entry.input ?? entry.value ?? entry.current ?? entry.temp ?? entry.temperature;
+      if (typeof candidate === 'number' && Number.isFinite(candidate) && candidate > -50 && candidate < 150) {
+        list.push(candidate);
+      }
+    }
+    collectSensorTemperatures(entry, list);
+  });
+
+  return list;
+}
+
+async function getNodeSensors(client, node) {
+  const response = await client.get(`/api2/json/nodes/${node}/sensors`);
+  if (response.status < 200 || response.status >= 300) return null;
+  const values = collectSensorTemperatures(response.data?.data || []);
+  if (!values.length) return null;
+  const max = Math.max(...values);
+  const avg = values.reduce((sum, value) => sum + value, 0) / values.length;
+  return {
+    current: avg,
+    max,
+    count: values.length
+  };
+}
+
+async function getNodeStorageSummary(client, node) {
+  const response = await client.get(`/api2/json/nodes/${node}/storage`);
+  if (response.status < 200 || response.status >= 300) return { used: 0, total: 0, items: [] };
+
+  const items = (response.data?.data || [])
+    .filter(item => item && item.storage)
+    .filter(item => item.enabled !== 0 && item.active !== 0 && item.status !== 'disabled')
+    .map(item => {
+      const total = safeNumber(item.total || item.maxdisk || 0);
+      const used = safeNumber(item.used || item.disk || 0);
+      return {
+        storage: item.storage,
+        type: item.type || '',
+        used,
+        total,
+        percent: percentOf(used, total)
+      };
+    })
+    .filter(item => item.total > 0)
+    .sort((a, b) => b.percent - a.percent);
+
+  return {
+    used: items.reduce((sum, item) => sum + item.used, 0),
+    total: items.reduce((sum, item) => sum + item.total, 0),
+    items
+  };
+}
+
+async function getNodeStatusSummary(client, nodeResource) {
+  const nodeName = nodeResource.node;
+  const isOnline = nodeResource.status === 'online';
+  let status = {};
+  let storage = { used: 0, total: 0, items: [] };
+  let sensors = null;
+
+  if (isOnline) {
+    const [statusResult, storageResult, sensorResult] = await Promise.allSettled([
+      client.get(`/api2/json/nodes/${nodeName}/status`),
+      getNodeStorageSummary(client, nodeName),
+      getNodeSensors(client, nodeName)
+    ]);
+
+    if (statusResult.status === 'fulfilled' && statusResult.value.status >= 200 && statusResult.value.status < 300) {
+      status = statusResult.value.data?.data || {};
+    }
+    if (storageResult.status === 'fulfilled') storage = storageResult.value;
+    if (sensorResult.status === 'fulfilled') sensors = sensorResult.value;
+  }
+
+  const memory = status.memory || {};
+  const rootfs = status.rootfs || {};
+  const cpuinfo = status.cpuinfo || {};
+  const cpu = safeNumber(status.cpu, safeNumber(nodeResource.cpu));
+  const maxcpu = safeNumber(cpuinfo.cpus, safeNumber(nodeResource.maxcpu));
+  const mem = safeNumber(memory.used, safeNumber(nodeResource.mem));
+  const maxmem = safeNumber(memory.total, safeNumber(nodeResource.maxmem));
+  const rootUsed = safeNumber(rootfs.used, safeNumber(nodeResource.disk));
+  const rootTotal = safeNumber(rootfs.total, safeNumber(nodeResource.maxdisk));
+  const uptime = safeNumber(status.uptime, safeNumber(nodeResource.uptime));
+
+  return {
+    node: nodeName,
+    status: nodeResource.status || 'unknown',
+    cpu,
+    maxcpu,
+    cpuPercent: Math.min(Math.max(cpu * 100, 0), 100),
+    loadavg: Array.isArray(status.loadavg) ? status.loadavg.map(value => String(value)) : [],
+    mem,
+    maxmem,
+    memPercent: percentOf(mem, maxmem),
+    rootUsed,
+    rootTotal,
+    rootPercent: percentOf(rootUsed, rootTotal),
+    storageUsed: storage.used,
+    storageTotal: storage.total,
+    storagePercent: percentOf(storage.used, storage.total),
+    storages: storage.items.slice(0, 4),
+    uptime,
+    temperature: sensors
+  };
+}
+
+async function getClusterDashboardStats(clusterUrl, apiToken) {
+  const client = createProxmoxClient(clusterUrl, apiToken);
+  const response = await client.get('/api2/json/cluster/resources?type=node');
+  ensureSuccess(response, 'Proxmox Node-Status konnte nicht geladen werden:');
+
+  const nodeResources = (response.data?.data || [])
+    .filter(item => item.type === 'node' && item.node)
+    .sort((a, b) => String(a.node).localeCompare(String(b.node), undefined, { numeric: true }));
+
+  const settled = await Promise.allSettled(nodeResources.map(item => getNodeStatusSummary(client, item)));
+  const nodes = settled.map((result, index) => {
+    if (result.status === 'fulfilled') return result.value;
+    const fallback = nodeResources[index] || {};
+    return {
+      node: fallback.node || 'unknown',
+      status: fallback.status || 'unknown',
+      cpu: safeNumber(fallback.cpu),
+      maxcpu: safeNumber(fallback.maxcpu),
+      cpuPercent: Math.min(Math.max(safeNumber(fallback.cpu) * 100, 0), 100),
+      loadavg: [],
+      mem: safeNumber(fallback.mem),
+      maxmem: safeNumber(fallback.maxmem),
+      memPercent: percentOf(fallback.mem, fallback.maxmem),
+      rootUsed: safeNumber(fallback.disk),
+      rootTotal: safeNumber(fallback.maxdisk),
+      rootPercent: percentOf(fallback.disk, fallback.maxdisk),
+      storageUsed: 0,
+      storageTotal: 0,
+      storagePercent: 0,
+      storages: [],
+      uptime: safeNumber(fallback.uptime),
+      temperature: null,
+      error: result.reason?.message || 'Node status unavailable'
+    };
+  });
+
+  const totals = nodes.reduce((acc, node) => {
+    acc.nodes += 1;
+    if (node.status === 'online') acc.online += 1;
+    acc.cpuPercentSum += safeNumber(node.cpuPercent);
+    acc.cpuSamples += node.status === 'online' ? 1 : 0;
+    acc.mem += safeNumber(node.mem);
+    acc.maxmem += safeNumber(node.maxmem);
+    acc.rootUsed += safeNumber(node.rootUsed);
+    acc.rootTotal += safeNumber(node.rootTotal);
+    acc.storageUsed += safeNumber(node.storageUsed);
+    acc.storageTotal += safeNumber(node.storageTotal);
+    return acc;
+  }, { nodes: 0, online: 0, cpuPercentSum: 0, cpuSamples: 0, mem: 0, maxmem: 0, rootUsed: 0, rootTotal: 0, storageUsed: 0, storageTotal: 0 });
+
+  return {
+    nodes,
+    totals: {
+      nodes: totals.nodes,
+      online: totals.online,
+      cpuPercent: totals.cpuSamples ? totals.cpuPercentSum / totals.cpuSamples : 0,
+      mem: totals.mem,
+      maxmem: totals.maxmem,
+      memPercent: percentOf(totals.mem, totals.maxmem),
+      rootUsed: totals.rootUsed,
+      rootTotal: totals.rootTotal,
+      rootPercent: percentOf(totals.rootUsed, totals.rootTotal),
+      storageUsed: totals.storageUsed,
+      storageTotal: totals.storageTotal,
+      storagePercent: percentOf(totals.storageUsed, totals.storageTotal)
+    }
+  };
+}
+
 /**
 /**
  * LXC templates available on a template storage of a node.
@@ -780,6 +983,7 @@ module.exports = {
   createTermProxy,
   createNodeTermProxy,
   getOnlineNodes,
+  getClusterDashboardStats,
   getNodeTemplates,
   getNodeIsos,
   getNodeStorages,

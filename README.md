@@ -6,7 +6,7 @@ The frontend is built with React and the backend with Express + SQLite. Proxmox 
 
 ## Version
 
-Current version: **v2.8.1**
+Current version: **v2.9.0**
 
 Versioning now follows a clean semantic sequence:
 
@@ -162,6 +162,15 @@ docker image prune -f
 The database migrates itself on startup. Keep the backend data volume before updating.
 
 ## Changelog
+
+### v2.9.0 - 2026-07-07
+
+**Commit:** `feat: add Proxmox cluster stats to the admin overview`
+
+- Added live Proxmox cluster status cards below the existing admin overview metrics.
+- Shows per-cluster node count, online nodes, average CPU, RAM usage, storage usage, node uptime and temperatures when Proxmox exposes sensor data.
+- Added a backend cluster stats endpoint that reads live node, storage and sensor information from every connected Proxmox cluster.
+- Keeps the overview usable when a cluster is temporarily unavailable by showing an error state per cluster instead of breaking the whole dashboard.
 
 ### v2.8.1 - 2026-07-07
 

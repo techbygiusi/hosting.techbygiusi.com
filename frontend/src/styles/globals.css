@@ -2849,3 +2849,88 @@ textarea,
     display: grid;
   }
 }
+
+/* v2.9.0 – admin overview cluster status cards */
+.cluster-stats-section {
+  margin-top: var(--layout-gap);
+}
+.cluster-stats-header {
+  margin-bottom: var(--layout-gap);
+}
+.cluster-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: var(--layout-gap);
+}
+.cluster-stats-card {
+  display: grid;
+  gap: var(--layout-gap);
+  padding: var(--layout-padding);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+body.theme-dark .cluster-stats-card {
+  background: rgba(255, 255, 255, 0.04);
+}
+.cluster-stats-title,
+.cluster-node-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--layout-gap);
+}
+.cluster-stats-title h3 {
+  margin: 4px 0 0;
+  font-size: 18px;
+}
+.cluster-stats-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--layout-gap-sm);
+}
+.mini-metric {
+  display: grid;
+  gap: 5px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-alt);
+}
+.mini-metric span,
+.cluster-node-metrics span {
+  color: var(--color-text-light);
+  font-size: var(--font-size-sm);
+}
+.mini-metric strong {
+  color: var(--color-text);
+  font-size: 17px;
+}
+.cluster-node-list {
+  display: grid;
+  gap: var(--layout-gap-sm);
+}
+.cluster-node-row {
+  display: grid;
+  gap: var(--layout-gap-sm);
+  padding: var(--layout-padding);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-alt);
+}
+.cluster-node-metrics {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: var(--layout-gap-sm);
+}
+@media (max-width: 767px) {
+  .cluster-stats-grid {
+    grid-template-columns: 1fr;
+  }
+  .cluster-stats-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .cluster-node-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

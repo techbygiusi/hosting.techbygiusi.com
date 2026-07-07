@@ -27,6 +27,7 @@ export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState('overview');
   const [users, setUsers] = useState([]);
   const [clusters, setClusters] = useState([]);
+  const [clusterStats, setClusterStats] = useState([]);
   const [resources, setResources] = useState([]);
   const [clusterContainers, setClusterContainers] = useState([]);
   const [settings, setSettings] = useState(emptySmtp);
@@ -119,6 +120,7 @@ export default function AdminDashboard() {
       const needsResources = ['overview', 'resources'].includes(tab);
       const needsGroups = ['groups', 'resources', 'overview'].includes(tab);
       const needsSettings = tab === 'settings';
+      const needsClusterStats = tab === 'overview';
 
       if (needsUsers) requests.push(adminApi.getUsers().then(res => setUsers(res.data.users || [])));
       if (needsClusters) requests.push(
@@ -132,6 +134,7 @@ export default function AdminDashboard() {
       );
       if (needsResources) requests.push(adminApi.getResources().then(res => setResources(res.data.resources || [])));
       if (needsGroups) requests.push(adminApi.getGroups().then(res => setGroups(res.data.groups || [])));
+      if (needsClusterStats) requests.push(adminApi.getClusterStats().then(res => setClusterStats(res.data.clusters || [])).catch(() => setClusterStats([])));
       if (needsSettings) {
         requests.push(loadSettings());
       }
@@ -768,14 +771,17 @@ export default function AdminDashboard() {
         {loading && <div className="loading"><span className="spinner"></span><span>Daten werden geladen...</span></div>}
 
         {!loading && activeTab === 'overview' && (
-          <section className="dashboard-grid">
-            <MetricCard label="Benutzer" value={userCount} onClick={() => setActiveTab('users')} />
-            <MetricCard label="Administratoren" value={adminCount} onClick={() => setActiveTab('users')} />
-            <MetricCard label="Gruppen" value={groups.length} onClick={() => setActiveTab('groups')} />
-            <MetricCard label="Cluster" value={clusters.length} onClick={() => setActiveTab('clusters')} />
-            <MetricCard label="Dienste" value={resources.length} onClick={() => setActiveTab('resources')} />
-            <MetricCard label="Online" value={onlineCount} onClick={() => setActiveTab('resources')} />
-          </section>
+          <>
+            <section className="dashboard-grid">
+              <MetricCard label="Benutzer" value={userCount} onClick={() => setActiveTab('users')} />
+              <MetricCard label="Administratoren" value={adminCount} onClick={() => setActiveTab('users')} />
+              <MetricCard label="Gruppen" value={groups.length} onClick={() => setActiveTab('groups')} />
+              <MetricCard label="Cluster" value={clusters.length} onClick={() => setActiveTab('clusters')} />
+              <MetricCard label="Dienste" value={resources.length} onClick={() => setActiveTab('resources')} />
+              <MetricCard label="Online" value={onlineCount} onClick={() => setActiveTab('resources')} />
+            </section>
+            <ClusterStatsSection clusters={clusterStats} />
+          </>
         )}
 
         {!loading && activeTab === 'users' && (
@@ -1480,6 +1486,98 @@ function formatAuditTime(value) {  if (!value) return '';
 
 function PanelHeader({ title, action, onAction }) {
   return <div className="panel-header"><h2>{title}</h2>{action && <button type="button" className="btn-primary" onClick={onAction}>{action}</button>}</div>;
+}
+
+
+function ClusterStatsSection({ clusters }) {
+  if (!clusters || clusters.length === 0) return null;
+  return (
+    <section className="panel-card cluster-stats-section">
+      <div className="panel-header cluster-stats-header">
+        <h2>Cluster-Status</h2>
+      </div>
+      <div className="cluster-stats-grid">
+        {clusters.map(cluster => <ClusterStatsCard key={cluster.id} cluster={cluster} />)}
+      </div>
+    </section>
+  );
+}
+
+function ClusterStatsCard({ cluster }) {
+  const totals = cluster.totals || {};
+  const nodes = Array.isArray(cluster.nodes) ? cluster.nodes : [];
+  return (
+    <article className="cluster-stats-card">
+      <div className="cluster-stats-title">
+        <div>
+          <span className="resource-id">{cluster.url || 'Proxmox'}</span>
+          <h3>{cluster.name}</h3>
+        </div>
+        <span className={`status-badge ${cluster.error ? 'status-stopped' : 'status-running'}`}>
+          {cluster.error ? 'Nicht erreichbar' : `${totals.online || 0}/${totals.nodes || nodes.length} Nodes`}
+        </span>
+      </div>
+
+      {cluster.error ? (
+        <p className="hint-text caps-error">{cluster.error}</p>
+      ) : (
+        <>
+          <div className="cluster-stats-summary">
+            <MiniMetric label="CPU Ø" value={`${formatFixed(totals.cpuPercent)}%`} />
+            <MiniMetric label="RAM" value={`${formatFixed(totals.memPercent)}%`} />
+            <MiniMetric label="Storage" value={`${formatFixed(totals.storagePercent || totals.rootPercent)}%`} />
+            <MiniMetric label="Online" value={`${totals.online || 0}/${totals.nodes || 0}`} />
+          </div>
+          <Metric label="CPU" percent={totals.cpuPercent || 0} detail={`${formatFixed(totals.cpuPercent)} % Durchschnitt`} />
+          <Metric label="RAM" percent={totals.memPercent || 0} detail={`${formatBytes(totals.mem)} / ${formatBytes(totals.maxmem)}`} />
+          <Metric label="Storage" percent={totals.storagePercent || totals.rootPercent || 0} detail={totals.storageTotal ? `${formatBytes(totals.storageUsed)} / ${formatBytes(totals.storageTotal)}` : `${formatBytes(totals.rootUsed)} / ${formatBytes(totals.rootTotal)}`} />
+          <div className="cluster-node-list">
+            {nodes.map(node => <ClusterNodeRow key={node.node} node={node} />)}
+          </div>
+        </>
+      )}
+    </article>
+  );
+}
+
+function ClusterNodeRow({ node }) {
+  const temp = node.temperature?.max || node.temperature?.current;
+  return (
+    <div className="cluster-node-row">
+      <div className="cluster-node-head">
+        <strong>{node.node}</strong>
+        <span className={`status-badge status-${node.status === 'online' ? 'running' : 'stopped'}`}>{node.status === 'online' ? 'Online' : 'Offline'}</span>
+      </div>
+      <div className="cluster-node-metrics">
+        <span>CPU {formatFixed(node.cpuPercent)}%</span>
+        <span>RAM {formatFixed(node.memPercent)}%</span>
+        <span>Storage {formatFixed(node.storagePercent || node.rootPercent)}%</span>
+        <span>{temp ? `${formatFixed(temp, 0)} °C` : 'Temp. —'}</span>
+        <span>Uptime {formatUptime(node.uptime)}</span>
+      </div>
+    </div>
+  );
+}
+
+function MiniMetric({ label, value }) {
+  return <div className="mini-metric"><span>{label}</span><strong>{value}</strong></div>;
+}
+
+function formatFixed(value, digits = 1) {
+  const number = Number(value || 0);
+  if (!Number.isFinite(number)) return (0).toFixed(digits);
+  return number.toFixed(digits);
+}
+
+function formatUptime(seconds) {
+  const total = Number(seconds || 0);
+  if (!Number.isFinite(total) || total <= 0) return '—';
+  const days = Math.floor(total / 86400);
+  const hours = Math.floor((total % 86400) / 3600);
+  if (days > 0) return `${days}d ${hours}h`;
+  const minutes = Math.floor((total % 3600) / 60);
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  return `${minutes}m`;
 }
 
 function MetricCard({ label, value, onClick }) {

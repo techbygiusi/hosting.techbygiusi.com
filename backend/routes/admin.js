@@ -6,7 +6,7 @@ const { get, run, all } = require('../config/database');
 const { adminMiddleware } = require('../middleware/auth');
 const { AppError } = require('../middleware/errorHandler');
 const { HTTP_STATUS, ROLES } = require('../config/constants');
-const { getClusterResources, testConnection, getCapabilities, getOnlineNodes, getNodeTemplates, getNodeIsos, getNodeStorages } = require('../services/proxmoxService');
+const { getClusterResources, testConnection, getCapabilities, getOnlineNodes, getNodeTemplates, getNodeIsos, getNodeStorages, getClusterDashboardStats } = require('../services/proxmoxService');
 const { enrichResources } = require('../services/resourceService');
 const { testSmtpConnection, initializeEmailService, encryptString, decryptString } = require('../services/emailService');
 const { encrypt, decrypt } = require('../services/cryptoService');
@@ -242,6 +242,38 @@ router.get('/clusters', async (req, res, next) => {
       FROM proxmox_clusters ORDER BY created_at DESC
     `);
     res.json({ clusters });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get('/cluster-stats', async (req, res, next) => {
+  try {
+    const clusters = await all('SELECT id, name, url, api_token FROM proxmox_clusters ORDER BY created_at DESC');
+    const settled = await Promise.allSettled(clusters.map(async (cluster) => {
+      const stats = await getClusterDashboardStats(normalizeUrl(cluster.url), decrypt(cluster.api_token));
+      return {
+        id: cluster.id,
+        name: cluster.name,
+        url: cluster.url,
+        ...stats
+      };
+    }));
+
+    const clusterStats = settled.map((result, index) => {
+      const cluster = clusters[index];
+      if (result.status === 'fulfilled') return result.value;
+      return {
+        id: cluster.id,
+        name: cluster.name,
+        url: cluster.url,
+        nodes: [],
+        totals: { nodes: 0, online: 0, cpuPercent: 0, mem: 0, maxmem: 0, memPercent: 0, rootUsed: 0, rootTotal: 0, rootPercent: 0, storageUsed: 0, storageTotal: 0, storagePercent: 0 },
+        error: result.reason?.message || 'Cluster status unavailable'
+      };
+    });
+
+    res.json({ clusters: clusterStats });
   } catch (err) {
     next(err);
   }
