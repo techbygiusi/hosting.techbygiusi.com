@@ -1234,7 +1234,7 @@ body.theme-dark .icon-button {
   .intro-card, .modal-card { border-radius: 14px; }
   .panel-card, .metric-card, .resource-card, .modal-card, .intro-card { padding: 16px; }
 
-  .desktop-only-inline { display: none !important; }
+  .desktop-only-inline, .desktop-only-block { display: none !important; }
   .console-page-header { align-items: stretch; flex-direction: column; }
   .console-page-actions { flex-direction: column; align-items: stretch; }
   .console-page-actions .btn-primary, .console-page-actions .btn-secondary { width: 100%; }
@@ -2797,3 +2797,7 @@ textarea,
     padding: var(--ui-padding);
   }
 }
+
+/* v2.8 – desktop-only provisioning */
+.desktop-only-block { display: block; }
+@media (max-width: 767px) { .desktop-only-block { display: none !important; } }

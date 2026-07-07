@@ -174,13 +174,31 @@ async function sendNodeShellCommand(clusterUrl, apiToken, node, command) {
   });
 }
 
-async function runCommunityScriptOnNode(clusterUrl, apiToken, node, script) {
+function getCommunityScriptUrl(script) {
   const url = script?.url || `${COMMUNITY_SCRIPTS_RAW}/${script.slug}.sh`;
   if (!/^https:\/\/raw\.githubusercontent\.com\/community-scripts\/ProxmoxVE\//.test(url)) {
     throw new Error('Community script URL is not allowed');
   }
+  return url;
+}
+
+function buildCommunityScriptCommand(script) {
+  const url = getCommunityScriptUrl(script);
+  const safeName = String(script?.name || script?.slug || 'Community Script').replace(/[\r\n]+/g, ' ').trim();
+  const inner = [
+    `printf '\\033[2J\\033[H'`,
+    `echo ${shellQuote(`Hosting Portal startet ${safeName}.`)}`,
+    `echo ${shellQuote('Folge den Abfragen im Terminal. Drücke Enter, wenn du die Standardwerte des Scripts verwenden möchtest.')}`,
+    `echo`,
+    `bash -c "$(curl -fsSL ${shellQuote(url)})"`
+  ].join('; ');
+  return `bash -lc ${shellQuote(inner)}`;
+}
+
+async function runCommunityScriptOnNode(clusterUrl, apiToken, node, script) {
+  const url = getCommunityScriptUrl(script);
   const logPath = `/var/log/hosting-portal-community-${String(script.slug || 'script').replace(/[^a-z0-9-]/gi, '-')}-${Date.now()}.log`;
-  const inner = `printf '\\n%.0s' {1..80} | bash -c \"$(curl -fsSL ${shellQuote(url)})\"`;
+  const inner = `printf '\n%.0s' {1..80} | bash -c "$(curl -fsSL ${shellQuote(url)})"`;
   const command = `nohup bash -lc ${shellQuote(inner)} > ${shellQuote(logPath)} 2>&1 & echo ${shellQuote(`Hosting Portal started ${script.name}. Log: ${logPath}`)}`;
   await sendNodeShellCommand(clusterUrl, apiToken, node, command);
   return { node, logPath };
@@ -760,6 +778,7 @@ module.exports = {
   getTaskStatus,
   getCapabilities,
   createTermProxy,
+  createNodeTermProxy,
   getOnlineNodes,
   getNodeTemplates,
   getNodeIsos,
@@ -770,6 +789,7 @@ module.exports = {
   destroyProxmoxResource,
   getCommunityScripts,
   getCommunityScript,
+  buildCommunityScriptCommand,
   runCommunityScriptOnNode,
   POWER_ACTIONS
 };

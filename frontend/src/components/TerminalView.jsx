@@ -14,7 +14,7 @@ import { userApi, getErrorMessage } from '../services/api';
  * - resize: "1:<cols>:<rows>:"
  * - ping:   "2"
  */
-export default function TerminalView({ resourceId, resourceName, fullscreen = false }) {
+export default function TerminalView({ resourceId, resourceName, fullscreen = false, sessionInfo = null }) {
   const containerRef = useRef(null);
   const [status, setStatus] = useState('connecting'); // connecting | open | closed | error
   const [message, setMessage] = useState('');
@@ -51,28 +51,31 @@ export default function TerminalView({ resourceId, resourceName, fullscreen = fa
 
     (async () => {
       try {
-        const res = await userApi.openConsole(resourceId);
+        const res = sessionInfo ? { data: sessionInfo } : await userApi.openConsole(resourceId);
         if (disposed) return;
 
-        const { wsPath, user, ticket, autoLogin } = res.data;
+        const { wsPath, user, ticket, autoLogin, bootstrapCommand } = res.data;
         const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
         ws = new WebSocket(`${protocol}://${window.location.host}${wsPath}`);
         ws.binaryType = 'arraybuffer';
-
-        ws.onopen = () => {
-          setStatus('open');
-          ws.send(`${user}:${ticket}\n`);
-          setTimeout(() => { fit.fit(); sendResize(); }, 150);
-          pingTimer = setInterval(() => {
-            if (ws.readyState === WebSocket.OPEN) ws.send('2');
-          }, 30 * 1000);
-        };
 
         const sendConsoleInput = (input) => {
           if (ws && ws.readyState === WebSocket.OPEN) {
             const bytes = new TextEncoder().encode(input);
             ws.send(`0:${bytes.length}:${input}`);
           }
+        };
+
+        ws.onopen = () => {
+          setStatus('open');
+          ws.send(`${user}:${ticket}\n`);
+          setTimeout(() => { fit.fit(); sendResize(); }, 150);
+          if (bootstrapCommand) {
+            setTimeout(() => sendConsoleInput(`${bootstrapCommand}\r`), 1200);
+          }
+          pingTimer = setInterval(() => {
+            if (ws.readyState === WebSocket.OPEN) ws.send('2');
+          }, 30 * 1000);
         };
 
         const autoLoginState = {
@@ -131,7 +134,7 @@ export default function TerminalView({ resourceId, resourceName, fullscreen = fa
       try { ws?.close(); } catch (_) { /* noop */ }
       term.dispose();
     };
-  }, [resourceId, reconnectKey]);
+  }, [resourceId, reconnectKey, sessionInfo]);
 
   return (
     <div className={fullscreen ? 'terminal-wrapper terminal-wrapper-fullscreen' : 'terminal-wrapper'}>

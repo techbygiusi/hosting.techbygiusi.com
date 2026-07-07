@@ -14,6 +14,7 @@ const {
   getTaskStatus,
   getCapabilities,
   createTermProxy,
+  createNodeTermProxy,
   getOnlineNodes,
   getNodeTemplates,
   getNodeStorages,
@@ -22,6 +23,7 @@ const {
   destroyProxmoxResource,
   getCommunityScripts,
   getCommunityScript,
+  buildCommunityScriptCommand,
   runCommunityScriptOnNode,
   POWER_ACTIONS
 } = require('../services/proxmoxService');
@@ -619,6 +621,62 @@ router.get('/provisioning/community-scripts', async (req, res, next) => {
   }
 });
 
+router.post('/provisioning/community-console', async (req, res, next) => {
+  try {
+    const { clusterId, communityScript } = req.body;
+    const cluster = await get(
+      'SELECT * FROM proxmox_clusters WHERE id = ? AND allow_provisioning = 1',
+      [clusterId]
+    );
+    if (!cluster) throw new AppError('Cluster not found', HTTP_STATUS.NOT_FOUND);
+    if (!cluster.vmid_min || !cluster.vmid_max || !cluster.ip_start || !cluster.ip_end || !cluster.gateway) {
+      throw new AppError('Provisioning is not fully configured for this cluster', HTTP_STATUS.BAD_REQUEST);
+    }
+
+    const apiToken = decrypt(cluster.api_token);
+    const caps = await getClusterCapabilities(cluster.id, cluster.url, apiToken);
+    if (!caps.canProvision) {
+      throw new AppError('Provisioning is not permitted for this cluster token', HTTP_STATUS.FORBIDDEN);
+    }
+
+    const script = await getCommunityScript(communityScript);
+    if (!script) throw new AppError('Community script is not allowed', HTTP_STATUS.BAD_REQUEST);
+
+    const nodes = await getOnlineNodes(cluster.url, apiToken);
+    if (nodes.length === 0) throw new AppError('No online node available', HTTP_STATUS.BAD_REQUEST);
+    const node = nodes[0].node;
+
+    const before = await getAllContainers(cluster.url, apiToken).catch(() => []);
+    const beforeIds = new Set(before.map(item => String(item.vmid)));
+    const term = await createNodeTermProxy(cluster.url, apiToken, node);
+    const sessionToken = createConsoleSession({
+      mode: 'node-shell',
+      clusterUrl: cluster.url,
+      apiToken,
+      node,
+      port: term.port,
+      ticket: term.ticket
+    });
+
+    trackCommunityScriptProvisioning({ req, cluster, apiToken, beforeIds, userId: req.user.id, scriptName: script.name });
+    await logAudit(req, 'machine.create', `cluster:${cluster.id}`, `Community Script ${script.name} opened on ${node}`);
+
+    res.json({
+      sessionToken,
+      user: term.user,
+      ticket: term.ticket,
+      wsPath: `/api/console/ws?token=${sessionToken}`,
+      bootstrapCommand: buildCommunityScriptCommand(script),
+      type: 'community-script-console',
+      script: script.name,
+      node,
+      clusterName: cluster.name
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.post('/provisioning/create', async (req, res, next) => {
   try {
     const { clusterId, type, hostname, template, communityScript, cores, memoryMb, diskGb, rootPassword } = req.body;
@@ -673,24 +731,9 @@ router.post('/provisioning/create', async (req, res, next) => {
     }
 
     if (useCommunityScript) {
-      const script = await getCommunityScript(communityScript);
-      if (!script) throw new AppError('Community script is not allowed', HTTP_STATUS.BAD_REQUEST);
-      const nodes = await getOnlineNodes(cluster.url, apiToken);
-      if (nodes.length === 0) throw new AppError('No online node available', HTTP_STATUS.BAD_REQUEST);
-      const node = nodes[0].node;
-      const before = await getAllContainers(cluster.url, apiToken).catch(() => []);
-      const beforeIds = new Set(before.map(item => String(item.vmid)));
-      const runResult = await runCommunityScriptOnNode(cluster.url, apiToken, node, script);
-      await logAudit(req, 'machine.create', `cluster:${cluster.id}`, `Community Script ${script.name} started on ${node}`);
-      trackCommunityScriptProvisioning({ req, cluster, apiToken, beforeIds, userId: req.user.id, scriptName: script.name });
-      return res.status(HTTP_STATUS.ACCEPTED).json({
-        message: 'Community script started',
-        type: 'community-script',
-        script: script.name,
-        node,
-        logPath: runResult.logPath
-      });
+      throw new AppError('Community scripts must be started from the desktop terminal', HTTP_STATUS.BAD_REQUEST);
     }
+
 
     // Allocate VMID within the admin range and a free IP within the pool
     const reserved = await all('SELECT vmid FROM provisioned_machines WHERE cluster_id = ?', [cluster.id]);

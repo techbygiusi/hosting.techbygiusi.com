@@ -72,11 +72,13 @@ function attachConsoleProxy(server) {
 }
 
 function bridgeToProxmox(clientWs, session) {
-  const { clusterUrl, apiToken, node, type, vmid, port, ticket } = session;
+  const { clusterUrl, apiToken, node, type, vmid, port, ticket, mode } = session;
   const kind = type === 'lxc' ? 'lxc' : 'qemu';
   const base = clusterUrl.replace(/^http/i, 'ws');
-  const target = `${base}/api2/json/nodes/${node}/${kind}/${vmid}/vncwebsocket` +
-    `?port=${encodeURIComponent(port)}&vncticket=${encodeURIComponent(ticket)}`;
+  const endpoint = mode === 'node-shell'
+    ? `/api2/json/nodes/${node}/vncwebsocket`
+    : `/api2/json/nodes/${node}/${kind}/${vmid}/vncwebsocket`;
+  const target = `${base}${endpoint}?port=${encodeURIComponent(port)}&vncticket=${encodeURIComponent(ticket)}`;
 
   const upstream = new WebSocket(target, ['binary'], {
     rejectUnauthorized: false,

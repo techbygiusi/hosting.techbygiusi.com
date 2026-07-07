@@ -2,6 +2,11 @@ import React, { useEffect, useMemo, useState } from 'react';
 import Modal from './Modal';
 import { userApi, getErrorMessage } from '../services/api';
 
+function isDesktopViewport() {
+  if (typeof window === 'undefined') return true;
+  return window.matchMedia('(min-width: 768px)').matches;
+}
+
 /**
  * Self-service LXC creation. Options (clusters, templates and limits) come
  * from /user/provisioning/options. VMID and IP are allocated by the backend.
@@ -72,6 +77,7 @@ export default function CreateMachineModal({ options, onClose, onCreated }) {
   const handleSubmit = async (event) => {
     event.preventDefault();
     if (!cluster) { setError('Bitte einen Cluster auswählen.'); return; }
+    if (!isDesktopViewport()) { setError('Container-Erstellung ist nur auf Desktop verfügbar.'); return; }
     const useTemplate = provisioningMode === 'template';
     const useCommunityScript = provisioningMode === 'community';
     if (useTemplate && !form.template) { setError('Bitte ein Template auswählen.'); return; }
@@ -85,15 +91,22 @@ export default function CreateMachineModal({ options, onClose, onCreated }) {
       return;
     }
 
+    if (useCommunityScript) {
+      const url = `/provisioning-console?clusterId=${encodeURIComponent(cluster.clusterId)}&script=${encodeURIComponent(form.communityScript)}`;
+      window.open(url, '_blank', 'noopener,noreferrer');
+      onClose?.();
+      return;
+    }
+
     try {
       setBusy(true);
       setError('');
       const res = await userApi.createMachine({
         clusterId: cluster.clusterId,
         type: 'ct',
-        hostname: useTemplate ? form.hostname : '',
-        template: useTemplate ? form.template : '',
-        communityScript: useCommunityScript ? form.communityScript : '',
+        hostname: form.hostname,
+        template: form.template,
+        communityScript: '',
         cores: form.cores,
         memoryMb: form.memoryMb,
         diskGb: form.diskGb,
@@ -184,7 +197,7 @@ export default function CreateMachineModal({ options, onClose, onCreated }) {
                 <label className="form-group">
                   <span>Template</span>
                   <select value={form.template} onChange={event => setField('template', event.target.value)}>
-                    <option value="">Template auswählen</option>
+                    <option value="" disabled hidden>Template auswählen</option>
                     {(cluster.templates || []).map(template => (
                       <option key={template.volid} value={template.volid}>{template.name}</option>
                     ))}
@@ -230,7 +243,7 @@ export default function CreateMachineModal({ options, onClose, onCreated }) {
                 <label className="form-group">
                   <span>Community Script</span>
                   <select value={form.communityScript} onChange={event => setField('communityScript', event.target.value)} disabled={scriptsLoading}>
-                    <option value="">Community Script auswählen</option>
+                    <option value="" disabled hidden>Community Script auswählen</option>
                     {filteredCommunityScripts.map(script => (
                       <option key={script.id} value={script.id}>{script.name}</option>
                     ))}

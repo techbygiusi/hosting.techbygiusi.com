@@ -6,7 +6,7 @@ The frontend is built with React and the backend with Express + SQLite. Proxmox 
 
 ## Version
 
-Current version: **v2.7.17**
+Current version: **v2.8.0**
 
 Versioning now follows a clean semantic sequence:
 
@@ -162,6 +162,29 @@ docker image prune -f
 The database migrates itself on startup. Keep the backend data volume before updating.
 
 ## Changelog
+
+### v2.8.0 - 2026-07-07
+
+**Commit:** `feat: run community scripts in an interactive desktop terminal`
+
+- Community Script provisioning now opens a full-page desktop terminal in a new tab.
+- The selected Community Script command is started inside the live Proxmox node shell so users can see progress and answer interactive prompts.
+- Community Script provisioning keeps background detection for newly created LXCs and automatically attaches detected containers to the requesting user.
+- Container creation and Community Script deployment are hidden and blocked on mobile because the interactive terminal is desktop-only.
+
+### v2.7.19 - 2026-07-07
+
+**Commit:** `fix: keep the template placeholder out of the dropdown`
+
+- Kept "Template auswählen" as a field placeholder only.
+- Removed the placeholder entry from the selectable template dropdown list.
+
+### v2.7.18 - 2026-07-07
+
+**Commit:** `fix: keep the community script placeholder out of the dropdown`
+
+- Kept "Community Script auswählen" as a field placeholder only.
+- Removed the placeholder entry from the selectable Community Script dropdown list.
 
 ### v2.7.17 - 2026-07-06
 

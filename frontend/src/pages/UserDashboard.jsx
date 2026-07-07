@@ -74,7 +74,7 @@ export default function UserDashboard() {
         {error && <div className="alert alert-danger">{error}</div>}
 
         {provisioningOptions.length > 0 && (
-          <div className="dashboard-actions">
+          <div className="dashboard-actions desktop-only-block">
             <button type="button" className="btn-primary" onClick={() => setShowCreate(true)}>Neuen Container erstellen</button>
           </div>
         )}
@@ -86,7 +86,7 @@ export default function UserDashboard() {
             <h2>Keine Dienste</h2>
             <p>Dir sind noch keine Dienste zugewiesen.</p>
             {provisioningOptions.length > 0 && (
-              <button type="button" className="btn-primary" onClick={() => setShowCreate(true)}>Ersten Container erstellen</button>
+              <button type="button" className="btn-primary desktop-only-block" onClick={() => setShowCreate(true)}>Ersten Container erstellen</button>
             )}
           </section>
         ) : (

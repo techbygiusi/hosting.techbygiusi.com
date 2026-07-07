@@ -83,7 +83,10 @@ const MESSAGE_TRANSLATIONS = {
   'Admin-provided credentials cannot be edited': 'Vom Admin hinterlegte Zugangsdaten können nicht bearbeitet werden.',
   'Management credential already exists': 'Für diese Verwaltungsseite sind bereits Zugangsdaten hinterlegt.',
   'Community script is not allowed': 'Dieses Community Script ist nicht freigegeben.',
-  'Community script started': 'Community Script wurde gestartet.'
+  'Community script started': 'Community Script wurde gestartet.',
+  'Provisioning is not permitted for this cluster token': 'Der Proxmox-Token erlaubt keine Container-Erstellung.',
+  'Community script URL is not allowed': 'Diese Community-Script-URL ist nicht erlaubt.',
+  'Community scripts must be started from the desktop terminal': 'Community Scripts müssen über das Desktop-Terminal gestartet werden.'
 };
 
 export function translateMessage(message) {
@@ -230,6 +233,7 @@ export const userApi = {
   deleteCredential: (resourceId, credId) => apiClient.delete(`/user/resources/${resourceId}/credentials/${credId}`),
   getProvisioningOptions: () => apiClient.get('/user/provisioning/options'),
   getCommunityScripts: () => apiClient.get('/user/provisioning/community-scripts'),
+  openCommunityScriptConsole: (data) => apiClient.post('/user/provisioning/community-console', data),
   createMachine: (data) => apiClient.post('/user/provisioning/create', data),
   deleteMachine: (resourceId) => apiClient.delete(`/user/resources/${resourceId}`)
 };
