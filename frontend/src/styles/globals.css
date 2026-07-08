@@ -2979,3 +2979,395 @@ body.theme-dark .cluster-stats-card {
   margin-top: 0;
   margin-bottom: 0;
 }
+
+/* =========================================================================
+   v3.0 – Maintenance banner, login redesign, notification toggles,
+   maintenance admin cards, status events. Appended, uses existing tokens.
+   ========================================================================= */
+
+/* ------------------------------------------------- MAINTENANCE BANNER */
+.maintenance-banner-stack {
+  position: sticky;
+  top: 0;
+  z-index: 900;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.maintenance-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 10px 18px;
+  font-size: var(--font-size-sm);
+  line-height: 1.45;
+  border-bottom: 1px solid var(--site-border);
+  background: var(--site-surface);
+  color: var(--color-text);
+}
+
+.maintenance-banner.severity-info.is-upcoming {
+  background: color-mix(in srgb, var(--site-accent) 12%, var(--site-bg));
+}
+.maintenance-banner.severity-info.is-active,
+.maintenance-banner.severity-warning {
+  background: color-mix(in srgb, var(--color-warning) 14%, var(--site-bg));
+}
+.maintenance-banner.severity-critical {
+  background: color-mix(in srgb, var(--color-danger) 14%, var(--site-bg));
+}
+.maintenance-banner.severity-critical.is-active {
+  background: var(--color-danger);
+  color: #ffffff;
+  border-bottom-color: transparent;
+}
+.maintenance-banner.severity-critical.is-active .maintenance-banner-time,
+.maintenance-banner.severity-critical.is-active .maintenance-banner-message {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.maintenance-banner-icon {
+  display: inline-flex;
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+.maintenance-banner-body {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 14px;
+  min-width: 0;
+}
+
+.maintenance-banner-body strong { font-weight: 600; }
+.maintenance-banner-time { color: var(--color-text-light); white-space: nowrap; }
+.maintenance-banner-message {
+  flex-basis: 100%;
+  color: var(--color-text-light);
+  overflow-wrap: anywhere;
+}
+
+.maintenance-banner-dismiss {
+  margin-left: auto;
+  flex-shrink: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 4px;
+  opacity: 0.6;
+  transition: var(--transition);
+}
+.maintenance-banner-dismiss:hover { opacity: 1; }
+
+/* --------------------------------------------------- LOGIN REDESIGN */
+.login-split {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-bg);
+}
+
+.login-split .auth-theme-action {
+  position: fixed;
+  top: 18px;
+  right: 18px;
+  z-index: 950;
+}
+
+.login-brand-panel {
+  display: none;
+}
+
+.login-form-panel {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 16px;
+}
+
+.login-form-panel .auth-card {
+  width: 100%;
+  max-width: 420px;
+}
+
+.auth-subline {
+  margin-top: 6px;
+  color: var(--color-text-light);
+  font-size: var(--font-size-sm);
+}
+
+.password-field {
+  position: relative;
+  display: flex;
+}
+.password-field input {
+  flex: 1;
+  padding-right: 44px;
+}
+.password-toggle {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  border: none;
+  background: transparent;
+  color: var(--color-text-light);
+  cursor: pointer;
+  padding: 6px;
+  display: inline-flex;
+  border-radius: var(--radius-sm);
+  transition: var(--transition);
+}
+.password-toggle:hover { color: var(--color-text); }
+
+.link-button {
+  border: none;
+  background: transparent;
+  color: var(--site-accent);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  cursor: pointer;
+  padding: 4px;
+  align-self: center;
+  transition: var(--transition);
+}
+.link-button:hover { color: var(--color-primary-dark); text-decoration: underline; }
+body.theme-dark .link-button:hover { color: var(--site-accent); }
+
+@media (min-width: 960px) {
+  .login-split {
+    flex-direction: row;
+  }
+
+  .login-brand-panel {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    flex: 1.1;
+    padding: clamp(40px, 6vw, 80px);
+    background:
+      radial-gradient(1200px 600px at -10% -10%, color-mix(in srgb, var(--site-accent) 22%, transparent), transparent 60%),
+      radial-gradient(900px 500px at 110% 110%, color-mix(in srgb, var(--site-accent) 14%, transparent), transparent 55%),
+      var(--site-surface);
+    border-right: 1px solid var(--site-border);
+  }
+
+  .login-brand-inner { max-width: 480px; }
+
+  .login-brand-panel h1 {
+    font-size: clamp(34px, 3.4vw, 46px);
+    font-weight: 300;
+    line-height: 1.15;
+    margin: 14px 0 18px;
+    letter-spacing: -0.01em;
+  }
+
+  .login-brand-sub {
+    color: var(--color-text-light);
+    font-size: var(--font-size-lg);
+    line-height: 1.6;
+    margin-bottom: 34px;
+    font-weight: 300;
+  }
+
+  .login-feature-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .login-feature-list li {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: var(--font-size-sm);
+    color: var(--color-text);
+  }
+
+  .login-feature-list li svg {
+    color: var(--site-accent);
+    flex-shrink: 0;
+  }
+
+  .login-brand-footer {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-light);
+  }
+
+  .login-form-panel { flex: 1; }
+  .mobile-only-brand { display: none; }
+}
+
+/* --------------------------------------------- NOTIFICATION TOGGLES */
+.modal-intro {
+  color: var(--color-text-light);
+  font-size: var(--font-size-sm);
+  margin-bottom: 16px;
+}
+
+.toggle-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--site-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-alt);
+  cursor: pointer;
+  transition: var(--transition);
+}
+.toggle-row:hover { border-color: var(--site-accent); }
+.toggle-row.is-disabled { opacity: 0.6; pointer-events: none; }
+
+.toggle-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.toggle-text strong { font-size: var(--font-size-sm); font-weight: 600; }
+.toggle-text small { color: var(--color-text-light); font-size: var(--font-size-xs); line-height: 1.4; }
+
+.toggle-switch {
+  position: relative;
+  width: 42px;
+  height: 24px;
+  flex-shrink: 0;
+  border-radius: 999px;
+  background: var(--site-border);
+  transition: var(--transition);
+}
+.toggle-switch input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  margin: 0;
+  cursor: pointer;
+}
+.toggle-switch .toggle-knob {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--color-bg);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  transition: var(--transition);
+  pointer-events: none;
+}
+.toggle-switch.is-on { background: var(--site-accent); }
+.toggle-switch.is-on .toggle-knob { transform: translateX(18px); background: #ffffff; }
+
+/* ------------------------------------------------ MAINTENANCE ADMIN */
+.maintenance-chip {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  margin-right: 6px;
+  background: color-mix(in srgb, var(--site-accent) 16%, var(--site-bg));
+  color: var(--color-text);
+}
+.maintenance-chip.severity-warning { background: color-mix(in srgb, var(--color-warning) 18%, var(--site-bg)); }
+.maintenance-chip.severity-critical { background: color-mix(in srgb, var(--color-danger) 16%, var(--site-bg)); }
+.maintenance-chip.state-chip.state-aktiv { background: var(--color-success); color: #ffffff; }
+.maintenance-chip.state-chip.state-geplant { background: color-mix(in srgb, var(--site-accent) 20%, var(--site-bg)); }
+.maintenance-chip.state-chip.state-beendet { background: var(--site-border); color: var(--color-text-light); }
+
+.maintenance-card.state-beendet { opacity: 0.65; }
+.maintenance-message {
+  color: var(--color-text-light);
+  font-size: var(--font-size-sm);
+  margin-top: 4px;
+  overflow-wrap: anywhere;
+}
+.maintenance-notified {
+  color: var(--color-success);
+  font-size: var(--font-size-xs);
+  margin-top: 6px;
+}
+
+.form-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+@media (max-width: 560px) {
+  .form-grid-2 { grid-template-columns: 1fr; }
+}
+
+.settings-testmail-row {
+  margin-top: 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* --------------------------------------------------- STATUS EVENTS */
+.status-events-card { margin-top: var(--spacing-lg); }
+
+.status-events-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.status-event-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 4px;
+  border-bottom: 1px solid var(--site-border);
+}
+.status-event-row:last-child { border-bottom: none; }
+
+.status-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.status-dot.is-down { background: var(--color-danger); }
+.status-dot.is-up { background: var(--color-success); }
+
+.status-event-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  flex: 1;
+}
+.status-event-text strong { font-size: var(--font-size-sm); font-weight: 600; }
+.status-event-text span { font-size: var(--font-size-xs); color: var(--color-text-light); }
+
+.status-event-time {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-light);
+  white-space: nowrap;
+}
+
+@media (max-width: 560px) {
+  .maintenance-banner { padding: 10px 14px; }
+  .maintenance-banner-time { white-space: normal; }
+}
+
+/* Banner auf der Login-Seite: fixiert über dem Split-Layout */
+.login-split .maintenance-banner-stack {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+}
+.login-split .auth-theme-action { top: 18px; }

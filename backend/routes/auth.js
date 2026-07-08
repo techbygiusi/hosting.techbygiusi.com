@@ -4,11 +4,13 @@ const jwt = require('jsonwebtoken');
 const router = express.Router();
 
 const { get, run, all } = require('../config/database');
-const { generateToken, authMiddleware } = require('../middleware/auth');
+const { generateToken, authMiddleware, generateResetToken, verifyResetToken } = require('../middleware/auth');
 const { AppError } = require('../middleware/errorHandler');
 const { HTTP_STATUS, ERROR_MESSAGES, ROLES } = require('../config/constants');
 const { sendEmail, testSmtpConnection, initializeEmailService, encryptString } = require('../services/emailService');
 const { testConnection } = require('../services/proxmoxService');
+const { passwordResetTemplate } = require('../services/emailTemplates');
+const { logAudit } = require('../services/auditService');
 
 const SETUP_KEYS = ['smtp_host', 'smtp_port', 'smtp_user', 'smtp_password'];
 
@@ -152,8 +154,8 @@ router.post('/setup', async (req, res, next) => {
       if (!adminName || !adminEmail || !adminPassword) {
         throw new AppError('Admin name, email, and password are required', HTTP_STATUS.BAD_REQUEST);
       }
-      if (adminPassword.length < 6) {
-        throw new AppError('Admin password must be at least 6 characters', HTTP_STATUS.BAD_REQUEST);
+      if (adminPassword.length < 8) {
+        throw new AppError('Admin password must be at least 8 characters', HTTP_STATUS.BAD_REQUEST);
       }
 
       const existingUser = await get('SELECT id FROM users WHERE email = ?', [adminEmail.trim().toLowerCase()]);
@@ -161,7 +163,7 @@ router.post('/setup', async (req, res, next) => {
         throw new AppError(ERROR_MESSAGES.USER_EXISTS, HTTP_STATUS.CONFLICT);
       }
 
-      const passwordHash = await bcryptjs.hash(adminPassword, 10);
+      const passwordHash = await bcryptjs.hash(adminPassword, 12);
       const result = await run(
         'INSERT INTO users (email, name, password_hash, role) VALUES (?, ?, ?, ?)',
         [adminEmail.trim().toLowerCase(), adminName.trim(), passwordHash, ROLES.ADMIN]
@@ -277,6 +279,7 @@ router.post('/login', async (req, res, next) => {
 
     if (!user) {
       registerFailedLogin(normalizedEmail);
+      await logAudit(req, 'auth.login_failed', normalizedEmail, 'unknown user');
       throw new AppError(ERROR_MESSAGES.INVALID_CREDENTIALS, HTTP_STATUS.UNAUTHORIZED);
     }
 
@@ -284,10 +287,12 @@ router.post('/login', async (req, res, next) => {
 
     if (!passwordMatch) {
       registerFailedLogin(normalizedEmail);
+      await logAudit(req, 'auth.login_failed', normalizedEmail, 'wrong password');
       throw new AppError(ERROR_MESSAGES.INVALID_CREDENTIALS, HTTP_STATUS.UNAUTHORIZED);
     }
 
     clearFailedLogins(normalizedEmail);
+    await logAudit({ user: { id: user.id, email: user.email }, headers: req.headers, socket: req.socket }, 'auth.login', user.email);
     const token = generateToken(user.id, user.email, user.role);
 
     res.json({
@@ -320,8 +325,8 @@ router.post('/change-password', authMiddleware, async (req, res, next) => {
     if (!currentPassword || !newPassword) {
       throw new AppError('Current and new password required', HTTP_STATUS.BAD_REQUEST);
     }
-    if (newPassword.length < 6) {
-      throw new AppError('New password must be at least 6 characters', HTTP_STATUS.BAD_REQUEST);
+    if (newPassword.length < 8) {
+      throw new AppError('New password must be at least 8 characters', HTTP_STATUS.BAD_REQUEST);
     }
 
     const user = await get('SELECT * FROM users WHERE id = ?', [req.user.id]);
@@ -336,12 +341,14 @@ router.post('/change-password', authMiddleware, async (req, res, next) => {
       throw new AppError('Current password is incorrect', HTTP_STATUS.UNAUTHORIZED);
     }
 
-    const newPasswordHash = await bcryptjs.hash(newPassword, 10);
+    const newPasswordHash = await bcryptjs.hash(newPassword, 12);
 
     await run(
       'UPDATE users SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
       [newPasswordHash, req.user.id]
     );
+
+    await logAudit(req, 'auth.password_changed', req.user.email);
 
     res.json({ message: 'Password changed successfully' });
   } catch (err) {
@@ -363,14 +370,12 @@ router.post('/forgot-password', async (req, res, next) => {
       return res.json({ message: 'If email exists, password reset link has been sent' });
     }
 
-    const resetToken = generateToken(user.id, user.email, user.role);
-    const resetLink = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${resetToken}`;
+    const resetToken = generateResetToken(user.id, user.email);
+    const resetLink = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${encodeURIComponent(resetToken)}`;
 
-    await sendEmail(
-      email,
-      'Password Reset Request',
-      `Click the link below to reset your password:\n\n${resetLink}\n\nThis link expires in 24 hours.`
-    );
+    const template = passwordResetTemplate({ name: user.name, resetLink });
+    await sendEmail(user.email, template.subject, template.text, template.html);
+    await logAudit(req, 'auth.password_reset_requested', user.email);
 
     res.json({ message: 'Password reset link sent to your email' });
   } catch (err) {
@@ -385,24 +390,30 @@ router.post('/reset-password', async (req, res, next) => {
     if (!token || !newPassword) {
       throw new AppError('Token and new password required', HTTP_STATUS.BAD_REQUEST);
     }
-    if (newPassword.length < 6) {
-      throw new AppError('New password must be at least 6 characters', HTTP_STATUS.BAD_REQUEST);
+    if (newPassword.length < 8) {
+      throw new AppError('New password must be at least 8 characters', HTTP_STATUS.BAD_REQUEST);
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'dev-secret-key');
+    let decoded;
+    try {
+      decoded = verifyResetToken(token);
+    } catch (err) {
+      throw new AppError(ERROR_MESSAGES.INVALID_TOKEN, HTTP_STATUS.UNAUTHORIZED);
+    }
     const user = await get('SELECT * FROM users WHERE id = ?', [decoded.id]);
 
     if (!user) {
       throw new AppError(ERROR_MESSAGES.USER_NOT_FOUND, HTTP_STATUS.NOT_FOUND);
     }
 
-    const newPasswordHash = await bcryptjs.hash(newPassword, 10);
+    const newPasswordHash = await bcryptjs.hash(newPassword, 12);
 
     await run(
       'UPDATE users SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
       [newPasswordHash, user.id]
     );
 
+    await logAudit(req, 'auth.password_reset_completed', user.email);
     res.json({ message: 'Password reset successfully' });
   } catch (err) {
     next(err);

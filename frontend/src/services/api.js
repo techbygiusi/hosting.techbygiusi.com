@@ -86,7 +86,18 @@ const MESSAGE_TRANSLATIONS = {
   'Community script started': 'Community Script wurde gestartet.',
   'Provisioning is not permitted for this cluster token': 'Der Proxmox-Token erlaubt keine Container-Erstellung.',
   'Community script URL is not allowed': 'Diese Community-Script-URL ist nicht erlaubt.',
-  'Community scripts must be started from the desktop terminal': 'Community Scripts müssen über das Desktop-Terminal gestartet werden.'
+  'Community scripts must be started from the desktop terminal': 'Community Scripts müssen über das Desktop-Terminal gestartet werden.',
+  'Maintenance title is required': 'Bitte einen Titel für die Wartung eingeben.',
+  'Maintenance time window is invalid': 'Der Wartungszeitraum ist ungültig (Ende muss nach dem Beginn liegen).',
+  'Maintenance severity is invalid': 'Die Wartungsstufe ist ungültig.',
+  'Maintenance window not found': 'Das Wartungsfenster wurde nicht gefunden.',
+  'Maintenance window created': 'Wartungsfenster wurde angelegt.',
+  'Maintenance window updated': 'Wartungsfenster wurde aktualisiert.',
+  'Maintenance window deleted': 'Wartungsfenster wurde gelöscht.',
+  'Notification preferences updated': 'Benachrichtigungseinstellungen gespeichert.',
+  'Test email sent': 'Test-E-Mail wurde versendet.',
+  'Admin password must be at least 8 characters': 'Das Admin-Passwort muss mindestens 8 Zeichen lang sein.',
+  'Password must be at least 8 characters': 'Das Passwort muss mindestens 8 Zeichen lang sein.'
 };
 
 export function translateMessage(message) {
@@ -214,7 +225,14 @@ export const adminApi = {
   revealResourceCredential: (resourceId, credId) => apiClient.get(`/admin/resources/${resourceId}/credentials/${credId}/reveal`),
   createResourceCredential: (resourceId, data) => apiClient.post(`/admin/resources/${resourceId}/credentials`, data),
   updateResourceCredential: (resourceId, credId, data) => apiClient.put(`/admin/resources/${resourceId}/credentials/${credId}`, data),
-  deleteResourceCredential: (resourceId, credId) => apiClient.delete(`/admin/resources/${resourceId}/credentials/${credId}`)
+  deleteResourceCredential: (resourceId, credId) => apiClient.delete(`/admin/resources/${resourceId}/credentials/${credId}`),
+  // v3.0: maintenance windows, status events, test mail
+  getMaintenanceWindows: () => apiClient.get('/admin/maintenance'),
+  createMaintenanceWindow: (data) => apiClient.post('/admin/maintenance', data),
+  updateMaintenanceWindow: (windowId, data) => apiClient.put(`/admin/maintenance/${windowId}`, data),
+  deleteMaintenanceWindow: (windowId) => apiClient.delete(`/admin/maintenance/${windowId}`),
+  getStatusEvents: (limit = 25) => apiClient.get(`/admin/status-events?limit=${limit}`),
+  sendTestMail: () => apiClient.post('/admin/settings/send-test-mail')
 };
 
 export const userApi = {
@@ -238,7 +256,15 @@ export const userApi = {
   getCommunityScripts: () => apiClient.get('/user/provisioning/community-scripts'),
   openCommunityScriptConsole: (data) => apiClient.post('/user/provisioning/community-console', data),
   createMachine: (data) => apiClient.post('/user/provisioning/create', data),
-  deleteMachine: (resourceId) => apiClient.delete(`/user/resources/${resourceId}`)
+  deleteMachine: (resourceId) => apiClient.delete(`/user/resources/${resourceId}`),
+  // v3.0: notification preferences
+  getNotificationPreferences: () => apiClient.get('/user/notifications'),
+  updateNotificationPreferences: (data) => apiClient.put('/user/notifications', data)
+};
+
+// v3.0: public – maintenance announcements for the banner (no auth required)
+export const publicApi = {
+  getAnnouncements: () => apiClient.get('/announcements')
 };
 
 export default apiClient;

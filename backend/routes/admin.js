@@ -8,7 +8,8 @@ const { AppError } = require('../middleware/errorHandler');
 const { HTTP_STATUS, ROLES } = require('../config/constants');
 const { getClusterResources, testConnection, getCapabilities, getOnlineNodes, getNodeTemplates, getNodeIsos, getNodeStorages, getClusterDashboardStats } = require('../services/proxmoxService');
 const { enrichResources } = require('../services/resourceService');
-const { testSmtpConnection, initializeEmailService, encryptString, decryptString } = require('../services/emailService');
+const { sendEmail, testSmtpConnection, initializeEmailService, encryptString, decryptString } = require('../services/emailService');
+const { welcomeTemplate, maintenanceTemplate, testMailTemplate } = require('../services/emailTemplates');
 const { encrypt, decrypt } = require('../services/cryptoService');
 const { logAudit } = require('../services/auditService');
 
@@ -30,8 +31,8 @@ function validateRole(role) {
 
 function validatePassword(password, required = true) {
   if (!password && !required) return;
-  if (!password || String(password).length < 6) {
-    throw new AppError('Password must be at least 6 characters', HTTP_STATUS.BAD_REQUEST);
+  if (!password || String(password).length < 8) {
+    throw new AppError('Password must be at least 8 characters', HTTP_STATUS.BAD_REQUEST);
   }
 }
 
@@ -130,7 +131,7 @@ router.get('/users', async (req, res, next) => {
 
 router.post('/users', async (req, res, next) => {
   try {
-    const { email, name, password, role = ROLES.USER } = req.body;
+    const { email, name, password, role = ROLES.USER, sendWelcome = false } = req.body;
     const normalizedEmail = normalizeEmail(email);
 
     if (!normalizedEmail || !name) {
@@ -140,11 +141,23 @@ router.post('/users', async (req, res, next) => {
     validateRole(role);
     validatePassword(password, true);
 
-    const passwordHash = await bcryptjs.hash(password, 10);
+    const passwordHash = await bcryptjs.hash(password, 12);
     const result = await run(
       'INSERT INTO users (email, name, password_hash, role) VALUES (?, ?, ?, ?)',
       [normalizedEmail, String(name).trim(), passwordHash, role]
     );
+
+    await logAudit(req, 'admin.user_created', normalizedEmail);
+
+    if (sendWelcome) {
+      const template = welcomeTemplate({
+        name: String(name).trim(),
+        email: normalizedEmail,
+        loginUrl: process.env.FRONTEND_URL || 'http://localhost:3000'
+      });
+      sendEmail(normalizedEmail, template.subject, template.text, template.html)
+        .catch(err => console.error('Welcome mail failed:', err.message));
+    }
 
     res.status(HTTP_STATUS.CREATED).json({
       user: {
@@ -195,7 +208,7 @@ router.put('/users/:id', async (req, res, next) => {
     }
 
     if (password) {
-      const passwordHash = await bcryptjs.hash(password, 10);
+      const passwordHash = await bcryptjs.hash(password, 12);
       updates.push('password_hash = ?');
       params.push(passwordHash);
     }
@@ -1328,6 +1341,175 @@ router.post('/settings/test-proxmox', async (req, res, next) => {
     const { url, apiToken } = await resolveClusterTestData(req.body);
     const result = await testConnection(url, apiToken);
     res.status(result.success ? HTTP_STATUS.OK : HTTP_STATUS.BAD_REQUEST).json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
+
+/* ------------------------------------------------------------------------
+ * v3.0: Maintenance windows (announcements)
+ * ---------------------------------------------------------------------- */
+
+function validateMaintenanceInput({ title, startsAt, endsAt, severity }) {
+  if (!title || !String(title).trim()) {
+    throw new AppError('Maintenance title is required', HTTP_STATUS.BAD_REQUEST);
+  }
+  const starts = new Date(startsAt);
+  const ends = new Date(endsAt);
+  if (Number.isNaN(starts.getTime()) || Number.isNaN(ends.getTime()) || ends <= starts) {
+    throw new AppError('Maintenance time window is invalid', HTTP_STATUS.BAD_REQUEST);
+  }
+  if (severity && !['info', 'warning', 'critical'].includes(severity)) {
+    throw new AppError('Maintenance severity is invalid', HTTP_STATUS.BAD_REQUEST);
+  }
+  return { starts, ends };
+}
+
+async function notifyMaintenance(windowRow) {
+  const users = await all('SELECT id, email, name FROM users WHERE notify_maintenance = 1');
+  for (const user of users) {
+    const template = maintenanceTemplate({
+      name: user.name,
+      title: windowRow.title,
+      message: windowRow.message,
+      startsAt: windowRow.starts_at,
+      endsAt: windowRow.ends_at,
+      severity: windowRow.severity
+    });
+    try {
+      await sendEmail(user.email, template.subject, template.text, template.html);
+    } catch (err) {
+      console.error(`Maintenance mail to ${user.email} failed:`, err.message);
+    }
+  }
+  return users.length;
+}
+
+router.get('/maintenance', async (req, res, next) => {
+  try {
+    const windows = await all(
+      `SELECT m.*, u.name AS created_by_name
+       FROM maintenance_windows m
+       LEFT JOIN users u ON u.id = m.created_by
+       ORDER BY datetime(m.starts_at) DESC
+       LIMIT 100`
+    );
+    res.json({ windows });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/maintenance', async (req, res, next) => {
+  try {
+    const { title, message = '', startsAt, endsAt, severity = 'info', notifyUsers = false } = req.body;
+    const { starts, ends } = validateMaintenanceInput({ title, startsAt, endsAt, severity });
+
+    const result = await run(
+      `INSERT INTO maintenance_windows (title, message, severity, starts_at, ends_at, notify_users, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [String(title).trim(), String(message || '').trim(), severity, starts.toISOString(), ends.toISOString(), notifyUsers ? 1 : 0, req.user.id]
+    );
+
+    await logAudit(req, 'admin.maintenance_created', String(title).trim(), `${starts.toISOString()} - ${ends.toISOString()}`);
+
+    const windowRow = await get('SELECT * FROM maintenance_windows WHERE id = ?', [result.lastID]);
+
+    let notified = 0;
+    if (notifyUsers) {
+      notified = await notifyMaintenance(windowRow);
+      await run('UPDATE maintenance_windows SET notified_at = CURRENT_TIMESTAMP WHERE id = ?', [result.lastID]);
+    }
+
+    res.status(HTTP_STATUS.CREATED).json({ message: 'Maintenance window created', window: windowRow, notified });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.put('/maintenance/:id', async (req, res, next) => {
+  try {
+    const existing = await get('SELECT * FROM maintenance_windows WHERE id = ?', [req.params.id]);
+    if (!existing) {
+      throw new AppError('Maintenance window not found', HTTP_STATUS.NOT_FOUND);
+    }
+
+    const { title = existing.title, message = existing.message, startsAt = existing.starts_at, endsAt = existing.ends_at, severity = existing.severity, notifyUsers } = req.body;
+    const { starts, ends } = validateMaintenanceInput({ title, startsAt, endsAt, severity });
+
+    await run(
+      `UPDATE maintenance_windows
+       SET title = ?, message = ?, severity = ?, starts_at = ?, ends_at = ?, updated_at = CURRENT_TIMESTAMP
+       WHERE id = ?`,
+      [String(title).trim(), String(message || '').trim(), severity, starts.toISOString(), ends.toISOString(), req.params.id]
+    );
+
+    await logAudit(req, 'admin.maintenance_updated', String(title).trim());
+
+    const windowRow = await get('SELECT * FROM maintenance_windows WHERE id = ?', [req.params.id]);
+
+    let notified = 0;
+    if (notifyUsers) {
+      notified = await notifyMaintenance(windowRow);
+      await run('UPDATE maintenance_windows SET notified_at = CURRENT_TIMESTAMP WHERE id = ?', [req.params.id]);
+    }
+
+    res.json({ message: 'Maintenance window updated', window: windowRow, notified });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.delete('/maintenance/:id', async (req, res, next) => {
+  try {
+    const existing = await get('SELECT * FROM maintenance_windows WHERE id = ?', [req.params.id]);
+    if (!existing) {
+      throw new AppError('Maintenance window not found', HTTP_STATUS.NOT_FOUND);
+    }
+    await run('DELETE FROM maintenance_windows WHERE id = ?', [req.params.id]);
+    await logAudit(req, 'admin.maintenance_deleted', existing.title);
+    res.json({ message: 'Maintenance window deleted' });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/* ------------------------------------------------------------------------
+ * v3.0: Status events from the monitoring service
+ * ---------------------------------------------------------------------- */
+
+router.get('/status-events', async (req, res, next) => {
+  try {
+    const limit = Math.min(Math.max(parseInt(req.query.limit || '25', 10) || 25, 1), 100);
+    const events = await all(
+      `SELECT e.*, c.name AS cluster_name
+       FROM status_events e
+       LEFT JOIN proxmox_clusters c ON c.id = e.cluster_id
+       ORDER BY datetime(e.created_at) DESC
+       LIMIT ?`,
+      [limit]
+    );
+    res.json({ events });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/* ------------------------------------------------------------------------
+ * v3.0: Send a branded test e-mail to the current admin
+ * ---------------------------------------------------------------------- */
+
+router.post('/settings/send-test-mail', async (req, res, next) => {
+  try {
+    const admin = await get('SELECT email, name FROM users WHERE id = ?', [req.user.id]);
+    const template = testMailTemplate({ name: admin?.name || 'Admin' });
+    const result = await sendEmail(admin.email, template.subject, template.text, template.html);
+    if (!result.success) {
+      throw new AppError(result.message || 'Email service not configured', HTTP_STATUS.BAD_REQUEST);
+    }
+    await logAudit(req, 'admin.test_mail_sent', admin.email);
+    res.json({ success: true, message: 'Test email sent', to: admin.email });
   } catch (err) {
     next(err);
   }

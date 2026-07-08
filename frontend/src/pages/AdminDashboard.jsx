@@ -4,6 +4,7 @@ import { authApi, adminApi, getErrorMessage, translateMessage } from '../service
 import '../styles/globals.css';
 import ThemeButton from '../components/ThemeButton';
 import Modal from '../components/Modal';
+import MaintenanceBanner from '../components/MaintenanceBanner';
 
 function LogoutIcon() {
   return (
@@ -15,7 +16,42 @@ function LogoutIcon() {
   );
 }
 
-const emptyUser = { email: '', name: '', password: '', role: 'user' };
+const emptyUser = { email: '', name: '', password: '', role: 'user', sendWelcome: false };
+
+function toLocalDatetimeInput(date) {
+  const d = new Date(date);
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function formatDateTime(value) {
+  try {
+    let input = value;
+    // SQLite CURRENT_TIMESTAMP liefert "YYYY-MM-DD HH:MM:SS" in UTC ohne Zeitzone
+    if (typeof input === 'string' && /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(input)) {
+      input = input.replace(' ', 'T') + 'Z';
+    }
+    return new Date(input).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) + ' Uhr';
+  } catch (_) { return String(value); }
+}
+
+function maintenanceState(item) {
+  const now = Date.now();
+  const starts = new Date(item.starts_at).getTime();
+  const ends = new Date(item.ends_at).getTime();
+  if (now > ends) return 'beendet';
+  if (now >= starts) return 'aktiv';
+  return 'geplant';
+}
+
+const emptyMaintenance = () => ({
+  title: '',
+  message: '',
+  severity: 'info',
+  startsAt: toLocalDatetimeInput(new Date(Date.now() + 60 * 60 * 1000)),
+  endsAt: toLocalDatetimeInput(new Date(Date.now() + 3 * 60 * 60 * 1000)),
+  notifyUsers: false
+});
 const emptyCluster = { name: '', url: '', apiToken: '', allowProvisioning: false };
 const emptyResource = { name: '', containerId: '', clusterId: '', userId: '', groupId: '', publicUrl: '', adminUrl: '' };
 const emptyGroup = { name: '', memberIds: [] };
@@ -73,6 +109,12 @@ export default function AdminDashboard() {
   const [newCred, setNewCred] = useState(emptyAdminCred);
   const [revealedCreds, setRevealedCreds] = useState({});
   const [resourceCredsFor, setResourceCredsFor] = useState(null); // resource object
+  const [maintenanceWindows, setMaintenanceWindows] = useState([]);
+  const [showMaintenanceModal, setShowMaintenanceModal] = useState(false);
+  const [editMaintenanceId, setEditMaintenanceId] = useState(null);
+  const [newMaintenance, setNewMaintenance] = useState(emptyMaintenance());
+  const [statusEvents, setStatusEvents] = useState([]);
+  const [testMailResult, setTestMailResult] = useState(null);
 
   const tabs = [
     ['overview', 'Übersicht'],
@@ -80,6 +122,7 @@ export default function AdminDashboard() {
     ['groups', 'Gruppen'],
     ['clusters', 'Proxmox'],
     ['resources', 'Dienste'],
+    ['maintenance', 'Wartung'],
     ['audit', 'Protokoll'],
     ['settings', 'Einstellungen']
   ];
@@ -121,6 +164,8 @@ export default function AdminDashboard() {
       const needsGroups = ['groups', 'resources', 'overview'].includes(tab);
       const needsSettings = tab === 'settings';
       const needsClusterStats = tab === 'overview';
+      const needsMaintenance = tab === 'maintenance';
+      const needsEvents = tab === 'overview';
 
       if (needsUsers) requests.push(adminApi.getUsers().then(res => setUsers(res.data.users || [])));
       if (needsClusters) requests.push(
@@ -138,6 +183,8 @@ export default function AdminDashboard() {
       if (needsSettings) {
         requests.push(loadSettings());
       }
+      if (needsMaintenance) requests.push(adminApi.getMaintenanceWindows().then(res => setMaintenanceWindows(res.data.windows || [])));
+      if (needsEvents) requests.push(adminApi.getStatusEvents(15).then(res => setStatusEvents(res.data.events || [])).catch(() => setStatusEvents([])));
 
       await Promise.all(requests);
     } catch (err) {
@@ -206,8 +253,8 @@ export default function AdminDashboard() {
       setError('Bitte ein Startpasswort eingeben.');
       return;
     }
-    if (newUser.password && newUser.password.length < 6) {
-      setError('Das Passwort muss mindestens 6 Zeichen lang sein.');
+    if (newUser.password && newUser.password.length < 8) {
+      setError('Das Passwort muss mindestens 8 Zeichen lang sein.');
       return;
     }
 
@@ -749,8 +796,100 @@ export default function AdminDashboard() {
     }
   };
 
+  const openCreateMaintenance = () => {
+    setEditMaintenanceId(null);
+    setNewMaintenance(emptyMaintenance());
+    setShowMaintenanceModal(true);
+  };
+
+  const openEditMaintenance = (item) => {
+    setEditMaintenanceId(item.id);
+    setNewMaintenance({
+      title: item.title,
+      message: item.message || '',
+      severity: item.severity || 'info',
+      startsAt: toLocalDatetimeInput(item.starts_at),
+      endsAt: toLocalDatetimeInput(item.ends_at),
+      notifyUsers: false
+    });
+    setShowMaintenanceModal(true);
+  };
+
+  const closeMaintenanceModal = () => {
+    setShowMaintenanceModal(false);
+    setEditMaintenanceId(null);
+    setNewMaintenance(emptyMaintenance());
+  };
+
+  const handleSaveMaintenance = async (e) => {
+    e.preventDefault();
+    if (!newMaintenance.title.trim()) {
+      setError('Bitte einen Titel für die Wartung eingeben.');
+      return;
+    }
+    if (!newMaintenance.startsAt || !newMaintenance.endsAt || new Date(newMaintenance.endsAt) <= new Date(newMaintenance.startsAt)) {
+      setError('Der Wartungszeitraum ist ungültig (Ende muss nach dem Beginn liegen).');
+      return;
+    }
+    try {
+      setActionLoading(true);
+      setError('');
+      const payload = {
+        title: newMaintenance.title.trim(),
+        message: newMaintenance.message.trim(),
+        severity: newMaintenance.severity,
+        startsAt: new Date(newMaintenance.startsAt).toISOString(),
+        endsAt: new Date(newMaintenance.endsAt).toISOString(),
+        notifyUsers: newMaintenance.notifyUsers
+      };
+      let res;
+      if (editMaintenanceId) {
+        res = await adminApi.updateMaintenanceWindow(editMaintenanceId, payload);
+        showSuccess(res.data.notified ? `Wartung gespeichert – ${res.data.notified} Benutzer benachrichtigt.` : 'Wartung wurde gespeichert.');
+      } else {
+        res = await adminApi.createMaintenanceWindow(payload);
+        showSuccess(res.data.notified ? `Wartung angekündigt – ${res.data.notified} Benutzer benachrichtigt.` : 'Wartung wurde angelegt.');
+      }
+      closeMaintenanceModal();
+      await loadData('maintenance');
+    } catch (err) {
+      setError(getErrorMessage(err, 'Wartung konnte nicht gespeichert werden.'));
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleDeleteMaintenance = async (item) => {
+    if (!window.confirm(`Wartungsfenster "${item.title}" wirklich löschen?`)) return;
+    try {
+      setActionLoading(true);
+      setError('');
+      await adminApi.deleteMaintenanceWindow(item.id);
+      showSuccess('Wartungsfenster wurde gelöscht.');
+      await loadData('maintenance');
+    } catch (err) {
+      setError(getErrorMessage(err, 'Wartungsfenster konnte nicht gelöscht werden.'));
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleSendTestMail = async () => {
+    try {
+      setActionLoading(true);
+      setTestMailResult(null);
+      const res = await adminApi.sendTestMail();
+      setTestMailResult({ success: true, message: `Test-E-Mail an ${res.data.to} versendet.` });
+    } catch (err) {
+      setTestMailResult({ success: false, message: getErrorMessage(err, 'Test-E-Mail konnte nicht versendet werden.') });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   return (
     <div className="app-page">
+      <MaintenanceBanner />
       <header className="site-header">
         <div className="site-header-inner">
           <button type="button" className="site-brand site-brand-button" onClick={() => setActiveTab('overview')} aria-label="Zur Übersicht"><h1>Hosting by TechByGiusi</h1></button>
@@ -781,6 +920,7 @@ export default function AdminDashboard() {
               <MetricCard label="Online" value={onlineCount} onClick={() => setActiveTab('resources')} />
             </section>
             <ClusterStatsSection clusters={clusterStats} />
+            <StatusEventsSection events={statusEvents} />
           </>
         )}
 
@@ -870,6 +1010,43 @@ export default function AdminDashboard() {
           </section>
         )}
 
+        {!loading && activeTab === 'maintenance' && (
+          <section className="panel-card">
+            <PanelHeader title="Wartungsfenster" action="Wartung planen" onAction={openCreateMaintenance} />
+            <p className="panel-hint">
+              Geplante Wartungen werden allen Benutzern als Banner angezeigt – auch auf der Anmeldeseite.
+              Optional werden Benutzer mit aktivierten Wartungs-Benachrichtigungen per E-Mail informiert.
+            </p>
+            {maintenanceWindows.length === 0 ? (
+              <div className="empty-state soft-box"><h2>Keine Wartungen geplant</h2><p>Lege ein Wartungsfenster an, um Benutzer rechtzeitig zu informieren.</p></div>
+            ) : (
+              <div className="list-grid">
+                {maintenanceWindows.map(item => {
+                  const state = maintenanceState(item);
+                  return (
+                    <article key={item.id} className={`list-card maintenance-card state-${state}`}>
+                      <div>
+                        <span className="resource-id">
+                          <span className={`maintenance-chip severity-${item.severity}`}>{item.severity === 'critical' ? 'Kritisch' : item.severity === 'warning' ? 'Einschränkungen' : 'Info'}</span>
+                          <span className={`maintenance-chip state-chip state-${state}`}>{state === 'aktiv' ? 'Läuft gerade' : state === 'geplant' ? 'Geplant' : 'Beendet'}</span>
+                        </span>
+                        <h2>{item.title}</h2>
+                        <p>{formatDateTime(item.starts_at)} – {formatDateTime(item.ends_at)}</p>
+                        {item.message ? <p className="maintenance-message">{item.message}</p> : null}
+                        {item.notified_at ? <p className="maintenance-notified">✓ Benutzer benachrichtigt am {formatDateTime(item.notified_at)}</p> : null}
+                      </div>
+                      <div className="card-actions">
+                        <button type="button" className="btn-secondary btn-small" onClick={() => openEditMaintenance(item)}>Bearbeiten</button>
+                        <button type="button" className="btn-danger btn-small" onClick={() => handleDeleteMaintenance(item)} disabled={actionLoading}>Löschen</button>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+        )}
+
         {!loading && activeTab === 'audit' && (
           <section className="panel-card audit-panel">
             <PanelHeader title="Protokoll" action={auditLoading ? 'Lädt…' : 'Aktualisieren'} onAction={loadAudit} />
@@ -931,6 +1108,10 @@ export default function AdminDashboard() {
               <div className="form-actions full-width"><button type="button" className="btn-secondary" onClick={handleTestSmtp} disabled={actionLoading}>SMTP testen</button><button type="submit" className="btn-primary" disabled={actionLoading}>Speichern</button></div>
             </form>
             {smtpTestResult && <div className={`test-result ${smtpTestResult.success ? 'success' : 'error'}`}>{translateMessage(smtpTestResult.message)}</div>}
+            <div className="settings-action-row settings-testmail-row">
+              <button type="button" className="btn-secondary" onClick={handleSendTestMail} disabled={actionLoading}>Test-E-Mail an mich senden</button>
+              {testMailResult && <div className={`test-result ${testMailResult.success ? 'success' : 'error'}`}>{testMailResult.message}</div>}
+            </div>
           </section>
         )}
 
@@ -993,6 +1174,31 @@ export default function AdminDashboard() {
         </Modal>
       )}
 
+      {showMaintenanceModal && (
+        <Modal title={editMaintenanceId ? 'Wartung bearbeiten' : 'Wartung planen'} onClose={closeMaintenanceModal}>
+          <form className="form-stack" onSubmit={handleSaveMaintenance}>
+            <label className="form-group"><span>Titel</span><input type="text" value={newMaintenance.title} onChange={e => setNewMaintenance(prev => ({ ...prev, title: e.target.value }))} placeholder="z. B. Proxmox Cluster Update" /></label>
+            <label className="form-group"><span>Beschreibung (optional)</span><textarea rows="3" value={newMaintenance.message} onChange={e => setNewMaintenance(prev => ({ ...prev, message: e.target.value }))} placeholder="Was wird gewartet? Welche Dienste sind betroffen?" /></label>
+            <label className="form-group"><span>Stufe</span>
+              <select value={newMaintenance.severity} onChange={e => setNewMaintenance(prev => ({ ...prev, severity: e.target.value }))}>
+                <option value="info">Info – keine spürbaren Auswirkungen</option>
+                <option value="warning">Einschränkungen möglich</option>
+                <option value="critical">Kritisch – Dienste nicht verfügbar</option>
+              </select>
+            </label>
+            <div className="form-grid-2">
+              <label className="form-group"><span>Beginn</span><input type="datetime-local" value={newMaintenance.startsAt} onChange={e => setNewMaintenance(prev => ({ ...prev, startsAt: e.target.value }))} /></label>
+              <label className="form-group"><span>Ende</span><input type="datetime-local" value={newMaintenance.endsAt} onChange={e => setNewMaintenance(prev => ({ ...prev, endsAt: e.target.value }))} /></label>
+            </div>
+            <label className="checkbox-row">
+              <input type="checkbox" checked={newMaintenance.notifyUsers} onChange={e => setNewMaintenance(prev => ({ ...prev, notifyUsers: e.target.checked }))} />
+              <span>Benutzer jetzt per E-Mail informieren (nur mit aktivierter Wartungs-Benachrichtigung)</span>
+            </label>
+            <div className="form-actions"><button type="button" className="btn-secondary" onClick={closeMaintenanceModal}>Abbrechen</button><button type="submit" className="btn-primary" disabled={actionLoading}>{editMaintenanceId ? 'Speichern' : 'Planen'}</button></div>
+          </form>
+        </Modal>
+      )}
+
       {showUserModal && (
         <Modal title={editUserId ? 'Benutzer bearbeiten' : 'Benutzer anlegen'} onClose={closeUserModal}>
           <form className="form-stack" onSubmit={handleSaveUser}>
@@ -1000,6 +1206,12 @@ export default function AdminDashboard() {
             <label className="form-group"><span>E-Mail-Adresse</span><input type="email" value={newUser.email} onChange={e => setNewUser(prev => ({ ...prev, email: e.target.value }))} placeholder="max@example.com" /></label>
             <label className="form-group"><span>{editUserId ? 'Neues Passwort' : 'Startpasswort'}</span><input type="text" value={newUser.password} onChange={e => setNewUser(prev => ({ ...prev, password: e.target.value }))} placeholder={editUserId ? 'Leer lassen, wenn unverändert' : 'Passwort für den Benutzer'} /></label>
             <label className="form-group"><span>Rolle</span><select value={newUser.role} onChange={e => setNewUser(prev => ({ ...prev, role: e.target.value }))}><option value="user">Benutzer</option><option value="admin">Administrator</option></select></label>
+            {!editUserId && (
+              <label className="checkbox-row">
+                <input type="checkbox" checked={newUser.sendWelcome} onChange={e => setNewUser(prev => ({ ...prev, sendWelcome: e.target.checked }))} />
+                <span>Willkommens-E-Mail mit Portal-Link senden (ohne Passwort)</span>
+              </label>
+            )}
             <div className="form-actions"><button type="button" className="btn-secondary" onClick={closeUserModal}>Abbrechen</button><button type="submit" className="btn-primary" disabled={actionLoading}>{editUserId ? 'Speichern' : 'Anlegen'}</button></div>
           </form>
         </Modal>
@@ -1578,6 +1790,30 @@ function formatUptime(seconds) {
   const minutes = Math.floor((total % 3600) / 60);
   if (hours > 0) return `${hours}h ${minutes}m`;
   return `${minutes}m`;
+}
+
+function StatusEventsSection({ events }) {
+  if (!events || events.length === 0) return null;
+  return (
+    <section className="panel-card status-events-card">
+      <PanelHeader title="Letzte Statusereignisse" />
+      <div className="status-events-list">
+        {events.map(event => {
+          const wentDown = event.new_status !== 'running';
+          return (
+            <div key={event.id} className="status-event-row">
+              <span className={`status-dot ${wentDown ? 'is-down' : 'is-up'}`} aria-hidden="true"></span>
+              <div className="status-event-text">
+                <strong>{event.resource_name || `#${event.container_id}`}</strong>
+                <span>{event.cluster_name || 'Cluster'} · {event.old_status || '–'} → {event.new_status || '–'}</span>
+              </div>
+              <time className="status-event-time">{formatDateTime(event.created_at)}</time>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
 }
 
 function MetricCard({ label, value, onClick }) {

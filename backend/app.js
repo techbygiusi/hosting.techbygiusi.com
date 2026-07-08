@@ -10,9 +10,11 @@ const { initDatabase } = require('./config/database');
 const authRoutes = require('./routes/auth');
 const adminRoutes = require('./routes/admin');
 const userRoutes = require('./routes/user');
+const announcementRoutes = require('./routes/announcements');
 const { authMiddleware } = require('./middleware/auth');
 const { errorHandler } = require('./middleware/errorHandler');
 const { attachConsoleProxy } = require('./services/consoleService');
+const { startMonitoring } = require('./services/monitoringService');
 
 const app = express();
 const PORT = process.env.BACKEND_PORT || 3001;
@@ -72,6 +74,7 @@ app.get('/api/health', (req, res) => {
 
 initDatabase().then(() => {
   console.log('✓ Database initialized');
+  startMonitoring();
 }).catch(err => {
   console.error('✗ Database initialization failed:', err);
   process.exit(1);
@@ -80,6 +83,8 @@ initDatabase().then(() => {
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/user', authMiddleware, userRoutes);
+// Public: maintenance announcements for the top banner (also on login screen)
+app.use('/api/announcements', announcementRoutes);
 
 app.use((req, res) => {
   res.status(404).json({
@@ -97,7 +102,7 @@ attachConsoleProxy(server);
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`
 ╔═══════════════════════════════════════════════╗
-║   🚀 Hosting Portal Backend v2.9.6 Started      ║
+║   🚀 Hosting Portal Backend v3.0.0 Started      ║
 ║   Port: ${PORT}                                 ║
 ║   Environment: ${process.env.NODE_ENV || 'development'}              ║
 ║   API: http://localhost:${PORT}/api           ║

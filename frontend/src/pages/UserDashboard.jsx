@@ -5,6 +5,17 @@ import '../styles/globals.css';
 import ThemeButton from '../components/ThemeButton';
 import ResourceDetail, { getPercent, formatBytes, renderStatus, renderType } from '../components/ResourceDetail';
 import CreateMachineModal from '../components/CreateMachineModal';
+import MaintenanceBanner from '../components/MaintenanceBanner';
+import NotificationSettingsModal from '../components/NotificationSettingsModal';
+
+function BellIcon() {
+  return (
+    <svg className="logout-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
+      <path d="M13.7 21a2 2 0 0 1-3.4 0" />
+    </svg>
+  );
+}
 
 function LogoutIcon() {
   return (
@@ -24,6 +35,7 @@ export default function UserDashboard() {
   const [detailId, setDetailId] = useState(null);
   const [provisioningOptions, setProvisioningOptions] = useState([]);
   const [showCreate, setShowCreate] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
 
   const fetchResources = useCallback(async (withSpinner = true) => {
     try {
@@ -58,6 +70,7 @@ export default function UserDashboard() {
 
   return (
     <div className="app-page">
+      <MaintenanceBanner />
       <header className="site-header">
         <div className="site-header-inner">
           <div className="site-brand">
@@ -65,6 +78,7 @@ export default function UserDashboard() {
           </div>
           <div className="site-actions">
             <ThemeButton />
+            <button type="button" className="btn-secondary logout-button" onClick={() => setShowNotifications(true)} aria-label="Benachrichtigungen" title="Benachrichtigungen"><BellIcon /><span className="logout-label">Benachrichtigungen</span></button>
             <button type="button" className="btn-secondary logout-button" onClick={logout} aria-label="Abmelden"><LogoutIcon /><span className="logout-label">Abmelden</span></button>
           </div>
         </div>
@@ -108,6 +122,10 @@ export default function UserDashboard() {
           onClose={() => setDetailId(null)}
           onChanged={() => fetchResources(false)}
         />
+      )}
+
+      {showNotifications && (
+        <NotificationSettingsModal onClose={() => setShowNotifications(false)} />
       )}
 
       {showCreate && (

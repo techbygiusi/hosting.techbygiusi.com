@@ -13,7 +13,13 @@ services:
       JWT_EXPIRATION: 24h
       ENCRYPTION_KEY: ${ENCRYPTION_KEY:-}  # leer lassen = wird automatisch generiert (data/.encryption-key)
       FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-}  # z. B. https://portal.example.com – in Produktion setzen!
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}  # Basis-URL für Links in E-Mails (Reset, Portal)
       DB_PATH: ./data/hosting.db
+      # v3.0: Monitoring & Branding
+      MONITOR_INTERVAL_SECONDS: ${MONITOR_INTERVAL_SECONDS:-60}
+      MONITOR_DEBOUNCE_CHECKS: ${MONITOR_DEBOUNCE_CHECKS:-2}
+      BRAND_NAME: ${BRAND_NAME:-Hosting by TechByGiusi}
+      TZ: ${TZ:-Europe/Berlin}
     volumes:
       - ./backend/data:/app/data
     networks:

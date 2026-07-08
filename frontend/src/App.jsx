@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
 import Setup from './pages/Setup';
 import Login from './pages/Login';
+import ResetPassword from './pages/ResetPassword';
 import UserDashboard from './pages/UserDashboard';
 import AdminDashboard from './pages/AdminDashboard';
 import ConsolePage from './pages/ConsolePage';
@@ -82,6 +83,8 @@ export default function App() {
                 <Login />
           }
         />
+
+        <Route path="/reset-password" element={<ResetPassword />} />
 
         <Route
           path="/dashboard"

@@ -53,6 +53,13 @@ function authMiddleware(req, res, next) {
     }
 
     const decoded = jwt.verify(token, JWT_SECRET);
+    if (decoded.purpose) {
+      // Purpose-bound tokens (e.g. password reset) are not session tokens
+      return res.status(HTTP_STATUS.UNAUTHORIZED).json({
+        error: 'Invalid token',
+        message: ERROR_MESSAGES.INVALID_TOKEN
+      });
+    }
     req.user = decoded;
     next();
   } catch (error) {
@@ -90,8 +97,33 @@ function generateToken(userId, email, role) {
   );
 }
 
+/**
+ * Generate a short-lived, purpose-bound password reset token (1 hour).
+ * Not usable as a session token: authMiddleware rejects purpose-tagged tokens.
+ */
+function generateResetToken(userId, email) {
+  return jwt.sign(
+    { id: userId, email, purpose: 'password-reset' },
+    JWT_SECRET,
+    { expiresIn: '1h' }
+  );
+}
+
+/**
+ * Verify a reset token. Throws on invalid/expired/wrong-purpose tokens.
+ */
+function verifyResetToken(token) {
+  const decoded = jwt.verify(token, JWT_SECRET);
+  if (decoded.purpose !== 'password-reset') {
+    throw new Error('Invalid token purpose');
+  }
+  return decoded;
+}
+
 module.exports = {
   authMiddleware,
   adminMiddleware,
-  generateToken
+  generateToken,
+  generateResetToken,
+  verifyResetToken
 };

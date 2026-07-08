@@ -160,6 +160,50 @@ router.put('/profile', async (req, res, next) => {
   }
 });
 
+/* ------------------------------------------- NOTIFICATION PREFERENCES ---- */
+router.get('/notifications', async (req, res, next) => {
+  try {
+    const row = await get(
+      'SELECT notify_resource_down, notify_resource_recovered, notify_maintenance FROM users WHERE id = ?',
+      [req.user.id]
+    );
+    if (!row) throw new AppError('User not found', HTTP_STATUS.NOT_FOUND);
+    res.json({
+      preferences: {
+        notifyResourceDown: !!row.notify_resource_down,
+        notifyResourceRecovered: !!row.notify_resource_recovered,
+        notifyMaintenance: !!row.notify_maintenance
+      }
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.put('/notifications', async (req, res, next) => {
+  try {
+    const { notifyResourceDown, notifyResourceRecovered, notifyMaintenance } = req.body;
+
+    await run(
+      `UPDATE users
+       SET notify_resource_down = ?, notify_resource_recovered = ?, notify_maintenance = ?, updated_at = CURRENT_TIMESTAMP
+       WHERE id = ?`,
+      [notifyResourceDown ? 1 : 0, notifyResourceRecovered ? 1 : 0, notifyMaintenance ? 1 : 0, req.user.id]
+    );
+
+    res.json({
+      message: 'Notification preferences updated',
+      preferences: {
+        notifyResourceDown: !!notifyResourceDown,
+        notifyResourceRecovered: !!notifyResourceRecovered,
+        notifyMaintenance: !!notifyMaintenance
+      }
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 /* --------------------------------------------------------- RESOURCES ---- */
 router.get('/resources', async (req, res, next) => {
   try {

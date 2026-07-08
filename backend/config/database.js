@@ -231,6 +231,44 @@ async function initDatabase() {
         )
       `);
 
+      // v3.0: per-user notification preferences
+      database.run(`ALTER TABLE users ADD COLUMN notify_resource_down INTEGER DEFAULT 0`, () => {});
+      database.run(`ALTER TABLE users ADD COLUMN notify_resource_recovered INTEGER DEFAULT 0`, () => {});
+      database.run(`ALTER TABLE users ADD COLUMN notify_maintenance INTEGER DEFAULT 1`, () => {});
+
+      // v3.0: scheduled maintenance windows / announcements
+      database.run(`
+        CREATE TABLE IF NOT EXISTS maintenance_windows (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          title TEXT NOT NULL,
+          message TEXT,
+          severity TEXT DEFAULT 'info' CHECK(severity IN ('info', 'warning', 'critical')),
+          starts_at DATETIME NOT NULL,
+          ends_at DATETIME NOT NULL,
+          notify_users INTEGER DEFAULT 0,
+          notified_at DATETIME,
+          created_by INTEGER,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
+        )
+      `);
+
+      // v3.0: resource status transitions detected by the monitoring service
+      database.run(`
+        CREATE TABLE IF NOT EXISTS status_events (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          cluster_id INTEGER NOT NULL,
+          container_id TEXT NOT NULL,
+          resource_name TEXT,
+          old_status TEXT,
+          new_status TEXT,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (cluster_id) REFERENCES proxmox_clusters(id) ON DELETE CASCADE
+        )
+      `);
+      database.run(`CREATE INDEX IF NOT EXISTS idx_status_events_created ON status_events(created_at DESC)`, () => {});
+
       // Settings (key-value store)
       database.run(`
         CREATE TABLE IF NOT EXISTS settings (

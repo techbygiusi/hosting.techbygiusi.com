@@ -6,7 +6,7 @@ The frontend is built with React and the backend with Express + SQLite. Proxmox 
 
 ## Version
 
-Current version: **v2.9.6**
+Current version: **v3.0.0**
 
 Versioning now follows a clean semantic sequence:
 
@@ -15,6 +15,33 @@ Versioning now follows a clean semantic sequence:
 - **Major** versions only for breaking changes.
 
 The old history is kept below, but new releases should continue from the current `v2.x` line without date or numbering jumps.
+
+## What's new in v3.0.0
+
+### Security hardening
+
+- **Fixed a critical password-reset flaw**: reset tokens were verified against a hardcoded fallback secret when `JWT_SECRET` was unset. Reset tokens are now purpose-bound (`password-reset`), expire after **1 hour**, are verified against the real runtime secret and are rejected as session tokens.
+- Minimum password length raised from 6 to **8 characters** everywhere (setup, admin-created users, change and reset).
+- bcrypt cost factor raised from 10 to **12**.
+- Logins (successful and failed), password changes and resets are now written to the audit log.
+
+### Maintenance windows & top banner
+
+- Admins can plan maintenance windows (title, description, severity, start/end) in the new **Wartung** tab.
+- Active and upcoming windows appear as a banner at the top of every page – **including the login screen**. Active windows cannot be dismissed; upcoming ones can be hidden per browser.
+- Optionally notify all users by e-mail when a window is created or updated.
+
+### Monitoring & user notifications
+
+- A background monitoring service polls all clusters (default every 60 s, debounced against flapping) and records status transitions.
+- Users choose in their own **Benachrichtigungen** settings whether to receive e-mails when a service goes **offline**, comes **back online**, or when **maintenance** is announced.
+- Admin overview shows the most recent status events.
+
+### Professional e-mails & login
+
+- All outgoing mail (password reset, welcome, outage, recovery, maintenance, test) now uses branded, responsive HTML templates in the portal design language.
+- Redesigned split-layout login screen with feature panel, password visibility toggle and a working **Passwort vergessen** flow – including the previously missing reset-password page.
+- Admins can send a welcome e-mail when creating a user and a branded test e-mail from the settings tab.
 
 ## Highlights
 
