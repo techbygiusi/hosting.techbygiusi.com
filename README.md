@@ -6,7 +6,7 @@ The frontend is built with React and the backend with Express + SQLite. Proxmox 
 
 ## Version
 
-Current version: **v3.0.8**
+Current version: **v3.0.10**
 
 Versioning now follows a clean semantic sequence:
 
@@ -189,6 +189,22 @@ docker image prune -f
 The database migrates itself on startup. Keep the backend data volume before updating.
 
 ## Changelog
+
+### v3.0.10 - 2026-07-08
+
+**Commit:** `fix: use a themed background for the login theme toggle`
+
+- Restored the login theme toggle to the top-right corner on desktop and mobile.
+- Added a solid light or dark background to the toggle so it stays readable above maintenance banners and page content.
+- Removed the maintenance-banner offset that made the toggle appear in the wrong position.
+
+### v3.0.9 - 2026-07-08
+
+**Commit:** `fix: pin login theme toggle away from maintenance banner`
+
+- Fixed the login theme toggle position on desktop and mobile.
+- Keeps the toggle in the top-right corner and moves it below the maintenance banner when a banner is visible.
+- Prevents the toggle from affecting login-card centering.
 
 ### v3.0.8 - 2026-07-08
 
