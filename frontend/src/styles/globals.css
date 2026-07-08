@@ -3710,3 +3710,66 @@ body.theme-dark {
     gap: 18px;
   }
 }
+
+
+/* v3.0.7 - keep login banner and theme toggle separated */
+.login-split {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+}
+
+.login-split .maintenance-banner-stack {
+  position: sticky;
+  top: 0;
+  left: auto;
+  right: auto;
+  width: 100%;
+  flex: 0 0 auto;
+}
+
+.login-form-panel {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--ui-gap, 16px);
+}
+
+.login-theme-action {
+  width: min(420px, 100%);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex: 0 0 auto;
+  z-index: 1;
+}
+
+.login-theme-action .theme-toggle {
+  background: color-mix(in srgb, var(--color-bg-alt) 88%, transparent);
+  backdrop-filter: blur(14px);
+}
+
+.login-form-panel .auth-card {
+  flex: 0 0 auto;
+}
+
+@media (max-width: 767px) {
+  .login-form-panel {
+    min-height: 0;
+    padding: var(--portal-mobile-gap, 16px);
+    gap: var(--portal-mobile-gap, 16px);
+  }
+
+  .login-theme-action {
+    width: min(420px, 100%);
+  }
+
+  .login-split .maintenance-banner {
+    padding: 12px 14px;
+  }
+}

@@ -104,7 +104,7 @@ export default function Login() {
   return (
     <main className="login-split">
       <MaintenanceBanner />
-      <div className="auth-theme-action"><ThemeButton /></div>
+      <div className="login-theme-action"><ThemeButton /></div>
 
       {/* Brand panel */}
       <section className="login-brand-panel" aria-hidden="true">

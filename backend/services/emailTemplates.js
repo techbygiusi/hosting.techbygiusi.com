@@ -116,8 +116,7 @@ function passwordResetTemplate({ name, resetLink }) {
       ${button(resetLink, 'Neues Passwort vergeben')}
       ${paragraph(`Der Link ist aus Sicherheitsgründen <strong>1 Stunde</strong> gültig. Falls du diese Anfrage nicht gestellt hast, kannst du diese E-Mail ignorieren - dein Passwort bleibt unverändert.`)}
       <p style="margin:16px 0 0 0;font-size:12px;line-height:1.5;color:${COLORS.muted};word-break:break-all;">Falls der Button nicht funktioniert: ${escapeHtml(resetLink)}</p>
-    `,
-    footerNote: 'Aus Sicherheitsgründen enthält diese E-Mail keinen Passwortklartext.'
+    `
   });
   const text = `Hallo ${name || ''},\n\nfür dein Konto wurde das Zurücksetzen des Passworts angefordert.\n\nLink (1 Stunde gültig):\n${resetLink}\n\nFalls du diese Anfrage nicht gestellt hast, ignoriere diese E-Mail.\n\n${BRAND_NAME}`;
   return { subject, text, html };

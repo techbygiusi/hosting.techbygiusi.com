@@ -6,7 +6,7 @@ The frontend is built with React and the backend with Express + SQLite. Proxmox 
 
 ## Version
 
-Current version: **v3.0.6**
+Current version: **v3.0.8**
 
 Versioning now follows a clean semantic sequence:
 
@@ -189,6 +189,21 @@ docker image prune -f
 The database migrates itself on startup. Keep the backend data volume before updating.
 
 ## Changelog
+
+### v3.0.8 - 2026-07-08
+
+**Commit:** `fix: remove password reset plaintext footer note`
+
+- Removed the extra footer note from password reset e-mails.
+- Kept the reset-link validity and safety instructions unchanged.
+
+### v3.0.7 - 2026-07-08
+
+**Commit:** `fix: separate login maintenance banner from theme toggle`
+
+- Moved the login theme toggle into the login form flow so it no longer overlaps maintenance banners.
+- Changed the login maintenance banner from fixed overlay behavior to a sticky banner that reserves its own space.
+- Kept the login card vertically centered in the remaining viewport on desktop and mobile.
 
 ### v3.0.6 - 2026-07-08
 

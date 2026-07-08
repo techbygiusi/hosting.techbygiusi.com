@@ -102,7 +102,7 @@ attachConsoleProxy(server);
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`
 ╔═══════════════════════════════════════════════╗
-║   🚀 Hosting Portal Backend v3.0.6 Started      ║
+║   🚀 Hosting Portal Backend v3.0.8 Started      ║
 ║   Port: ${PORT}                                 ║
 ║   Environment: ${process.env.NODE_ENV || 'development'}              ║
 ║   API: http://localhost:${PORT}/api           ║
