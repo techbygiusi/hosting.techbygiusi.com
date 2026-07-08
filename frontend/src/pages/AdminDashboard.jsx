@@ -1749,7 +1749,6 @@ function ClusterStatsCard({ cluster }) {
 }
 
 function ClusterNodeRow({ node }) {
-  const temp = node.temperature?.max || node.temperature?.current;
   return (
     <div className="cluster-node-row">
       <div className="cluster-node-head">
@@ -1760,7 +1759,6 @@ function ClusterNodeRow({ node }) {
         <span>CPU {formatFixed(node.cpuPercent)}%</span>
         <span>RAM {formatFixed(node.memPercent)}%</span>
         <span>Storage {formatFixed(node.storageTotal ? node.storagePercent : node.rootPercent)}%</span>
-        <span>{temp ? `${formatFixed(temp, 0)} °C` : 'Temp. -'}</span>
         <span>Uptime {formatUptime(node.uptime)}</span>
       </div>
     </div>

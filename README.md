@@ -6,7 +6,7 @@ The frontend is built with React and the backend with Express + SQLite. Proxmox 
 
 ## Version
 
-Current version: **v3.0.3**
+Current version: **v3.0.6**
 
 Versioning now follows a clean semantic sequence:
 
@@ -189,6 +189,29 @@ docker image prune -f
 The database migrates itself on startup. Keep the backend data volume before updating.
 
 ## Changelog
+
+### v3.0.6 - 2026-07-08
+
+**Commit:** `fix: simplify login screen and use public reset URLs`
+
+- Removed the left brand panel from the login screen so only the sign-in card remains.
+- Improved vertical spacing in the forgot-password form, including success and error messages.
+- Password reset links now use `FRONTEND_URL`, `FRONTEND_ORIGIN`, the request origin, forwarded host headers or the current host instead of falling back to localhost in production.
+- Updated Docker Compose and the backend environment example so `FRONTEND_URL` can stay empty behind a reverse proxy.
+
+### v3.0.5 - 2026-07-08
+
+**Commit:** `fix: remove dashboard temperatures and center theme toggle`
+
+- Removed the temperature column from the Proxmox cluster status dashboard because Proxmox did not provide reliable sensor values in this setup.
+- Tightened the theme toggle geometry so the dark-mode moon icon sits centered inside the right slider position.
+
+### v3.0.4 - 2026-07-08
+
+**Commit:** `fix: align test email result below the action`
+
+- Moved the test email result message below the test email action.
+- Let the result message use the full settings panel width for better readability.
 
 ### v3.0.3 - 2026-07-08
 

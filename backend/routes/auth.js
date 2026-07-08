@@ -11,6 +11,7 @@ const { sendEmail, testSmtpConnection, initializeEmailService, encryptString } =
 const { testConnection } = require('../services/proxmoxService');
 const { passwordResetTemplate } = require('../services/emailTemplates');
 const { logAudit } = require('../services/auditService');
+const { getPublicFrontendUrl } = require('../utils/publicUrl');
 
 const SETUP_KEYS = ['smtp_host', 'smtp_port', 'smtp_user', 'smtp_password'];
 
@@ -371,7 +372,7 @@ router.post('/forgot-password', async (req, res, next) => {
     }
 
     const resetToken = generateResetToken(user.id, user.email);
-    const resetLink = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${encodeURIComponent(resetToken)}`;
+    const resetLink = `${getPublicFrontendUrl(req)}/reset-password?token=${encodeURIComponent(resetToken)}`;
 
     const template = passwordResetTemplate({ name: user.name, resetLink });
     await sendEmail(user.email, template.subject, template.text, template.html);

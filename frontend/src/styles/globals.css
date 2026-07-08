@@ -2943,7 +2943,7 @@ body.theme-dark .cluster-stats-card {
 }
 .cluster-node-metrics {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: var(--layout-gap-sm);
 }
 @media (max-width: 767px) {
@@ -3565,6 +3565,148 @@ body.theme-dark {
   box-shadow: 0 0 0 3px var(--color-bg-alt);
 }
 
+
+
+/* v3.0.4 - place test-mail result below the action */
+.settings-testmail-row {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--ui-gap, var(--layout-gap));
+}
+
+.settings-testmail-row > .btn-secondary {
+  align-self: flex-start;
+}
+
+.settings-testmail-row .test-result {
+  width: 100%;
+  text-align: left;
+}
+
+@media (max-width: 767px) {
+  .settings-testmail-row > .btn-secondary {
+    width: 100%;
+    align-self: stretch;
+  }
+}
+
+
+/* v3.0.5 - remove temperature column and center the theme toggle precisely */
+.theme-toggle {
+  height: 38px;
+  min-height: 38px;
+  grid-template-columns: 28px 28px;
+  column-gap: 6px;
+  justify-content: center;
+  align-content: center;
+}
+.theme-toggle-icon {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  justify-self: center;
+  align-self: center;
+}
+.theme-toggle-icon-light { grid-column: 1; grid-row: 1; }
+.theme-toggle-icon-dark { grid-column: 2; grid-row: 1; }
+.theme-toggle-thumb {
+  left: 4px;
+  top: 4px;
+  width: 28px;
+  height: 28px;
+  transform: translateX(0);
+}
+.theme-toggle-dark .theme-toggle-thumb { transform: translateX(34px); }
 .theme-toggle-icon-dark svg {
-  transform: translateX(-1.5px);
+  transform: translateX(1px);
+}
+.cluster-node-metrics {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+@media (max-width: 767px) {
+  .theme-toggle {
+    height: 34px;
+    min-height: 34px;
+    grid-template-columns: 26px 26px;
+    column-gap: 4px;
+  }
+  .theme-toggle-icon {
+    width: 26px;
+    height: 26px;
+  }
+  .theme-toggle-thumb {
+    left: 3px;
+    top: 3px;
+    width: 26px;
+    height: 26px;
+  }
+  .theme-toggle-dark .theme-toggle-thumb { transform: translateX(30px); }
+  .theme-toggle-icon-dark svg { transform: translateX(0.5px); }
+}
+
+
+/* v3.0.6 - simple login screen and cleaner password reset spacing */
+.login-brand-panel {
+  display: none !important;
+}
+.login-split {
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.login-form-panel {
+  flex: 0 1 auto;
+  width: 100%;
+  min-height: 100dvh;
+  padding: clamp(18px, 4vw, 40px) 16px;
+}
+.login-form-panel .auth-card {
+  display: grid;
+  gap: 20px;
+}
+.login-card .auth-header,
+.login-card .auth-subline,
+.login-card .alert,
+.login-card .form-stack,
+.login-card .form-group {
+  margin: 0;
+}
+.login-card .auth-header {
+  display: grid;
+  gap: 8px;
+}
+.login-card .form-stack {
+  gap: 20px;
+}
+.login-card .form-group {
+  gap: 9px;
+}
+.login-card .alert {
+  width: 100%;
+}
+.login-card .link-button {
+  margin-top: 2px;
+}
+@media (min-width: 960px) {
+  .login-split {
+    flex-direction: column;
+  }
+  .login-form-panel {
+    flex: 0 1 auto;
+  }
+}
+@media (max-width: 767px) {
+  .login-form-panel {
+    min-height: 100dvh;
+    padding: 18px 16px;
+  }
+  .login-form-panel .auth-card {
+    gap: 18px;
+  }
+  .login-card .form-stack {
+    gap: 18px;
+  }
 }

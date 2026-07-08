@@ -12,6 +12,7 @@ const { sendEmail, testSmtpConnection, initializeEmailService, encryptString, de
 const { welcomeTemplate, maintenanceTemplate, testMailTemplate } = require('../services/emailTemplates');
 const { encrypt, decrypt } = require('../services/cryptoService');
 const { logAudit } = require('../services/auditService');
+const { getPublicFrontendUrl } = require('../utils/publicUrl');
 
 router.use(adminMiddleware);
 
@@ -153,7 +154,7 @@ router.post('/users', async (req, res, next) => {
       const template = welcomeTemplate({
         name: String(name).trim(),
         email: normalizedEmail,
-        loginUrl: process.env.FRONTEND_URL || 'http://localhost:3000'
+        loginUrl: getPublicFrontendUrl(req)
       });
       sendEmail(normalizedEmail, template.subject, template.text, template.html)
         .catch(err => console.error('Welcome mail failed:', err.message));
