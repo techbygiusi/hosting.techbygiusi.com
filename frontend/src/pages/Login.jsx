@@ -110,15 +110,15 @@ export default function Login() {
       <section className="login-brand-panel" aria-hidden="true">
         <div className="login-brand-inner">
           <p className="eyebrow">Hosting by TechByGiusi</p>
-          <h1>Deine Dienste.<br />Ein Portal.</h1>
+          <h1>Dein Zugang.<br />Deine Dienste.</h1>
           <p className="login-brand-sub">
-            Verwalte VMs und Container, überwache Ressourcen in Echtzeit und
-            behalte Zugangsdaten sicher an einem Ort.
+            Ein klarer Zugang zu deinen Services, Statusmeldungen, Konsolen
+            und Zugangsdaten.
           </p>
           <ul className="login-feature-list">
-            <li><ServerIcon /><span>Self-Service Provisionierung &amp; Web-Konsole</span></li>
-            <li><BellIcon /><span>Automatische Benachrichtigung bei Ausfällen</span></li>
-            <li><ShieldIcon /><span>AES-256 verschlüsselte Zugangsdaten &amp; Audit-Log</span></li>
+            <li><ServerIcon /><span>Dienste und Status auf einen Blick</span></li>
+            <li><BellIcon /><span>Wartungen und Benachrichtigungen transparent</span></li>
+            <li><ShieldIcon /><span>Geschützter Zugriff mit verschlüsselten Daten</span></li>
           </ul>
         </div>
         <div className="login-brand-footer">© {new Date().getFullYear()} TechByGiusi</div>

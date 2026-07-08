@@ -2,6 +2,7 @@ const nodemailer = require('nodemailer');
 const { get } = require('../config/database');
 
 let transporter = null;
+let transporterSender = '';
 
 /**
  * Initialize email transporter with settings
@@ -19,6 +20,7 @@ async function initializeEmailService() {
     }
 
     const decryptedPassword = decryptString(smtpPassword?.value || '');
+    transporterSender = String(smtpUser?.value || '').trim();
 
     transporter = nodemailer.createTransport({
       host: smtpHost.value,
@@ -58,8 +60,15 @@ async function sendEmail(to, subject, text, html = null) {
       }
     }
 
+    const storedSmtpUser = transporterSender || (await get('SELECT value FROM settings WHERE key = ?', ['smtp_user']))?.value || '';
+    const sender = String(process.env.SMTP_FROM || storedSmtpUser || 'noreply@hosting-portal.local').trim();
+
     const mailOptions = {
-      from: process.env.SMTP_FROM || 'noreply@hosting-portal.local',
+      from: sender,
+      envelope: {
+        from: sender,
+        to
+      },
       to,
       subject,
       text,
@@ -98,7 +107,7 @@ async function testSmtpConnection(smtpHost, smtpPort, smtpUser, smtpPassword) {
 }
 
 /**
- * Encryption utilities – delegate to cryptoService (AES-256-GCM).
+ * Encryption utilities - delegate to cryptoService (AES-256-GCM).
  * decrypt() transparently handles legacy base64 values from older versions.
  */
 const cryptoService = require('./cryptoService');

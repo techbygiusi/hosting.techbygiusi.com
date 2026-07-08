@@ -2,6 +2,22 @@ import React, { useEffect, useMemo, useState } from 'react';
 import Modal from './Modal';
 import { userApi, getErrorMessage } from '../services/api';
 
+
+function rangeProgress(value, min, max) {
+  const current = Number(value);
+  const low = Number(min);
+  const high = Number(max);
+  if (!Number.isFinite(current) || !Number.isFinite(low) || !Number.isFinite(high) || high <= low) {
+    return '100%';
+  }
+  const percent = Math.min(Math.max(((current - low) / (high - low)) * 100, 0), 100);
+  return `${percent}%`;
+}
+
+function rangeStyle(value, min, max) {
+  return { '--range-progress': rangeProgress(value, min, max) };
+}
+
 function isDesktopViewport() {
   if (typeof window === 'undefined') return true;
   return window.matchMedia('(min-width: 768px)').matches;
@@ -212,15 +228,15 @@ export default function CreateMachineModal({ options, onClose, onCreated }) {
                     <div className="slider-grid">
                       <label className="form-group">
                         <span>CPU-Kerne · {form.cores}</span>
-                        <input type="range" min="1" max={cluster.maxCores} value={form.cores} onChange={event => setField('cores', Number(event.target.value))} />
+                        <input className="resource-range" type="range" min="1" max={cluster.maxCores} value={form.cores} style={rangeStyle(form.cores, 1, cluster.maxCores)} onChange={event => setField('cores', Number(event.target.value))} />
                       </label>
                       <label className="form-group">
                         <span>RAM · {form.memoryMb} MB</span>
-                        <input type="range" min="256" max={cluster.maxMemoryMb} step="256" value={form.memoryMb} onChange={event => setField('memoryMb', Number(event.target.value))} />
+                        <input className="resource-range" type="range" min="256" max={cluster.maxMemoryMb} step="256" value={form.memoryMb} style={rangeStyle(form.memoryMb, 256, cluster.maxMemoryMb)} onChange={event => setField('memoryMb', Number(event.target.value))} />
                       </label>
                       <label className="form-group">
                         <span>Festplatte · {form.diskGb} GB</span>
-                        <input type="range" min="4" max={Math.min(cluster.maxDiskGb || 32, 32)} value={Math.min(form.diskGb, Math.min(cluster.maxDiskGb || 32, 32))} onChange={event => setField('diskGb', Number(event.target.value))} />
+                        <input className="resource-range" type="range" min="4" max={Math.min(cluster.maxDiskGb || 32, 32)} value={Math.min(form.diskGb, Math.min(cluster.maxDiskGb || 32, 32))} style={rangeStyle(Math.min(form.diskGb, Math.min(cluster.maxDiskGb || 32, 32)), 4, Math.min(cluster.maxDiskGb || 32, 32))} onChange={event => setField('diskGb', Number(event.target.value))} />
                       </label>
                     </div>
 

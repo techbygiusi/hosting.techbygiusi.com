@@ -638,7 +638,7 @@ router.get('/clusters/:id/containers', async (req, res, next) => {
 });
 
 /**
- * Live permissions of the configured API token – shows in the UI which
+ * Live permissions of the configured API token - shows in the UI which
  * portal features (power, console, provisioning) the token allows.
  */
 router.get('/clusters/:id/capabilities', async (req, res, next) => {

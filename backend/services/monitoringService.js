@@ -1,5 +1,5 @@
 /**
- * monitoringService.js – Polls all Proxmox clusters, detects status
+ * monitoringService.js - Polls all Proxmox clusters, detects status
  * transitions of managed resources, records them in status_events and
  * notifies opted-in users by e-mail (down / recovered).
  *
@@ -77,7 +77,7 @@ async function notifyTransition(cluster, resource, oldStatus, newStatus) {
 
   await recordEvent(cluster.id, resource.id, displayName, oldStatus, newStatus);
 
-  // E-mails go only to users of resources managed in the portal –
+  // E-mails go only to users of resources managed in the portal -
   // the recipients query returns nothing for unmanaged cluster resources.
   const prefColumn = wentDown ? 'notify_resource_down' : 'notify_resource_recovered';
   let recipients = [];
@@ -113,7 +113,7 @@ async function notifyTransition(cluster, resource, oldStatus, newStatus) {
 
   console.log(
     `Monitoring: ${cluster.name} / ${resource.id} (${displayName}) ${oldStatus} -> ${newStatus}` +
-    (recipients.length ? ` – ${recipients.length} Benachrichtigung(en) versendet` : '')
+    (recipients.length ? ` - ${recipients.length} Benachrichtigung(en) versendet` : '')
   );
 }
 
@@ -122,7 +122,7 @@ async function pollCluster(cluster) {
   try {
     resources = await getClusterResources(cluster.url, decrypt(cluster.api_token));
   } catch (err) {
-    // Cluster unreachable – do not flap all resources to "down"; skip this round.
+    // Cluster unreachable - do not flap all resources to "down"; skip this round.
     console.error(`Monitoring: cluster "${cluster.name}" unreachable:`, err.message);
     return;
   }
@@ -143,7 +143,7 @@ async function pollCluster(cluster) {
     const entry = state.get(key);
 
     if (!entry) {
-      // Baseline – never alert on the very first observation
+      // Baseline - never alert on the very first observation
       state.set(key, { status: current, pendingStatus: null, pendingCount: 0 });
       continue;
     }

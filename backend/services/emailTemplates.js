@@ -1,5 +1,5 @@
 /**
- * emailTemplates.js – Branded, responsive HTML e-mail templates.
+ * emailTemplates.js - Branded, responsive HTML e-mail templates.
  *
  * Design language mirrors the portal: white background, cold-grey card,
  * sage green accent (#7A876F), near-black editorial text.
@@ -106,15 +106,15 @@ function statusPill(text, color) {
 /* ------------------------------------------------------------ TEMPLATES */
 
 function passwordResetTemplate({ name, resetLink }) {
-  const subject = `${BRAND_NAME} – Passwort zurücksetzen`;
+  const subject = `${BRAND_NAME} - Passwort zurücksetzen`;
   const html = baseLayout({
-    preheader: 'Link zum Zurücksetzen deines Passworts – gültig für 1 Stunde.',
+    preheader: 'Link zum Zurücksetzen deines Passworts - gültig für 1 Stunde.',
     title: 'Passwort zurücksetzen',
     bodyHtml: `
       ${paragraph(`Hallo ${escapeHtml(name || '')},`)}
       ${paragraph('für dein Konto wurde das Zurücksetzen des Passworts angefordert. Klicke auf den Button, um ein neues Passwort zu vergeben:')}
       ${button(resetLink, 'Neues Passwort vergeben')}
-      ${paragraph(`Der Link ist aus Sicherheitsgründen <strong>1 Stunde</strong> gültig. Falls du diese Anfrage nicht gestellt hast, kannst du diese E-Mail ignorieren – dein Passwort bleibt unverändert.`)}
+      ${paragraph(`Der Link ist aus Sicherheitsgründen <strong>1 Stunde</strong> gültig. Falls du diese Anfrage nicht gestellt hast, kannst du diese E-Mail ignorieren - dein Passwort bleibt unverändert.`)}
       <p style="margin:16px 0 0 0;font-size:12px;line-height:1.5;color:${COLORS.muted};word-break:break-all;">Falls der Button nicht funktioniert: ${escapeHtml(resetLink)}</p>
     `,
     footerNote: 'Aus Sicherheitsgründen enthält diese E-Mail keinen Passwortklartext.'
@@ -175,7 +175,7 @@ function resourceRecoveredTemplate({ name, resourceName, containerId, clusterNam
     bodyHtml: `
       <div style="margin:0 0 16px 0;">${statusPill('ONLINE', COLORS.success)}</div>
       ${paragraph(`Hallo ${escapeHtml(name || '')},`)}
-      ${paragraph('gute Nachricht – der folgende Dienst läuft wieder:')}
+      ${paragraph('gute Nachricht - der folgende Dienst läuft wieder:')}
       <table role="presentation" cellpadding="0" cellspacing="0" style="margin:8px 0;">
         ${infoRow('Dienst', resourceName || `#${containerId}`)}
         ${infoRow('ID', containerId)}
@@ -215,7 +215,7 @@ function maintenanceTemplate({ name, title, message, startsAt, endsAt, severity 
 }
 
 function testMailTemplate({ name }) {
-  const subject = `${BRAND_NAME} – Test-E-Mail`;
+  const subject = `${BRAND_NAME} - Test-E-Mail`;
   const html = baseLayout({
     preheader: 'Die SMTP-Konfiguration funktioniert.',
     title: 'Test erfolgreich',

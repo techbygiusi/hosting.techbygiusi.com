@@ -61,7 +61,7 @@ export default function MaintenanceBanner() {
     const load = () => {
       publicApi.getAnnouncements()
         .then(res => { if (!cancelled) setAnnouncements(res.data.announcements || []); })
-        .catch(() => { /* Banner ist optional – Fehler still ignorieren */ });
+        .catch(() => { /* Banner ist optional - Fehler still ignorieren */ });
     };
     load();
     const timer = setInterval(load, 5 * 60 * 1000);
@@ -95,7 +95,7 @@ export default function MaintenanceBanner() {
                 {item.title}
               </strong>
               <span className="maintenance-banner-time">
-                {formatDateTime(item.startsAt)} – {formatDateTime(item.endsAt)}
+                {formatDateTime(item.startsAt)} - {formatDateTime(item.endsAt)}
               </span>
               {item.message ? <span className="maintenance-banner-message">{item.message}</span> : null}
             </div>

@@ -262,7 +262,7 @@ export const userApi = {
   updateNotificationPreferences: (data) => apiClient.put('/user/notifications', data)
 };
 
-// v3.0: public – maintenance announcements for the banner (no auth required)
+// v3.0: public - maintenance announcements for the banner (no auth required)
 export const publicApi = {
   getAnnouncements: () => apiClient.get('/announcements')
 };

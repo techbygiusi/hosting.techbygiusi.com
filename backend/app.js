@@ -35,7 +35,7 @@ const allowedOrigins = String(process.env.FRONTEND_ORIGIN || '')
   .filter(Boolean);
 
 if (allowedOrigins.length === 0 && process.env.NODE_ENV === 'production') {
-  console.warn('⚠ FRONTEND_ORIGIN is not set – CORS allows all origins. Set it in production!');
+  console.warn('⚠ FRONTEND_ORIGIN is not set - CORS allows all origins. Set it in production!');
 }
 
 app.use(cors({
@@ -102,7 +102,7 @@ attachConsoleProxy(server);
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`
 ╔═══════════════════════════════════════════════╗
-║   🚀 Hosting Portal Backend v3.0.0 Started      ║
+║   🚀 Hosting Portal Backend v3.0.3 Started      ║
 ║   Port: ${PORT}                                 ║
 ║   Environment: ${process.env.NODE_ENV || 'development'}              ║
 ║   API: http://localhost:${PORT}/api           ║

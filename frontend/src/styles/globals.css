@@ -1,12 +1,12 @@
 /* =========================================================================
-   Tech by Giusi – Hosting Portal
+   Tech by Giusi - Hosting Portal
    Global stylesheet, aligned to the techbygiusi.com design language.
 
    Design language (single source of truth):
    - White page background, neutral cold-grey cards (#eeeeee)
    - Muted sage / olive green accent (#7A876F)
    - Near-black editorial text, light font weights
-   - Flat surfaces, hairline borders, gentle rounding (8–14px)
+   - Flat surfaces, hairline borders, gentle rounding (8-14px)
    - Calm dark mode on a deep blue-black (#0B0F14)
 
    Organised top-down: tokens -> base -> layout -> components -> responsive.
@@ -54,7 +54,7 @@ body.theme-light {
   --spacing-lg: 24px;
   --spacing-xl: 32px;
 
-  /* Rounding – gentle, editorial */
+  /* Rounding - gentle, editorial */
   --radius-sm: 8px;
   --radius-md: 10px;
   --radius-lg: 12px;
@@ -68,7 +68,7 @@ body.theme-light {
   --font-size-xl:   21px;
   --font-size-2xl:  30px;
 
-  /* Shadows – flat by default; only dialogs lift */
+  /* Shadows - flat by default; only dialogs lift */
   --shadow-sm: none;
   --shadow-md: none;
   --shadow-lg: 0 24px 70px rgba(17, 17, 17, 0.18);
@@ -1296,7 +1296,7 @@ body.theme-dark .icon-button {
     width: 100%;
     max-width: 100%;
     /* On mobile the sheet takes a fixed viewport height and the tab body
-       scrolls inside – the header/tabs stay pinned. */
+       scrolls inside - the header/tabs stay pinned. */
     height: 88dvh;
     max-height: 88dvh;
   }
@@ -1486,11 +1486,11 @@ body.theme-dark .btn-danger:hover:not(:disabled) {
 }
 
 /* =========================================================================
-   v2.0 – Portal-Erweiterungen
+   v2.0 - Portal-Erweiterungen
    Mobile Bottom-Sheets, Modal-Tabs, Konsole, Zugangsdaten, Gruppen, Audit
    ========================================================================= */
 
-/* Sheet handle – only visible in bottom-sheet mode on mobile */
+/* Sheet handle - only visible in bottom-sheet mode on mobile */
 .sheet-handle { display: none; }
 
 @media (max-width: 767px) {
@@ -1930,7 +1930,7 @@ body.theme-dark .task-log { background: #111418; }
   text-align: center;
 }
 
-/* v2.0 – Klassen-Angleichungen */
+/* v2.0 - Klassen-Angleichungen */
 .task-status-ok { color: var(--color-success); }
 .task-status-running { color: var(--color-warning); }
 .task-status-error { color: var(--color-danger); }
@@ -1958,7 +1958,7 @@ body.theme-dark .task-log { background: #111418; }
 }
 
 /* =========================================================================
-   v2.1 – Self-Service (Toggle, Typwahl, Storage-Zeilen), Zugangsdaten-Vault
+   v2.1 - Self-Service (Toggle, Typwahl, Storage-Zeilen), Zugangsdaten-Vault
    ========================================================================= */
 
 /* Toggle switch (iOS-style) */
@@ -2140,7 +2140,7 @@ body.theme-dark .task-log { background: #111418; }
 }
 
 /* =========================================================================
-   v2.2 – Admin-hinterlegte Ressourcen-Zugangsdaten
+   v2.2 - Admin-hinterlegte Ressourcen-Zugangsdaten
    ========================================================================= */
 .credential-label-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 
@@ -2169,7 +2169,7 @@ body.theme-dark .task-log { background: #111418; }
 .credential-row-locked { opacity: 0.72; }
 .credential-row-locked .credential-secret { color: var(--color-text-light); }
 
-/* v2.2.1 – Token-Berechtigungen: Lade-/Fehlerhinweis */
+/* v2.2.1 - Token-Berechtigungen: Lade-/Fehlerhinweis */
 .caps-loading { opacity: 0.6; }
 .caps-error { color: var(--color-danger); }
 
@@ -2185,7 +2185,7 @@ body.theme-dark .task-log { background: #111418; }
   overflow-wrap: anywhere;
 }
 
-/* v2.4.2 – cleaner self-service settings spacing */
+/* v2.4.2 - cleaner self-service settings spacing */
 .provisioning-settings-panel > .form-group {
   margin-top: var(--spacing-md);
 }
@@ -2213,7 +2213,7 @@ body.theme-dark .task-log { background: #111418; }
   }
 }
 
-/* v2.5.3 – keep native dropdown arrows clean in dark mode */
+/* v2.5.3 - keep native dropdown arrows clean in dark mode */
 select {
   background-repeat: no-repeat;
   background-position: right 14px center;
@@ -2227,7 +2227,7 @@ body.theme-dark select {
 }
 
 
-/* v2.5.4 – site-wide spacing normalization
+/* v2.5.4 - site-wide spacing normalization
    All major cards, grids and action rows now use one shared spacing token so
    vertical and horizontal distances stay visually equal across the portal. */
 :root,
@@ -2423,7 +2423,7 @@ body.theme-dark {
   }
 }
 
-/* v2.6 – shared management-page credentials */
+/* v2.6 - shared management-page credentials */
 .inline-actions {
   display: inline-flex;
   align-items: center;
@@ -2445,7 +2445,7 @@ body.theme-dark {
 }
 
 
-/* v2.7 – credential spacing and community script picker */
+/* v2.7 - credential spacing and community script picker */
 .modal-card .tasks-toolbar,
 .credentials-tab .tasks-toolbar {
   align-items: flex-start;
@@ -2596,7 +2596,7 @@ body.theme-dark {
 }
 
 
-/* v2.7.5 – enforce true mobile bottom-sheet modals after all layout rules */
+/* v2.7.5 - enforce true mobile bottom-sheet modals after all layout rules */
 @media (max-width: 767px) {
   body.modal-open {
     overflow: hidden;
@@ -2646,7 +2646,7 @@ body.theme-dark {
 }
 
 
-/* v2.7.13 – consistent mobile and modal spacing
+/* v2.7.13 - consistent mobile and modal spacing
    One rhythm for cards, forms, modal sections and action rows. */
 :root,
 body.theme-light,
@@ -2821,7 +2821,7 @@ textarea,
   }
 }
 
-/* v2.8 – desktop-only provisioning */
+/* v2.8 - desktop-only provisioning */
 .desktop-only-block { display: block; }
 @media (max-width: 767px) { .desktop-only-block { display: none !important; } }
 
@@ -2873,7 +2873,7 @@ textarea,
   }
 }
 
-/* v2.9.0 – admin overview cluster status cards */
+/* v2.9.0 - admin overview cluster status cards */
 .cluster-stats-section {
   margin-top: var(--layout-gap);
 }
@@ -2981,7 +2981,7 @@ body.theme-dark .cluster-stats-card {
 }
 
 /* =========================================================================
-   v3.0 – Maintenance banner, login redesign, notification toggles,
+   v3.0 - Maintenance banner, login redesign, notification toggles,
    maintenance admin cards, status events. Appended, uses existing tokens.
    ========================================================================= */
 
@@ -3371,3 +3371,200 @@ body.theme-dark .link-button:hover { color: var(--site-accent); }
   right: 0;
 }
 .login-split .auth-theme-action { top: 18px; }
+
+
+/* v3.0.1 - polished copy, spacing and mobile sheet consistency */
+:root,
+body.theme-light,
+body.theme-dark {
+  --portal-gap: 16px;
+  --portal-gap-sm: 8px;
+  --portal-mobile-gap: 16px;
+}
+
+.login-brand-sub {
+  max-width: 520px;
+}
+
+.login-feature-list span {
+  line-height: 1.45;
+}
+
+.settings-testmail-row,
+.settings-action-row {
+  gap: var(--portal-gap);
+}
+
+.test-result {
+  margin-top: 0;
+}
+
+.alert + .dashboard-actions,
+.alert + .dashboard-toolbar,
+.alert + .resource-grid,
+.alert + .panel-card {
+  margin-top: var(--portal-gap);
+}
+
+@media (max-width: 767px) {
+  html, body, #root {
+    min-height: 100%;
+  }
+
+  .login-split {
+    min-height: 100dvh;
+  }
+
+  .login-form-panel {
+    min-height: 100dvh;
+    align-items: center;
+    justify-content: center;
+    padding: calc(56px + env(safe-area-inset-top, 0px)) var(--portal-mobile-gap) calc(var(--portal-mobile-gap) + env(safe-area-inset-bottom, 0px));
+  }
+
+  .login-form-panel .auth-card {
+    max-width: 420px;
+    margin-inline: auto;
+  }
+
+  .auth-header,
+  .login-card .form-stack,
+  .login-card .form-actions,
+  .login-card {
+    gap: var(--portal-mobile-gap);
+  }
+
+  .modal-overlay {
+    align-items: flex-end !important;
+    justify-content: stretch !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+  }
+
+  .modal-card {
+    width: 100dvw !important;
+    max-width: 100dvw !important;
+    min-width: 100dvw !important;
+    max-height: calc(100dvh - env(safe-area-inset-top, 0px));
+    margin: 0 !important;
+    border-left: 0 !important;
+    border-right: 0 !important;
+    border-bottom: 0 !important;
+    border-radius: 18px 18px 0 0 !important;
+    padding: var(--portal-mobile-gap) var(--portal-mobile-gap) calc(var(--portal-mobile-gap) + env(safe-area-inset-bottom, 0px)) !important;
+    display: flex;
+    flex-direction: column;
+    gap: var(--portal-mobile-gap);
+  }
+
+  .modal-header,
+  .modal-tabs,
+  .modal-card .form-stack,
+  .modal-card .form-grid,
+  .modal-card .form-actions,
+  .detail-modal-content,
+  .tasks-tab,
+  .credentials-tab {
+    gap: var(--portal-mobile-gap);
+    margin: 0;
+  }
+
+  .modal-card .form-actions,
+  .setup-actions,
+  .settings-action-row,
+  .settings-testmail-row {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--portal-mobile-gap);
+  }
+
+  .panel-card,
+  .resource-card,
+  .metric-card,
+  .list-card,
+  .soft-box {
+    gap: var(--portal-mobile-gap);
+  }
+}
+
+/* v3.0.3 - exact range fill and centered theme moon */
+.resource-range,
+.slider-grid input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  min-height: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  box-shadow: none;
+  cursor: pointer;
+}
+
+.resource-range:focus,
+.slider-grid input[type="range"]:focus {
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.resource-range:focus-visible,
+.slider-grid input[type="range"]:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--color-primary) 55%, transparent);
+  outline-offset: 4px;
+}
+
+.resource-range::-webkit-slider-runnable-track,
+.slider-grid input[type="range"]::-webkit-slider-runnable-track {
+  height: 8px;
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  background: linear-gradient(
+    to right,
+    var(--color-primary) 0 var(--range-progress, 0%),
+    color-mix(in srgb, var(--color-text) 8%, var(--color-bg-alt)) var(--range-progress, 0%) 100%
+  );
+}
+
+.resource-range::-webkit-slider-thumb,
+.slider-grid input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  margin-top: -6px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-bg-alt);
+}
+
+.resource-range::-moz-range-track,
+.slider-grid input[type="range"]::-moz-range-track {
+  height: 8px;
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-text) 8%, var(--color-bg-alt));
+}
+
+.resource-range::-moz-range-progress,
+.slider-grid input[type="range"]::-moz-range-progress {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--color-primary);
+}
+
+.resource-range::-moz-range-thumb,
+.slider-grid input[type="range"]::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-bg-alt);
+}
+
+.theme-toggle-icon-dark svg {
+  transform: translateX(-1.5px);
+}

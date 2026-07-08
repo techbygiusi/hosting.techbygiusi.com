@@ -6,7 +6,7 @@ const { HTTP_STATUS, ERROR_MESSAGES, ROLES } = require('../config/constants');
 
 /**
  * JWT secret resolution (no hardcoded fallback):
- * 1. JWT_SECRET env – recommended for production
+ * 1. JWT_SECRET env - recommended for production
  * 2. Auto-generated secret persisted at data/.jwt-secret (chmod 600)
  */
 function resolveJwtSecret() {
@@ -31,7 +31,7 @@ function resolveJwtSecret() {
     fs.writeFileSync(secretFile, generated, { mode: 0o600 });
     console.log('✓ Generated new JWT secret at', secretFile);
   } catch (err) {
-    console.error('Could not persist JWT secret – set JWT_SECRET env!', err.message);
+    console.error('Could not persist JWT secret - set JWT_SECRET env!', err.message);
   }
   return generated;
 }

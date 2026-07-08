@@ -55,7 +55,7 @@ export default function ResetPassword() {
 
         {!token ? (
           <>
-            <div className="alert alert-danger">Der Link ist ungültig – es wurde kein Token übergeben.</div>
+            <div className="alert alert-danger">Der Link ist ungültig - es wurde kein Token übergeben.</div>
             <button type="button" className="btn-secondary full-button" onClick={() => navigate('/login')}>Zur Anmeldung</button>
           </>
         ) : done ? (

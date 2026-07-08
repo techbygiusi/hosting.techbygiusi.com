@@ -5,7 +5,7 @@ const { all } = require('../config/database');
 /**
  * GET /api/announcements
  * Public (unauthenticated): active and upcoming maintenance windows for the
- * top banner – shown on the login screen as well, so no auth required.
+ * top banner - shown on the login screen as well, so no auth required.
  * Only exposes title, message, severity and the time window.
  * Upcoming windows are announced up to 7 days in advance.
  */

@@ -1,7 +1,7 @@
 const { run } = require('../config/database');
 
 /**
- * Write an audit log entry. Never throws – auditing must not break requests.
+ * Write an audit log entry. Never throws - auditing must not break requests.
  */
 async function logAudit(req, action, target = '', details = '') {
   try {

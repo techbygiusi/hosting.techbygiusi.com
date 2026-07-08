@@ -6,7 +6,7 @@ The frontend is built with React and the backend with Express + SQLite. Proxmox 
 
 ## Version
 
-Current version: **v3.0.0**
+Current version: **v3.0.3**
 
 Versioning now follows a clean semantic sequence:
 
@@ -28,7 +28,7 @@ The old history is kept below, but new releases should continue from the current
 ### Maintenance windows & top banner
 
 - Admins can plan maintenance windows (title, description, severity, start/end) in the new **Wartung** tab.
-- Active and upcoming windows appear as a banner at the top of every page – **including the login screen**. Active windows cannot be dismissed; upcoming ones can be hidden per browser.
+- Active and upcoming windows appear as a banner at the top of every page - **including the login screen**. Active windows cannot be dismissed; upcoming ones can be hidden per browser.
 - Optionally notify all users by e-mail when a window is created or updated.
 
 ### Monitoring & user notifications
@@ -40,7 +40,7 @@ The old history is kept below, but new releases should continue from the current
 ### Professional e-mails & login
 
 - All outgoing mail (password reset, welcome, outage, recovery, maintenance, test) now uses branded, responsive HTML templates in the portal design language.
-- Redesigned split-layout login screen with feature panel, password visibility toggle and a working **Passwort vergessen** flow – including the previously missing reset-password page.
+- Redesigned split-layout login screen with feature panel, password visibility toggle and a working **Passwort vergessen** flow - including the previously missing reset-password page.
 - Admins can send a welcome e-mail when creating a user and a branded test e-mail from the settings tab.
 
 ## Highlights
@@ -189,6 +189,33 @@ docker image prune -f
 The database migrates itself on startup. Keep the backend data volume before updating.
 
 ## Changelog
+
+### v3.0.3 - 2026-07-08
+
+**Commit:** `fix: polish sliders and theme toggle alignment`
+
+- Reworked the self-service CPU, RAM and disk sliders so the filled track reaches the exact right edge at the maximum value.
+- Removed the input-like background around those sliders and gave them a cleaner native track/thumb style.
+- Centered the moon icon visually inside the dark-mode toggle thumb.
+
+### v3.0.2 - 2026-07-08
+
+**Commit:** `fix: improve Proxmox temperature detection and neutral login copy`
+
+- Reads temperatures from Proxmox node status thermal data as well as sensor endpoints.
+- Supports numeric and string temperature values such as `42 C` or `42 °C`.
+- Keeps the temperature field visible when Proxmox exposes usable data and leaves it empty only when no sensor data is available.
+- Adjusted the login page copy so it speaks to all portal users, not only administrators.
+
+### v3.0.1 - 2026-07-08
+
+**Commit:** `fix: polish login copy smtp sender and mobile sheets`
+
+- Reworked the login page copy to sound more professional and less explanatory.
+- Removed the maintenance-window helper text from the admin area.
+- Test e-mails now use the authenticated SMTP user as the default sender and envelope sender when no `SMTP_FROM` is configured, which fixes strict providers such as STRATO.
+- Added a final mobile layout pass so modals stay full-width bottom sheets and spacing remains consistent.
+- Replaced typographic dashes in project text with normal hyphens.
 
 ### v2.9.6 - 2026-07-07
 

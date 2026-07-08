@@ -6,7 +6,7 @@ import { userApi, getErrorMessage } from '../services/api';
 
 /**
  * In-browser console for a resource. The backend relays the websocket to
- * Proxmox (termproxy) – the API token never reaches the browser.
+ * Proxmox (termproxy) - the API token never reaches the browser.
  *
  * Proxmox termproxy protocol (client side):
  * - after open: send "<user>:<ticket>\n"

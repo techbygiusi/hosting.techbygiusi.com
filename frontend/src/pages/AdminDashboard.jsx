@@ -172,7 +172,7 @@ export default function AdminDashboard() {
         adminApi.getClusters().then(res => {
           const list = res.data.clusters || [];
           setClusters(list);
-          // On the clusters tab, always show token permissions – fetch them
+          // On the clusters tab, always show token permissions - fetch them
           // in the background so the badges appear without "Token prüfen".
           if (tab === 'clusters') loadAllCapabilities(list);
         })
@@ -845,10 +845,10 @@ export default function AdminDashboard() {
       let res;
       if (editMaintenanceId) {
         res = await adminApi.updateMaintenanceWindow(editMaintenanceId, payload);
-        showSuccess(res.data.notified ? `Wartung gespeichert – ${res.data.notified} Benutzer benachrichtigt.` : 'Wartung wurde gespeichert.');
+        showSuccess(res.data.notified ? `Wartung gespeichert - ${res.data.notified} Benutzer benachrichtigt.` : 'Wartung wurde gespeichert.');
       } else {
         res = await adminApi.createMaintenanceWindow(payload);
-        showSuccess(res.data.notified ? `Wartung angekündigt – ${res.data.notified} Benutzer benachrichtigt.` : 'Wartung wurde angelegt.');
+        showSuccess(res.data.notified ? `Wartung angekündigt - ${res.data.notified} Benutzer benachrichtigt.` : 'Wartung wurde angelegt.');
       }
       closeMaintenanceModal();
       await loadData('maintenance');
@@ -981,9 +981,9 @@ export default function AdminDashboard() {
                       <p className="cluster-address">{item.url}</p>
                       {clusterCaps[item.id]
                         ? (clusterCaps[item.id].error
-                            ? <p className="hint-text caps-error">Berechtigungen nicht abrufbar – Token/Verbindung prüfen.</p>
+                            ? <p className="hint-text caps-error">Berechtigungen nicht abrufbar - Token/Verbindung prüfen.</p>
                             : <CapabilityBadges caps={clusterCaps[item.id]} />)
-                        : <p className="hint-text caps-loading">{capsLoading ? 'Berechtigungen werden geladen…' : '—'}</p>}
+                        : <p className="hint-text caps-loading">{capsLoading ? 'Berechtigungen werden geladen…' : '-'}</p>}
                     </div>
                     <div className="card-actions">
                       <button type="button" className="btn-secondary btn-small" onClick={() => handleCheckCapabilities(item.id)} disabled={checkingCapsId === item.id}>{checkingCapsId === item.id ? 'Prüfe…' : 'Token prüfen'}</button>
@@ -1013,10 +1013,6 @@ export default function AdminDashboard() {
         {!loading && activeTab === 'maintenance' && (
           <section className="panel-card">
             <PanelHeader title="Wartungsfenster" action="Wartung planen" onAction={openCreateMaintenance} />
-            <p className="panel-hint">
-              Geplante Wartungen werden allen Benutzern als Banner angezeigt – auch auf der Anmeldeseite.
-              Optional werden Benutzer mit aktivierten Wartungs-Benachrichtigungen per E-Mail informiert.
-            </p>
             {maintenanceWindows.length === 0 ? (
               <div className="empty-state soft-box"><h2>Keine Wartungen geplant</h2><p>Lege ein Wartungsfenster an, um Benutzer rechtzeitig zu informieren.</p></div>
             ) : (
@@ -1031,7 +1027,7 @@ export default function AdminDashboard() {
                           <span className={`maintenance-chip state-chip state-${state}`}>{state === 'aktiv' ? 'Läuft gerade' : state === 'geplant' ? 'Geplant' : 'Beendet'}</span>
                         </span>
                         <h2>{item.title}</h2>
-                        <p>{formatDateTime(item.starts_at)} – {formatDateTime(item.ends_at)}</p>
+                        <p>{formatDateTime(item.starts_at)} - {formatDateTime(item.ends_at)}</p>
                         {item.message ? <p className="maintenance-message">{item.message}</p> : null}
                         {item.notified_at ? <p className="maintenance-notified">✓ Benutzer benachrichtigt am {formatDateTime(item.notified_at)}</p> : null}
                       </div>
@@ -1181,9 +1177,9 @@ export default function AdminDashboard() {
             <label className="form-group"><span>Beschreibung (optional)</span><textarea rows="3" value={newMaintenance.message} onChange={e => setNewMaintenance(prev => ({ ...prev, message: e.target.value }))} placeholder="Was wird gewartet? Welche Dienste sind betroffen?" /></label>
             <label className="form-group"><span>Stufe</span>
               <select value={newMaintenance.severity} onChange={e => setNewMaintenance(prev => ({ ...prev, severity: e.target.value }))}>
-                <option value="info">Info – keine spürbaren Auswirkungen</option>
+                <option value="info">Info - keine spürbaren Auswirkungen</option>
                 <option value="warning">Einschränkungen möglich</option>
-                <option value="critical">Kritisch – Dienste nicht verfügbar</option>
+                <option value="critical">Kritisch - Dienste nicht verfügbar</option>
               </select>
             </label>
             <div className="form-grid-2">
@@ -1428,7 +1424,7 @@ function AdminResourceCredentials({ resource, onClose, onError }) {
             {item.username && <span className="credential-user">{item.username}</span>}
             {item.url && <span className="credential-url">{item.url}</span>}
             <code className="credential-secret">••••••••</code>
-            <small className="hint-text">Nur für den Benutzer sichtbar – nicht verwaltbar.</small>
+            <small className="hint-text">Nur für den Benutzer sichtbar - nicht verwaltbar.</small>
           </div>
         </div>
       ))}
@@ -1566,7 +1562,7 @@ function ProvisioningSettings({ clusters, onSaved, onError, onSuccess }) {
       </label>
 
       {clusterId && caps && !caps.canProvision && (
-        <div className="alert alert-danger">Der API-Token dieses Clusters hat kein VM.Allocate – Self-Service funktioniert damit nicht. Passe die Token-Rechte in Proxmox an.</div>
+        <div className="alert alert-danger">Der API-Token dieses Clusters hat kein VM.Allocate - Self-Service funktioniert damit nicht. Passe die Token-Rechte in Proxmox an.</div>
       )}
 
       {clusterId && loaded && (
@@ -1606,7 +1602,7 @@ function ProvisioningSettings({ clusters, onSaved, onError, onSuccess }) {
                   {templates.length > 0 && (
                     <div className="select-list">
                       <div className="select-list-head">
-                        <span>{templates.length} Template(s) gefunden – wähle die freigegebenen</span>
+                        <span>{templates.length} Template(s) gefunden - wähle die freigegebenen</span>
                         <div className="select-list-actions">
                           <button type="button" onClick={() => setField('allowedTemplates', templates.map(t => t.volid))}>Alle</button>
                           <button type="button" onClick={() => setField('allowedTemplates', [])}>Keine</button>
@@ -1764,7 +1760,7 @@ function ClusterNodeRow({ node }) {
         <span>CPU {formatFixed(node.cpuPercent)}%</span>
         <span>RAM {formatFixed(node.memPercent)}%</span>
         <span>Storage {formatFixed(node.storageTotal ? node.storagePercent : node.rootPercent)}%</span>
-        <span>{temp ? `${formatFixed(temp, 0)} °C` : 'Temp. —'}</span>
+        <span>{temp ? `${formatFixed(temp, 0)} °C` : 'Temp. -'}</span>
         <span>Uptime {formatUptime(node.uptime)}</span>
       </div>
     </div>
@@ -1783,7 +1779,7 @@ function formatFixed(value, digits = 1) {
 
 function formatUptime(seconds) {
   const total = Number(seconds || 0);
-  if (!Number.isFinite(total) || total <= 0) return '—';
+  if (!Number.isFinite(total) || total <= 0) return '-';
   const days = Math.floor(total / 86400);
   const hours = Math.floor((total % 86400) / 3600);
   if (days > 0) return `${days}d ${hours}h`;
@@ -1805,7 +1801,7 @@ function StatusEventsSection({ events }) {
               <span className={`status-dot ${wentDown ? 'is-down' : 'is-up'}`} aria-hidden="true"></span>
               <div className="status-event-text">
                 <strong>{event.resource_name || `#${event.container_id}`}</strong>
-                <span>{event.cluster_name || 'Cluster'} · {event.old_status || '–'} → {event.new_status || '–'}</span>
+                <span>{event.cluster_name || 'Cluster'} · {event.old_status || '-'} → {event.new_status || '-'}</span>
               </div>
               <time className="status-event-time">{formatDateTime(event.created_at)}</time>
             </div>

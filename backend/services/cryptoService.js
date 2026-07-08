@@ -6,7 +6,7 @@ const PREFIX = 'enc:v1:';
 
 /**
  * Encryption key resolution:
- * 1. ENCRYPTION_KEY env (hex, 64 chars = 32 bytes) – recommended for production
+ * 1. ENCRYPTION_KEY env (hex, 64 chars = 32 bytes) - recommended for production
  * 2. Auto-generated key persisted at data/.encryption-key (chmod 600)
  */
 function resolveKey() {
@@ -35,7 +35,7 @@ function resolveKey() {
     fs.writeFileSync(keyFile, generated.toString('hex'), { mode: 0o600 });
     console.log('✓ Generated new encryption key at', keyFile);
   } catch (err) {
-    console.error('Could not persist encryption key – set ENCRYPTION_KEY env!', err.message);
+    console.error('Could not persist encryption key - set ENCRYPTION_KEY env!', err.message);
   }
   return generated;
 }

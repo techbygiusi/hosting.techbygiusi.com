@@ -655,43 +655,114 @@ function percentOf(value, max) {
   return Math.min(Math.max((used / total) * 100, 0), 100);
 }
 
-function collectSensorTemperatures(value, list = []) {
+function normalizeTemperatureValue(value) {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value > -50 && value < 150 ? value : null;
+  }
+
+  if (typeof value === 'string') {
+    const match = value.trim().match(/(-?\d+(?:\.\d+)?)\s*(?:°?\s*c|celsius)?/i);
+    if (!match) return null;
+    const parsed = Number(match[1]);
+    return Number.isFinite(parsed) && parsed > -50 && parsed < 150 ? parsed : null;
+  }
+
+  return null;
+}
+
+function buildTemperatureSummary(values, source = 'proxmox') {
+  const clean = (values || [])
+    .map(normalizeTemperatureValue)
+    .filter(value => value !== null);
+
+  if (!clean.length) return null;
+
+  const max = Math.max(...clean);
+  const avg = clean.reduce((sum, value) => sum + value, 0) / clean.length;
+  return {
+    current: avg,
+    max,
+    count: clean.length,
+    source
+  };
+}
+
+function mergeTemperatureSummaries(...summaries) {
+  const values = [];
+  let source = '';
+
+  summaries.filter(Boolean).forEach(summary => {
+    if (summary.current !== undefined && summary.current !== null) values.push(summary.current);
+    if (summary.max !== undefined && summary.max !== null) values.push(summary.max);
+    if (!source && summary.source) source = summary.source;
+  });
+
+  return buildTemperatureSummary(values, source || 'proxmox');
+}
+
+function collectSensorTemperatures(value, list = [], trustedThermalState = false, parentKey = '') {
   if (value === null || value === undefined) return list;
-  if (Array.isArray(value)) {
-    value.forEach(item => collectSensorTemperatures(item, list));
+
+  const keyName = String(parentKey || '').toLowerCase();
+  const isTemperatureContext = trustedThermalState || /(temp|thermal|temperature|core|package|cpu|tctl|tdie|composite)/i.test(keyName);
+  const isSensorReadingKey = /(temp|thermal|temperature)/i.test(keyName) && !/(crit|max|high|alarm|label|offset|lowest|highest|limit)/i.test(keyName);
+
+  if (typeof value !== 'object') {
+    const parsed = normalizeTemperatureValue(value);
+    if (parsed !== null && (trustedThermalState || isSensorReadingKey || (isTemperatureContext && typeof value === 'string' && /(?:°?\s*c|celsius)/i.test(value)))) {
+      list.push(parsed);
+    }
     return list;
   }
-  if (typeof value !== 'object') return list;
+
+  if (Array.isArray(value)) {
+    value.forEach(item => collectSensorTemperatures(item, list, trustedThermalState, parentKey));
+    return list;
+  }
 
   Object.entries(value).forEach(([key, entry]) => {
-    if (/temp/i.test(key) && typeof entry === 'number' && Number.isFinite(entry) && entry > -50 && entry < 150) {
-      list.push(entry);
-      return;
+    const childKey = String(key || '').toLowerCase();
+    const childTrusted = trustedThermalState || /thermalstate|thermal_state/.test(childKey);
+
+    if (entry && typeof entry === 'object') {
+      const candidates = [entry.input, entry.value, entry.current, entry.temp, entry.temperature, entry.reading];
+      candidates.forEach(candidate => {
+        const parsed = normalizeTemperatureValue(candidate);
+        if (parsed !== null && (childTrusted || /(temp|thermal|temperature|current|input|value|reading)/i.test(childKey))) {
+          list.push(parsed);
+        }
+      });
     }
-    if (/temp/i.test(key) && entry && typeof entry === 'object') {
-      const candidate = entry.input ?? entry.value ?? entry.current ?? entry.temp ?? entry.temperature;
-      if (typeof candidate === 'number' && Number.isFinite(candidate) && candidate > -50 && candidate < 150) {
-        list.push(candidate);
-      }
-    }
-    collectSensorTemperatures(entry, list);
+
+    collectSensorTemperatures(entry, list, childTrusted, childKey);
   });
 
   return list;
 }
 
+function extractStatusTemperatures(status) {
+  const values = [];
+  collectSensorTemperatures(status?.thermalstate, values, true, 'thermalstate');
+  collectSensorTemperatures(status?.thermal_state, values, true, 'thermal_state');
+  collectSensorTemperatures(status?.sensors, values, false, 'sensors');
+  return buildTemperatureSummary(values, 'node-status');
+}
+
 async function getNodeSensors(client, node) {
-  const response = await client.get(`/api2/json/nodes/${node}/sensors`);
-  if (response.status < 200 || response.status >= 300) return null;
-  const values = collectSensorTemperatures(response.data?.data || []);
-  if (!values.length) return null;
-  const max = Math.max(...values);
-  const avg = values.reduce((sum, value) => sum + value, 0) / values.length;
-  return {
-    current: avg,
-    max,
-    count: values.length
-  };
+  const endpoints = [
+    `/api2/json/nodes/${node}/sensors`,
+    `/api2/json/nodes/${node}/hardware/sensors`
+  ];
+
+  for (const endpoint of endpoints) {
+    const response = await client.get(endpoint);
+    if (response.status < 200 || response.status >= 300) continue;
+    const values = collectSensorTemperatures(response.data?.data || [], [], false, 'sensors');
+    const summary = buildTemperatureSummary(values, endpoint.includes('hardware') ? 'hardware-sensors' : 'sensors');
+    if (summary) return summary;
+  }
+
+  return null;
 }
 
 async function getNodeStorageSummary(client, node) {
@@ -782,6 +853,9 @@ async function getNodeStatusSummary(client, nodeResource) {
     }
     if (storageResult.status === 'fulfilled') storage = storageResult.value;
     if (sensorResult.status === 'fulfilled') sensors = sensorResult.value;
+
+    const statusTemperatures = extractStatusTemperatures(status);
+    if (statusTemperatures) sensors = mergeTemperatureSummaries(statusTemperatures, sensors);
   }
 
   const memory = status.memory || {};

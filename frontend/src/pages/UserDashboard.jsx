@@ -52,7 +52,7 @@ export default function UserDashboard() {
 
   useEffect(() => {
     fetchResources();
-    // Provisioning available? (silently – read-only tokens simply return no clusters)
+    // Provisioning available? (silently - read-only tokens simply return no clusters)
     userApi.getProvisioningOptions()
       .then(res => setProvisioningOptions(res.data.clusters || []))
       .catch(() => setProvisioningOptions([]));
