@@ -6,7 +6,7 @@ The frontend is built with React and the backend with Express + SQLite. Proxmox 
 
 ## Version
 
-Current version: **v2.9.4**
+Current version: **v2.9.6**
 
 Versioning now follows a clean semantic sequence:
 
@@ -162,6 +162,23 @@ docker image prune -f
 The database migrates itself on startup. Keep the backend data volume before updating.
 
 ## Changelog
+
+### v2.9.6 - 2026-07-07
+
+**Commit:** `fix: keep community terminals open for script output and cap disk size`
+
+- Community Script terminals no longer close just because the Proxmox terminal session ends.
+- The tab only auto-closes when the script output clearly indicates that the user aborted the script.
+- Normal script completion and errors stay visible in the terminal so the output can be reviewed.
+- Self-service container disk limits are capped at 32 GB in admin settings, user options and backend validation.
+
+### v2.9.5 - 2026-07-07
+
+**Commit:** `fix: normalize page spacing around error banners`
+
+- Normalized top-level page spacing with a shared layout gap.
+- Fixed uneven spacing when error banners appear above dashboard actions or content grids.
+- Kept dashboard actions, alerts and content sections aligned across desktop and mobile.
 
 ### v2.9.4 - 2026-07-07
 

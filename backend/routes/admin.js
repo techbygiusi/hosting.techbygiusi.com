@@ -389,7 +389,7 @@ function normalizeProvisioning(body, existing = {}) {
     allowedIsos: null,
     maxCores: Math.min(Math.max(toInt(body.maxCores ?? existing.max_cores, 2), 1), 64),
     maxMemoryMb: Math.min(Math.max(toInt(body.maxMemoryMb ?? existing.max_memory_mb, 2048), 256), 262144),
-    maxDiskGb: Math.min(Math.max(toInt(body.maxDiskGb ?? existing.max_disk_gb, 20), 4), 4096)
+    maxDiskGb: Math.min(Math.max(toInt(body.maxDiskGb ?? existing.max_disk_gb, 20), 4), 32)
   };
 }
 
@@ -460,7 +460,7 @@ router.get('/clusters/:id/provisioning', async (req, res, next) => {
         allowedIsos: safeParseList(cluster.allowed_isos),
         maxCores: cluster.max_cores ?? 2,
         maxMemoryMb: cluster.max_memory_mb ?? 2048,
-        maxDiskGb: cluster.max_disk_gb ?? 20
+        maxDiskGb: Math.min(cluster.max_disk_gb ?? 20, 32)
       }
     });
   } catch (err) {

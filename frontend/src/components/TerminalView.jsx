@@ -155,10 +155,10 @@ export default function TerminalView({ resourceId, resourceName, fullscreen = fa
             if (typeof onDisconnect === 'function') onDisconnect();
           }, 900);
         };
-        const didCommunityScriptEnd = (chunk) => {
+        const didCommunityScriptAbort = (chunk) => {
           if (!autoCloseOnDisconnect) return false;
           const visible = stripAnsi(chunk);
-          return /(?:Hosting Portal:\s*Script\s+(?:beendet|abgebrochen)|User\s+exited\s+script|Script\s+beendet)/i.test(visible);
+          return /(?:User\s+exited\s+script|Script\s+abgebrochen|Abbruch|abgebrochen)/i.test(visible);
         };
         const maybeSendAutoLogin = (chunk) => {
           if (!autoLoginState.enabled || autoLoginState.sentSecret) return;
@@ -184,8 +184,8 @@ export default function TerminalView({ resourceId, resourceName, fullscreen = fa
             : new TextDecoder().decode(event.data);
           term.write(data);
           maybeSendAutoLogin(data);
-          if (didCommunityScriptEnd(data)) {
-            term.write('\r\n\x1b[90m[Hosting Portal: Terminal wird geschlossen...]\x1b[0m\r\n');
+          if (didCommunityScriptAbort(data)) {
+            term.write('\r\n\x1b[90m[Hosting Portal: Script abgebrochen. Terminal wird geschlossen...]\x1b[0m\r\n');
             closeCommunityScriptTerminal();
           }
         };
@@ -194,13 +194,7 @@ export default function TerminalView({ resourceId, resourceName, fullscreen = fa
           setStatus('closed');
           if (autoCloseOnDisconnect) {
             if (!scriptCloseTriggered) {
-              scriptCloseTriggered = true;
-              term.write('\r\n\x1b[90m[Script beendet. Tab wird geschlossen...]\x1b[0m\r\n');
-              setTimeout(() => {
-                if (typeof onDisconnect === 'function') {
-                  onDisconnect();
-                }
-              }, 500);
+              term.write('\r\n\x1b[90m[Script-/Terminal-Session beendet.]\x1b[0m\r\n');
             }
             return;
           }

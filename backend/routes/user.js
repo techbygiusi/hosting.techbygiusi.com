@@ -600,7 +600,7 @@ router.get('/provisioning/options', async (req, res, next) => {
         hasDefaultPassword: !!cluster.default_password_encrypted,
         maxCores: cluster.max_cores || 2,
         maxMemoryMb: cluster.max_memory_mb || 2048,
-        maxDiskGb: cluster.max_disk_gb || 20,
+        maxDiskGb: Math.min(cluster.max_disk_gb || 20, 32),
         templates
       });
     }
@@ -733,7 +733,7 @@ router.post('/provisioning/create', async (req, res, next) => {
 
       safeCores = Math.min(Math.max(parseInt(cores, 10) || 1, 1), cluster.max_cores || 2);
       safeMemory = Math.min(Math.max(parseInt(memoryMb, 10) || 512, 256), cluster.max_memory_mb || 2048);
-      safeDisk = Math.min(Math.max(parseInt(diskGb, 10) || 8, 4), cluster.max_disk_gb || 20);
+      safeDisk = Math.min(Math.max(parseInt(diskGb, 10) || 8, 4), Math.min(cluster.max_disk_gb || 20, 32));
     }
 
     const apiToken = decrypt(cluster.api_token);

@@ -195,7 +195,7 @@ function buildCommunityScriptCommand(script) {
     `bash -c "$(curl -fsSL ${shellQuote(url)})"`,
     `status=$?`,
     `echo`,
-    `if [ "$status" -eq 0 ]; then echo ${shellQuote('Hosting Portal: Script beendet. Die Konsole wird geschlossen.')}; else echo ${shellQuote('Hosting Portal: Script abgebrochen oder mit Fehler beendet. Die Konsole wird geschlossen.')}; fi`,
+    `if [ "$status" -eq 0 ]; then echo ${shellQuote('Hosting Portal: Script beendet.')}; else echo ${shellQuote('Hosting Portal: Script mit Fehler beendet. Die Session wird beendet, sobald die Proxmox-Konsole schließt.')}; fi`,
     `sleep 2`,
     `exit "$status"`
   ].join('; ');

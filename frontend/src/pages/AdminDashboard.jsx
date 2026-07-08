@@ -1416,7 +1416,7 @@ function ProvisioningSettings({ clusters, onSaved, onError, onSuccess }) {
               <div className="form-row-3">
                 <label className="form-group"><span>Max. Kerne</span><input type="number" min="1" value={form.maxCores} onChange={e => setField('maxCores', e.target.value)} /></label>
                 <label className="form-group"><span>Max. RAM (MB)</span><input type="number" min="256" step="256" value={form.maxMemoryMb} onChange={e => setField('maxMemoryMb', e.target.value)} /></label>
-                <label className="form-group"><span>Max. Disk (GB)</span><input type="number" min="4" value={form.maxDiskGb} onChange={e => setField('maxDiskGb', e.target.value)} /></label>
+                <label className="form-group"><span>Max. Disk (GB)</span><input type="number" min="4" max="32" value={form.maxDiskGb} onChange={e => setField('maxDiskGb', e.target.value)} /></label>
               </div>
             </>
           )}

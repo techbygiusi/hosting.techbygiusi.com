@@ -2957,3 +2957,25 @@ body.theme-dark .cluster-stats-card {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+
+/* v2.9.5 - keep page-level spacing consistent even when error banners appear */
+.app-container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--layout-gap);
+}
+
+.app-container > .alert,
+.app-container > .dashboard-actions,
+.app-container > .dashboard-toolbar,
+.app-container > .dashboard-grid,
+.app-container > .resource-grid,
+.app-container > .admin-resource-grid,
+.app-container > .panel-card,
+.app-container > .empty-state,
+.app-container > .loading,
+.app-container > section {
+  margin-top: 0;
+  margin-bottom: 0;
+}
