@@ -3843,3 +3843,107 @@ body.theme-dark .login-theme-action .theme-toggle {
   }
 }
 
+
+
+/* v3.0.11 - mobile alignment normalization */
+@media (max-width: 767px) {
+  html,
+  body,
+  #root,
+  .app-page {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  .app-container {
+    width: 100%;
+    max-width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: clamp(16px, 4.5vw, 20px) !important;
+    padding-right: clamp(16px, 4.5vw, 20px) !important;
+    box-sizing: border-box;
+  }
+
+  .app-container > *,
+  .dashboard-grid,
+  .resource-grid,
+  .admin-resource-grid,
+  .cluster-stats-section,
+  .cluster-stats-grid,
+  .panel-card,
+  .metric-card,
+  .resource-card,
+  .cluster-stats-card,
+  .cluster-node-row,
+  .list-card,
+  .soft-box,
+  .intro-card {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    margin-left: auto;
+    margin-right: auto;
+    box-sizing: border-box;
+  }
+
+  .panel-card,
+  .metric-card,
+  .resource-card,
+  .cluster-stats-card,
+  .cluster-node-row,
+  .list-card,
+  .soft-box,
+  .intro-card {
+    padding: var(--ui-padding) !important;
+  }
+
+  .dashboard-grid,
+  .cluster-stats-grid,
+  .resource-grid,
+  .admin-resource-grid {
+    justify-items: stretch;
+    align-items: stretch;
+  }
+
+  .cluster-stats-title,
+  .cluster-node-head,
+  .resource-card-header,
+  .panel-header {
+    min-width: 0;
+  }
+
+  .cluster-stats-title > div,
+  .resource-card-header > div,
+  .panel-header > div {
+    min-width: 0;
+  }
+
+  .cluster-address,
+  .cluster-stats-title .eyebrow,
+  .resource-id,
+  .panel-card h2,
+  .cluster-stats-card h3 {
+    overflow-wrap: anywhere;
+    word-break: normal;
+  }
+
+  .provisioning-settings-panel .toggle-row,
+  .toggle-row {
+    width: 100%;
+    padding: var(--ui-padding) !important;
+    box-sizing: border-box;
+  }
+
+  .toggle-row .toggle-label,
+  .toggle-row .toggle-text {
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+
+  .toggle-row .toggle-switch {
+    margin-left: auto;
+    flex: 0 0 auto;
+  }
+}

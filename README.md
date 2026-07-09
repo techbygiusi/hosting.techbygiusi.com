@@ -6,7 +6,7 @@ The frontend is built with React and the backend with Express + SQLite. Proxmox 
 
 ## Version
 
-Current version: **v3.0.10**
+Current version: **v3.0.11**
 
 Versioning now follows a clean semantic sequence:
 
@@ -189,6 +189,14 @@ docker image prune -f
 The database migrates itself on startup. Keep the backend data volume before updating.
 
 ## Changelog
+
+### v3.0.11 - 2026-07-09
+
+**Commit:** `fix: normalize mobile container alignment`
+
+- Normalized mobile page width, card width and inner spacing so panels, metric cards and cluster status cards stay centered.
+- Added consistent horizontal padding to the self-service toggle row so labels no longer sit directly on the card edge.
+- Prevented mobile horizontal overflow from wide cards, cluster addresses and service metadata.
 
 ### v3.0.10 - 2026-07-08
 
