@@ -80,6 +80,55 @@ function validateWebUrl(webUrl, label = 'Link') {
   return normalized;
 }
 
+function normalizeClusterLocation(input = {}) {
+  const label = String(input.locationLabel || input.location_label || '').trim();
+  const latRaw = input.locationLat ?? input.location_lat;
+  const lonRaw = input.locationLon ?? input.location_lon;
+  const lat = latRaw === '' || latRaw === null || latRaw === undefined ? null : Number(latRaw);
+  const lon = lonRaw === '' || lonRaw === null || lonRaw === undefined ? null : Number(lonRaw);
+
+  if (!label) {
+    return { locationLabel: '', locationLat: null, locationLon: null };
+  }
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+    throw new AppError('Please select a valid location from the search results', HTTP_STATUS.BAD_REQUEST);
+  }
+  return {
+    locationLabel: label,
+    locationLat: lat,
+    locationLon: lon
+  };
+}
+
+async function searchLocations(query) {
+  const search = String(query || '').trim();
+  if (!search || search.length < 3) return [];
+
+  const url = new URL('https://nominatim.openstreetmap.org/search');
+  url.searchParams.set('q', search);
+  url.searchParams.set('format', 'jsonv2');
+  url.searchParams.set('addressdetails', '1');
+  url.searchParams.set('limit', '5');
+
+  const response = await fetch(url.toString(), {
+    headers: {
+      'User-Agent': 'Hosting-Portal/3.1.0 (TechByGiusi)',
+      'Accept': 'application/json'
+    }
+  });
+
+  if (!response.ok) {
+    throw new AppError('Location search failed', HTTP_STATUS.BAD_GATEWAY);
+  }
+
+  const results = await response.json();
+  return (Array.isArray(results) ? results : []).map(item => ({
+    label: item.display_name,
+    lat: Number(item.lat),
+    lon: Number(item.lon)
+  })).filter(item => item.label && Number.isFinite(item.lat) && Number.isFinite(item.lon));
+}
+
 async function resolveClusterTestData(input) {
   const clusterId = input.clusterId || input.id;
   if (clusterId) {
@@ -247,12 +296,23 @@ router.delete('/users/:id', async (req, res, next) => {
   }
 });
 
+
+router.get('/geocode', async (req, res, next) => {
+  try {
+    const results = await searchLocations(req.query.q || '');
+    res.json({ results });
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.get('/clusters', async (req, res, next) => {
   try {
     const clusters = await all(`
       SELECT id, name, url, created_at,
              allow_provisioning, allow_types, vmid_min, vmid_max, ip_start, ip_end, ip_prefix,
-             gateway, bridge, storage, template_storage, iso_storage, max_cores, max_memory_mb, max_disk_gb
+             gateway, bridge, storage, template_storage, iso_storage, max_cores, max_memory_mb, max_disk_gb,
+             location_label, location_lat, location_lon
       FROM proxmox_clusters ORDER BY created_at DESC
     `);
     res.json({ clusters });
@@ -263,13 +323,16 @@ router.get('/clusters', async (req, res, next) => {
 
 router.get('/cluster-stats', async (req, res, next) => {
   try {
-    const clusters = await all('SELECT id, name, url, api_token FROM proxmox_clusters ORDER BY created_at DESC');
+    const clusters = await all('SELECT id, name, url, api_token, location_label, location_lat, location_lon FROM proxmox_clusters ORDER BY created_at DESC');
     const settled = await Promise.allSettled(clusters.map(async (cluster) => {
       const stats = await getClusterDashboardStats(normalizeUrl(cluster.url), decrypt(cluster.api_token));
       return {
         id: cluster.id,
         name: cluster.name,
         url: cluster.url,
+        location_label: cluster.location_label || '',
+        location_lat: cluster.location_lat,
+        location_lon: cluster.location_lon,
         ...stats
       };
     }));
@@ -281,6 +344,9 @@ router.get('/cluster-stats', async (req, res, next) => {
         id: cluster.id,
         name: cluster.name,
         url: cluster.url,
+        location_label: cluster.location_label || '',
+        location_lat: cluster.location_lat,
+        location_lon: cluster.location_lon,
         nodes: [],
         totals: { nodes: 0, online: 0, cpuPercent: 0, mem: 0, maxmem: 0, memPercent: 0, rootUsed: 0, rootTotal: 0, rootPercent: 0, storageUsed: 0, storageTotal: 0, storagePercent: 0 },
         error: result.reason?.message || 'Cluster status unavailable'
@@ -297,6 +363,7 @@ router.post('/clusters', async (req, res, next) => {
   try {
     const { name, url, apiToken } = req.body;
     const normalizedUrl = normalizeUrl(url);
+    const location = normalizeClusterLocation(req.body || {});
 
     if (!name || !normalizedUrl || !apiToken) {
       throw new AppError('Name, URL, and API token are required', HTTP_STATUS.BAD_REQUEST);
@@ -310,8 +377,8 @@ router.post('/clusters', async (req, res, next) => {
     const allowProvisioning = req.body.allowProvisioning ? 1 : 0;
 
     const result = await run(
-      'INSERT INTO proxmox_clusters (name, url, api_token, allow_provisioning) VALUES (?, ?, ?, ?)',
-      [String(name).trim(), normalizedUrl, encrypt(String(apiToken).trim()), allowProvisioning]
+      'INSERT INTO proxmox_clusters (name, url, api_token, allow_provisioning, location_label, location_lat, location_lon) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [String(name).trim(), normalizedUrl, encrypt(String(apiToken).trim()), allowProvisioning, location.locationLabel || null, location.locationLat, location.locationLon]
     );
 
     await logAudit(req, 'cluster.create', `cluster:${result.lastID}`, String(name).trim());
@@ -320,7 +387,10 @@ router.post('/clusters', async (req, res, next) => {
       cluster: {
         id: result.lastID,
         name: String(name).trim(),
-        url: normalizedUrl
+        url: normalizedUrl,
+        location_label: location.locationLabel || '',
+        location_lat: location.locationLat,
+        location_lon: location.locationLon
       }
     });
   } catch (err) {
@@ -420,6 +490,11 @@ router.put('/clusters/:id', async (req, res, next) => {
     const nextName = String(name || cluster.name).trim();
     const nextUrl = normalizeUrl(url || cluster.url);
     const nextToken = String(apiToken || decrypt(cluster.api_token)).trim();
+    const location = normalizeClusterLocation({
+      locationLabel: req.body.locationLabel !== undefined ? req.body.locationLabel : cluster.location_label,
+      locationLat: req.body.locationLat !== undefined ? req.body.locationLat : cluster.location_lat,
+      locationLon: req.body.locationLon !== undefined ? req.body.locationLon : cluster.location_lon
+    });
 
     if (!nextName || !nextUrl || !nextToken) {
       throw new AppError('Name, URL, and API token are required', HTTP_STATUS.BAD_REQUEST);
@@ -437,12 +512,12 @@ router.put('/clusters/:id', async (req, res, next) => {
       : cluster.allow_provisioning;
 
     await run(
-      'UPDATE proxmox_clusters SET name = ?, url = ?, api_token = ?, allow_provisioning = ? WHERE id = ?',
-      [nextName, nextUrl, encrypt(nextToken), allowProvisioning, clusterId]
+      'UPDATE proxmox_clusters SET name = ?, url = ?, api_token = ?, allow_provisioning = ?, location_label = ?, location_lat = ?, location_lon = ? WHERE id = ?',
+      [nextName, nextUrl, encrypt(nextToken), allowProvisioning, location.locationLabel || null, location.locationLat, location.locationLon, clusterId]
     );
 
     await logAudit(req, 'cluster.update', `cluster:${clusterId}`, nextName);
-    res.json({ cluster: { id: Number(clusterId), name: nextName, url: nextUrl } });
+    res.json({ cluster: { id: Number(clusterId), name: nextName, url: nextUrl, location_label: location.locationLabel || '', location_lat: location.locationLat, location_lon: location.locationLon } });
   } catch (err) {
     next(err);
   }

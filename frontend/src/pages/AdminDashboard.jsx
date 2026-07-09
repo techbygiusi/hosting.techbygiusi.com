@@ -5,6 +5,7 @@ import '../styles/globals.css';
 import ThemeButton from '../components/ThemeButton';
 import Modal from '../components/Modal';
 import MaintenanceBanner from '../components/MaintenanceBanner';
+import ClusterMapSection from '../components/ClusterMapSection';
 
 function LogoutIcon() {
   return (
@@ -52,7 +53,7 @@ const emptyMaintenance = () => ({
   endsAt: toLocalDatetimeInput(new Date(Date.now() + 3 * 60 * 60 * 1000)),
   notifyUsers: false
 });
-const emptyCluster = { name: '', url: '', apiToken: '', allowProvisioning: false };
+const emptyCluster = { name: '', url: '', apiToken: '', allowProvisioning: false, locationLabel: '', locationLat: '', locationLon: '' };
 const emptyResource = { name: '', containerId: '', clusterId: '', userId: '', groupId: '', publicUrl: '', adminUrl: '' };
 const emptyGroup = { name: '', memberIds: [] };
 const emptyAdminCred = { label: '', username: '', secret: '', url: '', notes: '', clusterId: '', userId: '' };
@@ -115,6 +116,8 @@ export default function AdminDashboard() {
   const [newMaintenance, setNewMaintenance] = useState(emptyMaintenance());
   const [statusEvents, setStatusEvents] = useState([]);
   const [testMailResult, setTestMailResult] = useState(null);
+  const [locationResults, setLocationResults] = useState([]);
+  const [locationSearchLoading, setLocationSearchLoading] = useState(false);
 
   const tabs = [
     ['overview', 'Übersicht'],
@@ -130,6 +133,7 @@ export default function AdminDashboard() {
   const adminCount = users.filter(item => item.role === 'admin').length;
   const userCount = users.filter(item => item.role === 'user').length;
   const onlineCount = resources.filter(item => item.status === 'running').length;
+  const mappedClusterCount = clusterStats.filter(item => Number.isFinite(Number(item.location_lat)) && Number.isFinite(Number(item.location_lon))).length;
   const currentClusterName = useMemo(() => {
     const cluster = clusters.find(item => String(item.id) === String(newResource.clusterId));
     return cluster?.name || '';
@@ -193,6 +197,36 @@ export default function AdminDashboard() {
       setLoading(false);
     }
   };
+
+
+  useEffect(() => {
+    if (!showClusterModal) {
+      setLocationResults([]);
+      setLocationSearchLoading(false);
+      return;
+    }
+
+    const search = String(newCluster.locationLabel || '').trim();
+    if (search.length < 3) {
+      setLocationResults([]);
+      setLocationSearchLoading(false);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      try {
+        setLocationSearchLoading(true);
+        const res = await adminApi.searchLocations(search);
+        setLocationResults(res.data.results || []);
+      } catch (_) {
+        setLocationResults([]);
+      } finally {
+        setLocationSearchLoading(false);
+      }
+    }, 320);
+
+    return () => clearTimeout(timer);
+  }, [newCluster.locationLabel, showClusterModal]);
 
   const loadAudit = async () => {
     try {
@@ -327,7 +361,10 @@ export default function AdminDashboard() {
       name: item.name || '',
       url: item.url || '',
       apiToken: '',
-      allowProvisioning: !!item.allow_provisioning
+      allowProvisioning: !!item.allow_provisioning,
+      locationLabel: item.location_label || '',
+      locationLat: item.location_lat ?? '',
+      locationLon: item.location_lon ?? ''
     });
     setClusterNodeCredentials([]);
     setClusterTestResult(null);
@@ -341,11 +378,28 @@ export default function AdminDashboard() {
     setNewCluster(emptyCluster);
     setClusterNodeCredentials([]);
     setClusterTestResult(null);
+    setLocationResults([]);
   };
 
   const handleClusterChange = (field, value) => {
-    setNewCluster(prev => ({ ...prev, [field]: value }));
+    setNewCluster(prev => {
+      if (field === 'locationLabel') {
+        return { ...prev, locationLabel: value, locationLat: '', locationLon: '' };
+      }
+      return { ...prev, [field]: value };
+    });
     setClusterTestResult(null);
+    setError('');
+  };
+
+  const handleSelectLocation = (result) => {
+    setNewCluster(prev => ({
+      ...prev,
+      locationLabel: result.label,
+      locationLat: result.lat,
+      locationLon: result.lon
+    }));
+    setLocationResults([]);
     setError('');
   };
 
@@ -897,32 +951,57 @@ export default function AdminDashboard() {
         </div>
       </header>
 
-      <main className="app-container compact-container">
-        {error && <div className="alert alert-danger">{error}</div>}
-        {successMsg && <div className="alert alert-success">{successMsg}</div>}
+      <main className="app-container compact-container admin-shell">
+        <aside className="admin-sidebar-shell">
+          <div className="panel-card console-sidebar-card">
+            <span className="resource-id">Admin-Konsole</span>
+            <h2>{user?.name || 'Administrator'}</h2>
+            <p>{clusters.length} Cluster · {resources.length} Dienste · {users.length} Benutzer</p>
+          </div>
+          <nav className="app-tabs console-nav-tabs" aria-label="Admin-Bereiche">
+            {tabs.map(([key, label]) => (
+              <button key={key} type="button" className={`${activeTab === key ? 'active' : ''} ${key === 'overview' ? 'mobile-hide-overview-tab' : ''}`.trim()} onClick={() => setActiveTab(key)}>{label}</button>
+            ))}
+          </nav>
+        </aside>
 
-        <nav className="app-tabs" aria-label="Admin-Bereiche">
-          {tabs.map(([key, label]) => (
-            <button key={key} type="button" className={`${activeTab === key ? 'active' : ''} ${key === 'overview' ? 'mobile-hide-overview-tab' : ''}`.trim()} onClick={() => setActiveTab(key)}>{label}</button>
-          ))}
-        </nav>
+        <section className="admin-main-shell">
+          {error && <div className="alert alert-danger">{error}</div>}
+          {successMsg && <div className="alert alert-success">{successMsg}</div>}
 
-        {loading && <div className="loading"><span className="spinner"></span><span>Daten werden geladen...</span></div>}
+          {loading && <div className="loading"><span className="spinner"></span><span>Daten werden geladen...</span></div>}
 
-        {!loading && activeTab === 'overview' && (
-          <>
-            <section className="dashboard-grid">
-              <MetricCard label="Benutzer" value={userCount} onClick={() => setActiveTab('users')} />
-              <MetricCard label="Administratoren" value={adminCount} onClick={() => setActiveTab('users')} />
-              <MetricCard label="Gruppen" value={groups.length} onClick={() => setActiveTab('groups')} />
-              <MetricCard label="Cluster" value={clusters.length} onClick={() => setActiveTab('clusters')} />
-              <MetricCard label="Dienste" value={resources.length} onClick={() => setActiveTab('resources')} />
-              <MetricCard label="Online" value={onlineCount} onClick={() => setActiveTab('resources')} />
-            </section>
-            <ClusterStatsSection clusters={clusterStats} />
-            <StatusEventsSection events={statusEvents} />
-          </>
-        )}
+          {!loading && activeTab === 'overview' && (
+            <>
+              <section className="panel-card dashboard-hero-card">
+                <div>
+                  <span className="resource-id">Hosting by TechByGiusi</span>
+                  <h2>Dashboard</h2>
+                  <p>Eine klare Hosting-Konsole mit deinem Farbschema, zentraler Übersicht und Cluster-Standorten auf einer Karte.</p>
+                </div>
+                <div className="dashboard-hero-actions">
+                  <button type="button" className="btn-secondary" onClick={() => setActiveTab('clusters')}>Cluster verwalten</button>
+                  <button type="button" className="btn-primary" onClick={() => setActiveTab('resources')}>Dienste verwalten</button>
+                </div>
+              </section>
+
+              <section className="dashboard-grid console-metric-grid">
+                <MetricCard label="Benutzer" value={userCount} onClick={() => setActiveTab('users')} />
+                <MetricCard label="Administratoren" value={adminCount} onClick={() => setActiveTab('users')} />
+                <MetricCard label="Gruppen" value={groups.length} onClick={() => setActiveTab('groups')} />
+                <MetricCard label="Cluster" value={clusters.length} onClick={() => setActiveTab('clusters')} />
+                <MetricCard label="Dienste" value={resources.length} onClick={() => setActiveTab('resources')} />
+                <MetricCard label="Online" value={onlineCount} onClick={() => setActiveTab('resources')} />
+              </section>
+
+              <div className="overview-layout-grid">
+                <ClusterMapSection clusters={clusterStats} mappedCount={mappedClusterCount} onOpenClusters={() => setActiveTab('clusters')} />
+                <StatusEventsSection events={statusEvents} />
+              </div>
+
+              <ClusterStatsSection clusters={clusterStats} />
+            </>
+          )}
 
         {!loading && activeTab === 'users' && (
           <section className="panel-card">
@@ -979,6 +1058,7 @@ export default function AdminDashboard() {
                     <div>
                       <h2>{item.name}</h2>
                       <p className="cluster-address">{item.url}</p>
+                      {item.location_label ? <p className="cluster-location-hint">{item.location_label}</p> : <p className="hint-text">Noch kein Karten-Standort hinterlegt.</p>}
                       {clusterCaps[item.id]
                         ? (clusterCaps[item.id].error
                             ? <p className="hint-text caps-error">Berechtigungen nicht abrufbar - Token/Verbindung prüfen.</p>
@@ -1120,6 +1200,7 @@ export default function AdminDashboard() {
           />
         )}
 
+        </section>
       </main>
 
 
@@ -1218,6 +1299,25 @@ export default function AdminDashboard() {
           <form className="form-stack" onSubmit={handleSaveCluster}>
             <label className="form-group"><span>Name</span><input type="text" value={newCluster.name} onChange={e => handleClusterChange('name', e.target.value)} placeholder="Home Lab" /></label>
             <label className="form-group"><span>URL</span><input type="text" value={newCluster.url} onChange={e => handleClusterChange('url', e.target.value)} placeholder="https://10.10.0.10:8006" /></label>
+            <div className="form-group location-field-group">
+              <span>Standort für Dashboard-Karte</span>
+              <input type="text" value={newCluster.locationLabel} onChange={e => handleClusterChange('locationLabel', e.target.value)} placeholder="Adresse oder Ort eingeben" autoComplete="off" />
+              <small>Adresse eingeben und einen Vorschlag auswählen, damit der Cluster auf der Karte platziert wird.</small>
+              {(locationSearchLoading || locationResults.length > 0) && (
+                <div className="location-search-dropdown">
+                  {locationSearchLoading && <div className="location-search-item muted">Standorte werden gesucht…</div>}
+                  {!locationSearchLoading && locationResults.map((result, index) => (
+                    <button key={`${result.label}-${index}`} type="button" className="location-search-item" onClick={() => handleSelectLocation(result)}>
+                      <strong>{result.label}</strong>
+                      <span>{Number(result.lat).toFixed(4)}, {Number(result.lon).toFixed(4)}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+              {newCluster.locationLat !== '' && newCluster.locationLon !== '' && (
+                <small className="location-selected-hint">Ausgewählt: {Number(newCluster.locationLat).toFixed(4)}, {Number(newCluster.locationLon).toFixed(4)}</small>
+              )}
+            </div>
             <label className="form-group"><span>API-Token</span><input type="password" value={newCluster.apiToken} onChange={e => handleClusterChange('apiToken', e.target.value)} placeholder={editClusterId ? 'Leer lassen, vorhandenen Token verwenden' : 'api@pam!hosting=secret'} /></label>
             <button type="button" className="btn-secondary full-button" onClick={handleTestCluster} disabled={actionLoading}>Proxmox-Verbindung testen</button>
             {clusterTestResult && <div className={`test-result ${clusterTestResult.success ? 'success' : 'error'}`}>{translateMessage(clusterTestResult.message)}</div>}
@@ -1720,6 +1820,7 @@ function ClusterStatsCard({ cluster }) {
         <div>
           <span className="resource-id">{cluster.url || 'Proxmox'}</span>
           <h3>{cluster.name}</h3>
+          {cluster.location_label ? <p className="cluster-location-hint">{cluster.location_label}</p> : null}
         </div>
         <span className={`status-badge ${cluster.error ? 'status-stopped' : 'status-running cluster-node-badge'}`}>
           {cluster.error ? 'Nicht erreichbar' : `${totals.online || 0}/${totals.nodes || nodes.length} Nodes`}

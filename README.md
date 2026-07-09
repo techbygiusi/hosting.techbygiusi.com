@@ -6,7 +6,7 @@ The frontend is built with React and the backend with Express + SQLite. Proxmox 
 
 ## Version
 
-Current version: **v3.0.14**
+Current version: **v3.1.0**
 
 Versioning now follows a clean semantic sequence:
 
@@ -189,6 +189,31 @@ docker image prune -f
 The database migrates itself on startup. Keep the backend data volume before updating.
 
 ## Changelog
+
+### v3.1.0 - 2026-07-09
+
+**Commit:** `feat: add a Hetzner-inspired dashboard revamp with cluster maps`
+
+- Reworked the admin dashboard into a cleaner hosting-console style with a dedicated navigation sidebar and a more structured landing page.
+- Added a live cluster map widget on the dashboard overview to show where Proxmox clusters are located.
+- Extended Proxmox cluster management with address lookup, dropdown suggestions and stored coordinates for map placement.
+- Added a backend geocoding endpoint for address search and saved location metadata directly on each cluster.
+
+### v3.0.16 - 2026-07-09
+
+**Commit:** `fix: use the exact brand greens for all green badges and bubbles`
+
+- Updated green capability bubbles like **Lesen**, **Power**, **Konsole** and **Erstellen** to use the exact portal greens in both themes.
+- Standardized green chip, badge and success states so light mode always uses `#7a876f` and dark mode always uses `#c2cea7`.
+- Kept soft green backgrounds and borders aligned with the same shared brand tokens for a fully consistent look.
+
+### v3.0.15 - 2026-07-09
+
+**Commit:** `fix: align all green text accents with the brand palette`
+
+- Set light mode green text accents to `#7a876f`.
+- Set dark mode green text accents to `#c2cea7`.
+- Aligned links, role labels, online/status labels, success text, badges, focus states and green hover states with the same central brand colors.
 
 ### v3.0.14 - 2026-07-09
 

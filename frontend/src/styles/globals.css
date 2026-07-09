@@ -22,7 +22,7 @@ body.theme-light {
   --site-text:      #111111;
   --site-muted:     #6B7280;
   --site-accent:    #7a876f;   /* brand green */
-  --site-accent-strong: #626D59;
+  --site-accent-strong: #7a876f;
   --site-border:    rgba(17, 17, 17, 0.10);
   --site-cord:      rgba(0, 0, 0, 0.28);
   --site-bulb-off:  #e9ecef;
@@ -86,7 +86,7 @@ body.theme-dark {
   --site-text:      #E6E6E6;
   --site-muted:     #9AA4B2;
   --site-accent:    #c2cea7;
-  --site-accent-strong: #AEBD8D;
+  --site-accent-strong: #c2cea7;
   --site-border:    #2c3138;
   --site-cord:      rgba(255, 255, 255, 0.30);
   --site-bulb-off:  #2a3242;
@@ -231,7 +231,7 @@ body.theme-dark select {
 
 input:focus, select:focus, textarea:focus {
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px rgba(122, 135, 111, 0.16);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 18%, transparent);
 }
 
 input::placeholder, textarea::placeholder {
@@ -474,7 +474,7 @@ body.theme-dark .disk-row {
 }
 .setup-tab.active {
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px rgba(122, 135, 111, 0.14);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 16%, transparent);
 }
 .setup-tab.complete > span:first-child {
   background: var(--color-primary);
@@ -670,7 +670,7 @@ th, td {
 }
 th { color: var(--color-text); background: var(--color-bg-alt); font-size: var(--font-size-sm); }
 td { color: var(--color-text); }
-tr:hover td { background: rgba(122, 135, 111, 0.06); }
+tr:hover td { background: color-mix(in srgb, var(--color-primary) 7%, transparent); }
 
 .empty-cell, .empty-state { text-align: center; color: var(--color-text-light); }
 .empty-state h2 { color: var(--color-text); margin-bottom: 8px; }
@@ -4028,3 +4028,353 @@ body.theme-dark {
   color: var(--color-primary);
 }
 
+
+
+/* v3.0.15 - keep every green text accent on the exact brand green */
+body.theme-light {
+  --site-accent: #7a876f;
+  --site-accent-strong: #7a876f;
+  --color-primary: #7a876f;
+  --color-primary-dark: #7a876f;
+  --color-success: #7a876f;
+  --brand-green-text: #7a876f;
+  --brand-green-soft: color-mix(in srgb, #7a876f 12%, transparent);
+  --brand-green-border: color-mix(in srgb, #7a876f 36%, transparent);
+  --brand-green-focus: color-mix(in srgb, #7a876f 18%, transparent);
+}
+
+body.theme-dark {
+  --site-accent: #c2cea7;
+  --site-accent-strong: #c2cea7;
+  --color-primary: #c2cea7;
+  --color-primary-dark: #c2cea7;
+  --color-success: #c2cea7;
+  --brand-green-text: #c2cea7;
+  --brand-green-soft: color-mix(in srgb, #c2cea7 14%, transparent);
+  --brand-green-border: color-mix(in srgb, #c2cea7 38%, transparent);
+  --brand-green-focus: color-mix(in srgb, #c2cea7 18%, transparent);
+}
+
+a,
+.resource-id,
+.setup-ok,
+.setup-pill.done,
+.status-running,
+.alert-success,
+.test-result.success,
+.terminal-status-open,
+.task-ok,
+.capability-ok,
+.task-status-ok,
+.maintenance-notified,
+.credential-badge,
+.cred-tag-admin,
+.link-button,
+.link-button:hover,
+.cluster-node-badge {
+  color: var(--brand-green-text);
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: var(--brand-green-text);
+  box-shadow: 0 0 0 3px var(--brand-green-focus);
+}
+
+.status-running,
+.alert-success,
+.test-result.success,
+.setup-ok,
+.credential-badge,
+.cred-tag-admin {
+  background: var(--brand-green-soft);
+  border-color: var(--brand-green-border);
+}
+
+
+/* v3.0.16 - apply the brand greens to capability bubbles and every green chip state */
+.capability-ok,
+.status-badge.status-running,
+.cluster-node-badge.status-running,
+.setup-pill.done,
+.credential-badge,
+.cred-tag-admin,
+.alert-success,
+.test-result.success,
+.setup-ok,
+.maintenance-chip.state-chip.state-aktiv {
+  background: var(--brand-green-soft);
+  border-color: var(--brand-green-border);
+  color: var(--brand-green-text);
+}
+
+.capability-ok:hover,
+.status-badge.status-running:hover,
+.cluster-node-badge.status-running:hover {
+  color: var(--brand-green-text);
+  border-color: var(--brand-green-border);
+}
+
+/* v3.1.0 - Hetzner-inspired admin dashboard revamp */
+.admin-shell {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+
+.admin-sidebar-shell {
+  position: sticky;
+  top: 92px;
+  display: grid;
+  gap: 16px;
+}
+
+.admin-main-shell {
+  min-width: 0;
+}
+
+.console-sidebar-card {
+  display: grid;
+  gap: 8px;
+}
+
+.console-sidebar-card h2 {
+  font-size: 1.5rem;
+}
+
+.console-nav-tabs {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-card);
+}
+
+.admin-shell .console-nav-tabs button {
+  width: 100%;
+  justify-content: flex-start;
+  text-align: left;
+  border-radius: var(--radius-md);
+}
+
+.dashboard-hero-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.dashboard-hero-card p {
+  margin-top: 8px;
+  max-width: 760px;
+}
+
+.dashboard-hero-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.console-metric-grid {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.overview-layout-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(320px, 0.9fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.cluster-map-card {
+  padding-bottom: 16px;
+}
+
+.cluster-map-header {
+  align-items: flex-start;
+}
+
+.cluster-map-header p {
+  margin-top: 6px;
+}
+
+.cluster-map-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(250px, 0.8fr);
+  gap: 18px;
+  align-items: stretch;
+}
+
+.cluster-map-canvas {
+  min-height: 380px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--color-bg-alt);
+}
+
+.cluster-map-widget {
+  width: 100%;
+  height: 100%;
+  min-height: 380px;
+}
+
+.cluster-map-summary {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+}
+
+.cluster-map-summary-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-alt);
+}
+
+.cluster-map-summary-item strong,
+.cluster-map-summary-item span {
+  display: block;
+}
+
+.cluster-map-summary-item div span {
+  margin-top: 4px;
+  color: var(--color-text-light);
+  font-size: 0.92rem;
+}
+
+.cluster-map-empty {
+  min-height: 240px;
+}
+
+.location-field-group {
+  position: relative;
+}
+
+.location-field-group small {
+  display: block;
+  margin-top: 6px;
+  color: var(--color-text-light);
+}
+
+.location-search-dropdown {
+  margin-top: 8px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--color-bg-alt);
+}
+
+.location-search-item {
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+  border: none;
+  border-bottom: 1px solid var(--color-border);
+  background: transparent;
+  color: var(--color-text);
+  text-align: left;
+}
+
+.location-search-item:last-child {
+  border-bottom: none;
+}
+
+.location-search-item strong,
+.location-search-item span {
+  display: block;
+}
+
+.location-search-item span {
+  color: var(--color-text-light);
+  font-size: 0.9rem;
+}
+
+.location-search-item:hover {
+  background: var(--brand-green-soft);
+}
+
+.location-search-item.muted {
+  cursor: default;
+}
+
+.location-selected-hint,
+.cluster-location-hint {
+  color: var(--color-text-light);
+  font-size: 0.92rem;
+}
+
+.cluster-location-hint {
+  margin-top: 6px;
+}
+
+body.theme-dark .cluster-map-canvas .leaflet-container {
+  filter: saturate(0.9) brightness(0.88) contrast(1.05);
+}
+
+body.theme-light .cluster-map-canvas .leaflet-container {
+  filter: saturate(0.92) contrast(1.02);
+}
+
+@media (max-width: 1180px) {
+  .console-metric-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .overview-layout-grid,
+  .cluster-map-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 960px) {
+  .admin-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-sidebar-shell {
+    position: static;
+  }
+
+  .console-nav-tabs {
+    flex-direction: row;
+    overflow-x: auto;
+    padding: 8px;
+  }
+
+  .admin-shell .console-nav-tabs button {
+    width: auto;
+    white-space: nowrap;
+  }
+
+  .dashboard-hero-card {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+@media (max-width: 640px) {
+  .console-metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .cluster-map-canvas,
+  .cluster-map-widget {
+    min-height: 300px;
+  }
+
+  .cluster-map-summary-item,
+  .location-search-item {
+    flex-direction: column;
+  }
+}

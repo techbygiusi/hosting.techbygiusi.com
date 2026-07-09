@@ -97,7 +97,9 @@ const MESSAGE_TRANSLATIONS = {
   'Notification preferences updated': 'Benachrichtigungseinstellungen gespeichert.',
   'Test email sent': 'Test-E-Mail wurde versendet.',
   'Admin password must be at least 8 characters': 'Das Admin-Passwort muss mindestens 8 Zeichen lang sein.',
-  'Password must be at least 8 characters': 'Das Passwort muss mindestens 8 Zeichen lang sein.'
+  'Password must be at least 8 characters': 'Das Passwort muss mindestens 8 Zeichen lang sein.',
+  'Please select a valid location from the search results': 'Bitte einen gültigen Standort aus den Suchergebnissen auswählen.',
+  'Location search failed': 'Standortsuche fehlgeschlagen.'
 };
 
 export function translateMessage(message) {
@@ -232,7 +234,8 @@ export const adminApi = {
   updateMaintenanceWindow: (windowId, data) => apiClient.put(`/admin/maintenance/${windowId}`, data),
   deleteMaintenanceWindow: (windowId) => apiClient.delete(`/admin/maintenance/${windowId}`),
   getStatusEvents: (limit = 25) => apiClient.get(`/admin/status-events?limit=${limit}`),
-  sendTestMail: () => apiClient.post('/admin/settings/send-test-mail')
+  sendTestMail: () => apiClient.post('/admin/settings/send-test-mail'),
+  searchLocations: (query) => apiClient.get(`/admin/geocode?q=${encodeURIComponent(query)}`)
 };
 
 export const userApi = {
