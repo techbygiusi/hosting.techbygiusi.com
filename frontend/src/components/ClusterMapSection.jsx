@@ -25,9 +25,9 @@ function MapBounds({ points }) {
     if (!points.length) return;
     const bounds = L.latLngBounds(points.map(point => [point.lat, point.lon]));
     if (points.length === 1) {
-      map.setView([points[0].lat, points[0].lon], 6, { animate: false });
+      map.setView([points[0].lat, points[0].lon], 3, { animate: false });
     } else {
-      map.fitBounds(bounds, { padding: [30, 30] });
+      map.fitBounds(bounds, { padding: [40, 40], maxZoom: 4 });
     }
     setTimeout(() => map.invalidateSize(), 50);
   }, [map, points]);
@@ -61,7 +61,7 @@ export default function ClusterMapSection({ clusters = [], mappedCount = 0, onOp
         </div>
         {onOpenClusters && (
           <button type="button" className="btn-secondary btn-small" onClick={onOpenClusters}>
-            Cluster bearbeiten
+            Cluster verwalten
           </button>
         )}
       </div>
@@ -74,7 +74,7 @@ export default function ClusterMapSection({ clusters = [], mappedCount = 0, onOp
       ) : (
         <div className="cluster-map-layout">
           <div className="cluster-map-canvas">
-            <MapContainer center={[51.1657, 10.4515]} zoom={5} scrollWheelZoom={false} className="cluster-map-widget">
+            <MapContainer center={[20, 8]} zoom={3} minZoom={2} scrollWheelZoom={false} className="cluster-map-widget">
               <TileLayer
                 attribution='&copy; OpenStreetMap contributors'
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"

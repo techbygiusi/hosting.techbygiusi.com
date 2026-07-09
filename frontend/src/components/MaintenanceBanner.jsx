@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { publicApi } from '../services/api';
 
 const DISMISS_KEY = 'dismissedAnnouncements';
@@ -55,6 +55,7 @@ function WrenchIcon() {
 export default function MaintenanceBanner() {
   const [announcements, setAnnouncements] = useState([]);
   const [dismissed, setDismissed] = useState(loadDismissed);
+  const stackRef = useRef(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -73,6 +74,32 @@ export default function MaintenanceBanner() {
     [announcements, dismissed]
   );
 
+  useEffect(() => {
+    const root = document.documentElement;
+    const element = stackRef.current;
+
+    const applyOffset = () => {
+      const height = element ? Math.ceil(element.getBoundingClientRect().height) : 0;
+      root.style.setProperty('--maintenance-banner-offset', `${height}px`);
+    };
+
+    applyOffset();
+
+    let observer;
+    if (element && typeof ResizeObserver !== 'undefined') {
+      observer = new ResizeObserver(() => applyOffset());
+      observer.observe(element);
+    }
+
+    window.addEventListener('resize', applyOffset);
+
+    return () => {
+      window.removeEventListener('resize', applyOffset);
+      if (observer) observer.disconnect();
+      root.style.setProperty('--maintenance-banner-offset', '0px');
+    };
+  }, [visible]);
+
   if (visible.length === 0) return null;
 
   const handleDismiss = (id) => {
@@ -82,7 +109,7 @@ export default function MaintenanceBanner() {
   };
 
   return (
-    <div className="maintenance-banner-stack" role="status" aria-live="polite">
+    <div ref={stackRef} className="maintenance-banner-stack" role="status" aria-live="polite">
       {visible.map(item => {
         const upcoming = !item.active;
         const rel = relativeStart(item.startsAt);

@@ -17,6 +17,17 @@ function LogoutIcon() {
   );
 }
 
+
+function MenuIcon() {
+  return (
+    <svg className="menu-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M4 7h16" />
+      <path d="M4 12h16" />
+      <path d="M4 17h16" />
+    </svg>
+  );
+}
+
 const emptyUser = { email: '', name: '', password: '', role: 'user', sendWelcome: false };
 
 function toLocalDatetimeInput(date) {
@@ -118,6 +129,7 @@ export default function AdminDashboard() {
   const [testMailResult, setTestMailResult] = useState(null);
   const [locationResults, setLocationResults] = useState([]);
   const [locationSearchLoading, setLocationSearchLoading] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const tabs = [
     ['overview', 'Übersicht'],
@@ -155,6 +167,24 @@ export default function AdminDashboard() {
     }, 300);
     return () => clearTimeout(timer);
   }, [activeTab, auditSearchDraft]);
+
+
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [activeTab]);
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth > 960) setMobileMenuOpen(false);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const handleSelectTab = (tab) => {
+    setActiveTab(tab);
+    setMobileMenuOpen(false);
+  };
 
   const loadData = async (tab = activeTab) => {
     try {
@@ -942,17 +972,42 @@ export default function AdminDashboard() {
   };
 
   return (
-    <div className="app-page">
+    <div className="app-page admin-page">
       <MaintenanceBanner />
       <header className="site-header">
         <div className="site-header-inner">
-          <button type="button" className="site-brand site-brand-button" onClick={() => setActiveTab('overview')} aria-label="Zur Übersicht"><h1>Hosting by TechByGiusi</h1></button>
-          <div className="site-actions"><ThemeButton /><button type="button" className="btn-secondary logout-button" onClick={logout} aria-label="Abmelden"><LogoutIcon /><span className="logout-label">Abmelden</span></button></div>
+          <button type="button" className="site-brand site-brand-button" onClick={() => handleSelectTab('overview')} aria-label="Zur Übersicht"><h1>Hosting by TechByGiusi</h1></button>
+          <div className="site-actions">
+            <ThemeButton />
+            <button type="button" className="btn-secondary admin-mobile-menu-toggle" onClick={() => setMobileMenuOpen(true)} aria-label="Menü öffnen"><MenuIcon /><span>Menü</span></button>
+            <button type="button" className="btn-secondary logout-button" onClick={logout} aria-label="Abmelden"><LogoutIcon /><span className="logout-label">Abmelden</span></button>
+          </div>
         </div>
       </header>
 
+      <div className={`mobile-admin-menu-overlay ${mobileMenuOpen ? 'open' : ''}`} onClick={() => setMobileMenuOpen(false)} aria-hidden={!mobileMenuOpen}>
+        <div className="mobile-admin-menu-panel" onClick={(e) => e.stopPropagation()}>
+          <div className="mobile-admin-menu-header">
+            <div>
+              <span className="resource-id">Admin-Konsole</span>
+              <h2>{user?.name || 'Administrator'}</h2>
+              <p>{clusters.length} Cluster · {resources.length} Dienste · {users.length} Benutzer</p>
+            </div>
+            <button type="button" className="btn-secondary mobile-admin-menu-close" onClick={() => setMobileMenuOpen(false)} aria-label="Menü schließen">Schließen</button>
+          </div>
+          <nav className="console-nav-tabs mobile-admin-menu-nav" aria-label="Admin-Bereiche">
+            {tabs.map(([key, label]) => (
+              <button key={key} type="button" className={activeTab === key ? 'active' : ''} onClick={() => handleSelectTab(key)}>{label}</button>
+            ))}
+          </nav>
+          <div className="mobile-admin-menu-footer">
+            <button type="button" className="btn-secondary mobile-admin-menu-logout" onClick={logout}>Abmelden</button>
+          </div>
+        </div>
+      </div>
+
       <main className="app-container compact-container admin-shell">
-        <aside className="admin-sidebar-shell">
+        <aside className="admin-sidebar-shell desktop-admin-sidebar">
           <div className="panel-card console-sidebar-card">
             <span className="resource-id">Admin-Konsole</span>
             <h2>{user?.name || 'Administrator'}</h2>
@@ -960,7 +1015,7 @@ export default function AdminDashboard() {
           </div>
           <nav className="app-tabs console-nav-tabs" aria-label="Admin-Bereiche">
             {tabs.map(([key, label]) => (
-              <button key={key} type="button" className={`${activeTab === key ? 'active' : ''} ${key === 'overview' ? 'mobile-hide-overview-tab' : ''}`.trim()} onClick={() => setActiveTab(key)}>{label}</button>
+              <button key={key} type="button" className={activeTab === key ? 'active' : ''} onClick={() => handleSelectTab(key)}>{label}</button>
             ))}
           </nav>
         </aside>
@@ -980,26 +1035,25 @@ export default function AdminDashboard() {
                   <p>Eine klare Hosting-Konsole mit deinem Farbschema, zentraler Übersicht und Cluster-Standorten auf einer Karte.</p>
                 </div>
                 <div className="dashboard-hero-actions">
-                  <button type="button" className="btn-secondary" onClick={() => setActiveTab('clusters')}>Cluster verwalten</button>
-                  <button type="button" className="btn-primary" onClick={() => setActiveTab('resources')}>Dienste verwalten</button>
+                  <button type="button" className="btn-secondary" onClick={() => handleSelectTab('clusters')}>Cluster verwalten</button>
+                  <button type="button" className="btn-primary" onClick={() => handleSelectTab('resources')}>Dienste verwalten</button>
                 </div>
               </section>
 
               <section className="dashboard-grid console-metric-grid">
-                <MetricCard label="Benutzer" value={userCount} onClick={() => setActiveTab('users')} />
-                <MetricCard label="Administratoren" value={adminCount} onClick={() => setActiveTab('users')} />
-                <MetricCard label="Gruppen" value={groups.length} onClick={() => setActiveTab('groups')} />
-                <MetricCard label="Cluster" value={clusters.length} onClick={() => setActiveTab('clusters')} />
-                <MetricCard label="Dienste" value={resources.length} onClick={() => setActiveTab('resources')} />
-                <MetricCard label="Online" value={onlineCount} onClick={() => setActiveTab('resources')} />
+                <MetricCard label="Benutzer" value={userCount} onClick={() => handleSelectTab('users')} />
+                <MetricCard label="Administratoren" value={adminCount} onClick={() => handleSelectTab('users')} />
+                <MetricCard label="Gruppen" value={groups.length} onClick={() => handleSelectTab('groups')} />
+                <MetricCard label="Cluster" value={clusters.length} onClick={() => handleSelectTab('clusters')} />
+                <MetricCard label="Dienste" value={resources.length} onClick={() => handleSelectTab('resources')} />
+                <MetricCard label="Online" value={onlineCount} onClick={() => handleSelectTab('resources')} />
               </section>
 
-              <div className="overview-layout-grid">
-                <ClusterMapSection clusters={clusterStats} mappedCount={mappedClusterCount} onOpenClusters={() => setActiveTab('clusters')} />
+              <div className="admin-overview-stack">
+                <ClusterMapSection clusters={clusterStats} mappedCount={mappedClusterCount} onOpenClusters={() => handleSelectTab('clusters')} />
                 <StatusEventsSection events={statusEvents} />
+                <ClusterStatsSection clusters={clusterStats} />
               </div>
-
-              <ClusterStatsSection clusters={clusterStats} />
             </>
           )}
 
@@ -1057,8 +1111,7 @@ export default function AdminDashboard() {
                   <article key={item.id} className="list-card cluster-list-card">
                     <div>
                       <h2>{item.name}</h2>
-                      <p className="cluster-address">{item.url}</p>
-                      {item.location_label ? <p className="cluster-location-hint">{item.location_label}</p> : <p className="hint-text">Noch kein Karten-Standort hinterlegt.</p>}
+                      {item.location_label ? <p className="cluster-location-status">Karten-Standort gespeichert.</p> : <p className="hint-text">Noch kein Karten-Standort hinterlegt.</p>}
                       {clusterCaps[item.id]
                         ? (clusterCaps[item.id].error
                             ? <p className="hint-text caps-error">Berechtigungen nicht abrufbar - Token/Verbindung prüfen.</p>
@@ -1818,9 +1871,7 @@ function ClusterStatsCard({ cluster }) {
     <article className="cluster-stats-card">
       <div className="cluster-stats-title">
         <div>
-          <span className="resource-id">{cluster.url || 'Proxmox'}</span>
           <h3>{cluster.name}</h3>
-          {cluster.location_label ? <p className="cluster-location-hint">{cluster.location_label}</p> : null}
         </div>
         <span className={`status-badge ${cluster.error ? 'status-stopped' : 'status-running cluster-node-badge'}`}>
           {cluster.error ? 'Nicht erreichbar' : `${totals.online || 0}/${totals.nodes || nodes.length} Nodes`}

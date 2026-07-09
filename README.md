@@ -6,7 +6,7 @@ The frontend is built with React and the backend with Express + SQLite. Proxmox 
 
 ## Version
 
-Current version: **v3.1.1**
+Current version: **v3.1.6**
 
 Versioning now follows a clean semantic sequence:
 
@@ -189,6 +189,43 @@ docker image prune -f
 The database migrates itself on startup. Keep the backend data volume before updating.
 
 ## Changelog
+
+### v3.1.6 - 2026-07-09
+- fixed sticky header and admin sidebar offsets when a maintenance banner is active so navigation no longer scrolls behind the banner
+- mobile admin menu overlay now respects the active maintenance banner height
+
+
+### v3.1.5 - 2026-07-09
+
+**Commit:** `fix: hide cluster addresses in status cards`
+
+- Removed cluster URL and stored location address from the Cluster-Status cards.
+- Cluster-Status now focuses on the cluster name, online badge and resource metrics only.
+
+### v3.1.4 - 2026-07-09
+
+**Commit:** `fix: unify cluster action button labels`
+
+- Standardized cluster action buttons so the dashboard uses the same wording consistently.
+- Changed the Cluster-Standorte action from `Cluster bearbeiten` to `Cluster verwalten` to match the main dashboard action.
+
+### v3.1.3 - 2026-07-09
+
+**Commit:** `feat: refine admin dashboard layout and mobile navigation`
+
+- Made the Cluster-Standorte section span the full admin content width for a cleaner dashboard layout.
+- Moved the dashboard action buttons flush to the right and tightened panel spacing between stacked admin sections.
+- Simplified Proxmox cluster preview cards by removing the full address from the card preview.
+- Added a dedicated fullscreen mobile admin menu with a top-right menu button to avoid horizontal scrolling and improve navigation on phones.
+- Added extra mobile layout safeguards so cards and dashboard sections stay centered without horizontal overflow.
+
+### v3.1.2 - 2026-07-09
+
+**Commit:** `style: zoom out cluster map and add theme-aware map shading`
+
+- Zoomed the dashboard cluster map further out so the view feels more global and shows a broader regional context.
+- Added a subtle theme-aware shader overlay so the map blends better into both light and dark mode.
+- Tuned the map contrast and saturation for a calmer, more integrated dashboard look.
 
 ### v3.1.1 - 2026-07-09
 
