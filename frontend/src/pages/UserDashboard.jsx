@@ -167,7 +167,7 @@ function ResourceCard({ resource, onOpenDetails }) {
       <Metric label="RAM" percent={memPercent} detail={`${formatBytes(resource.mem)} / ${formatBytes(resource.maxmem)}`} />
 
       {(publicUrl || adminUrl) ? (
-        <div className="service-link-row">
+        <div className={`service-link-row ${(publicUrl && adminUrl) ? 'dual-links' : ''}`}>
           {publicUrl && <a className="btn-primary full-button" href={publicUrl} target="_blank" rel="noreferrer">Öffentliche Seite</a>}
           {adminUrl && <a className="btn-secondary full-button" href={adminUrl} target="_blank" rel="noreferrer">Verwaltungsseite</a>}
         </div>

@@ -132,7 +132,7 @@ export default function AdminDashboard() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const tabs = [
-    ['overview', 'Übersicht'],
+    ['overview', 'Dashboard'],
     ['users', 'Benutzer'],
     ['groups', 'Gruppen'],
     ['clusters', 'Proxmox'],
@@ -976,7 +976,7 @@ export default function AdminDashboard() {
       <MaintenanceBanner />
       <header className="site-header">
         <div className="site-header-inner">
-          <button type="button" className="site-brand site-brand-button" onClick={() => handleSelectTab('overview')} aria-label="Zur Übersicht"><h1>Hosting by TechByGiusi</h1></button>
+          <button type="button" className="site-brand site-brand-button" onClick={() => handleSelectTab('overview')} aria-label="Zum Dashboard"><h1>Hosting by TechByGiusi</h1></button>
           <div className="site-actions">
             <ThemeButton />
             <button type="button" className="btn-secondary admin-mobile-menu-toggle" onClick={() => setMobileMenuOpen(true)} aria-label="Menü öffnen"><MenuIcon /><span>Menü</span></button>
@@ -2016,7 +2016,7 @@ function ResourceCard({ resource, onEdit, onDelete, onManageCredentials, actionL
       <Metric label="RAM" percent={memPercent} detail={`${formatBytes(resource.mem)} / ${formatBytes(resource.maxmem)}`} />
 
       {(publicUrl || resource.adminUrl) && (
-        <div className="service-link-row">
+        <div className={`service-link-row ${(publicUrl && resource.adminUrl) ? 'dual-links' : ''}`}>
           {publicUrl && <a className="btn-secondary full-button" href={publicUrl} target="_blank" rel="noreferrer">Öffentliche Seite</a>}
           {resource.adminUrl && <a className="btn-secondary full-button" href={resource.adminUrl} target="_blank" rel="noreferrer">Verwaltungsseite</a>}
         </div>

@@ -13,12 +13,18 @@ function MapBounds({ points }) {
 
   React.useEffect(() => {
     if (!points.length) return;
+
     const bounds = L.latLngBounds(points.map(point => [point.lat, point.lon]));
-    if (points.length === 1) {
-      map.setView([points[0].lat, points[0].lon], 3, { animate: false });
+    const center = bounds.getCenter();
+    const latSpan = Math.abs(bounds.getNorth() - bounds.getSouth());
+    const lonSpan = Math.abs(bounds.getEast() - bounds.getWest());
+
+    if (points.length === 1 || (latSpan < 8 && lonSpan < 12)) {
+      map.setView([center.lat, center.lng], 4, { animate: false });
     } else {
-      map.fitBounds(bounds, { padding: [50, 50], maxZoom: 3 });
+      map.fitBounds(bounds, { padding: [30, 30], maxZoom: 4, animate: false });
     }
+
     setTimeout(() => map.invalidateSize(), 50);
   }, [map, points]);
 
@@ -44,8 +50,7 @@ export default function ClusterMapSection({ clusters = [], mappedCount = 0, onOp
   const tileUrl = isDark
     ? 'https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png'
     : 'https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png';
-  const tileAttribution = '&copy; OpenStreetMap contributors &copy; CARTO';
-  const markerStyle = isDark
+    const markerStyle = isDark
     ? { color: '#101419', weight: 2, fillColor: '#c2cea7', fillOpacity: 0.95 }
     : { color: '#ffffff', weight: 2, fillColor: '#7a876f', fillOpacity: 0.95 };
 
@@ -87,8 +92,8 @@ export default function ClusterMapSection({ clusters = [], mappedCount = 0, onOp
       ) : (
         <div className="cluster-map-layout">
           <div className="cluster-map-canvas">
-            <MapContainer center={[20, 8]} zoom={3} minZoom={2} scrollWheelZoom={false} className="cluster-map-widget">
-              <TileLayer attribution={tileAttribution} url={tileUrl} subdomains={['a', 'b', 'c', 'd']} />
+            <MapContainer center={[51, 10]} zoom={4} minZoom={2} scrollWheelZoom={false} attributionControl={false} className="cluster-map-widget">
+              <TileLayer url={tileUrl} subdomains={['a', 'b', 'c', 'd']} />
               <MapBounds points={points} />
               {points.map(point => (
                 <CircleMarker key={point.id} center={[point.lat, point.lon]} radius={8} pathOptions={markerStyle}>

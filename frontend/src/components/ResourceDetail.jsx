@@ -11,7 +11,7 @@ import { userApi, getErrorMessage } from '../services/api';
 export default function ResourceDetail({ resource, onClose, onChanged }) {
   const caps = resource.capabilities || {};
   const tabs = [
-    ['overview', 'Übersicht'],
+    ['overview', 'Dashboard'],
     ['tasks', 'Aufgaben & Logs'],
     ['credentials', 'Zugangsdaten']
   ];
@@ -108,7 +108,7 @@ function OverviewTab({ resource, onChanged, onOpenConsole, onClose }) {
     <div className="resource-details detail-modal-content">
       <PowerControls resource={resource} onChanged={onChanged} onOpenConsole={onOpenConsole} />
       {(publicUrl || adminUrl) && (
-        <div className="service-link-row">
+        <div className={`service-link-row ${(publicUrl && adminUrl) ? 'dual-links' : ''}`}>
           {publicUrl && <a className="btn-secondary full-button" href={publicUrl} target="_blank" rel="noreferrer">Öffentliche Seite</a>}
           {adminUrl && <a className="btn-secondary full-button" href={adminUrl} target="_blank" rel="noreferrer">Verwaltungsseite</a>}
         </div>
