@@ -6,7 +6,7 @@ The frontend is built with React and the backend with Express + SQLite. Proxmox 
 
 ## Version
 
-Current version: **v3.0.11**
+Current version: **v3.0.12**
 
 Versioning now follows a clean semantic sequence:
 
@@ -189,6 +189,14 @@ docker image prune -f
 The database migrates itself on startup. Keep the backend data volume before updating.
 
 ## Changelog
+
+### v3.0.12 - 2026-07-09
+
+**Commit:** `fix: align mobile cluster node badges`
+
+- Improved the mobile Cluster Status header layout.
+- Centered the node count badge vertically beside the cluster title block.
+- Kept the node count badge from drifting or looking misaligned when long cluster URLs wrap.
 
 ### v3.0.11 - 2026-07-09
 

@@ -1721,7 +1721,7 @@ function ClusterStatsCard({ cluster }) {
           <span className="resource-id">{cluster.url || 'Proxmox'}</span>
           <h3>{cluster.name}</h3>
         </div>
-        <span className={`status-badge ${cluster.error ? 'status-stopped' : 'status-running'}`}>
+        <span className={`status-badge ${cluster.error ? 'status-stopped' : 'status-running cluster-node-badge'}`}>
           {cluster.error ? 'Nicht erreichbar' : `${totals.online || 0}/${totals.nodes || nodes.length} Nodes`}
         </span>
       </div>

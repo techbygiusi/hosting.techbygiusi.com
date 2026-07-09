@@ -3947,3 +3947,39 @@ body.theme-dark .login-theme-action .theme-toggle {
     flex: 0 0 auto;
   }
 }
+
+
+/* v3.0.12 - align mobile cluster node count badge */
+.cluster-node-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+
+@media (max-width: 767px) {
+  .cluster-stats-title {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: var(--ui-gap);
+  }
+
+  .cluster-stats-title .cluster-node-badge {
+    align-self: center;
+    justify-self: end;
+    min-width: 72px;
+    min-height: 52px;
+    padding: 7px 11px;
+    line-height: 1.25;
+    white-space: normal;
+  }
+
+  .cluster-stats-title .resource-id {
+    display: block;
+    max-width: 100%;
+    line-height: 1.45;
+  }
+}
