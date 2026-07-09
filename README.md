@@ -6,7 +6,7 @@ The frontend is built with React and the backend with Express + SQLite. Proxmox 
 
 ## Version
 
-Current version: **v3.1.15**
+Current version: **v3.1.16**
 
 Versioning now follows a clean semantic sequence:
 
@@ -190,7 +190,15 @@ The database migrates itself on startup. Keep the backend data volume before upd
 
 ## Changelog
 
-### v3.1.15 - 2026-07-09
+### v3.1.16 - 2026-07-09
+
+**Commit:** `feat: add desktop language switch to admin and user topbars`
+
+- Added a visible EN/DE language switch to the desktop topbar for admins and users.
+- Reused the same stored language setting as the mobile overlay, with English as the default.
+- Kept the mobile overlay language switch in sync with the desktop topbar selector.
+
+### v3.1.16 - 2026-07-09
 
 **Commit:** `fix: improve mobile overlay contrast and restore standard dashboard spacing`
 
@@ -198,7 +206,7 @@ The database migrates itself on startup. Keep the backend data volume before upd
 - Restored a cleaner, standard-sized gap between the dashboard metric cards and the Cluster-Standorte section on desktop and mobile.
 - Kept the mobile overlay language feature from v3.1.14 intact.
 
-### v3.1.15 - 2026-07-09
+### v3.1.16 - 2026-07-09
 
 **Commit:** `feat: add english and german language options to mobile overlay`
 
@@ -206,14 +214,14 @@ The database migrates itself on startup. Keep the backend data volume before upd
 - English is now the default overlay language.
 - The selected overlay language is stored locally and reused on the next visit.
 
-### v3.1.15 - 2026-07-09
+### v3.1.16 - 2026-07-09
 
 **Commit:** `fix: standardize overview wording to dashboard`
 
 - Standardized the main portal navigation wording from `Übersicht` to `Dashboard`.
 - Updated dashboard navigation labels and related accessibility labels for consistent wording.
 
-### v3.1.15 - 2026-07-09
+### v3.1.16 - 2026-07-09
 
 **Commit:** `style: normalize mobile self-service spacing`
 
@@ -221,14 +229,14 @@ The database migrates itself on startup. Keep the backend data volume before upd
 - Added consistent mobile padding for the self-service panel, toggle row, fields, storage/template blocks and form buttons.
 - Stacked self-service form grids on small screens to avoid cramped controls and horizontal overflow.
 
-### v3.1.15 - 2026-07-09
+### v3.1.16 - 2026-07-09
 
 **Commit:** `fix: add proper spacing to self-service cluster toggle`
 
 - Added proper left and right padding to the self-service cluster activation row.
 - Improved spacing between the toggle label and the switch so the row looks consistent and usable.
 
-### v3.1.15 - 2026-07-09
+### v3.1.16 - 2026-07-09
 
 **Commit:** `fix: polish service link layout and cluster map spacing`
 
@@ -237,7 +245,7 @@ The database migrates itself on startup. Keep the backend data volume before upd
 - Refined the 3/3 Nodes badges so they are aligned and consistently formatted.
 - The cluster map is now more tightly focused on Europe, without the visible map caption/attribution bar.
 
-### v3.1.15 - 2026-07-09
+### v3.1.16 - 2026-07-09
 
 **Commit:** `fix: handle shared management credentials and admin read-only user services`
 
@@ -246,14 +254,14 @@ The database migrates itself on startup. Keep the backend data volume before upd
 - Self-service/user-created services are read-only for admins: credentials stay hidden and edit/delete actions are blocked.
 - Backend checks now enforce the same read-only rules for user-managed services.
 
-### v3.1.15 - 2026-07-09
+### v3.1.16 - 2026-07-09
 
 **Commit:** `fix: remove dashboard showcase copy`
 
 - Removed the descriptive showcase sentence from the admin dashboard hero.
 - Kept the dashboard focused on productive actions and status information.
 
-### v3.1.15 - 2026-07-09
+### v3.1.16 - 2026-07-09
 
 **Commit:** `fix: refine cluster cards and modernize cluster map`
 

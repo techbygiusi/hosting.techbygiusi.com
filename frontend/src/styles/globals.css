@@ -5056,3 +5056,55 @@ body.theme-dark .mobile-admin-menu-close,
 body.theme-dark .mobile-admin-menu-logout {
   color: var(--color-text);
 }
+
+/* v3.1.16 - desktop language switch for admin and user topbars */
+.language-switch {
+  display: inline-grid;
+  grid-template-columns: repeat(2, minmax(34px, 1fr));
+  align-items: center;
+  gap: 2px;
+  min-height: 38px;
+  padding: 3px;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-card);
+}
+
+.language-switch button {
+  min-width: 34px;
+  min-height: 30px;
+  padding: 0 8px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--color-text-light);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.language-switch button.active {
+  color: var(--color-text);
+  background: color-mix(in srgb, var(--color-primary) 12%, var(--color-surface));
+  border-color: color-mix(in srgb, var(--color-primary) 24%, var(--color-border));
+}
+
+.language-switch button:hover {
+  color: var(--color-text);
+}
+
+@media (max-width: 767px) {
+  .site-actions .language-switch {
+    grid-template-columns: repeat(2, 30px);
+    min-height: 34px;
+    padding: 2px;
+  }
+
+  .site-actions .language-switch button {
+    min-width: 30px;
+    min-height: 28px;
+    padding: 0 6px;
+    font-size: 0.75rem;
+  }
+}

@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { userApi, getErrorMessage } from '../services/api';
 import '../styles/globals.css';
 import ThemeButton from '../components/ThemeButton';
+import LanguageSwitch from '../components/LanguageSwitch';
 import ResourceDetail, { getPercent, formatBytes, renderStatus, renderType } from '../components/ResourceDetail';
 import CreateMachineModal from '../components/CreateMachineModal';
 import MaintenanceBanner from '../components/MaintenanceBanner';
@@ -78,6 +79,7 @@ export default function UserDashboard() {
           </div>
           <div className="site-actions">
             <ThemeButton />
+            <LanguageSwitch />
             <button type="button" className="btn-secondary logout-button" onClick={() => setShowNotifications(true)} aria-label="Benachrichtigungen" title="Benachrichtigungen"><BellIcon /><span className="logout-label">Benachrichtigungen</span></button>
             <button type="button" className="btn-secondary logout-button" onClick={logout} aria-label="Abmelden"><LogoutIcon /><span className="logout-label">Abmelden</span></button>
           </div>

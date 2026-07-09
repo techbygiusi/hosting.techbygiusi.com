@@ -6,6 +6,7 @@ import ThemeButton from '../components/ThemeButton';
 import Modal from '../components/Modal';
 import MaintenanceBanner from '../components/MaintenanceBanner';
 import ClusterMapSection from '../components/ClusterMapSection';
+import LanguageSwitch, { readStoredLanguage, storeLanguage } from '../components/LanguageSwitch';
 
 function LogoutIcon() {
   return (
@@ -70,7 +71,6 @@ const emptyGroup = { name: '', memberIds: [] };
 const emptyAdminCred = { label: '', username: '', secret: '', url: '', notes: '', clusterId: '', userId: '' };
 const emptySmtp = { smtpHost: '', smtpPort: '587', smtpUser: '', smtpPassword: '' };
 
-const OVERLAY_LANGUAGE_KEY = 'hosting-admin-overlay-language';
 const OVERLAY_LANGUAGE_OPTIONS = [
   { code: 'en', label: 'English' },
   { code: 'de', label: 'Deutsch' }
@@ -116,14 +116,6 @@ const MOBILE_MENU_TRANSLATIONS = {
     }
   }
 };
-
-function readOverlayLanguage() {
-  try {
-    return localStorage.getItem(OVERLAY_LANGUAGE_KEY) || 'en';
-  } catch (_) {
-    return 'en';
-  }
-}
 
 
 export default function AdminDashboard() {
@@ -186,7 +178,7 @@ export default function AdminDashboard() {
   const [locationResults, setLocationResults] = useState([]);
   const [locationSearchLoading, setLocationSearchLoading] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [mobileMenuLanguage, setMobileMenuLanguage] = useState(readOverlayLanguage);
+  const [mobileMenuLanguage, setMobileMenuLanguage] = useState(readStoredLanguage);
 
   const tabs = [
     ['overview', 'Dashboard'],
@@ -248,11 +240,7 @@ export default function AdminDashboard() {
 
   const handleOverlayLanguageChange = (language) => {
     setMobileMenuLanguage(language);
-    try {
-      localStorage.setItem(OVERLAY_LANGUAGE_KEY, language);
-    } catch (_) {
-      // Ignore storage errors; English remains the default fallback.
-    }
+    storeLanguage(language);
   };
 
   const loadData = async (tab = activeTab) => {
@@ -1048,6 +1036,7 @@ export default function AdminDashboard() {
           <button type="button" className="site-brand site-brand-button" onClick={() => handleSelectTab('overview')} aria-label="Zum Dashboard"><h1>Hosting by TechByGiusi</h1></button>
           <div className="site-actions">
             <ThemeButton />
+            <LanguageSwitch value={mobileMenuLanguage} onChange={setMobileMenuLanguage} />
             <button type="button" className="btn-secondary admin-mobile-menu-toggle" onClick={() => setMobileMenuOpen(true)} aria-label={mobileMenuText.openMenu}><MenuIcon /><span>{mobileMenuText.menu}</span></button>
             <button type="button" className="btn-secondary logout-button" onClick={logout} aria-label="Abmelden"><LogoutIcon /><span className="logout-label">Abmelden</span></button>
           </div>
