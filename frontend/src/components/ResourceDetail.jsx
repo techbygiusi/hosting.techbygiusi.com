@@ -101,9 +101,18 @@ export function PowerControls({ resource, onChanged, compact = false, onOpenCons
 
 function OverviewTab({ resource, onChanged, onOpenConsole, onClose }) {
   const primaryIp = getPrimaryIp(resource);
+  const publicUrl = resource.publicUrl || resource.webUrl || '';
+  const adminUrl = resource.adminUrl || '';
+
   return (
     <div className="resource-details detail-modal-content">
       <PowerControls resource={resource} onChanged={onChanged} onOpenConsole={onOpenConsole} />
+      {(publicUrl || adminUrl) && (
+        <div className="service-link-row">
+          {publicUrl && <a className="btn-secondary full-button" href={publicUrl} target="_blank" rel="noreferrer">Öffentliche Seite</a>}
+          {adminUrl && <a className="btn-secondary full-button" href={adminUrl} target="_blank" rel="noreferrer">Verwaltungsseite</a>}
+        </div>
+      )}
       <div className="resource-meta">
         {resource.groupName && (<><span>Gruppe</span><span>{resource.groupName}</span></>)}
         <span>Cluster</span><span>{resource.clusterName || 'Unbekannt'}</span>

@@ -119,6 +119,33 @@ async function getClusterCapabilities(clusterId, clusterUrl, apiToken) {
   return value;
 }
 
+
+async function attachSharedManagementUrls(resources) {
+  if (!Array.isArray(resources) || resources.length === 0) return resources;
+
+  const ids = resources.map(resource => resource.id).filter(Boolean);
+  if (ids.length === 0) return resources;
+
+  const placeholders = ids.map(() => '?').join(',');
+  const rows = await all(
+    `SELECT resource_id, url
+     FROM resource_credentials
+     WHERE COALESCE(purpose, 'general') = 'management'
+       AND resource_id IN (${placeholders})`,
+    ids
+  );
+
+  const credentialUrls = rows.reduce((acc, row) => {
+    acc[String(row.resource_id)] = row.url || '';
+    return acc;
+  }, {});
+
+  return resources.map(resource => ({
+    ...resource,
+    adminUrl: resource.adminUrl || credentialUrls[String(resource.id)] || ''
+  }));
+}
+
 /* ----------------------------------------------------------- PROFILE ---- */
 router.get('/profile', async (req, res, next) => {
   try {
@@ -208,7 +235,7 @@ router.put('/notifications', async (req, res, next) => {
 router.get('/resources', async (req, res, next) => {
   try {
     const rows = await getResourceRowsForUser(req.user.id);
-    const resources = (await enrichResources(rows)).map(resource => ({ ...resource, adminUrl: '' }));
+    const resources = await attachSharedManagementUrls(await enrichResources(rows));
 
     // Attach capabilities per cluster so the UI knows which actions to show
     const clusterIds = [...new Set(rows.map(row => row.cluster_id))];
@@ -239,7 +266,7 @@ router.get('/resources/:id', async (req, res, next) => {
     const rows = await getResourceRowsForUser(req.user.id, req.params.id);
     if (rows.length === 0) throw new AppError('Resource not accessible', HTTP_STATUS.FORBIDDEN);
 
-    const resources = (await enrichResources(rows)).map(resource => ({ ...resource, adminUrl: '' }));
+    const resources = await attachSharedManagementUrls(await enrichResources(rows));
     const caps = await getClusterCapabilities(rows[0].cluster_id, rows[0].cluster_url, decrypt(rows[0].api_token));
     res.json({ resource: { ...resources[0], canDelete: !!resources[0].canDelete && String(resources[0].userId) === String(req.user.id) && !!caps.canProvision, capabilities: caps } });
   } catch (err) {

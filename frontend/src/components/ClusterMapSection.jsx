@@ -1,22 +1,12 @@
-import React, { useMemo } from 'react';
-import { MapContainer, Marker, Popup, TileLayer, useMap } from 'react-leaflet';
+import React, { useEffect, useMemo, useState } from 'react';
+import { CircleMarker, MapContainer, Popup, TileLayer, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
-import markerIcon from 'leaflet/dist/images/marker-icon.png';
-import markerShadow from 'leaflet/dist/images/marker-shadow.png';
 
-const DefaultIcon = L.icon({
-  iconRetinaUrl: markerIcon2x,
-  iconUrl: markerIcon,
-  shadowUrl: markerShadow,
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
-  shadowSize: [41, 41]
-});
-
-L.Marker.prototype.options.icon = DefaultIcon;
+function getBodyTheme() {
+  if (typeof document === 'undefined') return 'light';
+  return document.body.classList.contains('theme-dark') ? 'dark' : 'light';
+}
 
 function MapBounds({ points }) {
   const map = useMap();
@@ -27,7 +17,7 @@ function MapBounds({ points }) {
     if (points.length === 1) {
       map.setView([points[0].lat, points[0].lon], 3, { animate: false });
     } else {
-      map.fitBounds(bounds, { padding: [40, 40], maxZoom: 4 });
+      map.fitBounds(bounds, { padding: [50, 50], maxZoom: 3 });
     }
     setTimeout(() => map.invalidateSize(), 50);
   }, [map, points]);
@@ -36,6 +26,29 @@ function MapBounds({ points }) {
 }
 
 export default function ClusterMapSection({ clusters = [], mappedCount = 0, onOpenClusters }) {
+  const [theme, setTheme] = useState(getBodyTheme);
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return undefined;
+
+    const updateTheme = () => setTheme(getBodyTheme());
+    updateTheme();
+
+    const observer = new MutationObserver(updateTheme);
+    observer.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+
+    return () => observer.disconnect();
+  }, []);
+
+  const isDark = theme === 'dark';
+  const tileUrl = isDark
+    ? 'https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png'
+    : 'https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png';
+  const tileAttribution = '&copy; OpenStreetMap contributors &copy; CARTO';
+  const markerStyle = isDark
+    ? { color: '#101419', weight: 2, fillColor: '#c2cea7', fillOpacity: 0.95 }
+    : { color: '#ffffff', weight: 2, fillColor: '#7a876f', fillOpacity: 0.95 };
+
   const points = useMemo(() => (
     (Array.isArray(clusters) ? clusters : [])
       .map(cluster => ({
@@ -75,20 +88,17 @@ export default function ClusterMapSection({ clusters = [], mappedCount = 0, onOp
         <div className="cluster-map-layout">
           <div className="cluster-map-canvas">
             <MapContainer center={[20, 8]} zoom={3} minZoom={2} scrollWheelZoom={false} className="cluster-map-widget">
-              <TileLayer
-                attribution='&copy; OpenStreetMap contributors'
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-              />
+              <TileLayer attribution={tileAttribution} url={tileUrl} subdomains={['a', 'b', 'c', 'd']} />
               <MapBounds points={points} />
               {points.map(point => (
-                <Marker key={point.id} position={[point.lat, point.lon]}>
+                <CircleMarker key={point.id} center={[point.lat, point.lon]} radius={8} pathOptions={markerStyle}>
                   <Popup>
                     <strong>{point.name}</strong>
                     <div>{point.label}</div>
                     <div>{point.online}/{point.nodes} Nodes online</div>
                     {point.url ? <div>{point.url}</div> : null}
                   </Popup>
-                </Marker>
+                </CircleMarker>
               ))}
             </MapContainer>
           </div>

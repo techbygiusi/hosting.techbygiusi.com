@@ -6,7 +6,7 @@ The frontend is built with React and the backend with Express + SQLite. Proxmox 
 
 ## Version
 
-Current version: **v3.1.6**
+Current version: **v3.1.9**
 
 Versioning now follows a clean semantic sequence:
 
@@ -190,10 +190,37 @@ The database migrates itself on startup. Keep the backend data volume before upd
 
 ## Changelog
 
+### v3.1.9 - 2026-07-09
+
+**Commit:** `fix: handle shared management credentials and admin read-only user services`
+
+- Users now see assigned service management pages when the admin has configured a management URL or shared management credential.
+- Admins can see self-service/user-created services in the services overview, including status and metrics.
+- Self-service/user-created services are read-only for admins: credentials stay hidden and edit/delete actions are blocked.
+- Backend checks now enforce the same read-only rules for user-managed services.
+
+### v3.1.9 - 2026-07-09
+
+**Commit:** `fix: remove dashboard showcase copy`
+
+- Removed the descriptive showcase sentence from the admin dashboard hero.
+- Kept the dashboard focused on productive actions and status information.
+
+### v3.1.9 - 2026-07-09
+
+**Commit:** `fix: refine cluster cards and modernize cluster map`
+
+- improved spacing between cluster summary cards so boxes are clearly separated
+- reformatted the `3/3 Nodes` badges in cluster summary and cluster status cards
+- switched the cluster map to a cleaner modern outline style with theme-aware light and dark tiles
+- kept the map zoomed farther out so the overall region is easier to recognize
+
 ### v3.1.6 - 2026-07-09
+
+**Commit:** `fix: offset sticky navigation below maintenance banner`
+
 - fixed sticky header and admin sidebar offsets when a maintenance banner is active so navigation no longer scrolls behind the banner
 - mobile admin menu overlay now respects the active maintenance banner height
-
 
 ### v3.1.5 - 2026-07-09
 

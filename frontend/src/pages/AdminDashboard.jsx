@@ -1032,7 +1032,7 @@ export default function AdminDashboard() {
                 <div>
                   <span className="resource-id">Hosting by TechByGiusi</span>
                   <h2>Dashboard</h2>
-                  <p>Eine klare Hosting-Konsole mit deinem Farbschema, zentraler Übersicht und Cluster-Standorten auf einer Karte.</p>
+                  
                 </div>
                 <div className="dashboard-hero-actions">
                   <button type="button" className="btn-secondary" onClick={() => handleSelectTab('clusters')}>Cluster verwalten</button>
@@ -1455,6 +1455,7 @@ export default function AdminDashboard() {
  */
 function AdminResourceCredentials({ resource, onClose, onError }) {
   const emptyForm = { label: '', username: '', secret: '', url: '', notes: '', purpose: 'general' };
+  const adminReadOnly = !!resource.adminReadOnly || !!resource.isSelfService;
   const [credentials, setCredentials] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -1538,6 +1539,14 @@ function AdminResourceCredentials({ resource, onClose, onError }) {
 
   const adminCreds = credentials.filter(item => item.canManage);
   const userCreds = credentials.filter(item => !item.canManage);
+
+  if (adminReadOnly) {
+    return (
+      <Modal title={`Zugangsdaten · ${resource.name}`} onClose={onClose}>
+        <p className="hint-text tab-empty">Benutzerverwaltete Dienste: Zugangsdaten sind für den Admin nicht sichtbar.</p>
+      </Modal>
+    );
+  }
 
   return (
     <Modal title={`Zugangsdaten · ${resource.name}`} onClose={onClose}>
@@ -1984,11 +1993,16 @@ function ResourceCard({ resource, onEdit, onDelete, onManageCredentials, actionL
   const memPercent = getPercent(resource.mem, resource.maxmem);
   const publicUrl = resource.publicUrl || resource.webUrl;
   const ipAddress = getPrimaryIp(resource);
+  const adminReadOnly = !!resource.adminReadOnly || !!resource.isSelfService;
 
   return (
     <article className="resource-card compact-resource-card">
       <div className="resource-card-header">
-        <div><span className="resource-id">{renderType(resource.type)} · {resource.containerId}</span><h2>{resource.name}</h2></div>
+        <div>
+          <span className="resource-id">{renderType(resource.type)} · {resource.containerId}</span>
+          <h2>{resource.name}</h2>
+          {adminReadOnly && <span className="credential-badge user-managed-badge">Benutzerverwaltet</span>}
+        </div>
         <span className={`status-badge status-${resource.status || 'unknown'}`}>{renderStatus(resource.status)}</span>
       </div>
 
@@ -2025,11 +2039,13 @@ function ResourceCard({ resource, onEdit, onDelete, onManageCredentials, actionL
               <span>Status</span><span>{renderStatus(resource.status)}</span>
             </div>
             <DiskDetails resource={resource} />
-            <div className="button-stack">
-              <button type="button" className="btn-secondary full-button" onClick={() => { setDetailsOpen(false); onManageCredentials(resource); }}>Zugangsdaten hinterlegen</button>
-              <button type="button" className="btn-secondary full-button" onClick={() => { setDetailsOpen(false); onEdit(resource); }}>Bearbeiten</button>
-              <button type="button" className="btn-danger full-button" onClick={() => { setDetailsOpen(false); onDelete(resource.id); }} disabled={actionLoading}>Entfernen</button>
-            </div>
+            {!adminReadOnly && (
+              <div className="button-stack">
+                <button type="button" className="btn-secondary full-button" onClick={() => { setDetailsOpen(false); onManageCredentials(resource); }}>Zugangsdaten hinterlegen</button>
+                <button type="button" className="btn-secondary full-button" onClick={() => { setDetailsOpen(false); onEdit(resource); }}>Bearbeiten</button>
+                <button type="button" className="btn-danger full-button" onClick={() => { setDetailsOpen(false); onDelete(resource.id); }} disabled={actionLoading}>Entfernen</button>
+              </div>
+            )}
             {resource.monitorError && <p className="hint-text">Monitoring nicht erreichbar.</p>}
           </div>
         </Modal>

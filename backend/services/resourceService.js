@@ -44,6 +44,7 @@ function normalizeResourceRow(row, liveResource = null, error = null, diskInfo =
   const provisionedIp = stripCidr(row.provisioned_ip || '');
   const livePrimaryIp = ips.find(item => item.ipv4)?.ipv4 || '';
   const primaryIp = provisionedIp || livePrimaryIp;
+  const isSelfService = !!row.provisioned_id && String(row.provisioned_user_id || '') === String(row.user_id || '');
 
   if (provisionedIp && !ips.some(item => item.ipv4 === provisionedIp)) {
     ips.unshift({ interface: 'reserved', ipv4: provisionedIp, ipv6: '' });
@@ -79,6 +80,9 @@ function normalizeResourceRow(row, liveResource = null, error = null, diskInfo =
     publicUrl: row.public_url || row.web_url || '',
     adminUrl: row.admin_url || '',
     canDelete: !!row.provisioned_id,
+    isSelfService,
+    adminReadOnly: isSelfService,
+    source: isSelfService ? 'self-service' : 'admin',
     monitorError: error || null,
     createdAt: row.created_at,
     updatedAt: row.updated_at

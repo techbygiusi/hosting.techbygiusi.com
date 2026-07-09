@@ -143,6 +143,7 @@ function ResourceCard({ resource, onOpenDetails }) {
   const cpuPercent = getCpuPercent(resource);
   const memPercent = getPercent(resource.mem, resource.maxmem);
   const publicUrl = resource.publicUrl || resource.webUrl;
+  const adminUrl = resource.adminUrl || '';
 
   return (
     <article className="resource-card compact-resource-card">
@@ -165,8 +166,11 @@ function ResourceCard({ resource, onOpenDetails }) {
       <Metric label="CPU" percent={cpuPercent} detail={`${cpuPercent.toFixed(1)} %`} />
       <Metric label="RAM" percent={memPercent} detail={`${formatBytes(resource.mem)} / ${formatBytes(resource.maxmem)}`} />
 
-      {publicUrl ? (
-        <a className="btn-primary full-button" href={publicUrl} target="_blank" rel="noreferrer">Öffentliche Seite</a>
+      {(publicUrl || adminUrl) ? (
+        <div className="service-link-row">
+          {publicUrl && <a className="btn-primary full-button" href={publicUrl} target="_blank" rel="noreferrer">Öffentliche Seite</a>}
+          {adminUrl && <a className="btn-secondary full-button" href={adminUrl} target="_blank" rel="noreferrer">Verwaltungsseite</a>}
+        </div>
       ) : null}
 
       <button type="button" className="btn-secondary full-button service-detail-toggle" onClick={onOpenDetails}>

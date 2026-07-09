@@ -147,6 +147,38 @@ async function resolveClusterTestData(input) {
   };
 }
 
+
+async function getResourceOwnership(resourceId) {
+  const row = await get(`
+    SELECT
+      r.id,
+      r.user_id,
+      pm.id AS provisioned_id,
+      pm.user_id AS provisioned_user_id
+    FROM resources r
+    LEFT JOIN provisioned_machines pm
+      ON pm.cluster_id = r.cluster_id
+     AND CAST(pm.vmid AS TEXT) = CAST(r.container_id AS TEXT)
+    WHERE r.id = ?
+  `, [resourceId]);
+
+  if (!row) return null;
+
+  return {
+    exists: true,
+    isSelfService: !!row.provisioned_id && String(row.provisioned_user_id || '') === String(row.user_id || '')
+  };
+}
+
+async function assertResourceEditableByAdmin(resourceId, action = 'bearbeitet') {
+  const ownership = await getResourceOwnership(resourceId);
+  if (!ownership) throw new AppError('Resource not found', HTTP_STATUS.NOT_FOUND);
+  if (ownership.isSelfService) {
+    throw new AppError(`Benutzerverwaltete Dienste können vom Admin nicht ${action} werden`, HTTP_STATUS.FORBIDDEN);
+  }
+  return ownership;
+}
+
 async function getResourceRows(where = '', params = []) {
   return all(`
     SELECT
@@ -886,8 +918,11 @@ router.delete('/credentials/:id', async (req, res, next) => {
  */
 router.get('/resources/:id/credentials', async (req, res, next) => {
   try {
-    const resource = await get('SELECT id FROM resources WHERE id = ?', [req.params.id]);
-    if (!resource) throw new AppError('Resource not found', HTTP_STATUS.NOT_FOUND);
+    const ownership = await getResourceOwnership(req.params.id);
+    if (!ownership) throw new AppError('Resource not found', HTTP_STATUS.NOT_FOUND);
+    if (ownership.isSelfService) {
+      return res.json({ credentials: [], locked: true });
+    }
 
     const rows = await all(
       `SELECT id, label, username, url, notes, created_by_role, COALESCE(purpose, 'general') AS purpose, created_at, updated_at
@@ -911,6 +946,7 @@ router.get('/resources/:id/credentials', async (req, res, next) => {
 
 router.get('/resources/:id/credentials/:credId/reveal', async (req, res, next) => {
   try {
+    await assertResourceEditableByAdmin(req.params.id, 'eingesehen');
     const cred = await get(
       "SELECT id, label, secret_encrypted, created_by_role, COALESCE(purpose, 'general') AS purpose FROM resource_credentials WHERE id = ? AND resource_id = ?",
       [req.params.credId, req.params.id]
@@ -929,6 +965,7 @@ router.get('/resources/:id/credentials/:credId/reveal', async (req, res, next) =
 
 router.post('/resources/:id/credentials', async (req, res, next) => {
   try {
+    await assertResourceEditableByAdmin(req.params.id, 'verwaltet');
     const resource = await get('SELECT id, name, admin_url FROM resources WHERE id = ?', [req.params.id]);
     if (!resource) throw new AppError('Resource not found', HTTP_STATUS.NOT_FOUND);
 
@@ -971,6 +1008,7 @@ router.post('/resources/:id/credentials', async (req, res, next) => {
 
 router.put('/resources/:id/credentials/:credId', async (req, res, next) => {
   try {
+    await assertResourceEditableByAdmin(req.params.id, 'verwaltet');
     const cred = await get(
       'SELECT * FROM resource_credentials WHERE id = ? AND resource_id = ?',
       [req.params.credId, req.params.id]
@@ -1009,6 +1047,7 @@ router.put('/resources/:id/credentials/:credId', async (req, res, next) => {
 
 router.delete('/resources/:id/credentials/:credId', async (req, res, next) => {
   try {
+    await assertResourceEditableByAdmin(req.params.id, 'verwaltet');
     const cred = await get(
       "SELECT id, label, created_by_role, COALESCE(purpose, 'general') AS purpose FROM resource_credentials WHERE id = ? AND resource_id = ?",
       [req.params.credId, req.params.id]
@@ -1224,6 +1263,8 @@ router.put('/resources/:id', async (req, res, next) => {
       throw new AppError('Resource not found', HTTP_STATUS.NOT_FOUND);
     }
 
+    await assertResourceEditableByAdmin(resourceId, 'bearbeitet');
+
     const nextClusterId = clusterId || resource.cluster_id;
     const nextContainerId = String(containerId || resource.container_id);
     const nextUserId = userId || resource.user_id;
@@ -1274,6 +1315,8 @@ router.delete('/resources/:id', async (req, res, next) => {
     if (!resource) {
       throw new AppError('Resource not found', HTTP_STATUS.NOT_FOUND);
     }
+
+    await assertResourceEditableByAdmin(resourceId, 'entfernt');
 
     await run('DELETE FROM resources WHERE id = ?', [resourceId]);
     res.json({ message: 'Resource deleted successfully' });
