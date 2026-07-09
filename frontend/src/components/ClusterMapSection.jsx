@@ -31,7 +31,7 @@ function MapBounds({ points }) {
   return null;
 }
 
-export default function ClusterMapSection({ clusters = [], mappedCount = 0, onOpenClusters }) {
+export default function ClusterMapSection({ clusters = [], mappedCount = 0, onOpenClusters, labels }) {
   const [theme, setTheme] = useState(getBodyTheme);
 
   useEffect(() => {
@@ -74,20 +74,20 @@ export default function ClusterMapSection({ clusters = [], mappedCount = 0, onOp
     <section className="panel-card cluster-map-card">
       <div className="panel-header cluster-map-header">
         <div>
-          <h2>Cluster-Standorte</h2>
-          <p>{mappedCount || points.length} von {clusters.length} Cluster mit Karten-Standort</p>
+          <h2>{labels?.title || 'Cluster locations'}</h2>
+          <p>{labels?.count ? labels.count(mappedCount || points.length, clusters.length) : `${mappedCount || points.length} of ${clusters.length} clusters with map location`}</p>
         </div>
         {onOpenClusters && (
           <button type="button" className="btn-secondary btn-small" onClick={onOpenClusters}>
-            Cluster verwalten
+            {labels?.manage || 'Manage clusters'}
           </button>
         )}
       </div>
 
       {points.length === 0 ? (
         <div className="empty-state soft-box cluster-map-empty">
-          <h2>Keine Karten-Standorte hinterlegt</h2>
-          <p>Öffne einen Proxmox-Cluster, suche nach der Adresse und wähle einen Standort aus dem Dropdown aus.</p>
+          <h2>{labels?.emptyTitle || 'No map locations configured'}</h2>
+          <p>{labels?.emptyText || 'Open a Proxmox cluster, search for its address and select a location from the dropdown.'}</p>
         </div>
       ) : (
         <div className="cluster-map-layout">
@@ -100,7 +100,7 @@ export default function ClusterMapSection({ clusters = [], mappedCount = 0, onOp
                   <Popup>
                     <strong>{point.name}</strong>
                     <div>{point.label}</div>
-                    <div>{point.online}/{point.nodes} Nodes online</div>
+                    <div>{point.online}/{point.nodes} {labels?.nodesOnline || 'Nodes online'}</div>
                     {point.url ? <div>{point.url}</div> : null}
                   </Popup>
                 </CircleMarker>
@@ -116,7 +116,7 @@ export default function ClusterMapSection({ clusters = [], mappedCount = 0, onOp
                   <span>{point.label}</span>
                 </div>
                 <span className={`status-badge ${point.error ? 'status-stopped' : 'status-running'}`}>
-                  {point.error ? 'Problem' : `${point.online}/${point.nodes} Nodes`}
+                  {point.error ? (labels?.problem || 'Problem') : `${point.online}/${point.nodes} ${labels?.nodes || 'Nodes'}`}
                 </span>
               </div>
             ))}

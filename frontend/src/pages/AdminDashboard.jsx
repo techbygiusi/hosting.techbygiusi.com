@@ -84,6 +84,7 @@ const MOBILE_MENU_TRANSLATIONS = {
     closeMenu: 'Close menu',
     logout: 'Log out',
     adminConsole: 'Admin Console',
+    loading: 'Loading data...',
     counts: { clusters: 'clusters', services: 'services', users: 'users' },
     tabs: {
       overview: 'Dashboard',
@@ -94,6 +95,38 @@ const MOBILE_MENU_TRANSLATIONS = {
       maintenance: 'Maintenance',
       audit: 'Log',
       settings: 'Settings'
+    },
+    dashboard: {
+      manageClusters: 'Manage clusters',
+      manageServices: 'Manage services',
+      metrics: {
+        users: 'Users',
+        admins: 'Administrators',
+        groups: 'Groups',
+        clusters: 'Clusters',
+        services: 'Services',
+        online: 'Online'
+      }
+    },
+    clusterMap: {
+      title: 'Cluster locations',
+      count: (mapped, total) => `${mapped} of ${total} clusters with map location`,
+      manage: 'Manage clusters',
+      emptyTitle: 'No map locations configured',
+      emptyText: 'Open a Proxmox cluster, search for its address and select a location from the dropdown.',
+      nodes: 'Nodes',
+      problem: 'Problem',
+      nodesOnline: 'Nodes online'
+    },
+    clusterStatus: {
+      title: 'Cluster status',
+      unavailable: 'Unavailable',
+      nodes: 'Nodes',
+      storage: 'Storage',
+      online: 'Online',
+      offline: 'Offline',
+      average: 'average',
+      uptime: 'Uptime'
     }
   },
   de: {
@@ -103,6 +136,7 @@ const MOBILE_MENU_TRANSLATIONS = {
     closeMenu: 'Menü schließen',
     logout: 'Abmelden',
     adminConsole: 'Admin-Konsole',
+    loading: 'Daten werden geladen...',
     counts: { clusters: 'Cluster', services: 'Dienste', users: 'Benutzer' },
     tabs: {
       overview: 'Dashboard',
@@ -113,6 +147,38 @@ const MOBILE_MENU_TRANSLATIONS = {
       maintenance: 'Wartung',
       audit: 'Protokoll',
       settings: 'Einstellungen'
+    },
+    dashboard: {
+      manageClusters: 'Cluster verwalten',
+      manageServices: 'Dienste verwalten',
+      metrics: {
+        users: 'Benutzer',
+        admins: 'Administratoren',
+        groups: 'Gruppen',
+        clusters: 'Cluster',
+        services: 'Dienste',
+        online: 'Online'
+      }
+    },
+    clusterMap: {
+      title: 'Cluster-Standorte',
+      count: (mapped, total) => `${mapped} von ${total} Cluster mit Karten-Standort`,
+      manage: 'Cluster verwalten',
+      emptyTitle: 'Keine Karten-Standorte hinterlegt',
+      emptyText: 'Öffne einen Proxmox-Cluster, suche nach der Adresse und wähle einen Standort aus dem Dropdown aus.',
+      nodes: 'Nodes',
+      problem: 'Problem',
+      nodesOnline: 'Nodes online'
+    },
+    clusterStatus: {
+      title: 'Cluster-Status',
+      unavailable: 'Nicht erreichbar',
+      nodes: 'Nodes',
+      storage: 'Storage',
+      online: 'Online',
+      offline: 'Offline',
+      average: 'Durchschnitt',
+      uptime: 'Uptime'
     }
   }
 };
@@ -193,6 +259,7 @@ export default function AdminDashboard() {
 
   const mobileMenuText = MOBILE_MENU_TRANSLATIONS[mobileMenuLanguage] || MOBILE_MENU_TRANSLATIONS.en;
   const mobileMenuTabs = tabs.map(([key]) => [key, mobileMenuText.tabs[key] || key]);
+  const dashboardText = mobileMenuText.dashboard;
 
   const adminCount = users.filter(item => item.role === 'admin').length;
   const userCount = users.filter(item => item.role === 'user').length;
@@ -1038,7 +1105,7 @@ export default function AdminDashboard() {
             <ThemeButton />
             <LanguageSwitch value={mobileMenuLanguage} onChange={setMobileMenuLanguage} />
             <button type="button" className="btn-secondary admin-mobile-menu-toggle" onClick={() => setMobileMenuOpen(true)} aria-label={mobileMenuText.openMenu}><MenuIcon /><span>{mobileMenuText.menu}</span></button>
-            <button type="button" className="btn-secondary logout-button" onClick={logout} aria-label="Abmelden"><LogoutIcon /><span className="logout-label">Abmelden</span></button>
+            <button type="button" className="btn-secondary logout-button" onClick={logout} aria-label={mobileMenuText.logout}><LogoutIcon /><span className="logout-label">{mobileMenuText.logout}</span></button>
           </div>
         </div>
       </header>
@@ -1079,12 +1146,12 @@ export default function AdminDashboard() {
       <main className="app-container compact-container admin-shell">
         <aside className="admin-sidebar-shell desktop-admin-sidebar">
           <div className="panel-card console-sidebar-card">
-            <span className="resource-id">Admin-Konsole</span>
+            <span className="resource-id">{mobileMenuText.adminConsole}</span>
             <h2>{user?.name || 'Administrator'}</h2>
-            <p>{clusters.length} Cluster · {resources.length} Dienste · {users.length} Benutzer</p>
+            <p>{clusters.length} {mobileMenuText.counts.clusters} · {resources.length} {mobileMenuText.counts.services} · {users.length} {mobileMenuText.counts.users}</p>
           </div>
-          <nav className="app-tabs console-nav-tabs" aria-label="Admin-Bereiche">
-            {tabs.map(([key, label]) => (
+          <nav className="app-tabs console-nav-tabs" aria-label={mobileMenuText.menu}>
+            {mobileMenuTabs.map(([key, label]) => (
               <button key={key} type="button" className={activeTab === key ? 'active' : ''} onClick={() => handleSelectTab(key)}>{label}</button>
             ))}
           </nav>
@@ -1094,7 +1161,7 @@ export default function AdminDashboard() {
           {error && <div className="alert alert-danger">{error}</div>}
           {successMsg && <div className="alert alert-success">{successMsg}</div>}
 
-          {loading && <div className="loading"><span className="spinner"></span><span>Daten werden geladen...</span></div>}
+          {loading && <div className="loading"><span className="spinner"></span><span>{mobileMenuText.loading}</span></div>}
 
           {!loading && activeTab === 'overview' && (
             <>
@@ -1105,24 +1172,24 @@ export default function AdminDashboard() {
                   
                 </div>
                 <div className="dashboard-hero-actions">
-                  <button type="button" className="btn-secondary" onClick={() => handleSelectTab('clusters')}>Cluster verwalten</button>
-                  <button type="button" className="btn-primary" onClick={() => handleSelectTab('resources')}>Dienste verwalten</button>
+                  <button type="button" className="btn-secondary" onClick={() => handleSelectTab('clusters')}>{dashboardText.manageClusters}</button>
+                  <button type="button" className="btn-primary" onClick={() => handleSelectTab('resources')}>{dashboardText.manageServices}</button>
                 </div>
               </section>
 
               <section className="dashboard-grid console-metric-grid">
-                <MetricCard label="Benutzer" value={userCount} onClick={() => handleSelectTab('users')} />
-                <MetricCard label="Administratoren" value={adminCount} onClick={() => handleSelectTab('users')} />
-                <MetricCard label="Gruppen" value={groups.length} onClick={() => handleSelectTab('groups')} />
-                <MetricCard label="Cluster" value={clusters.length} onClick={() => handleSelectTab('clusters')} />
-                <MetricCard label="Dienste" value={resources.length} onClick={() => handleSelectTab('resources')} />
-                <MetricCard label="Online" value={onlineCount} onClick={() => handleSelectTab('resources')} />
+                <MetricCard label={dashboardText.metrics.users} value={userCount} onClick={() => handleSelectTab('users')} />
+                <MetricCard label={dashboardText.metrics.admins} value={adminCount} onClick={() => handleSelectTab('users')} />
+                <MetricCard label={dashboardText.metrics.groups} value={groups.length} onClick={() => handleSelectTab('groups')} />
+                <MetricCard label={dashboardText.metrics.clusters} value={clusters.length} onClick={() => handleSelectTab('clusters')} />
+                <MetricCard label={dashboardText.metrics.services} value={resources.length} onClick={() => handleSelectTab('resources')} />
+                <MetricCard label={dashboardText.metrics.online} value={onlineCount} onClick={() => handleSelectTab('resources')} />
               </section>
 
               <div className="admin-overview-stack">
-                <ClusterMapSection clusters={clusterStats} mappedCount={mappedClusterCount} onOpenClusters={() => handleSelectTab('clusters')} />
+                <ClusterMapSection clusters={clusterStats} mappedCount={mappedClusterCount} onOpenClusters={() => handleSelectTab('clusters')} labels={mobileMenuText.clusterMap} />
                 <StatusEventsSection events={statusEvents} />
-                <ClusterStatsSection clusters={clusterStats} />
+                <ClusterStatsSection clusters={clusterStats} labels={mobileMenuText.clusterStatus} />
               </div>
             </>
           )}
@@ -1929,21 +1996,21 @@ function PanelHeader({ title, action, onAction }) {
 }
 
 
-function ClusterStatsSection({ clusters }) {
+function ClusterStatsSection({ clusters, labels }) {
   if (!clusters || clusters.length === 0) return null;
   return (
     <section className="panel-card cluster-stats-section">
       <div className="panel-header cluster-stats-header">
-        <h2>Cluster-Status</h2>
+        <h2>{labels?.title || 'Cluster status'}</h2>
       </div>
       <div className="cluster-stats-grid">
-        {clusters.map(cluster => <ClusterStatsCard key={cluster.id} cluster={cluster} />)}
+        {clusters.map(cluster => <ClusterStatsCard key={cluster.id} cluster={cluster} labels={labels} />)}
       </div>
     </section>
   );
 }
 
-function ClusterStatsCard({ cluster }) {
+function ClusterStatsCard({ cluster, labels }) {
   const totals = cluster.totals || {};
   const nodes = Array.isArray(cluster.nodes) ? cluster.nodes : [];
   return (
@@ -1953,7 +2020,7 @@ function ClusterStatsCard({ cluster }) {
           <h3>{cluster.name}</h3>
         </div>
         <span className={`status-badge ${cluster.error ? 'status-stopped' : 'status-running cluster-node-badge'}`}>
-          {cluster.error ? 'Nicht erreichbar' : `${totals.online || 0}/${totals.nodes || nodes.length} Nodes`}
+          {cluster.error ? (labels?.unavailable || 'Unavailable') : `${totals.online || 0}/${totals.nodes || nodes.length} ${labels?.nodes || 'Nodes'}`}
         </span>
       </div>
 
@@ -1964,14 +2031,14 @@ function ClusterStatsCard({ cluster }) {
           <div className="cluster-stats-summary">
             <MiniMetric label="CPU Ø" value={`${formatFixed(totals.cpuPercent)}%`} />
             <MiniMetric label="RAM" value={`${formatFixed(totals.memPercent)}%`} />
-            <MiniMetric label="Storage" value={`${formatFixed(totals.storageTotal ? totals.storagePercent : totals.rootPercent)}%`} />
-            <MiniMetric label="Online" value={`${totals.online || 0}/${totals.nodes || 0}`} />
+            <MiniMetric label={labels?.storage || 'Storage'} value={`${formatFixed(totals.storageTotal ? totals.storagePercent : totals.rootPercent)}%`} />
+            <MiniMetric label={labels?.online || 'Online'} value={`${totals.online || 0}/${totals.nodes || 0}`} />
           </div>
-          <Metric label="CPU" percent={totals.cpuPercent || 0} detail={`${formatFixed(totals.cpuPercent)} % Durchschnitt`} />
+          <Metric label="CPU" percent={totals.cpuPercent || 0} detail={`${formatFixed(totals.cpuPercent)} % ${labels?.average || 'average'}`} />
           <Metric label="RAM" percent={totals.memPercent || 0} detail={`${formatBytes(totals.mem)} / ${formatBytes(totals.maxmem)}`} />
           <Metric label="Storage" percent={totals.storageTotal ? totals.storagePercent : totals.rootPercent || 0} detail={totals.storageTotal ? `${formatBytes(totals.storageUsed)} / ${formatBytes(totals.storageTotal)}` : `${formatBytes(totals.rootUsed)} / ${formatBytes(totals.rootTotal)}`} />
           <div className="cluster-node-list">
-            {nodes.map(node => <ClusterNodeRow key={node.node} node={node} />)}
+            {nodes.map(node => <ClusterNodeRow key={node.node} node={node} labels={labels} />)}
           </div>
         </>
       )}
@@ -1979,18 +2046,18 @@ function ClusterStatsCard({ cluster }) {
   );
 }
 
-function ClusterNodeRow({ node }) {
+function ClusterNodeRow({ node, labels }) {
   return (
     <div className="cluster-node-row">
       <div className="cluster-node-head">
         <strong>{node.node}</strong>
-        <span className={`status-badge status-${node.status === 'online' ? 'running' : 'stopped'}`}>{node.status === 'online' ? 'Online' : 'Offline'}</span>
+        <span className={`status-badge status-${node.status === 'online' ? 'running' : 'stopped'}`}>{node.status === 'online' ? (labels?.online || 'Online') : (labels?.offline || 'Offline')}</span>
       </div>
       <div className="cluster-node-metrics">
         <span>CPU {formatFixed(node.cpuPercent)}%</span>
         <span>RAM {formatFixed(node.memPercent)}%</span>
-        <span>Storage {formatFixed(node.storageTotal ? node.storagePercent : node.rootPercent)}%</span>
-        <span>Uptime {formatUptime(node.uptime)}</span>
+        <span>{labels?.storage || 'Storage'} {formatFixed(node.storageTotal ? node.storagePercent : node.rootPercent)}%</span>
+        <span>{labels?.uptime || 'Uptime'} {formatUptime(node.uptime)}</span>
       </div>
     </div>
   );

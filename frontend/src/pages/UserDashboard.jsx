@@ -3,8 +3,8 @@ import { useAuth } from '../context/AuthContext';
 import { userApi, getErrorMessage } from '../services/api';
 import '../styles/globals.css';
 import ThemeButton from '../components/ThemeButton';
-import LanguageSwitch from '../components/LanguageSwitch';
-import ResourceDetail, { getPercent, formatBytes, renderStatus, renderType } from '../components/ResourceDetail';
+import LanguageSwitch, { readStoredLanguage } from '../components/LanguageSwitch';
+import ResourceDetail, { getPercent, formatBytes, renderType } from '../components/ResourceDetail';
 import CreateMachineModal from '../components/CreateMachineModal';
 import MaintenanceBanner from '../components/MaintenanceBanner';
 import NotificationSettingsModal from '../components/NotificationSettingsModal';
@@ -16,6 +16,58 @@ function BellIcon() {
       <path d="M13.7 21a2 2 0 0 1-3.4 0" />
     </svg>
   );
+}
+
+
+const USER_TRANSLATIONS = {
+  en: {
+    notifications: 'Notifications',
+    logout: 'Log out',
+    createContainer: 'Create new container',
+    firstContainer: 'Create first container',
+    loadingServices: 'Loading services...',
+    noServices: 'No services',
+    noServicesText: 'No services have been assigned to you yet.',
+    publicPage: 'Public page',
+    managementPage: 'Management page',
+    details: 'Show details',
+    cluster: 'Cluster',
+    node: 'Node',
+    unknown: 'Unknown',
+    status: {
+      running: 'Online',
+      stopped: 'Offline',
+      paused: 'Paused',
+      suspended: 'Suspended',
+      unknown: 'Unknown'
+    }
+  },
+  de: {
+    notifications: 'Benachrichtigungen',
+    logout: 'Abmelden',
+    createContainer: 'Neuen Container erstellen',
+    firstContainer: 'Ersten Container erstellen',
+    loadingServices: 'Dienste werden geladen...',
+    noServices: 'Keine Dienste',
+    noServicesText: 'Dir sind noch keine Dienste zugewiesen.',
+    publicPage: 'Öffentliche Seite',
+    managementPage: 'Verwaltungsseite',
+    details: 'Details anzeigen',
+    cluster: 'Cluster',
+    node: 'Node',
+    unknown: 'Unbekannt',
+    status: {
+      running: 'Online',
+      stopped: 'Offline',
+      paused: 'Pausiert',
+      suspended: 'Angehalten',
+      unknown: 'Unbekannt'
+    }
+  }
+};
+
+function renderUserStatus(status, labels) {
+  return labels.status[status] || labels.status.unknown;
 }
 
 function LogoutIcon() {
@@ -37,6 +89,7 @@ export default function UserDashboard() {
   const [provisioningOptions, setProvisioningOptions] = useState([]);
   const [showCreate, setShowCreate] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [language, setLanguage] = useState(readStoredLanguage);
 
   const fetchResources = useCallback(async (withSpinner = true) => {
     try {
@@ -68,6 +121,7 @@ export default function UserDashboard() {
   }, [fetchResources]);
 
   const detailResource = resources.find(item => item.id === detailId) || null;
+  const labels = USER_TRANSLATIONS[language] || USER_TRANSLATIONS.en;
 
   return (
     <div className="app-page">
@@ -79,9 +133,9 @@ export default function UserDashboard() {
           </div>
           <div className="site-actions">
             <ThemeButton />
-            <LanguageSwitch />
-            <button type="button" className="btn-secondary logout-button" onClick={() => setShowNotifications(true)} aria-label="Benachrichtigungen" title="Benachrichtigungen"><BellIcon /><span className="logout-label">Benachrichtigungen</span></button>
-            <button type="button" className="btn-secondary logout-button" onClick={logout} aria-label="Abmelden"><LogoutIcon /><span className="logout-label">Abmelden</span></button>
+            <LanguageSwitch value={language} onChange={setLanguage} />
+            <button type="button" className="btn-secondary logout-button" onClick={() => setShowNotifications(true)} aria-label={labels.notifications} title={labels.notifications}><BellIcon /><span className="logout-label">{labels.notifications}</span></button>
+            <button type="button" className="btn-secondary logout-button" onClick={logout} aria-label={labels.logout}><LogoutIcon /><span className="logout-label">{labels.logout}</span></button>
           </div>
         </div>
       </header>
@@ -91,18 +145,18 @@ export default function UserDashboard() {
 
         {provisioningOptions.length > 0 && (
           <div className="dashboard-actions desktop-only-block">
-            <button type="button" className="btn-primary" onClick={() => setShowCreate(true)}>Neuen Container erstellen</button>
+            <button type="button" className="btn-primary" onClick={() => setShowCreate(true)}>{labels.createContainer}</button>
           </div>
         )}
 
         {loading ? (
-          <div className="loading"><span className="spinner"></span><span>Dienste werden geladen...</span></div>
+          <div className="loading"><span className="spinner"></span><span>{labels.loadingServices}</span></div>
         ) : resources.length === 0 ? (
           <section className="empty-state panel-card">
-            <h2>Keine Dienste</h2>
-            <p>Dir sind noch keine Dienste zugewiesen.</p>
+            <h2>{labels.noServices}</h2>
+            <p>{labels.noServicesText}</p>
             {provisioningOptions.length > 0 && (
-              <button type="button" className="btn-primary desktop-only-block" onClick={() => setShowCreate(true)}>Ersten Container erstellen</button>
+              <button type="button" className="btn-primary desktop-only-block" onClick={() => setShowCreate(true)}>{labels.firstContainer}</button>
             )}
           </section>
         ) : (
@@ -112,6 +166,7 @@ export default function UserDashboard() {
                 key={resource.id}
                 resource={resource}
                 onOpenDetails={() => setDetailId(resource.id)}
+                labels={labels}
               />
             ))}
           </section>
@@ -141,7 +196,7 @@ export default function UserDashboard() {
   );
 }
 
-function ResourceCard({ resource, onOpenDetails }) {
+function ResourceCard({ resource, onOpenDetails, labels }) {
   const cpuPercent = getCpuPercent(resource);
   const memPercent = getPercent(resource.mem, resource.maxmem);
   const publicUrl = resource.publicUrl || resource.webUrl;
@@ -157,12 +212,12 @@ function ResourceCard({ resource, onOpenDetails }) {
           </span>
           <h2>{resource.name}</h2>
         </div>
-        <span className={`status-badge status-${resource.status || 'unknown'}`}>{renderStatus(resource.status)}</span>
+        <span className={`status-badge status-${resource.status || 'unknown'}`}>{renderUserStatus(resource.status || 'unknown', labels)}</span>
       </div>
 
       <div className="resource-summary">
-        <div><span>Cluster</span><strong>{resource.clusterName || 'Unbekannt'}</strong></div>
-        <div><span>Node</span><strong>{resource.node || 'Unbekannt'}</strong></div>
+        <div><span>{labels.cluster}</span><strong>{resource.clusterName || labels.unknown}</strong></div>
+        <div><span>{labels.node}</span><strong>{resource.node || labels.unknown}</strong></div>
       </div>
 
       <Metric label="CPU" percent={cpuPercent} detail={`${cpuPercent.toFixed(1)} %`} />
@@ -170,13 +225,13 @@ function ResourceCard({ resource, onOpenDetails }) {
 
       {(publicUrl || adminUrl) ? (
         <div className={`service-link-row ${(publicUrl && adminUrl) ? 'dual-links' : ''}`}>
-          {publicUrl && <a className="btn-primary full-button" href={publicUrl} target="_blank" rel="noreferrer">Öffentliche Seite</a>}
-          {adminUrl && <a className="btn-secondary full-button" href={adminUrl} target="_blank" rel="noreferrer">Verwaltungsseite</a>}
+          {publicUrl && <a className="btn-primary full-button" href={publicUrl} target="_blank" rel="noreferrer">{labels.publicPage}</a>}
+          {adminUrl && <a className="btn-secondary full-button" href={adminUrl} target="_blank" rel="noreferrer">{labels.managementPage}</a>}
         </div>
       ) : null}
 
       <button type="button" className="btn-secondary full-button service-detail-toggle" onClick={onOpenDetails}>
-        Details anzeigen
+        {labels.details}
       </button>
 
     </article>

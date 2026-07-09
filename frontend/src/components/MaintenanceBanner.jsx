@@ -1,7 +1,33 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { publicApi } from '../services/api';
+import { readStoredLanguage } from './LanguageSwitch';
 
 const DISMISS_KEY = 'dismissedAnnouncements';
+
+const BANNER_LABELS = {
+  en: {
+    locale: 'en-US',
+    active: 'Maintenance active: ',
+    upcoming: 'Scheduled maintenance',
+    minute: 'min.',
+    hour: 'h',
+    day: 'days',
+    in: 'in',
+    hide: 'Hide',
+    hideAnnouncement: 'Hide announcement'
+  },
+  de: {
+    locale: 'de-DE',
+    active: 'Wartung läuft: ',
+    upcoming: 'Geplante Wartung',
+    minute: 'Min.',
+    hour: 'Std.',
+    day: 'Tagen',
+    in: 'in',
+    hide: 'Ausblenden',
+    hideAnnouncement: 'Ankündigung ausblenden'
+  }
+};
 
 function loadDismissed() {
   try {
@@ -17,25 +43,31 @@ function saveDismissed(ids) {
   } catch (_) { /* ignore */ }
 }
 
-function formatDateTime(value) {
+function formatDateTime(value, language) {
+  const labels = BANNER_LABELS[language] || BANNER_LABELS.en;
   try {
-    return new Date(value).toLocaleString('de-DE', {
-      weekday: 'short', day: '2-digit', month: '2-digit',
-      hour: '2-digit', minute: '2-digit'
-    }) + ' Uhr';
+    const formatted = new Date(value).toLocaleString(labels.locale, {
+      weekday: 'short',
+      day: '2-digit',
+      month: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+    return language === 'de' ? `${formatted} Uhr` : formatted;
   } catch (_) {
     return String(value);
   }
 }
 
-function relativeStart(startsAt) {
+function relativeStart(startsAt, language) {
+  const labels = BANNER_LABELS[language] || BANNER_LABELS.en;
   const diffMs = new Date(startsAt).getTime() - Date.now();
   if (diffMs <= 0) return null;
   const minutes = Math.round(diffMs / 60000);
-  if (minutes < 60) return `in ${minutes} Min.`;
+  if (minutes < 60) return `${labels.in} ${minutes} ${labels.minute}`;
   const hours = Math.round(minutes / 60);
-  if (hours < 48) return `in ${hours} Std.`;
-  return `in ${Math.round(hours / 24)} Tagen`;
+  if (hours < 48) return `${labels.in} ${hours} ${labels.hour}`;
+  return `${labels.in} ${Math.round(hours / 24)} ${labels.day}`;
 }
 
 function WrenchIcon() {
@@ -55,14 +87,28 @@ function WrenchIcon() {
 export default function MaintenanceBanner() {
   const [announcements, setAnnouncements] = useState([]);
   const [dismissed, setDismissed] = useState(loadDismissed);
+  const [language, setLanguage] = useState(readStoredLanguage);
   const stackRef = useRef(null);
+
+  useEffect(() => {
+    const handleLanguageChange = (event) => {
+      setLanguage(event.detail?.language || readStoredLanguage());
+    };
+
+    window.addEventListener('portal-language-change', handleLanguageChange);
+    window.addEventListener('storage', handleLanguageChange);
+    return () => {
+      window.removeEventListener('portal-language-change', handleLanguageChange);
+      window.removeEventListener('storage', handleLanguageChange);
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
     const load = () => {
       publicApi.getAnnouncements()
         .then(res => { if (!cancelled) setAnnouncements(res.data.announcements || []); })
-        .catch(() => { /* Banner ist optional - Fehler still ignorieren */ });
+        .catch(() => { /* Banner is optional - errors are ignored silently */ });
     };
     load();
     const timer = setInterval(load, 5 * 60 * 1000);
@@ -98,9 +144,11 @@ export default function MaintenanceBanner() {
       if (observer) observer.disconnect();
       root.style.setProperty('--maintenance-banner-offset', '0px');
     };
-  }, [visible]);
+  }, [visible, language]);
 
   if (visible.length === 0) return null;
+
+  const labels = BANNER_LABELS[language] || BANNER_LABELS.en;
 
   const handleDismiss = (id) => {
     const next = [...dismissed, id];
@@ -112,17 +160,17 @@ export default function MaintenanceBanner() {
     <div ref={stackRef} className="maintenance-banner-stack" role="status" aria-live="polite">
       {visible.map(item => {
         const upcoming = !item.active;
-        const rel = relativeStart(item.startsAt);
+        const rel = relativeStart(item.startsAt, language);
         return (
           <div key={item.id} className={`maintenance-banner severity-${item.severity} ${item.active ? 'is-active' : 'is-upcoming'}`}>
             <span className="maintenance-banner-icon"><WrenchIcon /></span>
             <div className="maintenance-banner-body">
               <strong>
-                {item.active ? 'Wartung läuft: ' : `Geplante Wartung${rel ? ` (${rel})` : ''}: `}
+                {item.active ? labels.active : `${labels.upcoming}${rel ? ` (${rel})` : ''}: `}
                 {item.title}
               </strong>
               <span className="maintenance-banner-time">
-                {formatDateTime(item.startsAt)} - {formatDateTime(item.endsAt)}
+                {formatDateTime(item.startsAt, language)} - {formatDateTime(item.endsAt, language)}
               </span>
               {item.message ? <span className="maintenance-banner-message">{item.message}</span> : null}
             </div>
@@ -131,8 +179,8 @@ export default function MaintenanceBanner() {
                 type="button"
                 className="maintenance-banner-dismiss"
                 onClick={() => handleDismiss(item.id)}
-                aria-label="Ankündigung ausblenden"
-                title="Ausblenden"
+                aria-label={labels.hideAnnouncement}
+                title={labels.hide}
               >
                 ×
               </button>
