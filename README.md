@@ -6,7 +6,7 @@ The frontend is built with React and the backend with Express + SQLite. Proxmox 
 
 ## Version
 
-Current version: **v3.0.12**
+Current version: **v3.0.14**
 
 Versioning now follows a clean semantic sequence:
 
@@ -189,6 +189,22 @@ docker image prune -f
 The database migrates itself on startup. Keep the backend data volume before updating.
 
 ## Changelog
+
+### v3.0.14 - 2026-07-09
+
+**Commit:** `fix: unify brand green across light and dark mode`
+
+- Standardized all success and active green states to the portal brand colors.
+- Light mode now consistently uses `#7a876f` for green accents.
+- Dark mode now consistently uses `#c2cea7` for green accents.
+- Updated alerts, status badges, maintenance badges, toggles, online states, progress accents and terminal cursor accents to follow the shared brand tokens.
+
+### v3.0.13 - 2026-07-09
+
+**Commit:** `fix: use brand green for active maintenance badges`
+
+- Updated the active maintenance status badge to use the portal's brand green accent instead of the separate success green.
+- Kept badge text color aligned with the primary button contrast token.
 
 ### v3.0.12 - 2026-07-09
 

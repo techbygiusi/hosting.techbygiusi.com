@@ -42,8 +42,8 @@ export default function TerminalView({ resourceId, resourceName, fullscreen = fa
       lineHeight: fullscreen ? 1.16 : 1,
       scrollback: 5000,
       theme: document.body.classList.contains('theme-dark')
-        ? { background: '#111418', foreground: '#E6E6E6', cursor: '#C2CEA7' }
-        : { background: '#1b1e23', foreground: '#e8e8e8', cursor: '#7A876F' }
+        ? { background: '#111418', foreground: '#E6E6E6', cursor: '#c2cea7' }
+        : { background: '#1b1e23', foreground: '#e8e8e8', cursor: '#7a876f' }
     });
     const fit = new FitAddon();
     term.loadAddon(fit);

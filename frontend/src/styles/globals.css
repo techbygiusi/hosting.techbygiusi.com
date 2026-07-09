@@ -21,7 +21,7 @@ body.theme-light {
   --site-inset:     #ffffff;   /* boxes inside boxes */
   --site-text:      #111111;
   --site-muted:     #6B7280;
-  --site-accent:    #7A876F;   /* sage green */
+  --site-accent:    #7a876f;   /* brand green */
   --site-accent-strong: #626D59;
   --site-border:    rgba(17, 17, 17, 0.10);
   --site-cord:      rgba(0, 0, 0, 0.28);
@@ -35,7 +35,7 @@ body.theme-light {
   --color-primary:        var(--site-accent);
   --color-primary-dark:   var(--site-accent-strong);
   --button-primary-text:  #ffffff;
-  --color-success:        #2f7d46;
+  --color-success:        var(--site-accent);
   --color-danger:         #b42318;
   --color-warning:        #b7791f;
 
@@ -85,14 +85,14 @@ body.theme-dark {
   --site-inset:     #111418;
   --site-text:      #E6E6E6;
   --site-muted:     #9AA4B2;
-  --site-accent:    #C2CEA7;
+  --site-accent:    #c2cea7;
   --site-accent-strong: #AEBD8D;
   --site-border:    #2c3138;
   --site-cord:      rgba(255, 255, 255, 0.30);
   --site-bulb-off:  #2a3242;
   --site-bulb-on:   #ffd666;
   --scrollbar-track: rgba(255, 255, 255, 0.05);
-  --scrollbar-thumb: rgba(154, 164, 178, 0.34);
+  --scrollbar-thumb: rgba(194, 206, 167, 0.34);
   --scrollbar-thumb-hover: rgba(194, 206, 167, 0.58);
 
   --color-primary-dark:  var(--site-accent-strong);
@@ -326,16 +326,16 @@ body.theme-dark .btn-danger:hover:not(:disabled) {
   border: 1px solid transparent;
 }
 .alert-success {
-  background: rgba(47, 125, 70, 0.10);
-  color: #1d5c32;
-  border-color: rgba(47, 125, 70, 0.30);
+  background: color-mix(in srgb, var(--color-primary) 12%, transparent);
+  color: var(--color-primary);
+  border-color: color-mix(in srgb, var(--color-primary) 36%, transparent);
 }
 .alert-danger {
   background: rgba(180, 35, 24, 0.10);
   color: #8f1d14;
   border-color: rgba(180, 35, 24, 0.30);
 }
-body.theme-dark .alert-success { color: #c8f1d5; }
+body.theme-dark .alert-success { color: var(--color-primary); }
 body.theme-dark .alert-danger  { color: #f8c4c4; }
 
 /* -------------------------------------------------------- AUTH / SETUP */
@@ -502,16 +502,16 @@ body.theme-dark .disk-row {
   text-align: center;
 }
 .test-result.success {
-  background: rgba(47, 125, 70, 0.10);
-  color: #1d5c32;
-  border-color: rgba(47, 125, 70, 0.30);
+  background: color-mix(in srgb, var(--color-primary) 12%, transparent);
+  color: var(--color-primary);
+  border-color: color-mix(in srgb, var(--color-primary) 36%, transparent);
 }
 .test-result.error {
   background: rgba(180, 35, 24, 0.10);
   color: #8f1d14;
   border-color: rgba(180, 35, 24, 0.30);
 }
-body.theme-dark .test-result.success { color: #c8f1d5; }
+body.theme-dark .test-result.success { color: var(--color-primary); }
 body.theme-dark .test-result.error   { color: #f8c4c4; }
 
 /* ----------------------------------------------------------- APP SHELL */
@@ -719,7 +719,7 @@ tr:hover td { background: rgba(122, 135, 111, 0.06); }
 }
 .setup-ok {
   color: var(--color-success);
-  background: rgba(47, 125, 70, 0.10);
+  background: color-mix(in srgb, var(--color-primary) 12%, transparent);
 }
 .setup-missing {
   color: var(--color-danger);
@@ -827,14 +827,14 @@ body.theme-dark .status-badge {
   border: 1px solid var(--color-border);
 }
 .status-running {
-  background: rgba(47, 125, 70, 0.12);
-  color: #1d5c32;
+  background: color-mix(in srgb, var(--color-primary) 14%, transparent);
+  color: var(--color-primary);
 }
 .status-stopped, .status-paused, .status-suspended {
   background: rgba(180, 35, 24, 0.09);
   color: #8f1d14;
 }
-body.theme-dark .status-running { color: #a4e6b5; }
+body.theme-dark .status-running { color: var(--color-primary); }
 body.theme-dark .status-stopped,
 body.theme-dark .status-paused,
 body.theme-dark .status-suspended { color: #f7b7bd; }
@@ -3282,7 +3282,7 @@ body.theme-dark .link-button:hover { color: var(--site-accent); }
 }
 .maintenance-chip.severity-warning { background: color-mix(in srgb, var(--color-warning) 18%, var(--site-bg)); }
 .maintenance-chip.severity-critical { background: color-mix(in srgb, var(--color-danger) 16%, var(--site-bg)); }
-.maintenance-chip.state-chip.state-aktiv { background: var(--color-success); color: #ffffff; }
+.maintenance-chip.state-chip.state-aktiv { background: var(--color-primary); color: var(--button-primary-text); }
 .maintenance-chip.state-chip.state-geplant { background: color-mix(in srgb, var(--site-accent) 20%, var(--site-bg)); }
 .maintenance-chip.state-chip.state-beendet { background: var(--site-border); color: var(--color-text-light); }
 
@@ -3983,3 +3983,48 @@ body.theme-dark .login-theme-action .theme-toggle {
     line-height: 1.45;
   }
 }
+
+/* v3.0.14 - unified brand green across light and dark mode */
+:root,
+body.theme-light {
+  --site-accent: #7a876f;
+  --color-primary: #7a876f;
+  --color-success: #7a876f;
+  --brand-green-soft: color-mix(in srgb, #7a876f 12%, transparent);
+  --brand-green-border: color-mix(in srgb, #7a876f 36%, transparent);
+}
+
+body.theme-dark {
+  --site-accent: #c2cea7;
+  --color-primary: #c2cea7;
+  --color-success: #c2cea7;
+  --brand-green-soft: color-mix(in srgb, #c2cea7 14%, transparent);
+  --brand-green-border: color-mix(in srgb, #c2cea7 38%, transparent);
+  --scrollbar-thumb: rgba(194, 206, 167, 0.34);
+  --scrollbar-thumb-hover: rgba(194, 206, 167, 0.58);
+}
+
+.alert-success,
+.test-result.success,
+.setup-ok,
+.status-running,
+.maintenance-chip.state-chip.state-aktiv {
+  background: var(--brand-green-soft);
+  border-color: var(--brand-green-border);
+  color: var(--color-primary);
+}
+
+.status-dot.is-up,
+.toggle-switch.is-on,
+.toggle-switch input:checked + .toggle-track {
+  background: var(--color-primary);
+}
+
+.terminal-status-open,
+.task-ok,
+.capability-ok,
+.task-status-ok,
+.maintenance-notified {
+  color: var(--color-primary);
+}
+
