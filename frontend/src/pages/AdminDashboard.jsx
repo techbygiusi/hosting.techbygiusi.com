@@ -70,6 +70,62 @@ const emptyGroup = { name: '', memberIds: [] };
 const emptyAdminCred = { label: '', username: '', secret: '', url: '', notes: '', clusterId: '', userId: '' };
 const emptySmtp = { smtpHost: '', smtpPort: '587', smtpUser: '', smtpPassword: '' };
 
+const OVERLAY_LANGUAGE_KEY = 'hosting-admin-overlay-language';
+const OVERLAY_LANGUAGE_OPTIONS = [
+  { code: 'en', label: 'English' },
+  { code: 'de', label: 'Deutsch' }
+];
+
+const MOBILE_MENU_TRANSLATIONS = {
+  en: {
+    menu: 'Menu',
+    openMenu: 'Open menu',
+    close: 'Close',
+    closeMenu: 'Close menu',
+    logout: 'Log out',
+    adminConsole: 'Admin Console',
+    counts: { clusters: 'clusters', services: 'services', users: 'users' },
+    tabs: {
+      overview: 'Dashboard',
+      users: 'Users',
+      groups: 'Groups',
+      clusters: 'Proxmox',
+      resources: 'Services',
+      maintenance: 'Maintenance',
+      audit: 'Log',
+      settings: 'Settings'
+    }
+  },
+  de: {
+    menu: 'Menü',
+    openMenu: 'Menü öffnen',
+    close: 'Schließen',
+    closeMenu: 'Menü schließen',
+    logout: 'Abmelden',
+    adminConsole: 'Admin-Konsole',
+    counts: { clusters: 'Cluster', services: 'Dienste', users: 'Benutzer' },
+    tabs: {
+      overview: 'Dashboard',
+      users: 'Benutzer',
+      groups: 'Gruppen',
+      clusters: 'Proxmox',
+      resources: 'Dienste',
+      maintenance: 'Wartung',
+      audit: 'Protokoll',
+      settings: 'Einstellungen'
+    }
+  }
+};
+
+function readOverlayLanguage() {
+  try {
+    return localStorage.getItem(OVERLAY_LANGUAGE_KEY) || 'en';
+  } catch (_) {
+    return 'en';
+  }
+}
+
+
 export default function AdminDashboard() {
   const { user, logout } = useAuth();
   const [activeTab, setActiveTab] = useState('overview');
@@ -130,6 +186,7 @@ export default function AdminDashboard() {
   const [locationResults, setLocationResults] = useState([]);
   const [locationSearchLoading, setLocationSearchLoading] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [mobileMenuLanguage, setMobileMenuLanguage] = useState(readOverlayLanguage);
 
   const tabs = [
     ['overview', 'Dashboard'],
@@ -141,6 +198,9 @@ export default function AdminDashboard() {
     ['audit', 'Protokoll'],
     ['settings', 'Einstellungen']
   ];
+
+  const mobileMenuText = MOBILE_MENU_TRANSLATIONS[mobileMenuLanguage] || MOBILE_MENU_TRANSLATIONS.en;
+  const mobileMenuTabs = tabs.map(([key]) => [key, mobileMenuText.tabs[key] || key]);
 
   const adminCount = users.filter(item => item.role === 'admin').length;
   const userCount = users.filter(item => item.role === 'user').length;
@@ -184,6 +244,15 @@ export default function AdminDashboard() {
   const handleSelectTab = (tab) => {
     setActiveTab(tab);
     setMobileMenuOpen(false);
+  };
+
+  const handleOverlayLanguageChange = (language) => {
+    setMobileMenuLanguage(language);
+    try {
+      localStorage.setItem(OVERLAY_LANGUAGE_KEY, language);
+    } catch (_) {
+      // Ignore storage errors; English remains the default fallback.
+    }
   };
 
   const loadData = async (tab = activeTab) => {
@@ -979,7 +1048,7 @@ export default function AdminDashboard() {
           <button type="button" className="site-brand site-brand-button" onClick={() => handleSelectTab('overview')} aria-label="Zum Dashboard"><h1>Hosting by TechByGiusi</h1></button>
           <div className="site-actions">
             <ThemeButton />
-            <button type="button" className="btn-secondary admin-mobile-menu-toggle" onClick={() => setMobileMenuOpen(true)} aria-label="Menü öffnen"><MenuIcon /><span>Menü</span></button>
+            <button type="button" className="btn-secondary admin-mobile-menu-toggle" onClick={() => setMobileMenuOpen(true)} aria-label={mobileMenuText.openMenu}><MenuIcon /><span>{mobileMenuText.menu}</span></button>
             <button type="button" className="btn-secondary logout-button" onClick={logout} aria-label="Abmelden"><LogoutIcon /><span className="logout-label">Abmelden</span></button>
           </div>
         </div>
@@ -989,19 +1058,31 @@ export default function AdminDashboard() {
         <div className="mobile-admin-menu-panel" onClick={(e) => e.stopPropagation()}>
           <div className="mobile-admin-menu-header">
             <div>
-              <span className="resource-id">Admin-Konsole</span>
+              <span className="resource-id">{mobileMenuText.adminConsole}</span>
               <h2>{user?.name || 'Administrator'}</h2>
-              <p>{clusters.length} Cluster · {resources.length} Dienste · {users.length} Benutzer</p>
+              <p>{clusters.length} {mobileMenuText.counts.clusters} · {resources.length} {mobileMenuText.counts.services} · {users.length} {mobileMenuText.counts.users}</p>
             </div>
-            <button type="button" className="btn-secondary mobile-admin-menu-close" onClick={() => setMobileMenuOpen(false)} aria-label="Menü schließen">Schließen</button>
+            <button type="button" className="btn-secondary mobile-admin-menu-close" onClick={() => setMobileMenuOpen(false)} aria-label={mobileMenuText.closeMenu}>{mobileMenuText.close}</button>
           </div>
-          <nav className="console-nav-tabs mobile-admin-menu-nav" aria-label="Admin-Bereiche">
-            {tabs.map(([key, label]) => (
+          <div className="mobile-admin-language-switch" role="group" aria-label="Language">
+            {OVERLAY_LANGUAGE_OPTIONS.map(option => (
+              <button
+                key={option.code}
+                type="button"
+                className={mobileMenuLanguage === option.code ? 'active' : ''}
+                onClick={() => handleOverlayLanguageChange(option.code)}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+          <nav className="console-nav-tabs mobile-admin-menu-nav" aria-label={mobileMenuText.menu}>
+            {mobileMenuTabs.map(([key, label]) => (
               <button key={key} type="button" className={activeTab === key ? 'active' : ''} onClick={() => handleSelectTab(key)}>{label}</button>
             ))}
           </nav>
           <div className="mobile-admin-menu-footer">
-            <button type="button" className="btn-secondary mobile-admin-menu-logout" onClick={logout}>Abmelden</button>
+            <button type="button" className="btn-secondary mobile-admin-menu-logout" onClick={logout}>{mobileMenuText.logout}</button>
           </div>
         </div>
       </div>
