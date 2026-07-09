@@ -6,7 +6,7 @@ The frontend is built with React and the backend with Express + SQLite. Proxmox 
 
 ## Version
 
-Current version: **v3.1.0**
+Current version: **v3.1.1**
 
 Versioning now follows a clean semantic sequence:
 
@@ -189,6 +189,14 @@ docker image prune -f
 The database migrates itself on startup. Keep the backend data volume before updating.
 
 ## Changelog
+
+### v3.1.1 - 2026-07-09
+
+**Commit:** `style: polish admin dashboard spacing and sidebar active state`
+
+- Tightened and equalized spacing across the new admin dashboard layout.
+- Reworked the sidebar active state so the accent line is now straight and cleaner instead of curved.
+- Improved paddings and gaps for the hero area, metric cards, map section and sidebar navigation.
 
 ### v3.1.0 - 2026-07-09
 

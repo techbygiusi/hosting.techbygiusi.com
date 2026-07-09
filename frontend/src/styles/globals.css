@@ -4378,3 +4378,128 @@ body.theme-light .cluster-map-canvas .leaflet-container {
     flex-direction: column;
   }
 }
+
+
+/* v3.1.1 - admin dashboard spacing polish */
+.admin-shell {
+  gap: 28px;
+}
+
+.admin-sidebar-shell {
+  gap: 20px;
+}
+
+.console-sidebar-card,
+.console-nav-tabs,
+.dashboard-hero-card,
+.cluster-map-card,
+.cluster-stats {
+  box-sizing: border-box;
+}
+
+.console-sidebar-card {
+  padding: 18px;
+}
+
+.console-nav-tabs {
+  padding: 8px;
+  gap: 4px;
+}
+
+.admin-shell .console-nav-tabs button {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 44px;
+  padding: 12px 14px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: transparent;
+  justify-content: flex-start;
+  text-align: left;
+  line-height: 1.25;
+}
+
+.admin-shell .console-nav-tabs button:hover {
+  background: color-mix(in srgb, var(--color-primary) 8%, var(--color-surface));
+}
+
+.admin-shell .console-nav-tabs button.active {
+  box-shadow: none;
+  background: color-mix(in srgb, var(--color-primary) 10%, var(--color-surface));
+  border-color: color-mix(in srgb, var(--color-primary) 22%, var(--color-border));
+}
+
+.admin-shell .console-nav-tabs button.active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 10px;
+  bottom: 10px;
+  width: 3px;
+  border-radius: 0;
+  background: var(--color-primary);
+}
+
+.dashboard-hero-card {
+  padding: 22px;
+  gap: 24px;
+}
+
+.dashboard-hero-card h2 {
+  margin-bottom: 10px;
+}
+
+.dashboard-hero-actions {
+  align-items: flex-start;
+}
+
+.console-metric-grid {
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.console-metric-grid .metric-card {
+  padding: 18px;
+}
+
+.overview-layout-grid {
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.cluster-map-card {
+  padding: 18px;
+}
+
+.cluster-map-header {
+  margin-bottom: 14px;
+}
+
+.cluster-map-layout {
+  gap: 16px;
+}
+
+.cluster-map-summary {
+  gap: 12px;
+}
+
+.cluster-map-summary-item {
+  min-height: 96px;
+  padding: 16px;
+}
+
+.cluster-stats {
+  margin-top: 16px;
+}
+
+@media (max-width: 960px) {
+  .admin-shell {
+    gap: 20px;
+  }
+
+  .admin-sidebar-shell {
+    gap: 16px;
+  }
+}
