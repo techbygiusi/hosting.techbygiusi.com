@@ -352,7 +352,7 @@ router.get('/clusters', async (req, res, next) => {
   try {
     const clusters = await all(`
       SELECT id, name, url, created_at,
-             allow_provisioning, allow_types, vmid_min, vmid_max, ip_start, ip_end, ip_prefix,
+             allow_provisioning, allow_publishing, allow_types, vmid_min, vmid_max, ip_start, ip_end, ip_prefix,
              gateway, bridge, storage, template_storage, iso_storage, max_cores, max_memory_mb, max_disk_gb,
              location_label, location_lat, location_lon
       FROM proxmox_clusters ORDER BY created_at DESC
@@ -417,10 +417,11 @@ router.post('/clusters', async (req, res, next) => {
     }
 
     const allowProvisioning = req.body.allowProvisioning ? 1 : 0;
+    const allowPublishing = req.body.allowPublishing !== undefined ? (req.body.allowPublishing ? 1 : 0) : 1;
 
     const result = await run(
-      'INSERT INTO proxmox_clusters (name, url, api_token, allow_provisioning, location_label, location_lat, location_lon) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [String(name).trim(), normalizedUrl, encrypt(String(apiToken).trim()), allowProvisioning, location.locationLabel || null, location.locationLat, location.locationLon]
+      'INSERT INTO proxmox_clusters (name, url, api_token, allow_provisioning, allow_publishing, location_label, location_lat, location_lon) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      [String(name).trim(), normalizedUrl, encrypt(String(apiToken).trim()), allowProvisioning, allowPublishing, location.locationLabel || null, location.locationLat, location.locationLon]
     );
 
     await logAudit(req, 'cluster.create', `cluster:${result.lastID}`, String(name).trim());
@@ -432,7 +433,8 @@ router.post('/clusters', async (req, res, next) => {
         url: normalizedUrl,
         location_label: location.locationLabel || '',
         location_lat: location.locationLat,
-        location_lon: location.locationLon
+        location_lon: location.locationLon,
+        allow_publishing: allowPublishing
       }
     });
   } catch (err) {
@@ -536,24 +538,30 @@ router.put('/clusters/:id', async (req, res, next) => {
       throw new AppError('Name, URL, and API token are required', HTTP_STATUS.BAD_REQUEST);
     }
 
-    const testResult = await testConnection(nextUrl, nextToken);
-    if (!testResult.success) {
-      throw new AppError(`Failed to connect to Proxmox: ${testResult.message}`, HTTP_STATUS.BAD_REQUEST);
+    const connectionChanged = nextUrl !== normalizeUrl(cluster.url) || !!String(apiToken || '').trim();
+    if (connectionChanged) {
+      const testResult = await testConnection(nextUrl, nextToken);
+      if (!testResult.success) {
+        throw new AppError(`Failed to connect to Proxmox: ${testResult.message}`, HTTP_STATUS.BAD_REQUEST);
+      }
     }
 
-    // The base form only edits name/url/token and the self-service toggle.
+    // Toggle-only changes, including publishing, remain possible while a cluster is temporarily offline.
     // Detailed provisioning config is managed under Settings.
     const allowProvisioning = req.body.allowProvisioning !== undefined
       ? (req.body.allowProvisioning ? 1 : 0)
       : cluster.allow_provisioning;
+    const allowPublishing = req.body.allowPublishing !== undefined
+      ? (req.body.allowPublishing ? 1 : 0)
+      : Number(cluster.allow_publishing ?? 1);
 
     await run(
-      'UPDATE proxmox_clusters SET name = ?, url = ?, api_token = ?, allow_provisioning = ?, location_label = ?, location_lat = ?, location_lon = ? WHERE id = ?',
-      [nextName, nextUrl, encrypt(nextToken), allowProvisioning, location.locationLabel || null, location.locationLat, location.locationLon, clusterId]
+      'UPDATE proxmox_clusters SET name = ?, url = ?, api_token = ?, allow_provisioning = ?, allow_publishing = ?, location_label = ?, location_lat = ?, location_lon = ? WHERE id = ?',
+      [nextName, nextUrl, encrypt(nextToken), allowProvisioning, allowPublishing, location.locationLabel || null, location.locationLat, location.locationLon, clusterId]
     );
 
-    await logAudit(req, 'cluster.update', `cluster:${clusterId}`, nextName);
-    res.json({ cluster: { id: Number(clusterId), name: nextName, url: nextUrl, location_label: location.locationLabel || '', location_lat: location.locationLat, location_lon: location.locationLon } });
+    await logAudit(req, 'cluster.update', `cluster:${clusterId}`, `${nextName}; publishing=${allowPublishing ? 'enabled' : 'disabled'}`);
+    res.json({ cluster: { id: Number(clusterId), name: nextName, url: nextUrl, location_label: location.locationLabel || '', location_lat: location.locationLat, location_lon: location.locationLon, allow_publishing: allowPublishing } });
   } catch (err) {
     next(err);
   }

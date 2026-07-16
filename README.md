@@ -6,8 +6,15 @@ The frontend is built with React and the backend with Express + SQLite. Proxmox 
 
 ## Version
 
-Current version: **v3.1.42**
+Current version: **v3.1.43**
 
+
+## What's new in v3.1.43
+
+- Administrators can enable or disable Pangolin publishing independently for every Proxmox cluster.
+- The cluster switch is enforced by the backend for resource lists, publishing options and every create/update request, not only hidden in the frontend.
+- Existing publications remain reachable after a cluster is disabled and can still be removed by the assigned user or an administrator.
+- Cluster cards and the responsive edit dialog clearly show the current publishing state.
 
 ## What's new in v3.1.42
 
@@ -56,7 +63,7 @@ Current version: **v3.1.42**
 - Attach credentials to a specific service without exposing private user-created credentials back to the admin.
 - Maintain one shared management-page credential per service that admins and authorized users can both update.
 - Configure SMTP after the first setup.
-- Configure LXC self-service per cluster.
+- Configure LXC self-service and Pangolin publishing independently per cluster.
 - Review audit events for power actions, console access, credentials and provisioning.
 
 ### User area
@@ -88,6 +95,7 @@ Before the first start, the backend enables the Proxmox guest firewall and adds 
 Admins configure per cluster:
 
 - Self-service on/off. The remaining provisioning settings can be prepared and saved while self-service is disabled.
+- Pangolin publishing on/off. Existing publications stay reachable when disabled, while user create/update requests are blocked.
 - VMID range.
 - IP range, CIDR prefix and gateway.
 - Bridge.
@@ -142,6 +150,7 @@ For HTTP publishing, Pangolin terminates public TLS while the configured backend
 ### Publishing security model
 
 - Only the directly assigned service owner can create or change a publication.
+- Publishing must be enabled globally and for the service's Proxmox cluster. The backend enforces both switches on every create or update request.
 - The backend resolves the service IPv4 address itself; the user interface has no target-IP input.
 - Subdomains are validated, checked for local collisions and checked against the administrator's reserved list.
 - Target ports must match the active protocol's administrator-defined port policy.
@@ -243,6 +252,15 @@ docker image prune -f
 The database migrates itself on startup. Keep the backend data volume before updating.
 
 ## Changelog
+
+### v3.1.43 - 2026-07-16
+
+**Commit:** `feat: add per-cluster publishing controls`
+
+- add a persistent Pangolin publishing switch to every Proxmox cluster
+- enforce the cluster switch in user resource metadata, publishing options and server-side create/update routes
+- keep existing publications reachable and removable when a cluster is disabled
+- show the active state on cluster cards and in the responsive cluster editor
 
 ### v3.1.42 - 2026-07-16
 

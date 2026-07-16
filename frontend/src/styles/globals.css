@@ -5877,3 +5877,43 @@ body.theme-dark .cluster-map-canvas .leaflet-container {
     text-align: left;
   }
 }
+
+
+/* v3.1.43 - per-cluster publishing controls */
+.cluster-feature-toggles {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.cluster-publishing-help {
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+.cluster-publishing-status {
+  display: inline-flex;
+  width: fit-content;
+  margin: 0.35rem 0 0;
+  padding: 0.28rem 0.58rem;
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.cluster-publishing-status.enabled {
+  color: var(--success-color, #4f7a5b);
+  background: color-mix(in srgb, var(--success-color, #4f7a5b) 10%, transparent);
+}
+
+.cluster-publishing-status.disabled {
+  color: var(--danger-color, #a33a32);
+  background: color-mix(in srgb, var(--danger-color, #a33a32) 9%, transparent);
+}
+
+@media (max-width: 640px) {
+  .cluster-feature-toggles .toggle-row {
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+}

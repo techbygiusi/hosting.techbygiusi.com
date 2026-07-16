@@ -69,7 +69,7 @@ const emptyMaintenance = () => ({
   endsAt: toLocalDatetimeInput(new Date(Date.now() + 3 * 60 * 60 * 1000)),
   notifyUsers: false
 });
-const emptyCluster = { name: '', url: '', apiToken: '', allowProvisioning: false, locationLabel: '', locationLat: '', locationLon: '' };
+const emptyCluster = { name: '', url: '', apiToken: '', allowProvisioning: false, allowPublishing: true, locationLabel: '', locationLat: '', locationLon: '' };
 const emptyResource = { name: '', containerId: '', clusterId: '', userId: '', groupId: '', adminUrl: '' };
 const emptyGroup = { name: '', memberIds: [] };
 const emptyAdminCred = { label: '', username: '', secret: '', url: '', notes: '', clusterId: '', userId: '' };
@@ -503,6 +503,7 @@ export default function AdminDashboard() {
       url: item.url || '',
       apiToken: '',
       allowProvisioning: !!item.allow_provisioning,
+      allowPublishing: item.allow_publishing === undefined || item.allow_publishing === null ? true : !!item.allow_publishing,
       locationLabel: item.location_label || '',
       locationLat: item.location_lat ?? '',
       locationLon: item.location_lon ?? ''
@@ -1230,6 +1231,9 @@ export default function AdminDashboard() {
                     <div>
                       <h2>{item.name}</h2>
                       {item.location_label ? <p className="cluster-location-status">Karten-Standort gespeichert.</p> : <p className="hint-text">Noch kein Karten-Standort hinterlegt.</p>}
+                      <p className={`cluster-publishing-status ${item.allow_publishing === 0 ? 'disabled' : 'enabled'}`}>
+                        Veröffentlichung: {item.allow_publishing === 0 ? 'deaktiviert' : 'aktiviert'}
+                      </p>
                       {clusterCaps[item.id]
                         ? (clusterCaps[item.id].error
                             ? <p className="hint-text caps-error">Berechtigungen nicht abrufbar - Token/Verbindung prüfen.</p>
@@ -1518,7 +1522,7 @@ export default function AdminDashboard() {
             <button type="button" className="btn-secondary full-button" onClick={handleTestCluster} disabled={actionLoading}>Proxmox-Verbindung testen</button>
             {clusterTestResult && <div className={`test-result ${clusterTestResult.success ? 'success' : 'error'}`}>{translateMessage(clusterTestResult.message)}</div>}
 
-            <div className="form-section-divider">
+            <div className="form-section-divider cluster-feature-toggles">
               <label className="toggle-row">
                 <span className="toggle-label">Self-Service: Benutzer dürfen Maschinen erstellen</span>
                 <span className="toggle-switch">
@@ -1526,6 +1530,14 @@ export default function AdminDashboard() {
                   <span className="toggle-track"><span className="toggle-thumb"></span></span>
                 </span>
               </label>
+              <label className="toggle-row">
+                <span className="toggle-label">Pangolin-Veröffentlichung für diesen Cluster erlauben</span>
+                <span className="toggle-switch">
+                  <input type="checkbox" checked={newCluster.allowPublishing} onChange={e => handleClusterChange('allowPublishing', e.target.checked)} />
+                  <span className="toggle-track"><span className="toggle-thumb"></span></span>
+                </span>
+              </label>
+              <small className="cluster-publishing-help">Beim Abschalten bleiben bestehende Veröffentlichungen erreichbar. Benutzer können sie nur noch entfernen; neue oder geänderte Freigaben werden serverseitig blockiert.</small>
             </div>
 
             <div className="form-actions"><button type="button" className="btn-secondary" onClick={closeClusterModal}>Abbrechen</button><button type="submit" className="btn-primary" disabled={actionLoading}>Speichern</button></div>

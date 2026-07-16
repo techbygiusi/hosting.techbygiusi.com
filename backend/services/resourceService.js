@@ -71,6 +71,7 @@ function normalizeResourceRow(row, liveResource = null, error = null, diskInfo =
     primaryIp,
     clusterId: row.cluster_id,
     clusterName: row.cluster_name || '',
+    clusterPublishingEnabled: Number(row.allow_publishing ?? 1) === 1,
     userId: row.user_id,
     userName: row.user_name || '',
     userEmail: row.user_email || '',

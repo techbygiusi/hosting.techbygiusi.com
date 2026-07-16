@@ -38,6 +38,7 @@ const MESSAGE_TRANSLATIONS = {
   'Only the assigned user can manage publishing for this service': 'Nur der direkt zugewiesene Benutzer kann diesen Dienst veröffentlichen.',
   'Only the assigned user can remove publishing for this service': 'Nur der direkt zugewiesene Benutzer kann die Veröffentlichung dieses Dienstes entfernen.',
   'Public publishing is not configured': 'Die Veröffentlichung ist vom Administrator noch nicht eingerichtet.',
+  'Public publishing is disabled for this cluster': 'Die Veröffentlichung ist für diesen Cluster vom Administrator deaktiviert.',
   'No reachable IPv4 address was found for this service': 'Für diesen Dienst wurde keine erreichbare IPv4-Adresse gefunden.',
   'This subdomain is already in use': 'Diese Subdomain wird bereits verwendet.',
   'This subdomain is reserved by the administrator': 'Diese Subdomain ist vom Administrator reserviert.',
@@ -290,7 +291,7 @@ export const adminApi = {
 export const userApi = {
   getResources: () => apiClient.get('/user/resources'),
   getResourceDetails: (resourceId) => apiClient.get(`/user/resources/${resourceId}`),
-  getPublishingOptions: () => apiClient.get('/user/publishing/options'),
+  getPublishingOptions: (resourceId) => apiClient.get(`/user/publishing/options${resourceId ? `?resourceId=${encodeURIComponent(resourceId)}` : ''}`),
   getPublication: (resourceId) => apiClient.get(`/user/resources/${resourceId}/publication`),
   savePublication: (resourceId, data) => apiClient.put(`/user/resources/${resourceId}/publication`, data),
   deletePublication: (resourceId) => apiClient.delete(`/user/resources/${resourceId}/publication`),

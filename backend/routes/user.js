@@ -62,6 +62,7 @@ async function getResourceRowsForUser(userId, resourceId = null) {
       pc.name as cluster_name,
       pc.url as cluster_url,
       pc.api_token,
+      COALESCE(pc.allow_publishing, 1) as allow_publishing,
       u.name as user_name,
       u.email as user_email,
       cg.name as group_name,
@@ -187,10 +188,13 @@ async function attachPublications(resources) {
   }));
 }
 
-async function getOwnedPublishableResource(userId, resourceId) {
+async function getOwnedPublishableResource(userId, resourceId, { requireClusterPublishing = false } = {}) {
   const rows = await getResourceRowsForUser(userId, resourceId);
   if (rows.length === 0 || String(rows[0].user_id) !== String(userId)) {
     throw new AppError('Only the assigned user can manage publishing for this service', HTTP_STATUS.FORBIDDEN);
+  }
+  if (requireClusterPublishing && Number(rows[0].allow_publishing ?? 1) !== 1) {
+    throw new AppError('Public publishing is disabled for this cluster', HTTP_STATUS.FORBIDDEN);
   }
   const enriched = await attachPublications(await enrichResources(rows));
   const resource = enriched[0];
@@ -330,17 +334,23 @@ router.get('/resources', async (req, res, next) => {
 
     const publishingConfig = await getPangolinConfig();
     res.json({
-      resources: resources.map(resource => ({
-        ...resource,
-        canManagePublicPage: String(resource.userId) === String(req.user.id),
-        canPublish: String(resource.userId) === String(req.user.id) && !!resource.primaryIp && !!publishingConfig.enabled,
-        canDelete: !!resource.canDelete && String(resource.userId) === String(req.user.id) && !!capsByCluster[resource.clusterId]?.canProvision,
-        // Power and console capabilities are cluster-token based for every
-        // accessible resource. They are not limited to self-provisioned machines,
-        // so admin-created services assigned directly or through a group can use
-        // the desktop console when the token has VM.Console.
-        capabilities: capsByCluster[resource.clusterId] || { readOnly: true }
-      }))
+      resources: resources.map(resource => {
+        const ownsResource = String(resource.userId) === String(req.user.id);
+        const clusterPublishingEnabled = resource.clusterPublishingEnabled !== false;
+        const canPublish = ownsResource && !!resource.primaryIp && !!publishingConfig.enabled && clusterPublishingEnabled;
+        return {
+          ...resource,
+          canManagePublicPage: ownsResource && (canPublish || !!resource.publication),
+          canPublish,
+          publishingClusterEnabled: clusterPublishingEnabled,
+          canDelete: !!resource.canDelete && ownsResource && !!capsByCluster[resource.clusterId]?.canProvision,
+          // Power and console capabilities are cluster-token based for every
+          // accessible resource. They are not limited to self-provisioned machines,
+          // so admin-created services assigned directly or through a group can use
+          // the desktop console when the token has VM.Console.
+          capabilities: capsByCluster[resource.clusterId] || { readOnly: true }
+        };
+      })
     });
   } catch (err) {
     next(err);
@@ -355,12 +365,16 @@ router.get('/resources/:id', async (req, res, next) => {
     const resources = await attachPublications(await attachSharedManagementUrls(await enrichResources(rows)));
     const caps = await getClusterCapabilities(rows[0].cluster_id, rows[0].cluster_url, decrypt(rows[0].api_token));
     const publishingConfig = await getPangolinConfig();
+    const ownsResource = String(resources[0].userId) === String(req.user.id);
+    const clusterPublishingEnabled = resources[0].clusterPublishingEnabled !== false;
+    const canPublish = ownsResource && !!resources[0].primaryIp && !!publishingConfig.enabled && clusterPublishingEnabled;
     res.json({
       resource: {
         ...resources[0],
-        canManagePublicPage: String(resources[0].userId) === String(req.user.id),
-        canPublish: String(resources[0].userId) === String(req.user.id) && !!resources[0].primaryIp && !!publishingConfig.enabled,
-        canDelete: !!resources[0].canDelete && String(resources[0].userId) === String(req.user.id) && !!caps.canProvision,
+        canManagePublicPage: ownsResource && (canPublish || !!resources[0].publication),
+        canPublish,
+        publishingClusterEnabled: clusterPublishingEnabled,
+        canDelete: !!resources[0].canDelete && ownsResource && !!caps.canProvision,
         capabilities: caps
       }
     });
@@ -374,9 +388,21 @@ router.get('/publishing/options', async (req, res, next) => {
   try {
     const config = await getPangolinConfig();
     const visible = getPublicPangolinConfig(config);
+    let clusterEnabled = true;
+
+    if (req.query.resourceId) {
+      const rows = await getResourceRowsForUser(req.user.id, req.query.resourceId);
+      if (rows.length === 0 || String(rows[0].user_id) !== String(req.user.id)) {
+        throw new AppError('Only the assigned user can manage publishing for this service', HTTP_STATUS.FORBIDDEN);
+      }
+      clusterEnabled = Number(rows[0].allow_publishing ?? 1) === 1;
+    }
+
     res.json({
       publishing: {
-        enabled: visible.enabled,
+        enabled: visible.enabled && clusterEnabled,
+        globalEnabled: visible.enabled,
+        clusterEnabled,
         baseDomain: visible.baseDomain,
         defaultTargetMethod: visible.defaultTargetMethod,
         protocols: {
@@ -402,7 +428,7 @@ router.get('/resources/:id/publication', async (req, res, next) => {
 
 router.put('/resources/:id/publication', async (req, res, next) => {
   try {
-    const resource = await getOwnedPublishableResource(req.user.id, req.params.id);
+    const resource = await getOwnedPublishableResource(req.user.id, req.params.id, { requireClusterPublishing: true });
     const config = await getPangolinConfig();
     const protocol = normalizePublishingProtocol(req.body?.protocol);
     const targetPort = Number(req.body?.targetPort);

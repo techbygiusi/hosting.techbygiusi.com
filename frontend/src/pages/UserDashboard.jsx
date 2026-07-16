@@ -420,7 +420,7 @@ function ResourceCard({ resource, onOpenDetails, onManagePublicPage, labels }) {
           {publicUrl && <a className="btn-primary full-button" href={publicUrl} target="_blank" rel="noreferrer">{labels.publicPage}</a>}
           {resource.canManagePublicPage && (
             <button type="button" className={publicUrl ? 'btn-secondary full-button' : 'btn-primary full-button'} onClick={onManagePublicPage}>
-              {publicUrl ? labels.editPublicPage : labels.addPublicPage}
+              {publicUrl && !resource.canPublish ? labels.removePublicPage : publicUrl ? labels.editPublicPage : labels.addPublicPage}
             </button>
           )}
           {adminUrl && <a className="btn-secondary full-button" href={adminUrl} target="_blank" rel="noreferrer">{labels.managementPage}</a>}

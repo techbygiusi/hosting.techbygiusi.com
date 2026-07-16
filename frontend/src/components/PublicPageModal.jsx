@@ -7,6 +7,7 @@ const TEXT = {
   en: {
     addTitle: 'Publish service', editTitle: 'Edit public access', loading: 'Loading publishing settings...',
     unavailable: 'Public publishing is not available. Ask an administrator to configure Pangolin.',
+    clusterDisabled: 'Publishing is disabled for this cluster. Existing access remains online and can still be removed.',
     noIp: 'This service has no reachable IPv4 address yet.', protocol: 'Protocol', subdomain: 'Subdomain',
     targetPort: 'Service port', publicPort: 'Public port', backendProtocol: 'Backend protocol',
     preview: 'Public address', autoIp: 'Target IP is selected automatically from your own service:',
@@ -19,6 +20,7 @@ const TEXT = {
   de: {
     addTitle: 'Dienst veröffentlichen', editTitle: 'Öffentlichen Zugriff bearbeiten', loading: 'Veröffentlichungseinstellungen werden geladen...',
     unavailable: 'Die Veröffentlichung ist nicht verfügbar. Ein Administrator muss Pangolin konfigurieren.',
+    clusterDisabled: 'Die Veröffentlichung ist für diesen Cluster deaktiviert. Ein bestehender Zugriff bleibt online und kann weiterhin entfernt werden.',
     noIp: 'Für diesen Dienst ist noch keine erreichbare IPv4-Adresse bekannt.', protocol: 'Protokoll', subdomain: 'Subdomain',
     targetPort: 'Dienst-Port', publicPort: 'Öffentlicher Port', backendProtocol: 'Backend-Protokoll',
     preview: 'Öffentliche Adresse', autoIp: 'Die Ziel-IP wird automatisch von deinem eigenen Dienst übernommen:',
@@ -46,7 +48,7 @@ export default function PublicPageModal({ resource, onClose, onSaved }) {
 
   useEffect(() => {
     let active = true;
-    userApi.getPublishingOptions()
+    userApi.getPublishingOptions(resource?.id)
       .then((response) => {
         if (!active) return;
         const publishing = response.data.publishing || {};
@@ -56,7 +58,7 @@ export default function PublicPageModal({ resource, onClose, onSaved }) {
       .catch((err) => active && setError(getErrorMessage(err, text.unavailable)))
       .finally(() => active && setLoading(false));
     return () => { active = false; };
-  }, [existing?.targetMethod, text.unavailable]);
+  }, [existing?.targetMethod, resource?.id, text.unavailable]);
 
   const protocolOptions = useMemo(() => ['http', 'tcp', 'udp'].map((key) => ({
     key,
@@ -127,7 +129,7 @@ export default function PublicPageModal({ resource, onClose, onSaved }) {
       {loading ? <p className="loading">{text.loading}</p> : (
         <form className="publishing-form" onSubmit={save} noValidate>
           {error && <div className="alert alert-danger">{error}</div>}
-          {!options?.enabled && <div className="alert alert-warning">{text.unavailable}</div>}
+          {!options?.enabled && <div className="alert alert-warning">{options?.clusterEnabled === false ? text.clusterDisabled : text.unavailable}</div>}
           {!resource?.primaryIp && <div className="alert alert-warning">{text.noIp}</div>}
 
           <div className="publishing-security-note">

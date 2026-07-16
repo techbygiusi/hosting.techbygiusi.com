@@ -116,7 +116,7 @@ function OverviewTab({ resource, onChanged, onOpenConsole, onClose, onManagePubl
       )}
       {resource.canManagePublicPage && onManagePublicPage && (
         <button type="button" className="btn-secondary full-button" onClick={onManagePublicPage}>
-          {translatePortalText(publicUrl ? 'Öffentlichen Zugriff bearbeiten' : 'Dienst veröffentlichen', readStoredLanguage())}
+          {translatePortalText(publicUrl && !resource.canPublish ? 'Öffentlichen Zugriff entfernen' : publicUrl ? 'Öffentlichen Zugriff bearbeiten' : 'Dienst veröffentlichen', readStoredLanguage())}
         </button>
       )}
       <div className="resource-meta">

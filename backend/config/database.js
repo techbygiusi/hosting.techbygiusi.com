@@ -125,6 +125,9 @@ async function initDatabase() {
 
       // v2.0: provisioning configuration per cluster
       database.run(`ALTER TABLE proxmox_clusters ADD COLUMN allow_provisioning INTEGER DEFAULT 0`, () => {});
+      // v3.1.43: Pangolin publishing can be controlled independently per cluster.
+      // Existing clusters stay enabled during migration.
+      database.run(`ALTER TABLE proxmox_clusters ADD COLUMN allow_publishing INTEGER DEFAULT 1`, () => {});
       // v3.1: optional geo location for cluster dashboard map
       database.run(`ALTER TABLE proxmox_clusters ADD COLUMN location_label TEXT`, () => {});
       database.run(`ALTER TABLE proxmox_clusters ADD COLUMN location_lat REAL`, () => {});
