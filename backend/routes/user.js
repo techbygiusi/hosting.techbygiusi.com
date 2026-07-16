@@ -13,6 +13,8 @@ const {
   getTaskLog,
   getTaskStatus,
   getCapabilities,
+  getClusterFirewallStatus,
+  getClusterNodeAddresses,
   createTermProxy,
   getOnlineNodes,
   getNodeTemplates,
@@ -622,6 +624,16 @@ router.get('/provisioning/options', async (req, res, next) => {
 
       const allowTypes = 'ct';
       let templates = [];
+      let firewallEnabled = false;
+      let unavailableReason = '';
+
+      try {
+        const firewallStatus = await getClusterFirewallStatus(cluster.url, apiToken);
+        firewallEnabled = !!firewallStatus.enabled;
+        if (!firewallEnabled) unavailableReason = 'Proxmox datacenter firewall is disabled';
+      } catch (_) {
+        unavailableReason = 'Proxmox datacenter firewall status could not be verified';
+      }
 
       const parseList = (json) => { try { const p = JSON.parse(json || '[]'); return Array.isArray(p) ? p : []; } catch (_) { return []; } };
       const allowedTemplates = parseList(cluster.allowed_templates);
@@ -634,12 +646,18 @@ router.get('/provisioning/options', async (req, res, next) => {
           // Self-service only exposes templates explicitly approved by the admin.
           templates = templates.filter(t => allowedTemplates.includes(t.volid));
         }
-      } catch (_) { /* templates/isos optional */ }
+      } catch (_) { /* templates are optional while the cluster is unavailable */ }
+
+      if (!unavailableReason && templates.length === 0) {
+        unavailableReason = 'No approved container template is currently available';
+      }
 
       options.push({
         clusterId: cluster.id,
         clusterName: cluster.name,
         allowTypes,
+        available: firewallEnabled && templates.length > 0,
+        unavailableReason,
         hasDefaultPassword: !!cluster.default_password_encrypted,
         maxCores: cluster.max_cores || 2,
         maxMemoryMb: cluster.max_memory_mb || 2048,
@@ -730,17 +748,27 @@ router.post('/provisioning/create', async (req, res, next) => {
         .map(row => stripCidr(row.ip))
         .filter(Boolean)
     );
+    const lateralDestinations = new Set();
 
-    // Also scan live LXC interfaces so the next-free-IP logic respects
-    // containers that were created outside this portal.
+    // Scan live guest interfaces so address allocation stays collision-free and
+    // public guest addresses outside the self-service subnet are blocked too.
     const liveResources = await getAllContainers(cluster.url, apiToken).catch(() => []);
-    for (const item of liveResources.filter(resource => resource.type === 'lxc')) {
+    for (const item of liveResources) {
       const ips = await getContainerIps(cluster.url, apiToken, item.node, item.type, item.vmid).catch(() => []);
       ips.forEach(entry => {
         const ipv4 = stripCidr(entry.ipv4 || entry.ip || '');
-        if (ipv4) usedIps.add(ipv4);
+        if (ipv4) {
+          usedIps.add(ipv4);
+          lateralDestinations.add(ipv4);
+        }
       });
     }
+
+    // Block cluster management addresses explicitly as well. Private management
+    // networks are already covered by the mandatory RFC1918 rules; this also
+    // protects hosts that use public or otherwise unusual IPv4 addresses.
+    const nodeAddresses = await getClusterNodeAddresses(cluster.url, apiToken).catch(() => []);
+    nodeAddresses.forEach(address => lateralDestinations.add(address));
 
     const ip = allocateIp(cluster.ip_start, cluster.ip_end, usedIps);
     if (!ip) throw new AppError('No free IP address available in the configured range', HTTP_STATUS.BAD_REQUEST);
@@ -772,7 +800,8 @@ router.post('/provisioning/create', async (req, res, next) => {
       bridge: cluster.bridge || 'vmbr0',
       ip,
       ipPrefix: cluster.ip_prefix || 24,
-      gateway: cluster.gateway
+      gateway: cluster.gateway,
+      blockedDestinations: Array.from(lateralDestinations)
     });
 
     await run(
@@ -786,9 +815,14 @@ router.post('/provisioning/create', async (req, res, next) => {
       [cleanHostname, String(vmid), cluster.id, req.user.id, '', '', '']
     );
 
+    // Persist the exact root password used for provisioning on the newly
+    // created resource. This also covers a cluster default password when the
+    // user leaves the password field empty.
     await run(
-      'INSERT INTO resource_credentials (resource_id, label, username, secret_encrypted, url, notes, created_by, created_by_role) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-      [resourceResult.lastID, 'Root-Passwort', 'root', encrypt(password), '', 'Beim Self-Service-Erstellen gespeichert.', req.user.id, 'user']
+      `INSERT INTO resource_credentials
+        (resource_id, label, username, secret_encrypted, url, notes, created_by, created_by_role, purpose)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [resourceResult.lastID, 'Root-Passwort', 'root', encrypt(password), '', 'Automatisch beim Erstellen des Containers gespeichert.', req.user.id, 'user', 'general']
     );
 
     await logAudit(req, 'credential.create', `resource:${resourceResult.lastID}`, 'Root-Passwort');
@@ -802,7 +836,8 @@ router.post('/provisioning/create', async (req, res, next) => {
       ip,
       node,
       upid: createResult.upid,
-      isolation: createResult.isolation || 'internet-only'
+      isolation: createResult.isolation || 'internet-only',
+      credentialsStored: true
     });
   } catch (err) {
     next(err);

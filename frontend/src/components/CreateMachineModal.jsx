@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import Modal from './Modal';
-import { userApi, getErrorMessage } from '../services/api';
+import { userApi, getErrorMessage, translateMessage } from '../services/api';
 
 function rangeProgress(value, min, max) {
   const current = Number(value);
@@ -23,7 +23,8 @@ function rangeStyle(value, min, max) {
  * firewall isolation are applied by the backend.
  */
 export default function CreateMachineModal({ options, onClose, onCreated }) {
-  const [clusterId, setClusterId] = useState(options.length === 1 ? String(options[0].clusterId) : '');
+  const firstAvailableCluster = options.find(item => item.available !== false);
+  const [clusterId, setClusterId] = useState(firstAvailableCluster ? String(firstAvailableCluster.clusterId) : '');
   const [form, setForm] = useState({
     hostname: '', template: '', cores: 1, memoryMb: 1024, diskGb: 8, rootPassword: ''
   });
@@ -50,6 +51,10 @@ export default function CreateMachineModal({ options, onClose, onCreated }) {
   const handleSubmit = async (event) => {
     event.preventDefault();
     if (!cluster) { setError('Bitte einen Cluster auswählen.'); return; }
+    if (cluster.available === false) {
+      setError(translateMessage(cluster.unavailableReason || 'Self-service is temporarily unavailable'));
+      return;
+    }
     if (!form.template) { setError('Bitte ein Template auswählen.'); return; }
     if (!/^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/.test(form.hostname)) {
       setError('Hostname: nur Kleinbuchstaben, Zahlen und Bindestriche.');
@@ -94,7 +99,7 @@ export default function CreateMachineModal({ options, onClose, onCreated }) {
             <span>Node</span><span>{result.node}</span>
             <span>Netzwerk</span><span>Internet-only isoliert</span>
           </div>
-          <p className="hint-text">Der Fortschritt ist unter Details → Aufgaben & Logs sichtbar. Login: root mit dem gewählten Passwort.</p>
+          <p className="hint-text">Der Fortschritt ist unter Details → Aufgaben & Logs sichtbar. Benutzername: root. Das verwendete Root-Passwort wurde automatisch unter Zugangsdaten gespeichert.</p>
           <div className="form-actions">
             <button type="button" className="btn-primary" onClick={onClose}>Fertig</button>
           </div>
@@ -107,16 +112,23 @@ export default function CreateMachineModal({ options, onClose, onCreated }) {
     <Modal title="Neuen Container erstellen" onClose={onClose}>
       <form className="form-stack" onSubmit={handleSubmit}>
         {error && <div className="alert alert-danger">{error}</div>}
+        {cluster?.available === false && !error && (
+          <div className="alert alert-danger">{translateMessage(cluster.unavailableReason || 'Self-service is temporarily unavailable')}</div>
+        )}
 
         <label className="form-group">
           <span>Cluster</span>
           <select value={clusterId} onChange={event => handleClusterChange(event.target.value)}>
             <option value="">Bitte auswählen</option>
-            {options.map(item => <option key={item.clusterId} value={item.clusterId}>{item.clusterName}</option>)}
+            {options.map(item => (
+              <option key={item.clusterId} value={item.clusterId} disabled={item.available === false}>
+                {item.clusterName}{item.available === false ? ' · nicht verfügbar' : ''}
+              </option>
+            ))}
           </select>
         </label>
 
-        {cluster && (
+        {cluster && cluster.available !== false && (
           <div className="provisioning-source-card">
             <div className="provisioning-mode-content">
               <label className="form-group">
@@ -157,7 +169,7 @@ export default function CreateMachineModal({ options, onClose, onCreated }) {
                     <span>Root-Passwort</span>
                     <input type="password" value={form.rootPassword} onChange={event => setField('rootPassword', event.target.value)} placeholder={cluster.hasDefaultPassword ? 'Leer lassen für Cluster-Standard' : 'Mindestens 8 Zeichen'} autoComplete="new-password" />
                   </label>
-                  <p className="hint-text">VMID und IP-Adresse werden automatisch vergeben. Der Container erhält vor dem ersten Start eine ausgehende Sperre zu privaten und lokalen Netzen.</p>
+                  <p className="hint-text">VMID und IP-Adresse werden automatisch vergeben. Die Proxmox-Datacenter-Firewall bleibt aktiv; der Container erhält vor dem ersten Start eigene Regeln, die Zugriffe auf Hosts, andere Gäste sowie private und lokale Netze sperren.</p>
                 </>
               )}
             </div>
@@ -166,7 +178,7 @@ export default function CreateMachineModal({ options, onClose, onCreated }) {
 
         <div className="form-actions">
           <button type="button" className="btn-secondary" onClick={onClose}>Abbrechen</button>
-          <button type="submit" className="btn-primary" disabled={busy || !cluster || (cluster.templates || []).length === 0}>{busy ? 'Wird abgesichert...' : 'Container erstellen'}</button>
+          <button type="submit" className="btn-primary" disabled={busy || !cluster || cluster.available === false || (cluster.templates || []).length === 0}>{busy ? 'Wird abgesichert...' : 'Container erstellen'}</button>
         </div>
       </form>
     </Modal>

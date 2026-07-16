@@ -922,17 +922,44 @@ function normalizeDnsServers(value) {
   return Array.from(new Set(valid)).slice(0, 3);
 }
 
-function getIsolationDestinations(ip, prefix) {
+function normalizeBlockedDestinations(value) {
+  const values = Array.isArray(value)
+    ? value
+    : String(value || process.env.SELF_SERVICE_BLOCKED_NETWORKS || '')
+      .split(/[\s,;]+/);
+
+  return Array.from(new Set(values
+    .map(item => String(item || '').trim())
+    .filter(item => {
+      if (!item) return false;
+      const [network, prefixValue] = item.split('/');
+      const prefix = prefixValue === undefined ? 32 : Number(prefixValue);
+      return ipv4ToLong(network) !== null && Number.isInteger(prefix) && prefix >= 0 && prefix <= 32;
+    })
+    .map(item => item.includes('/') ? item : `${item}/32`)));
+}
+
+function getIsolationDestinations(ip, prefix, additionalDestinations = []) {
   const privateAndLocalRanges = [
+    '0.0.0.0/8',
     '10.0.0.0/8',
     '100.64.0.0/10',
+    '127.0.0.0/8',
     '169.254.0.0/16',
     '172.16.0.0/12',
     '192.168.0.0/16',
-    '::/0'
+    '224.0.0.0/4',
+    '240.0.0.0/4'
   ];
   const guestNetwork = ipv4NetworkCidr(ip, prefix);
-  return Array.from(new Set([guestNetwork, ...privateAndLocalRanges].filter(Boolean)));
+  const configuredBlocks = normalizeBlockedDestinations(additionalDestinations);
+  const environmentBlocks = normalizeBlockedDestinations(process.env.SELF_SERVICE_BLOCKED_NETWORKS || '');
+  return Array.from(new Set([
+    guestNetwork,
+    ...privateAndLocalRanges,
+    ...configuredBlocks,
+    ...environmentBlocks
+  ].filter(Boolean)));
 }
 
 async function getClusterFirewallStatus(clusterUrl, apiToken) {
@@ -953,11 +980,35 @@ async function addContainerFirewallRule(client, node, vmid, rule) {
   ensureSuccess(response, 'Container-Firewallregel konnte nicht erstellt werden:');
 }
 
+async function getClusterNodeAddresses(clusterUrl, apiToken) {
+  const client = createProxmoxClient(clusterUrl, apiToken);
+  const addresses = new Set();
+
+  try {
+    const clusterStatus = await client.get('/api2/json/cluster/status');
+    ensureSuccess(clusterStatus, 'Proxmox Cluster-Status konnte nicht gelesen werden:');
+    for (const item of clusterStatus.data?.data || []) {
+      if (item.type === 'node' && ipv4ToLong(item.ip) !== null) addresses.add(item.ip);
+    }
+  } catch (_) {
+    // The configured API endpoint is still added below when it is an IPv4 address.
+  }
+
+  try {
+    const hostname = new URL(clusterUrl).hostname;
+    if (ipv4ToLong(hostname) !== null) addresses.add(hostname);
+  } catch (_) { /* invalid URLs are handled by the normal Proxmox client path */ }
+
+  return Array.from(addresses);
+}
+
 async function applyInternetOnlyIsolation(client, node, vmid, options) {
+  // The Datacenter firewall is never disabled or modified here. The portal
+  // enables only this container firewall and applies an outbound allow-list.
   const firewallOptions = await client.put(`/api2/json/nodes/${node}/lxc/${vmid}/firewall/options`, {
     enable: 1,
     policy_in: 'ACCEPT',
-    policy_out: 'ACCEPT'
+    policy_out: 'DROP'
   });
   ensureSuccess(firewallOptions, 'Container-Firewall konnte nicht aktiviert werden:');
 
@@ -973,14 +1024,31 @@ async function applyInternetOnlyIsolation(client, node, vmid, options) {
     });
   }
 
-  for (const destination of getIsolationDestinations(options.ip, options.ipPrefix)) {
+  const blockedDestinations = getIsolationDestinations(
+    options.ip,
+    options.ipPrefix,
+    options.blockedDestinations || []
+  );
+  for (const destination of blockedDestinations) {
     await addContainerFirewallRule(client, node, vmid, {
       type: 'out', action: 'DROP', dest: destination,
-      comment: 'Hosting Portal: block private, local and IPv6 networks'
+      comment: 'Hosting Portal: block host, guests and non-public IPv4 networks'
     });
   }
 
-  return dnsServers;
+  await addContainerFirewallRule(client, node, vmid, {
+    type: 'out', action: 'DROP', dest: '::/0',
+    comment: 'Hosting Portal: block all IPv6 egress'
+  });
+
+  // Rules are evaluated before the default DROP policy. This final rule permits
+  // public IPv4 destinations only after all local and lateral destinations were blocked.
+  await addContainerFirewallRule(client, node, vmid, {
+    type: 'out', action: 'ACCEPT', dest: '0.0.0.0/0',
+    comment: 'Hosting Portal: allow public IPv4 internet access'
+  });
+
+  return { dnsServers, blockedDestinations };
 }
 
 /**
@@ -1019,7 +1087,7 @@ async function createLxcContainer(clusterUrl, apiToken, node, options) {
 
   try {
     await waitForProxmoxTask(client, node, createUpid);
-    await applyInternetOnlyIsolation(client, node, options.vmid, { ...options, dnsServers });
+    const isolation = await applyInternetOnlyIsolation(client, node, options.vmid, { ...options, dnsServers });
     const startResponse = await client.post(`/api2/json/nodes/${node}/lxc/${options.vmid}/status/start`, {});
     ensureSuccess(startResponse, 'Container konnte nach der Absicherung nicht gestartet werden:');
     return {
@@ -1027,7 +1095,8 @@ async function createLxcContainer(clusterUrl, apiToken, node, options) {
       createUpid,
       node,
       isolation: 'internet-only',
-      dnsServers
+      dnsServers: isolation.dnsServers,
+      blockedDestinations: isolation.blockedDestinations
     };
   } catch (error) {
     let cleanupSucceeded = true;
@@ -1105,6 +1174,7 @@ module.exports = {
   getTaskStatus,
   getCapabilities,
   getClusterFirewallStatus,
+  getClusterNodeAddresses,
   createTermProxy,
   getOnlineNodes,
   getClusterDashboardStats,

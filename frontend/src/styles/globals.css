@@ -335,8 +335,19 @@ body.theme-dark .btn-danger:hover:not(:disabled) {
   color: #8f1d14;
   border-color: rgba(180, 35, 24, 0.30);
 }
+.alert-warning {
+  background: rgba(170, 105, 0, 0.10);
+  color: #775000;
+  border-color: rgba(170, 105, 0, 0.30);
+}
+.provisioning-unavailable-notice {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
 body.theme-dark .alert-success { color: var(--color-primary); }
 body.theme-dark .alert-danger  { color: #f8c4c4; }
+body.theme-dark .alert-warning { color: #f5d58a; }
 
 /* -------------------------------------------------------- AUTH / SETUP */
 .auth-shell {
@@ -4362,17 +4373,6 @@ body.theme-light .cluster-map-canvas::after {
   border-color: color-mix(in srgb, var(--color-primary) 22%, var(--color-border));
 }
 
-.admin-shell .console-nav-tabs button.active::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 10px;
-  bottom: 10px;
-  width: 3px;
-  border-radius: 0;
-  background: var(--color-primary);
-}
-
 .dashboard-hero-card {
   padding: 22px;
   gap: 24px;
@@ -4621,16 +4621,6 @@ body.theme-light .cluster-map-canvas::after {
   .mobile-admin-menu-nav button.active {
     background: color-mix(in srgb, var(--color-primary) 10%, var(--color-surface));
     border-color: color-mix(in srgb, var(--color-primary) 22%, var(--color-border));
-  }
-
-  .mobile-admin-menu-nav button.active::before {
-    content: '';
-    position: absolute;
-    left: 0;
-    top: 10px;
-    bottom: 10px;
-    width: 3px;
-    background: var(--color-primary);
   }
 
   .mobile-admin-menu-footer {
@@ -5128,16 +5118,6 @@ body.theme-dark .mobile-admin-menu-logout {
 .user-fullscreen-menu-overlay .mobile-admin-menu-nav button.active {
   background: color-mix(in srgb, var(--color-primary) 10%, var(--color-surface));
   border-color: color-mix(in srgb, var(--color-primary) 22%, var(--color-border));
-}
-
-.user-fullscreen-menu-overlay .mobile-admin-menu-nav button.active::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 10px;
-  bottom: 10px;
-  width: 3px;
-  background: var(--color-primary);
 }
 
 .user-fullscreen-menu-overlay .mobile-admin-menu-footer {

@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { userApi, getErrorMessage } from '../services/api';
+import { userApi, getErrorMessage, translateMessage } from '../services/api';
 import '../styles/globals.css';
 import ThemeButton from '../components/ThemeButton';
 import { readStoredLanguage, storeLanguage } from '../components/LanguageSwitch';
@@ -31,6 +31,7 @@ const USER_TRANSLATIONS = {
     logout: 'Log out',
     createContainer: 'Create new container',
     firstContainer: 'Create first container',
+    selfServiceUnavailable: 'Container self-service is temporarily unavailable.',
     loadingServices: 'Loading services...',
     noServices: 'No services',
     noServicesText: 'No services have been assigned to you yet.',
@@ -71,6 +72,7 @@ const USER_TRANSLATIONS = {
     logout: 'Abmelden',
     createContainer: 'Neuen Container erstellen',
     firstContainer: 'Ersten Container erstellen',
+    selfServiceUnavailable: 'Der Container-Self-Service ist vorübergehend nicht verfügbar.',
     loadingServices: 'Dienste werden geladen...',
     noServices: 'Keine Dienste',
     noServicesText: 'Dir sind noch keine Dienste zugewiesen.',
@@ -163,6 +165,14 @@ export default function UserDashboard() {
   const detailResource = resources.find(item => item.id === detailId) || null;
   const labels = USER_TRANSLATIONS[language] || USER_TRANSLATIONS.en;
   const onlineCount = useMemo(() => resources.filter(item => item.status === 'running').length, [resources]);
+  const availableProvisioningOptions = useMemo(
+    () => provisioningOptions.filter(item => item.available !== false),
+    [provisioningOptions]
+  );
+  const unavailableProvisioningOptions = useMemo(
+    () => provisioningOptions.filter(item => item.available === false),
+    [provisioningOptions]
+  );
 
   const selectTab = (tab) => {
     setActiveTab(tab);
@@ -252,12 +262,19 @@ export default function UserDashboard() {
                   <span className="resource-id">Hosting by TechByGiusi</span>
                   <h2>{labels.hero.title}</h2>
                 </div>
-                {provisioningOptions.length > 0 && (
+                {availableProvisioningOptions.length > 0 && (
                   <div className="dashboard-hero-actions">
                     <button type="button" className="btn-primary" onClick={() => setShowCreate(true)}>{labels.createContainer}</button>
                   </div>
                 )}
               </section>
+
+              {availableProvisioningOptions.length === 0 && unavailableProvisioningOptions.length > 0 && (
+                <div className="alert alert-warning provisioning-unavailable-notice">
+                  <strong>{labels.selfServiceUnavailable}</strong>
+                  <span>{unavailableProvisioningOptions.map(item => `${item.clusterName}: ${translateMessage(item.unavailableReason)}`).join(' · ')}</span>
+                </div>
+              )}
 
               {loading ? (
                 <div className="loading"><span className="spinner"></span><span>{labels.loadingServices}</span></div>
@@ -265,7 +282,7 @@ export default function UserDashboard() {
                 <section className="empty-state panel-card">
                   <h2>{labels.noServices}</h2>
                   <p>{labels.noServicesText}</p>
-                  {provisioningOptions.length > 0 && (
+                  {availableProvisioningOptions.length > 0 && (
                     <button type="button" className="btn-primary" onClick={() => setShowCreate(true)}>{labels.firstContainer}</button>
                   )}
                 </section>
@@ -328,7 +345,7 @@ export default function UserDashboard() {
 
       {showCreate && (
         <CreateMachineModal
-          options={provisioningOptions}
+          options={availableProvisioningOptions}
           onClose={() => setShowCreate(false)}
           onCreated={() => fetchResources(false)}
         />

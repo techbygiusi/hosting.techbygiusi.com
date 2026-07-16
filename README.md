@@ -6,15 +6,8 @@ The frontend is built with React and the backend with Express + SQLite. Proxmox 
 
 ## Version
 
-Current version: **v3.1.30**
+Current version: **v3.1.35**
 
-Versioning now follows a clean semantic sequence:
-
-- **Patch** versions for small fixes and UI polish.
-- **Minor** versions for user-visible features.
-- **Major** versions only for breaking changes.
-
-The old history is kept below, but new releases should continue from the current `v3.x` line without date or numbering jumps.
 
 ## What's new in v3.0.0
 
@@ -66,7 +59,7 @@ The old history is kept below, but new releases should continue from the current
 - Start, stop, reboot, shut down or delete services from the detail view when the Proxmox token permits it.
 - Open a full-page console in a separate browser tab on desktop when the Proxmox token permits it.
 - Read recent Proxmox tasks and logs for the assigned service.
-- Manage service credentials. Root credentials used during self-service provisioning are saved automatically on the created service.
+- Manage service credentials. The exact root password used during self-service provisioning, including a configured cluster default, is saved automatically on the created service.
 - Create new LXC containers on desktop or mobile through template-only self-service with mandatory internet-only network isolation.
 - Delete containers that the user created through self-service.
 
@@ -81,7 +74,7 @@ The backend automatically allocates:
 
 The IP allocator checks the portal reservation table, static LXC network config and live LXC interface addresses from Proxmox, so containers created outside the portal are respected as well.
 
-Before the first start, the backend enables the Proxmox guest firewall and adds outbound drop rules for the container subnet, RFC1918 networks, CGNAT, IPv4 link-local ranges and all IPv6 traffic. DNS is limited to configured public IPv4 resolvers. The portal verifies that the Proxmox Datacenter firewall is enabled and deletes a newly created LXC if the isolation rules cannot be installed. If automatic cleanup fails, the orphaned LXC remains stopped and the portal reports that it must be checked in Proxmox.
+Before the first start, the backend enables the Proxmox guest firewall and adds outbound drop rules for the container subnet, RFC1918 networks, CGNAT, IPv4 link-local ranges and all IPv6 traffic. DNS is limited to configured public IPv4 resolvers. The portal verifies that the Proxmox Datacenter firewall is enabled before presenting a cluster as available to users, rechecks it during creation and deletes a newly created LXC if the isolation rules cannot be installed. If automatic cleanup fails, the orphaned LXC remains stopped and the portal reports that it must be checked in Proxmox.
 
 Admins configure per cluster:
 
@@ -108,7 +101,7 @@ Recommended role for full portal functionality:
 - `Sys.Audit` on `/` so the portal can verify that the Datacenter firewall is enabled
 - `Datastore.AllocateSpace` on the storage used for LXC disks/templates
 
-The portal hides unavailable actions when the token does not provide the matching capability. The Proxmox Datacenter firewall must also be enabled before self-service can be activated.
+The portal hides unavailable actions when the token does not provide the matching capability. The Proxmox Datacenter firewall must remain enabled before and during self-service. The portal never disables or globally changes it; isolation is applied only to each newly created container.
 
 ## Docker Compose
 
@@ -124,6 +117,7 @@ services:
       FRONTEND_ORIGIN: https://your-domain.example
       TRUST_PROXY_HOPS: 1
       SELF_SERVICE_DNS_SERVERS: "1.1.1.1 1.0.0.1"
+      SELF_SERVICE_BLOCKED_NETWORKS: ""
     volumes:
       - hosting-data:/app/data
 
@@ -160,6 +154,7 @@ Open the frontend on port `3000` or place it behind your reverse proxy.
 | `FRONTEND_ORIGIN` | empty | Optional CORS origin, for example `https://portal.example.com`. |
 | `TRUST_PROXY_HOPS` | `0` | Express trust proxy setting for reverse proxy deployments. |
 | `SELF_SERVICE_DNS_SERVERS` | `1.1.1.1 1.0.0.1` | Space-, comma- or semicolon-separated public IPv4 DNS resolvers assigned to new self-service LXCs. Private, local, multicast and reserved addresses are rejected. |
+| `SELF_SERVICE_BLOCKED_NETWORKS` | empty | Optional additional IPv4 addresses or CIDRs that self-service containers must never reach, useful for internal networks using public address space. |
 
 ### Frontend
 
@@ -182,7 +177,8 @@ The included `frontend/nginx.conf` already contains the required upgrade headers
 - Credential reveal actions are logged in the audit log.
 - User self-service deletion is restricted to containers the same user created through the portal.
 - Self-service creation is template-only; the removed Community Script endpoints and node-shell provisioning page are no longer available.
-- New self-service LXCs are created stopped, receive host-side outbound isolation rules, and are started only after the firewall configuration succeeds.
+- New self-service LXCs are created stopped, receive host-side outbound isolation rules, and are started only after the firewall configuration succeeds. The container output policy is `DROP`; private/local ranges, the complete guest subnet, cluster-node addresses, discovered guest addresses and IPv6 are blocked before a final public-IPv4 Internet allow rule is installed.
+- The portal never disables or changes the Proxmox Datacenter firewall. It must remain enabled so the per-container rules are enforced.
 
 ### Network isolation recommendation
 
@@ -201,6 +197,48 @@ docker image prune -f
 The database migrates itself on startup. Keep the backend data volume before updating.
 
 ## Changelog
+
+### v3.1.35 - 2026-07-16
+
+**Commit:** `fix: keep the datacenter firewall enabled while isolating guest egress`
+
+- keep the Proxmox Datacenter firewall enabled and never modify its global setting from the portal
+- change new self-service LXC firewalls to a fail-closed `DROP` output policy
+- block the complete guest subnet, private/local/reserved IPv4 ranges, IPv6, discovered cluster-node addresses and existing guest addresses before allowing public IPv4 Internet access
+- add `SELF_SERVICE_BLOCKED_NETWORKS` for additional internal IPv4 addresses or CIDRs that use non-private address space
+- clarify in the user and admin interfaces that self-service requires the Datacenter firewall to remain active while isolation is applied per container
+
+### v3.1.34 - 2026-07-16
+
+**Commit:** `style: add TechByGiusi favicon to the browser tab`
+
+- replaced the browser tab icon with the TechByGiusi 150 x 150 PNG favicon
+- added standard favicon, shortcut icon and Apple touch icon declarations
+- added a versioned favicon URL so browsers refresh the cached tab icon after deployment
+
+### v3.1.33 - 2026-07-16
+
+**Commit:** `style: remove active menu indicator bars`
+
+- removed the green left-side indicator from active desktop and mobile menu entries
+- kept the existing active background and border highlight as the only navigation selection state
+
+### v3.1.32 - 2026-07-16
+
+**Commit:** `fix: prevent unavailable provisioning and persist root credentials`
+
+- mark self-service clusters unavailable before users open the creation form when the Proxmox Datacenter firewall is disabled or cannot be verified
+- keep the server-side firewall recheck during every container creation so provisioning remains fail closed
+- show the unavailable cluster and reason on the user dashboard instead of failing only after form submission
+- store the exact root password used for the container, including a cluster default password, in the created resource credentials
+- confirm successful credential storage in the provisioning response and result screen
+
+### v3.1.31 - 2026-07-16
+
+**Commit:** `docs: remove internal release guidance from the readme`
+
+- removed obsolete editorial notes from the public README
+- kept the version section focused on the currently installed release
 
 ### v3.1.30 - 2026-07-16
 
@@ -269,7 +307,6 @@ The database migrates itself on startup. Keep the backend data volume before upd
 - corrected duplicated and misnumbered `v3.1.x` changelog headings
 - restored the continuous `v3.1.7` through `v3.1.23` release sequence
 - added the previously missing `v3.0.0` changelog entry
-- corrected the versioning note so new releases continue from the current `v3.x` line
 
 ### v3.1.23 - 2026-07-16
 
