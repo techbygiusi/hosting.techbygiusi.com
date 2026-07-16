@@ -1816,8 +1816,14 @@ function ProvisioningSettings({ clusters, onSaved, onError, onSuccess }) {
     e.preventDefault();
     try {
       setBusy(true);
-      await adminApi.updateClusterProvisioning(clusterId, form);
-      onSuccess('Self-Service-Konfiguration gespeichert.');
+      const response = await adminApi.updateClusterProvisioning(clusterId, form);
+      if (response.data.activationWarning) {
+        setField('allowProvisioning', false);
+        const prefix = translatePortalText('Konfiguration gespeichert. Self-Service bleibt deaktiviert:', readStoredLanguage());
+        onSuccess(`${prefix} ${translateMessage(response.data.activationWarning)}`);
+      } else {
+        onSuccess('Self-Service-Konfiguration gespeichert.');
+      }
       onSaved();
     } catch (err) {
       onError(getErrorMessage(err, 'Konfiguration konnte nicht gespeichert werden.'));
@@ -1859,9 +1865,9 @@ function ProvisioningSettings({ clusters, onSaved, onError, onSuccess }) {
               <span className="toggle-track"><span className="toggle-thumb"></span></span>
             </span>
           </label>
+          <small className="hint-text">Templates, IP-Bereich und Limits können auch bei deaktiviertem Self-Service vorbereitet und gespeichert werden. Die Proxmox-Datacenter-Firewall wird erst beim Aktivieren geprüft.</small>
 
-          {form.allowProvisioning && (
-            <>
+          <>
               <div className="form-row-2">
                 <label className="form-group"><span>VMID von</span><input type="number" min="100" value={form.vmidMin} onChange={e => setField('vmidMin', e.target.value)} placeholder="900" /></label>
                 <label className="form-group"><span>VMID bis</span><input type="number" min="100" value={form.vmidMax} onChange={e => setField('vmidMax', e.target.value)} placeholder="999" /></label>
@@ -1911,8 +1917,7 @@ function ProvisioningSettings({ clusters, onSaved, onError, onSuccess }) {
                 <label className="form-group"><span>Max. RAM (MB)</span><input type="number" min="256" step="256" value={form.maxMemoryMb} onChange={e => setField('maxMemoryMb', e.target.value)} /></label>
                 <label className="form-group"><span>Max. Disk (GB)</span><input type="number" min="4" max="32" value={form.maxDiskGb} onChange={e => setField('maxDiskGb', e.target.value)} /></label>
               </div>
-            </>
-          )}
+          </>
 
           <div className="form-actions">
             <button type="submit" className="btn-primary" disabled={busy}>{busy ? 'Speichern...' : 'Konfiguration speichern'}</button>

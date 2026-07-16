@@ -6,7 +6,7 @@ The frontend is built with React and the backend with Express + SQLite. Proxmox 
 
 ## Version
 
-Current version: **v3.1.29**
+Current version: **v3.1.30**
 
 Versioning now follows a clean semantic sequence:
 
@@ -85,7 +85,7 @@ Before the first start, the backend enables the Proxmox guest firewall and adds 
 
 Admins configure per cluster:
 
-- Self-service on/off.
+- Self-service on/off. The remaining provisioning settings can be prepared and saved while self-service is disabled.
 - VMID range.
 - IP range, CIDR prefix and gateway.
 - Bridge.
@@ -201,6 +201,16 @@ docker image prune -f
 The database migrates itself on startup. Keep the backend data volume before updating.
 
 ## Changelog
+
+### v3.1.30 - 2026-07-16
+
+**Commit:** `fix: persist template selections while self-service prerequisites are unavailable`
+
+- allow approved CT templates, storage, IP ranges and resource limits to be edited and saved while self-service is disabled
+- verify live Proxmox permissions, storage availability and the Datacenter firewall only when self-service changes from disabled to enabled
+- preserve all edited provisioning settings and keep self-service disabled when an activation prerequisite is unavailable, instead of discarding the selected templates
+- keep container creation fail closed because the provisioning path still rechecks firewall permissions and Datacenter firewall status before creating a container
+- explain directly in the admin form that provisioning settings can be prepared before the Proxmox Datacenter firewall is enabled
 
 ### v3.1.29 - 2026-07-16
 

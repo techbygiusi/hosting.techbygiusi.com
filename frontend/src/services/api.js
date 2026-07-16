@@ -77,6 +77,7 @@ const MESSAGE_TRANSLATIONS = {
   'Provisioning firewall audit permission is missing': 'Dem Proxmox-Token fehlt Sys.Audit zur Prüfung der Datacenter-Firewall.',
   'Proxmox datacenter firewall status could not be verified': 'Der Status der Proxmox-Datacenter-Firewall konnte nicht geprüft werden.',
   'Proxmox datacenter firewall is disabled': 'Die Proxmox-Datacenter-Firewall ist deaktiviert. Aktiviere sie vor dem Self-Service.',
+  'Self-service activation prerequisites could not be verified': 'Die Voraussetzungen zum Aktivieren des Self-Service konnten nicht geprüft werden.',
   'Container network isolation failed': 'Die Netzwerk-Isolation konnte nicht angewendet werden. Der Container wurde nicht gestartet.',
   'Self-service DNS servers must be public IPv4 addresses': 'Die Self-Service-DNS-Server müssen öffentliche IPv4-Adressen sein.',
   'Container network isolation failed and cleanup was unsuccessful': 'Die Netzwerk-Isolation ist fehlgeschlagen. Der gestoppte Container konnte nicht automatisch entfernt werden und muss in Proxmox geprüft werden.',

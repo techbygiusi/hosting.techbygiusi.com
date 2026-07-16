@@ -592,28 +592,47 @@ router.put('/clusters/:id/provisioning', async (req, res, next) => {
 
     const provisioning = normalizeProvisioning(req.body, cluster);
 
-    if (provisioning.allowProvisioning) {
-      const apiToken = decrypt(cluster.api_token);
-      const capabilities = await getCapabilities(cluster.url, apiToken);
-      if (!capabilities.canProvision) {
-        throw new AppError('Provisioning is not permitted for this cluster token', HTTP_STATUS.FORBIDDEN);
-      }
-      if (!capabilities.canManageFirewall) {
-        throw new AppError('Provisioning firewall permission is missing', HTTP_STATUS.FORBIDDEN);
-      }
-      if (!capabilities.canVerifyFirewall) {
-        throw new AppError('Provisioning firewall audit permission is missing', HTTP_STATUS.FORBIDDEN);
-      }
-      const firewallStatus = await getClusterFirewallStatus(cluster.url, apiToken);
-      if (!firewallStatus.enabled) {
-        throw new AppError('Proxmox datacenter firewall is disabled', HTTP_STATUS.BAD_REQUEST);
-      }
-      const nodes = await getOnlineNodes(cluster.url, apiToken);
-      if (nodes.length === 0) throw new AppError('No online node available', HTTP_STATUS.BAD_REQUEST);
-      const liveStorages = await getNodeStorages(cluster.url, apiToken, nodes[0].node);
-      const liveStorageNames = liveStorages.map(item => item.storage);
-      if (!liveStorageNames.includes(provisioning.storage)) {
-        throw new AppError('Disk storage is not available on the selected Proxmox node', HTTP_STATUS.BAD_REQUEST);
+    // Only verify live Proxmox prerequisites when self-service is being
+    // activated. Existing settings such as approved templates must remain
+    // editable while the Datacenter firewall is temporarily disabled. The
+    // actual provisioning path performs the same checks again and therefore
+    // still fails closed before a container can be created.
+    const isEnablingProvisioning = provisioning.allowProvisioning && !cluster.allow_provisioning;
+
+    let effectiveAllowProvisioning = provisioning.allowProvisioning;
+    let activationWarning = null;
+
+    if (isEnablingProvisioning) {
+      try {
+        const apiToken = decrypt(cluster.api_token);
+        const capabilities = await getCapabilities(cluster.url, apiToken);
+        if (!capabilities.canProvision) {
+          throw new AppError('Provisioning is not permitted for this cluster token', HTTP_STATUS.FORBIDDEN);
+        }
+        if (!capabilities.canManageFirewall) {
+          throw new AppError('Provisioning firewall permission is missing', HTTP_STATUS.FORBIDDEN);
+        }
+        if (!capabilities.canVerifyFirewall) {
+          throw new AppError('Provisioning firewall audit permission is missing', HTTP_STATUS.FORBIDDEN);
+        }
+        const firewallStatus = await getClusterFirewallStatus(cluster.url, apiToken);
+        if (!firewallStatus.enabled) {
+          throw new AppError('Proxmox datacenter firewall is disabled', HTTP_STATUS.BAD_REQUEST);
+        }
+        const nodes = await getOnlineNodes(cluster.url, apiToken);
+        if (nodes.length === 0) throw new AppError('No online node available', HTTP_STATUS.BAD_REQUEST);
+        const liveStorages = await getNodeStorages(cluster.url, apiToken, nodes[0].node);
+        const liveStorageNames = liveStorages.map(item => item.storage);
+        if (!liveStorageNames.includes(provisioning.storage)) {
+          throw new AppError('Disk storage is not available on the selected Proxmox node', HTTP_STATUS.BAD_REQUEST);
+        }
+      } catch (error) {
+        // Preserve the edited settings, but never enable self-service when its
+        // live safety prerequisites cannot be verified.
+        effectiveAllowProvisioning = 0;
+        activationWarning = error instanceof AppError
+          ? error.message
+          : 'Self-service activation prerequisites could not be verified';
       }
     }
 
@@ -623,7 +642,7 @@ router.put('/clusters/:id/provisioning', async (req, res, next) => {
         gateway = ?, bridge = ?, storage = ?, template_storage = ?, iso_storage = ?, allowed_templates = ?, allowed_isos = ?, max_cores = ?, max_memory_mb = ?, max_disk_gb = ?
       WHERE id = ?`,
       [
-        provisioning.allowProvisioning, provisioning.allowTypes, provisioning.vmidMin, provisioning.vmidMax,
+        effectiveAllowProvisioning, provisioning.allowTypes, provisioning.vmidMin, provisioning.vmidMax,
         provisioning.ipStart, provisioning.ipEnd, provisioning.ipPrefix,
         provisioning.gateway, provisioning.bridge, provisioning.storage,
         provisioning.templateStorage, provisioning.isoStorage,
@@ -640,7 +659,11 @@ router.put('/clusters/:id/provisioning', async (req, res, next) => {
     }
 
     await logAudit(req, 'cluster.provisioning', `cluster:${req.params.id}`, cluster.name);
-    res.json({ message: 'Provisioning updated' });
+    res.json({
+      message: 'Provisioning updated',
+      allowProvisioning: !!effectiveAllowProvisioning,
+      activationWarning
+    });
   } catch (err) {
     next(err);
   }
