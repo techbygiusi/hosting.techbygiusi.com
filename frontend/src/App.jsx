@@ -7,7 +7,6 @@ import ResetPassword from './pages/ResetPassword';
 import UserDashboard from './pages/UserDashboard';
 import AdminDashboard from './pages/AdminDashboard';
 import ConsolePage from './pages/ConsolePage';
-import ProvisioningConsolePage from './pages/ProvisioningConsolePage';
 import { useDocumentTheme } from './components/ThemeButton';
 import { usePortalLanguageRuntime } from './i18n';
 
@@ -111,15 +110,6 @@ export default function App() {
           element={
             <PrivateRoute requiredRole="user">
               <ConsolePage />
-            </PrivateRoute>
-          }
-        />
-
-        <Route
-          path="/provisioning-console"
-          element={
-            <PrivateRoute requiredRole="user">
-              <ProvisioningConsolePage />
             </PrivateRoute>
           }
         />

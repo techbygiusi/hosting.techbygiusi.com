@@ -14,17 +14,12 @@ const {
   getTaskStatus,
   getCapabilities,
   createTermProxy,
-  createNodeTermProxy,
   getOnlineNodes,
   getNodeTemplates,
   getNodeStorages,
   getNextVmidInRange,
   createLxcContainer,
   destroyProxmoxResource,
-  getCommunityScripts,
-  getCommunityScript,
-  buildCommunityScriptCommand,
-  runCommunityScriptOnNode,
   POWER_ACTIONS
 } = require('../services/proxmoxService');
 const { enrichResources } = require('../services/resourceService');
@@ -607,48 +602,6 @@ router.delete('/resources/:id/credentials/:credId', async (req, res, next) => {
 });
 
 
-async function trackCommunityScriptProvisioning({ req, cluster, apiToken, beforeIds, userId, scriptName }) {
-  const maxAttempts = 45; // 15 minutes at 20s
-  const intervalMs = 20000;
-  let attempts = 0;
-
-  const poll = async () => {
-    attempts += 1;
-    try {
-      const resources = await getAllContainers(cluster.url, apiToken);
-      const created = resources
-        .filter(item => item.type === 'lxc')
-        .filter(item => !beforeIds.has(String(item.vmid)))
-        .sort((a, b) => Number(a.vmid) - Number(b.vmid))[0];
-
-      if (created) {
-        const ips = await getContainerIps(cluster.url, apiToken, created.node, created.type, created.vmid).catch(() => []);
-        const ip = stripCidr(ips.find(entry => entry.ipv4)?.ipv4 || ips.find(entry => entry.ip)?.ip || '');
-        const name = created.name || scriptName || `ct-${created.vmid}`;
-
-        const existing = await get('SELECT id FROM resources WHERE cluster_id = ? AND CAST(container_id AS TEXT) = CAST(? AS TEXT)', [cluster.id, created.vmid]);
-        if (!existing) {
-          await run(
-            'INSERT INTO provisioned_machines (cluster_id, vmid, ip, hostname, user_id) VALUES (?, ?, ?, ?, ?)',
-            [cluster.id, created.vmid, ip, name, userId]
-          );
-          const result = await run(
-            'INSERT INTO resources (name, container_id, cluster_id, user_id, web_url, public_url, admin_url) VALUES (?, ?, ?, ?, ?, ?, ?)',
-            [name, String(created.vmid), cluster.id, userId, '', '', '']
-          );
-          await logAudit(req, 'machine.create', `resource:${result.lastID}`, `Community Script ${scriptName} (VMID ${created.vmid}${ip ? `, ${ip}` : ''})`);
-        }
-        return;
-      }
-    } catch (_) {
-      // Background tracking must not crash the API process.
-    }
-    if (attempts < maxAttempts) setTimeout(poll, intervalMs).unref?.();
-  };
-
-  setTimeout(poll, intervalMs).unref?.();
-}
-
 /* ------------------------------------------------------ PROVISIONING ---- */
 /**
  * Clusters where self-service provisioning is enabled AND the API token
@@ -665,7 +618,7 @@ router.get('/provisioning/options', async (req, res, next) => {
     for (const cluster of clusters) {
       const apiToken = decrypt(cluster.api_token);
       const caps = await getClusterCapabilities(cluster.id, cluster.url, apiToken);
-      if (!caps.canProvision) continue;
+      if (!caps.canProvision || !caps.canManageFirewall || !caps.canVerifyFirewall) continue;
 
       const allowTypes = 'ct';
       let templates = [];
@@ -678,10 +631,8 @@ router.get('/provisioning/options', async (req, res, next) => {
         if (nodes.length > 0) {
           const node = nodes[0].node;
           templates = await getNodeTemplates(cluster.url, apiToken, node, cluster.template_storage || 'local');
-          // If the admin picked a subset, only expose those; otherwise show all found
-          if (allowedTemplates.length > 0) {
-            templates = templates.filter(t => allowedTemplates.includes(t.volid));
-          }
+          // Self-service only exposes templates explicitly approved by the admin.
+          templates = templates.filter(t => allowedTemplates.includes(t.volid));
         }
       } catch (_) { /* templates/isos optional */ }
 
@@ -704,91 +655,17 @@ router.get('/provisioning/options', async (req, res, next) => {
 });
 
 
-router.get('/provisioning/community-scripts', async (req, res, next) => {
-  try {
-    const scripts = await getCommunityScripts();
-    res.json({ scripts });
-  } catch (err) {
-    next(err);
-  }
-});
-
-router.post('/provisioning/community-console', async (req, res, next) => {
-  try {
-    const { clusterId, communityScript } = req.body;
-    const cluster = await get(
-      'SELECT * FROM proxmox_clusters WHERE id = ? AND allow_provisioning = 1',
-      [clusterId]
-    );
-    if (!cluster) throw new AppError('Cluster not found', HTTP_STATUS.NOT_FOUND);
-    if (!cluster.vmid_min || !cluster.vmid_max || !cluster.ip_start || !cluster.ip_end || !cluster.gateway) {
-      throw new AppError('Provisioning is not fully configured for this cluster', HTTP_STATUS.BAD_REQUEST);
-    }
-
-    const apiToken = decrypt(cluster.api_token);
-    const caps = await getClusterCapabilities(cluster.id, cluster.url, apiToken);
-    if (!caps.canProvision) {
-      throw new AppError('Provisioning is not permitted for this cluster token', HTTP_STATUS.FORBIDDEN);
-    }
-
-    const script = await getCommunityScript(communityScript);
-    if (!script) throw new AppError('Community script is not allowed', HTTP_STATUS.BAD_REQUEST);
-
-    const nodes = await getOnlineNodes(cluster.url, apiToken);
-    if (nodes.length === 0) throw new AppError('No online node available', HTTP_STATUS.BAD_REQUEST);
-    const node = nodes[0].node;
-
-    const before = await getAllContainers(cluster.url, apiToken).catch(() => []);
-    const beforeIds = new Set(before.map(item => String(item.vmid)));
-    const nodeCredential = await get(
-      'SELECT username, secret_encrypted FROM proxmox_node_credentials WHERE cluster_id = ? AND node_name = ?',
-      [cluster.id, node]
-    );
-    if (!nodeCredential?.secret_encrypted) {
-      throw new AppError('Für diese Proxmox-Node sind keine Zugangsdaten hinterlegt.', HTTP_STATUS.BAD_REQUEST);
-    }
-
-    const term = await createNodeTermProxy(cluster.url, apiToken, node);
-    const sessionToken = createConsoleSession({
-      mode: 'node-shell',
-      clusterUrl: cluster.url,
-      apiToken,
-      node,
-      port: term.port,
-      ticket: term.ticket
-    });
-
-    trackCommunityScriptProvisioning({ req, cluster, apiToken, beforeIds, userId: req.user.id, scriptName: script.name });
-    await logAudit(req, 'machine.create', `cluster:${cluster.id}`, `Community Script ${script.name} opened on ${node}`);
-
-    res.json({
-      sessionToken,
-      user: term.user,
-      ticket: term.ticket,
-      wsPath: `/api/console/ws?token=${sessionToken}`,
-      bootstrapCommand: buildCommunityScriptCommand(script),
-      autoLogin: {
-        username: nodeCredential.username || 'root',
-        secret: decrypt(nodeCredential.secret_encrypted)
-      },
-      type: 'community-script-console',
-      script: script.name,
-      node,
-      clusterName: cluster.name
-    });
-  } catch (err) {
-    next(err);
-  }
-});
 
 router.post('/provisioning/create', async (req, res, next) => {
   try {
-    const { clusterId, type, hostname, template, communityScript, cores, memoryMb, diskGb, rootPassword } = req.body;
+    const { clusterId, type, hostname, template, cores, memoryMb, diskGb, rootPassword } = req.body;
     if (type && type !== 'ct') {
       throw new AppError('VMs are not allowed on this cluster', HTTP_STATUS.FORBIDDEN);
     }
+    if (req.body.communityScript) {
+      throw new AppError('Community scripts are not available', HTTP_STATUS.BAD_REQUEST);
+    }
     const kind = 'ct';
-    const useCommunityScript = !!communityScript && !template;
 
     const cluster = await get(
       'SELECT * FROM proxmox_clusters WHERE id = ? AND allow_provisioning = 1',
@@ -800,44 +677,49 @@ router.post('/provisioning/create', async (req, res, next) => {
     }
 
     const cleanHostname = String(hostname || '').trim().toLowerCase();
-    if (!useCommunityScript && !/^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/.test(cleanHostname)) {
+    if (!/^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/.test(cleanHostname)) {
       throw new AppError('Hostname is invalid', HTTP_STATUS.BAD_REQUEST);
     }
 
-    if (!useCommunityScript && (!template || !String(template).includes('vztmpl'))) {
+    if (!template || !String(template).includes('vztmpl')) {
       throw new AppError('Template is invalid', HTTP_STATUS.BAD_REQUEST);
     }
 
-    // Template-based CT creation needs a root password. Community Scripts use
-    // their own defaults and are started on the Proxmox node instead.
-    let password = '';
-    let safeCores = 1;
-    let safeMemory = 512;
-    let safeDisk = 8;
-    if (!useCommunityScript) {
-      password = rootPassword;
-      if (!password && cluster.default_password_encrypted) {
-        password = decrypt(cluster.default_password_encrypted);
-      }
-      if (!password || String(password).length < 8) {
-        throw new AppError('Root password must be at least 8 characters', HTTP_STATUS.BAD_REQUEST);
-      }
-
-      safeCores = Math.min(Math.max(parseInt(cores, 10) || 1, 1), cluster.max_cores || 2);
-      safeMemory = Math.min(Math.max(parseInt(memoryMb, 10) || 512, 256), cluster.max_memory_mb || 2048);
-      safeDisk = Math.min(Math.max(parseInt(diskGb, 10) || 8, 4), Math.min(cluster.max_disk_gb || 20, 32));
+    let password = rootPassword;
+    if (!password && cluster.default_password_encrypted) {
+      password = decrypt(cluster.default_password_encrypted);
     }
+    if (!password || String(password).length < 8) {
+      throw new AppError('Root password must be at least 8 characters', HTTP_STATUS.BAD_REQUEST);
+    }
+
+    const safeCores = Math.min(Math.max(parseInt(cores, 10) || 1, 1), cluster.max_cores || 2);
+    const safeMemory = Math.min(Math.max(parseInt(memoryMb, 10) || 512, 256), cluster.max_memory_mb || 2048);
+    const safeDisk = Math.min(Math.max(parseInt(diskGb, 10) || 8, 4), Math.min(cluster.max_disk_gb || 20, 32));
 
     const apiToken = decrypt(cluster.api_token);
     const caps = await getClusterCapabilities(cluster.id, cluster.url, apiToken);
     if (!caps.canProvision) {
       throw new AppError('Provisioning is not permitted for this cluster token', HTTP_STATUS.FORBIDDEN);
     }
-
-    if (useCommunityScript) {
-      throw new AppError('Community scripts must be started from the desktop terminal', HTTP_STATUS.BAD_REQUEST);
+    if (!caps.canManageFirewall) {
+      throw new AppError('Provisioning firewall permission is missing', HTTP_STATUS.FORBIDDEN);
+    }
+    if (!caps.canVerifyFirewall) {
+      throw new AppError('Provisioning firewall audit permission is missing', HTTP_STATUS.FORBIDDEN);
     }
 
+    const allowedTemplates = (() => {
+      try {
+        const parsed = JSON.parse(cluster.allowed_templates || '[]');
+        return Array.isArray(parsed) ? parsed : [];
+      } catch (_) {
+        return [];
+      }
+    })();
+    if (!allowedTemplates.includes(template)) {
+      throw new AppError('Template is not allowed', HTTP_STATUS.BAD_REQUEST);
+    }
 
     // Allocate VMID within the admin range and a free IP within the pool
     const reserved = await all('SELECT vmid FROM provisioned_machines WHERE cluster_id = ?', [cluster.id]);
@@ -866,6 +748,11 @@ router.post('/provisioning/create', async (req, res, next) => {
     const nodes = await getOnlineNodes(cluster.url, apiToken);
     if (nodes.length === 0) throw new AppError('No online node available', HTTP_STATUS.BAD_REQUEST);
     const node = nodes[0].node;
+
+    const liveTemplates = await getNodeTemplates(cluster.url, apiToken, node, cluster.template_storage || 'local');
+    if (!liveTemplates.some(item => item.volid === template)) {
+      throw new AppError('Template is not allowed', HTTP_STATUS.BAD_REQUEST);
+    }
 
     const liveStorages = await getNodeStorages(cluster.url, apiToken, node);
     const liveStorageNames = liveStorages.map(item => item.storage);
@@ -914,7 +801,8 @@ router.post('/provisioning/create', async (req, res, next) => {
       vmid,
       ip,
       node,
-      upid: createResult.upid
+      upid: createResult.upid,
+      isolation: createResult.isolation || 'internet-only'
     });
   } catch (err) {
     next(err);

@@ -7,22 +7,16 @@ import { readStoredLanguage } from './LanguageSwitch';
 import { translatePortalText } from '../i18n';
 
 /**
- * In-browser console for a resource. The backend relays the websocket to
- * Proxmox (termproxy) - the API token never reaches the browser.
- *
- * Proxmox termproxy protocol (client side):
- * - after open: send "<user>:<ticket>\n"
- * - input:  "0:<byteLength>:<data>"
- * - resize: "1:<cols>:<rows>:"
- * - ping:   "2"
+ * In-browser console for an assigned resource. The backend relays the
+ * websocket to Proxmox, so the API token never reaches the browser.
  */
 function terminalText(value) {
   return translatePortalText(value, readStoredLanguage());
 }
 
-export default function TerminalView({ resourceId, resourceName, fullscreen = false, sessionInfo = null, autoCloseOnDisconnect = false, disableReconnect = false, onDisconnect = null }) {
+export default function TerminalView({ resourceId, resourceName, fullscreen = false }) {
   const containerRef = useRef(null);
-  const [status, setStatus] = useState('connecting'); // connecting | open | closed | error
+  const [status, setStatus] = useState('connecting');
   const [message, setMessage] = useState('');
   const [reconnectKey, setReconnectKey] = useState(0);
 
@@ -30,7 +24,6 @@ export default function TerminalView({ resourceId, resourceName, fullscreen = fa
     let disposed = false;
     let ws = null;
     let pingTimer = null;
-    let scriptCloseTriggered = false;
 
     const getResponsiveFontSize = () => {
       if (!fullscreen) return 14;
@@ -89,10 +82,10 @@ export default function TerminalView({ resourceId, resourceName, fullscreen = fa
 
     (async () => {
       try {
-        const res = sessionInfo ? { data: sessionInfo } : await userApi.openConsole(resourceId);
+        const res = await userApi.openConsole(resourceId);
         if (disposed) return;
 
-        const { wsPath, user, ticket, autoLogin, bootstrapCommand } = res.data;
+        const { wsPath, user, ticket, autoLogin } = res.data;
         const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
         ws = new WebSocket(`${protocol}://${window.location.host}${wsPath}`);
         ws.binaryType = 'arraybuffer';
@@ -110,62 +103,9 @@ export default function TerminalView({ resourceId, resourceName, fullscreen = fa
           secret: autoLogin?.secret || '',
           buffer: '',
           sentUsername: false,
-          sentSecret: false,
-          bootstrapSent: false
+          sentSecret: false
         };
-
-        const sendBootstrapCommand = () => {
-          if (!bootstrapCommand || autoLoginState.bootstrapSent) return;
-          autoLoginState.bootstrapSent = true;
-          setTimeout(fitAndResize, 100);
-          setTimeout(fitAndResize, 450);
-          setTimeout(() => {
-            fitAndResize();
-            const cols = Math.max(80, term.cols || 120);
-            const rows = Math.max(24, term.rows || 40);
-            const command = String(bootstrapCommand)
-              .replace(/__PORTAL_COLS__/g, String(cols))
-              .replace(/__PORTAL_ROWS__/g, String(rows));
-            sendConsoleInput(`${command}\r`);
-            setTimeout(fitAndResize, 450);
-            setTimeout(fitAndResize, 1200);
-            setTimeout(fitAndResize, 2500);
-          }, 950);
-        };
-
-        ws.onopen = () => {
-          setStatus('open');
-          ws.send(`${user}:${ticket}\n`);
-          setTimeout(fitAndResize, 150);
-          setTimeout(fitAndResize, 700);
-          setTimeout(fitAndResize, 1500);
-          if (bootstrapCommand && !autoLoginState.enabled) {
-            setTimeout(sendBootstrapCommand, 1200);
-          }
-          pingTimer = setInterval(() => {
-            if (ws.readyState === WebSocket.OPEN) ws.send('2');
-          }, 30 * 1000);
-        };
-
         const stripAnsi = (value) => String(value || '').replace(/\x1b\[[0-9;?]*[ -/]*[@-~]/g, '');
-        const closeCommunityScriptTerminal = () => {
-          if (!autoCloseOnDisconnect || scriptCloseTriggered) return;
-          scriptCloseTriggered = true;
-          setStatus('closed');
-          try {
-            sendConsoleInput('exit\r');
-            setTimeout(() => sendConsoleInput('exit\r'), 180);
-          } catch (_) { /* noop */ }
-          setTimeout(() => {
-            try { ws?.close(1000, 'community-script-ended'); } catch (_) { /* noop */ }
-            if (typeof onDisconnect === 'function') onDisconnect();
-          }, 900);
-        };
-        const didCommunityScriptAbort = (chunk) => {
-          if (!autoCloseOnDisconnect) return false;
-          const visible = stripAnsi(chunk);
-          return /(?:User\s+exited\s+script|Script\s+abgebrochen|Abbruch|abgebrochen)/i.test(visible);
-        };
         const maybeSendAutoLogin = (chunk) => {
           if (!autoLoginState.enabled || autoLoginState.sentSecret) return;
           autoLoginState.buffer = (autoLoginState.buffer + stripAnsi(chunk)).slice(-1200);
@@ -177,11 +117,19 @@ export default function TerminalView({ resourceId, resourceName, fullscreen = fa
           }
           if (autoLoginState.sentUsername && !autoLoginState.sentSecret && /password\s*:\s*$/i.test(visible)) {
             autoLoginState.sentSecret = true;
-            setTimeout(() => {
-              sendConsoleInput(`${autoLoginState.secret}\r`);
-              if (bootstrapCommand) sendBootstrapCommand();
-            }, 180);
+            setTimeout(() => sendConsoleInput(`${autoLoginState.secret}\r`), 180);
           }
+        };
+
+        ws.onopen = () => {
+          setStatus('open');
+          ws.send(`${user}:${ticket}\n`);
+          setTimeout(fitAndResize, 150);
+          setTimeout(fitAndResize, 700);
+          setTimeout(fitAndResize, 1500);
+          pingTimer = setInterval(() => {
+            if (ws.readyState === WebSocket.OPEN) ws.send('2');
+          }, 30 * 1000);
         };
 
         ws.onmessage = (event) => {
@@ -190,20 +138,10 @@ export default function TerminalView({ resourceId, resourceName, fullscreen = fa
             : new TextDecoder().decode(event.data);
           term.write(data);
           maybeSendAutoLogin(data);
-          if (didCommunityScriptAbort(data)) {
-            term.write(`\r\n\x1b[90m${terminalText('[Hosting Portal: Script abgebrochen. Terminal wird geschlossen...]')}\x1b[0m\r\n`);
-            closeCommunityScriptTerminal();
-          }
         };
 
         ws.onclose = () => {
           setStatus('closed');
-          if (autoCloseOnDisconnect) {
-            if (!scriptCloseTriggered) {
-              term.write(`\r\n\x1b[90m${terminalText('[Script-/Terminal-Session beendet.]')}\x1b[0m\r\n`);
-            }
-            return;
-          }
           term.write(`\r\n\x1b[90m${terminalText('[Verbindung beendet]')}\x1b[0m\r\n`);
         };
 
@@ -212,9 +150,7 @@ export default function TerminalView({ resourceId, resourceName, fullscreen = fa
           setMessage(terminalText('Verbindung zur Konsole fehlgeschlagen.'));
         };
 
-        term.onData((input) => {
-          if (!scriptCloseTriggered) sendConsoleInput(input);
-        });
+        term.onData(sendConsoleInput);
       } catch (err) {
         setStatus('error');
         setMessage(getErrorMessage(err, 'Konsole konnte nicht geöffnet werden.'));
@@ -229,7 +165,7 @@ export default function TerminalView({ resourceId, resourceName, fullscreen = fa
       try { ws?.close(); } catch (_) { /* noop */ }
       term.dispose();
     };
-  }, [resourceId, reconnectKey, sessionInfo, autoCloseOnDisconnect, onDisconnect]);
+  }, [resourceId, reconnectKey, fullscreen]);
 
   return (
     <div className={fullscreen ? 'terminal-wrapper terminal-wrapper-fullscreen' : 'terminal-wrapper'}>
@@ -240,7 +176,7 @@ export default function TerminalView({ resourceId, resourceName, fullscreen = fa
           {status === 'closed' && 'Getrennt'}
           {status === 'error' && (message || 'Fehler')}
         </span>
-        {!disableReconnect && (status === 'closed' || status === 'error') && (
+        {(status === 'closed' || status === 'error') && (
           <button type="button" className="btn-secondary btn-small" onClick={() => { setStatus('connecting'); setMessage(''); setReconnectKey(key => key + 1); }}>
             Neu verbinden
           </button>

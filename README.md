@@ -6,7 +6,7 @@ The frontend is built with React and the backend with Express + SQLite. Proxmox 
 
 ## Version
 
-Current version: **v3.1.28**
+Current version: **v3.1.29**
 
 Versioning now follows a clean semantic sequence:
 
@@ -67,12 +67,12 @@ The old history is kept below, but new releases should continue from the current
 - Open a full-page console in a separate browser tab on desktop when the Proxmox token permits it.
 - Read recent Proxmox tasks and logs for the assigned service.
 - Manage service credentials. Root credentials used during self-service provisioning are saved automatically on the created service.
-- Create new LXC containers through self-service.
+- Create new LXC containers on desktop or mobile through template-only self-service with mandatory internet-only network isolation.
 - Delete containers that the user created through self-service.
 
 ### Self-service provisioning
 
-Self-service has been intentionally LXC-only since v2.4.0. VM creation is no longer exposed to users and stays an administrator task in Proxmox.
+Self-service is intentionally limited to LXC containers created from administrator-approved CT templates. VM creation remains an administrator task in Proxmox, and Community Scripts have been removed from the portal.
 
 The backend automatically allocates:
 
@@ -80,6 +80,8 @@ The backend automatically allocates:
 - The next free IPv4 address from the configured IP pool.
 
 The IP allocator checks the portal reservation table, static LXC network config and live LXC interface addresses from Proxmox, so containers created outside the portal are respected as well.
+
+Before the first start, the backend enables the Proxmox guest firewall and adds outbound drop rules for the container subnet, RFC1918 networks, CGNAT, IPv4 link-local ranges and all IPv6 traffic. DNS is limited to configured public IPv4 resolvers. The portal verifies that the Proxmox Datacenter firewall is enabled and deletes a newly created LXC if the isolation rules cannot be installed. If automatic cleanup fails, the orphaned LXC remains stopped and the portal reports that it must be checked in Proxmox.
 
 Admins configure per cluster:
 
@@ -89,7 +91,7 @@ Admins configure per cluster:
 - Bridge.
 - Disk storage, selected from live storages reported by the selected Proxmox node.
 - CT template storage.
-- Allowed CT templates.
+- Allowed CT templates. Submitted template IDs are validated again by the backend.
 - CPU, RAM and disk limits.
 
 ## Recommended Proxmox token rights
@@ -102,9 +104,11 @@ Recommended role for full portal functionality:
 - `VM.PowerMgmt`
 - `VM.Console`
 - `VM.Allocate`
+- `VM.Config.Network` on the Proxmox VM path used for self-service containers so the portal can create guest firewall rules
+- `Sys.Audit` on `/` so the portal can verify that the Datacenter firewall is enabled
 - `Datastore.AllocateSpace` on the storage used for LXC disks/templates
 
-The portal hides unavailable actions when the token does not provide the matching capability.
+The portal hides unavailable actions when the token does not provide the matching capability. The Proxmox Datacenter firewall must also be enabled before self-service can be activated.
 
 ## Docker Compose
 
@@ -119,6 +123,7 @@ services:
       DB_PATH: /app/data/hosting.db
       FRONTEND_ORIGIN: https://your-domain.example
       TRUST_PROXY_HOPS: 1
+      SELF_SERVICE_DNS_SERVERS: "1.1.1.1 1.0.0.1"
     volumes:
       - hosting-data:/app/data
 
@@ -154,6 +159,7 @@ Open the frontend on port `3000` or place it behind your reverse proxy.
 | `ENCRYPTION_KEY` | auto-generated in data volume | AES key for Proxmox tokens and stored secrets. Set it manually for strict production control. |
 | `FRONTEND_ORIGIN` | empty | Optional CORS origin, for example `https://portal.example.com`. |
 | `TRUST_PROXY_HOPS` | `0` | Express trust proxy setting for reverse proxy deployments. |
+| `SELF_SERVICE_DNS_SERVERS` | `1.1.1.1 1.0.0.1` | Space-, comma- or semicolon-separated public IPv4 DNS resolvers assigned to new self-service LXCs. Private, local, multicast and reserved addresses are rejected. |
 
 ### Frontend
 
@@ -175,6 +181,12 @@ The included `frontend/nginx.conf` already contains the required upgrade headers
 - Legacy plaintext/base64 values are still accepted and are re-encrypted on save.
 - Credential reveal actions are logged in the audit log.
 - User self-service deletion is restricted to containers the same user created through the portal.
+- Self-service creation is template-only; the removed Community Script endpoints and node-shell provisioning page are no longer available.
+- New self-service LXCs are created stopped, receive host-side outbound isolation rules, and are started only after the firewall configuration succeeds.
+
+### Network isolation recommendation
+
+The portal firewall rules provide a host-side safety layer that a compromised container cannot change. For the strongest traditional network boundary, place the self-service IP pool on a dedicated VLAN/bridge and enforce an upstream firewall policy from that VLAN to **WAN only**. Block access to management, server, client, storage, VPN and other internal VLANs at the router/firewall as well. This protects the environment even if the Proxmox guest firewall is accidentally changed later.
 
 ## Update notes
 
@@ -189,6 +201,18 @@ docker image prune -f
 The database migrates itself on startup. Keep the backend data volume before updating.
 
 ## Changelog
+
+### v3.1.29 - 2026-07-16
+
+**Commit:** `feat: enforce template-only provisioning with internet-only container isolation`
+
+- removed the unfinished Community Scripts picker, API endpoints, node-shell provisioning console, stored node-credential management and related client code
+- restricted user self-service to CT templates on desktop and mobile and validate administrator-approved template IDs again in the backend
+- create new self-service LXCs in a stopped state, enable their Proxmox firewall and block outbound access to the guest subnet, private networks, CGNAT, IPv4 link-local ranges and IPv6 before startup
+- allow only configured public IPv4 DNS resolvers and add `SELF_SERVICE_DNS_SERVERS` for resolver configuration
+- fail closed by deleting a newly created container when isolation cannot be applied, keep cleanup failures stopped for manual inspection, and require the Proxmox Datacenter firewall to be enabled
+- require and display `VM.Config.Network` plus `Sys.Audit` capabilities for secure self-service provisioning
+- documented the recommended dedicated VLAN/bridge with an upstream WAN-only firewall policy
 
 ### v3.1.28 - 2026-07-16
 

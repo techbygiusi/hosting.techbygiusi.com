@@ -18,6 +18,7 @@ services:
       # v3.0: Monitoring & Branding
       MONITOR_INTERVAL_SECONDS: ${MONITOR_INTERVAL_SECONDS:-60}
       MONITOR_DEBOUNCE_CHECKS: ${MONITOR_DEBOUNCE_CHECKS:-2}
+      SELF_SERVICE_DNS_SERVERS: "${SELF_SERVICE_DNS_SERVERS:-1.1.1.1 1.0.0.1}"
       BRAND_NAME: ${BRAND_NAME:-Hosting by TechByGiusi}
       TZ: ${TZ:-Europe/Berlin}
     volumes:

@@ -1,6 +1,5 @@
 const axios = require('axios');
 const https = require('https');
-const WebSocket = require('ws');
 
 const httpsAgent = new https.Agent({
   rejectUnauthorized: false
@@ -28,188 +27,6 @@ function ensureSuccess(response, fallbackMessage) {
 }
 
 
-const COMMUNITY_SCRIPTS_REPO = 'community-scripts/ProxmoxVE';
-const COMMUNITY_SCRIPTS_BRANCH = 'main';
-const COMMUNITY_SCRIPTS_CT_API = `https://api.github.com/repos/${COMMUNITY_SCRIPTS_REPO}/contents/ct?ref=${COMMUNITY_SCRIPTS_BRANCH}`;
-const COMMUNITY_SCRIPTS_RAW = `https://raw.githubusercontent.com/${COMMUNITY_SCRIPTS_REPO}/${COMMUNITY_SCRIPTS_BRANCH}/ct`;
-const COMMUNITY_SCRIPT_CACHE_MS = 30 * 60 * 1000;
-let communityScriptCache = { time: 0, items: [] };
-
-const COMMUNITY_SCRIPT_DENY = [
-  /vpn/i, /wireguard/i, /openvpn/i, /tailscale/i, /headscale/i, /zerotier/i,
-  /firewall/i, /router/i, /gateway/i, /proxy/i, /dnsmasq/i,
-  /proxmox/i, /pve/i, /pbs/i, /backup/i, /cleanup/i, /clean/i, /kernel/i,
-  /microcode/i, /post[-_]?install/i, /tools?/i, /monitoring/i, /grafana/i,
-  /prometheus/i, /zabbix/i, /wazuh/i, /crowdsec/i, /authentik/i, /vault/i
-];
-
-const COMMUNITY_SCRIPT_FALLBACK = [
-  'adguard', 'actualbudget', 'audiobookshelf', 'bookstack', 'changedetection',
-  'dashy', 'dozzle', 'filebrowser', 'gitea', 'homeassistant', 'homepage',
-  'immich', 'jellyfin', 'mealie', 'n8n', 'nextcloud', 'paperless-ngx',
-  'photoprism', 'plex', 'portainer', 'vaultwarden'
-].map(slug => ({
-  id: slug,
-  slug,
-  name: titleFromSlug(slug),
-  path: `ct/${slug}.sh`,
-  url: `${COMMUNITY_SCRIPTS_RAW}/${slug}.sh`,
-  source: 'fallback'
-}));
-
-function titleFromSlug(slug) {
-  return String(slug || '')
-    .replace(/\.sh$/i, '')
-    .split(/[-_]+/)
-    .filter(Boolean)
-    .map(part => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ');
-}
-
-function isAllowedCommunityScriptName(name) {
-  const raw = String(name || '').toLowerCase();
-  if (!raw.endsWith('.sh')) return false;
-  const slug = raw.replace(/\.sh$/i, '');
-  if (!/^[a-z0-9][a-z0-9-]*$/.test(slug)) return false;
-  return !COMMUNITY_SCRIPT_DENY.some(pattern => pattern.test(slug));
-}
-
-async function getCommunityScripts(force = false) {
-  const now = Date.now();
-  if (!force && communityScriptCache.items.length > 0 && now - communityScriptCache.time < COMMUNITY_SCRIPT_CACHE_MS) {
-    return communityScriptCache.items;
-  }
-
-  try {
-    const response = await axios.get(COMMUNITY_SCRIPTS_CT_API, {
-      httpsAgent,
-      timeout: 10000,
-      headers: { 'User-Agent': 'hosting-portal' },
-      validateStatus: () => true
-    });
-    if (response.status < 200 || response.status >= 300 || !Array.isArray(response.data)) {
-      throw new Error(`GitHub returned HTTP ${response.status}`);
-    }
-
-    const items = response.data
-      .filter(item => item && item.type === 'file' && isAllowedCommunityScriptName(item.name))
-      .map(item => {
-        const slug = String(item.name).replace(/\.sh$/i, '');
-        return {
-          id: slug,
-          slug,
-          name: titleFromSlug(slug),
-          path: item.path || `ct/${item.name}`,
-          url: item.download_url || `${COMMUNITY_SCRIPTS_RAW}/${item.name}`,
-          source: 'github'
-        };
-      })
-      .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
-
-    communityScriptCache = { time: now, items: items.length ? items : COMMUNITY_SCRIPT_FALLBACK };
-    return communityScriptCache.items;
-  } catch (_) {
-    communityScriptCache = { time: now, items: COMMUNITY_SCRIPT_FALLBACK };
-    return communityScriptCache.items;
-  }
-}
-
-async function getCommunityScript(slug) {
-  const id = String(slug || '').trim().toLowerCase();
-  if (!/^[a-z0-9][a-z0-9-]*$/.test(id) || COMMUNITY_SCRIPT_DENY.some(pattern => pattern.test(id))) {
-    return null;
-  }
-  const scripts = await getCommunityScripts();
-  return scripts.find(item => item.id === id || item.slug === id) || null;
-}
-
-function consoleInputFrame(input) {
-  const bytes = Buffer.byteLength(input, 'utf8');
-  return `0:${bytes}:${input}`;
-}
-
-function shellQuote(value) {
-  return `'${String(value || '').replace(/'/g, `'"'"'`)}'`;
-}
-
-async function createNodeTermProxy(clusterUrl, apiToken, node) {
-  const client = createProxmoxClient(clusterUrl, apiToken);
-  const response = await client.post(`/api2/json/nodes/${node}/termproxy`, {});
-  ensureSuccess(response, 'Proxmox Node-Konsole konnte nicht geöffnet werden:');
-  const data = response.data?.data || {};
-  return { ticket: data.ticket, port: data.port, user: data.user || 'root@pam' };
-}
-
-async function sendNodeShellCommand(clusterUrl, apiToken, node, command) {
-  const { ticket, port, user } = await createNodeTermProxy(clusterUrl, apiToken, node);
-  const base = clusterUrl.replace(/^http/i, 'ws');
-  const target = `${base}/api2/json/nodes/${node}/vncwebsocket?port=${encodeURIComponent(port)}&vncticket=${encodeURIComponent(ticket)}`;
-
-  return new Promise((resolve, reject) => {
-    const ws = new WebSocket(target, ['binary'], {
-      rejectUnauthorized: false,
-      headers: { Authorization: `PVEAPIToken=${apiToken}` }
-    });
-    const timer = setTimeout(() => {
-      try { ws.close(); } catch (_) { /* noop */ }
-      reject(new Error('Timed out while starting Proxmox node command'));
-    }, 15000);
-
-    ws.on('open', () => {
-      ws.send(`${user}:${ticket}\n`);
-      setTimeout(() => {
-        ws.send('1:120:40:');
-        ws.send(consoleInputFrame(`${command}\r`));
-        setTimeout(() => {
-          clearTimeout(timer);
-          try { ws.close(); } catch (_) { /* noop */ }
-          resolve({ node });
-        }, 1400);
-      }, 500);
-    });
-    ws.on('error', (err) => {
-      clearTimeout(timer);
-      reject(err);
-    });
-  });
-}
-
-function getCommunityScriptUrl(script) {
-  const url = script?.url || `${COMMUNITY_SCRIPTS_RAW}/${script.slug}.sh`;
-  if (!/^https:\/\/raw\.githubusercontent\.com\/community-scripts\/ProxmoxVE\//.test(url)) {
-    throw new Error('Community script URL is not allowed');
-  }
-  return url;
-}
-
-function buildCommunityScriptCommand(script) {
-  const url = getCommunityScriptUrl(script);
-  const safeName = String(script?.name || script?.slug || 'Community Script').replace(/[\r\n]+/g, ' ').trim();
-  const inner = [
-    `export TERM=xterm-256color`,
-    `stty cols __PORTAL_COLS__ rows __PORTAL_ROWS__ >/dev/null 2>&1 || true`,
-    `printf '\\033[2J\\033[H'`,
-    `echo ${shellQuote(`Hosting Portal startet ${safeName}.`)}`,
-    `echo ${shellQuote('Folge den Abfragen im Terminal. Drücke Enter, wenn du die Standardwerte des Scripts verwenden möchtest.')}`,
-    `echo`,
-    `bash -c "$(curl -fsSL ${shellQuote(url)})"`,
-    `status=$?`,
-    `echo`,
-    `if [ "$status" -eq 0 ]; then echo ${shellQuote('Hosting Portal: Script beendet.')}; else echo ${shellQuote('Hosting Portal: Script mit Fehler beendet. Die Session wird beendet, sobald die Proxmox-Konsole schließt.')}; fi`,
-    `sleep 2`,
-    `exit "$status"`
-  ].join('; ');
-  return `exec bash -lc ${shellQuote(inner)}`;
-}
-
-async function runCommunityScriptOnNode(clusterUrl, apiToken, node, script) {
-  const url = getCommunityScriptUrl(script);
-  const logPath = `/var/log/hosting-portal-community-${String(script.slug || 'script').replace(/[^a-z0-9-]/gi, '-')}-${Date.now()}.log`;
-  const inner = `printf '\n%.0s' {1..80} | bash -c "$(curl -fsSL ${shellQuote(url)})"`;
-  const command = `nohup bash -lc ${shellQuote(inner)} > ${shellQuote(logPath)} 2>&1 & echo ${shellQuote(`Hosting Portal started ${script.name}. Log: ${logPath}`)}`;
-  await sendNodeShellCommand(clusterUrl, apiToken, node, command);
-  return { node, logPath };
-}
 
 function parseSizeToBytes(value) {
   if (value === undefined || value === null || value === '') return 0;
@@ -588,7 +405,7 @@ async function getCapabilities(clusterUrl, apiToken) {
 
   if (response.status < 200 || response.status >= 300) {
     // Older Proxmox or restricted token: assume read-only, portal stays usable
-    return { readOnly: true, canPower: false, canConsole: false, canProvision: false, privileges: [] };
+    return { readOnly: true, canPower: false, canConsole: false, canProvision: false, canManageFirewall: false, canVerifyFirewall: false, privileges: [] };
   }
 
   const perms = response.data?.data || {};
@@ -602,12 +419,16 @@ async function getCapabilities(clusterUrl, apiToken) {
   const canPower = privileges.has('VM.PowerMgmt');
   const canConsole = privileges.has('VM.Console');
   const canProvision = privileges.has('VM.Allocate');
+  const canManageFirewall = privileges.has('VM.Config.Network');
+  const canVerifyFirewall = privileges.has('Sys.Audit');
 
   return {
-    readOnly: !canPower && !canConsole && !canProvision,
+    readOnly: !canPower && !canConsole && !canProvision && !canManageFirewall && !canVerifyFirewall,
     canPower,
     canConsole,
     canProvision,
+    canManageFirewall,
+    canVerifyFirewall,
     privileges: Array.from(privileges).sort()
   };
 }
@@ -961,7 +782,6 @@ async function getClusterDashboardStats(clusterUrl, apiToken) {
 }
 
 /**
-/**
  * LXC templates available on a template storage of a node.
  */
 async function getNodeTemplates(clusterUrl, apiToken, node, storage) {
@@ -1024,8 +844,158 @@ async function getNextVmidInRange(clusterUrl, apiToken, min, max, reservedIds = 
 /**
  * Create an LXC container and return the task UPID.
  */
+function delay(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function waitForProxmoxTask(client, node, upid, timeoutMs = 180000) {
+  if (!upid) return;
+  const deadline = Date.now() + timeoutMs;
+
+  while (Date.now() < deadline) {
+    const response = await client.get(`/api2/json/nodes/${node}/tasks/${encodeURIComponent(upid)}/status`);
+    ensureSuccess(response, 'Proxmox Task-Status konnte nicht gelesen werden:');
+    const task = response.data?.data || {};
+    if (task.status === 'stopped') {
+      if (task.exitstatus && task.exitstatus !== 'OK') {
+        throw new Error(`Proxmox task failed: ${task.exitstatus}`);
+      }
+      return;
+    }
+    await delay(1000);
+  }
+
+  throw new Error('Proxmox task timed out');
+}
+
+function ipv4ToLong(ip) {
+  const parts = String(ip || '').split('.').map(Number);
+  if (parts.length !== 4 || parts.some(part => !Number.isInteger(part) || part < 0 || part > 255)) return null;
+  return (((parts[0] << 24) >>> 0) + (parts[1] << 16) + (parts[2] << 8) + parts[3]) >>> 0;
+}
+
+function longToIpv4(value) {
+  const num = Number(value) >>> 0;
+  return [(num >>> 24) & 255, (num >>> 16) & 255, (num >>> 8) & 255, num & 255].join('.');
+}
+
+function ipv4NetworkCidr(ip, prefix) {
+  const value = ipv4ToLong(ip);
+  const bits = Number(prefix);
+  if (value === null || !Number.isInteger(bits) || bits < 0 || bits > 32) return null;
+  const mask = bits === 0 ? 0 : (0xffffffff << (32 - bits)) >>> 0;
+  return `${longToIpv4(value & mask)}/${bits}`;
+}
+
+function ipv4InCidr(ip, cidr) {
+  const [network, prefixValue] = String(cidr || '').split('/');
+  const value = ipv4ToLong(ip);
+  const networkValue = ipv4ToLong(network);
+  const prefix = Number(prefixValue);
+  if (value === null || networkValue === null || !Number.isInteger(prefix) || prefix < 0 || prefix > 32) return false;
+  const mask = prefix === 0 ? 0 : (0xffffffff << (32 - prefix)) >>> 0;
+  return (value & mask) === (networkValue & mask);
+}
+
+function normalizeDnsServers(value) {
+  const configured = String(value || process.env.SELF_SERVICE_DNS_SERVERS || '1.1.1.1 1.0.0.1')
+    .split(/[\s,;]+/)
+    .map(item => item.trim())
+    .filter(Boolean);
+  const nonPublicRanges = [
+    '0.0.0.0/8',
+    '10.0.0.0/8',
+    '100.64.0.0/10',
+    '127.0.0.0/8',
+    '169.254.0.0/16',
+    '172.16.0.0/12',
+    '192.168.0.0/16',
+    '224.0.0.0/4',
+    '240.0.0.0/4'
+  ];
+  const valid = configured.filter(item => (
+    ipv4ToLong(item) !== null && !nonPublicRanges.some(range => ipv4InCidr(item, range))
+  ));
+  if (configured.length === 0 || valid.length !== configured.length) {
+    throw new Error('Self-service DNS servers must be public IPv4 addresses');
+  }
+  return Array.from(new Set(valid)).slice(0, 3);
+}
+
+function getIsolationDestinations(ip, prefix) {
+  const privateAndLocalRanges = [
+    '10.0.0.0/8',
+    '100.64.0.0/10',
+    '169.254.0.0/16',
+    '172.16.0.0/12',
+    '192.168.0.0/16',
+    '::/0'
+  ];
+  const guestNetwork = ipv4NetworkCidr(ip, prefix);
+  return Array.from(new Set([guestNetwork, ...privateAndLocalRanges].filter(Boolean)));
+}
+
+async function getClusterFirewallStatus(clusterUrl, apiToken) {
+  const client = createProxmoxClient(clusterUrl, apiToken);
+  const response = await client.get('/api2/json/cluster/firewall/options');
+  if (response.status < 200 || response.status >= 300) {
+    throw new Error('Proxmox datacenter firewall status could not be verified');
+  }
+  return { enabled: Number(response.data?.data?.enable) === 1 };
+}
+
+async function addContainerFirewallRule(client, node, vmid, rule) {
+  const response = await client.post(`/api2/json/nodes/${node}/lxc/${vmid}/firewall/rules`, {
+    enable: 1,
+    iface: 'net0',
+    ...rule
+  });
+  ensureSuccess(response, 'Container-Firewallregel konnte nicht erstellt werden:');
+}
+
+async function applyInternetOnlyIsolation(client, node, vmid, options) {
+  const firewallOptions = await client.put(`/api2/json/nodes/${node}/lxc/${vmid}/firewall/options`, {
+    enable: 1,
+    policy_in: 'ACCEPT',
+    policy_out: 'ACCEPT'
+  });
+  ensureSuccess(firewallOptions, 'Container-Firewall konnte nicht aktiviert werden:');
+
+  const dnsServers = normalizeDnsServers(options.dnsServers);
+  for (const dns of dnsServers) {
+    await addContainerFirewallRule(client, node, vmid, {
+      type: 'out', action: 'ACCEPT', dest: dns, proto: 'udp', dport: '53',
+      comment: 'Hosting Portal: allow external DNS'
+    });
+    await addContainerFirewallRule(client, node, vmid, {
+      type: 'out', action: 'ACCEPT', dest: dns, proto: 'tcp', dport: '53',
+      comment: 'Hosting Portal: allow external DNS over TCP'
+    });
+  }
+
+  for (const destination of getIsolationDestinations(options.ip, options.ipPrefix)) {
+    await addContainerFirewallRule(client, node, vmid, {
+      type: 'out', action: 'DROP', dest: destination,
+      comment: 'Hosting Portal: block private, local and IPv6 networks'
+    });
+  }
+
+  return dnsServers;
+}
+
+/**
+ * Create an LXC container, apply mandatory internet-only isolation and only
+ * then start it. If isolation cannot be installed, the new container is
+ * removed instead of being started without the required protection.
+ */
 async function createLxcContainer(clusterUrl, apiToken, node, options) {
   const client = createProxmoxClient(clusterUrl, apiToken);
+  const firewallStatus = await getClusterFirewallStatus(clusterUrl, apiToken);
+  if (!firewallStatus.enabled) {
+    throw new Error('Proxmox datacenter firewall is disabled');
+  }
+
+  const dnsServers = normalizeDnsServers(options.dnsServers);
   const payload = {
     vmid: options.vmid,
     hostname: options.hostname,
@@ -1038,13 +1008,45 @@ async function createLxcContainer(clusterUrl, apiToken, node, options) {
     password: options.password,
     unprivileged: 1,
     features: 'nesting=1',
+    nameserver: dnsServers.join(' '),
     net0: `name=eth0,bridge=${options.bridge},ip=${options.ip}/${options.ipPrefix},gw=${options.gateway},firewall=1`,
-    start: 1
+    start: 0
   };
 
   const response = await client.post(`/api2/json/nodes/${node}/lxc`, payload);
   ensureSuccess(response, 'Container konnte nicht erstellt werden:');
-  return { upid: response.data?.data || '', node };
+  const createUpid = response.data?.data || '';
+
+  try {
+    await waitForProxmoxTask(client, node, createUpid);
+    await applyInternetOnlyIsolation(client, node, options.vmid, { ...options, dnsServers });
+    const startResponse = await client.post(`/api2/json/nodes/${node}/lxc/${options.vmid}/status/start`, {});
+    ensureSuccess(startResponse, 'Container konnte nach der Absicherung nicht gestartet werden:');
+    return {
+      upid: startResponse.data?.data || createUpid,
+      createUpid,
+      node,
+      isolation: 'internet-only',
+      dnsServers
+    };
+  } catch (error) {
+    let cleanupSucceeded = true;
+    try {
+      const deleteResponse = await client.delete(`/api2/json/nodes/${node}/lxc/${options.vmid}`, {
+        params: { purge: 1, force: 1 }
+      });
+      ensureSuccess(deleteResponse, 'Ungeschützter Container konnte nicht entfernt werden:');
+      await waitForProxmoxTask(client, node, deleteResponse.data?.data || '');
+    } catch (cleanupError) {
+      cleanupSucceeded = false;
+      console.error(`Failed to remove stopped LXC ${options.vmid} after isolation error:`, cleanupError.message);
+    }
+    const isolationError = new Error(cleanupSucceeded
+      ? 'Container network isolation failed'
+      : 'Container network isolation failed and cleanup was unsuccessful');
+    isolationError.cause = error;
+    throw isolationError;
+  }
 }
 
 /**
@@ -1102,8 +1104,8 @@ module.exports = {
   getTaskLog,
   getTaskStatus,
   getCapabilities,
+  getClusterFirewallStatus,
   createTermProxy,
-  createNodeTermProxy,
   getOnlineNodes,
   getClusterDashboardStats,
   getNodeTemplates,
@@ -1113,9 +1115,5 @@ module.exports = {
   createLxcContainer,
   createQemuVm,
   destroyProxmoxResource,
-  getCommunityScripts,
-  getCommunityScript,
-  buildCommunityScriptCommand,
-  runCommunityScriptOnNode,
   POWER_ACTIONS
 };

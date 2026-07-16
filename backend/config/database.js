@@ -84,21 +84,6 @@ async function initDatabase() {
         )
       `);
 
-      // Proxmox node credentials for interactive node shells
-      database.run(`
-        CREATE TABLE IF NOT EXISTS proxmox_node_credentials (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          cluster_id INTEGER NOT NULL,
-          node_name TEXT NOT NULL,
-          username TEXT DEFAULT 'root',
-          secret_encrypted TEXT,
-          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-          UNIQUE(cluster_id, node_name),
-          FOREIGN KEY (cluster_id) REFERENCES proxmox_clusters(id) ON DELETE CASCADE
-        )
-      `);
-
       // Container Assignments
       database.run(`
         CREATE TABLE IF NOT EXISTS container_assignments (
