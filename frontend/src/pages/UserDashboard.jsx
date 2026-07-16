@@ -1,26 +1,22 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { userApi, getErrorMessage } from '../services/api';
 import '../styles/globals.css';
 import ThemeButton from '../components/ThemeButton';
-import LanguageSwitch, { readStoredLanguage } from '../components/LanguageSwitch';
+import LanguageSwitch, { readStoredLanguage, storeLanguage } from '../components/LanguageSwitch';
 import ResourceDetail, { getPercent, formatBytes, renderType } from '../components/ResourceDetail';
 import CreateMachineModal from '../components/CreateMachineModal';
 import MaintenanceBanner from '../components/MaintenanceBanner';
 import NotificationSettingsModal from '../components/NotificationSettingsModal';
 
-function BellIcon() {
-  return (
-    <svg className="logout-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-      <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
-      <path d="M13.7 21a2 2 0 0 1-3.4 0" />
-    </svg>
-  );
-}
-
+const USER_LANGUAGE_OPTIONS = [
+  { code: 'en', label: 'English' },
+  { code: 'de', label: 'Deutsch' }
+];
 
 const USER_TRANSLATIONS = {
   en: {
+    userConsole: 'User Portal',
     notifications: 'Notifications',
     dashboard: 'Dashboard',
     settings: 'Settings',
@@ -29,7 +25,7 @@ const USER_TRANSLATIONS = {
     closeMenu: 'Close menu',
     close: 'Close',
     language: 'Language',
-    languageText: 'Choose the language used by the portal, menus and maintenance banners.',
+    languageText: 'Choose the language used by the portal, menus, placeholders and maintenance banners.',
     notificationsText: 'Manage e-mail notifications for outages, recoveries and maintenance.',
     notificationSettings: 'Notification settings',
     logout: 'Log out',
@@ -44,6 +40,13 @@ const USER_TRANSLATIONS = {
     cluster: 'Cluster',
     node: 'Node',
     unknown: 'Unknown',
+    counts: {
+      services: 'services',
+      online: 'online'
+    },
+    hero: {
+      title: 'Dashboard'
+    },
     status: {
       running: 'Online',
       stopped: 'Offline',
@@ -53,6 +56,7 @@ const USER_TRANSLATIONS = {
     }
   },
   de: {
+    userConsole: 'Benutzer-Portal',
     notifications: 'Benachrichtigungen',
     dashboard: 'Dashboard',
     settings: 'Einstellungen',
@@ -61,7 +65,7 @@ const USER_TRANSLATIONS = {
     closeMenu: 'Menü schließen',
     close: 'Schließen',
     language: 'Sprache',
-    languageText: 'Wähle die Sprache für Portal, Menüs und Wartungsbanner.',
+    languageText: 'Wähle die Sprache für Portal, Menüs, Platzhalter und Wartungsbanner.',
     notificationsText: 'Verwalte E-Mail-Benachrichtigungen für Ausfälle, Wiederherstellungen und Wartungen.',
     notificationSettings: 'Benachrichtigungseinstellungen',
     logout: 'Abmelden',
@@ -76,6 +80,13 @@ const USER_TRANSLATIONS = {
     cluster: 'Cluster',
     node: 'Node',
     unknown: 'Unbekannt',
+    counts: {
+      services: 'Dienste',
+      online: 'online'
+    },
+    hero: {
+      title: 'Dashboard'
+    },
     status: {
       running: 'Online',
       stopped: 'Offline',
@@ -111,7 +122,7 @@ function LogoutIcon() {
 }
 
 export default function UserDashboard() {
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
   const [resources, setResources] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -138,13 +149,11 @@ export default function UserDashboard() {
 
   useEffect(() => {
     fetchResources();
-    // Provisioning available? (silently - read-only tokens simply return no clusters)
     userApi.getProvisioningOptions()
       .then(res => setProvisioningOptions(res.data.clusters || []))
       .catch(() => setProvisioningOptions([]));
   }, [fetchResources]);
 
-  // Auto-refresh metrics every 30s while the tab is visible
   useEffect(() => {
     const timer = setInterval(() => {
       if (document.visibilityState === 'visible') fetchResources(false);
@@ -154,14 +163,26 @@ export default function UserDashboard() {
 
   const detailResource = resources.find(item => item.id === detailId) || null;
   const labels = USER_TRANSLATIONS[language] || USER_TRANSLATIONS.en;
+  const onlineCount = useMemo(() => resources.filter(item => item.status === 'running').length, [resources]);
 
   const selectTab = (tab) => {
     setActiveTab(tab);
     setMenuOpen(false);
   };
 
+  const selectLanguage = (nextLanguage) => {
+    setLanguage(nextLanguage);
+    storeLanguage(nextLanguage);
+  };
+
+  const openNotifications = () => {
+    setActiveTab('settings');
+    setMenuOpen(false);
+    setShowNotifications(true);
+  };
+
   return (
-    <div className="app-page">
+    <div className="app-page user-page">
       <MaintenanceBanner />
       <header className="site-header">
         <div className="site-header-inner">
@@ -170,8 +191,7 @@ export default function UserDashboard() {
           </div>
           <div className="site-actions">
             <ThemeButton />
-            <LanguageSwitch value={language} onChange={setLanguage} />
-            <button type="button" className="btn-secondary user-menu-toggle" onClick={() => setMenuOpen(true)} aria-label={labels.openMenu}><MenuIcon /><span className="logout-label">{labels.menu}</span></button>
+            <button type="button" className="btn-secondary admin-mobile-menu-toggle user-menu-toggle-icon-only" onClick={() => setMenuOpen(true)} aria-label={labels.openMenu} title={labels.menu}><MenuIcon /></button>
             <button type="button" className="btn-secondary logout-button" onClick={logout} aria-label={labels.logout}><LogoutIcon /><span className="logout-label">{labels.logout}</span></button>
           </div>
         </div>
@@ -181,16 +201,28 @@ export default function UserDashboard() {
         <div className="user-fullscreen-menu-panel" onClick={(e) => e.stopPropagation()}>
           <div className="mobile-admin-menu-header">
             <div>
-              <span className="resource-id">Hosting by TechByGiusi</span>
-              <h2>{labels.menu}</h2>
-              <p>{resources.length} {labels.status.running}</p>
+              <span className="resource-id">{labels.userConsole}</span>
+              <h2>{user?.name || user?.email || 'User'}</h2>
+              <p>{resources.length} {labels.counts.services} · {onlineCount} {labels.counts.online}</p>
             </div>
             <button type="button" className="btn-secondary mobile-admin-menu-close" onClick={() => setMenuOpen(false)} aria-label={labels.closeMenu}>{labels.close}</button>
           </div>
+          <div className="mobile-admin-language-switch user-menu-language-switch" role="group" aria-label={labels.language}>
+            {USER_LANGUAGE_OPTIONS.map(option => (
+              <button
+                key={option.code}
+                type="button"
+                className={language === option.code ? 'active' : ''}
+                onClick={() => selectLanguage(option.code)}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
           <nav className="console-nav-tabs mobile-admin-menu-nav" aria-label={labels.menu}>
             <button type="button" className={activeTab === 'dashboard' ? 'active' : ''} onClick={() => selectTab('dashboard')}>{labels.dashboard}</button>
-            <button type="button" onClick={() => { setMenuOpen(false); setShowNotifications(true); }}>{labels.notifications}</button>
             <button type="button" className={activeTab === 'settings' ? 'active' : ''} onClick={() => selectTab('settings')}>{labels.settings}</button>
+            <button type="button" onClick={openNotifications}>{labels.notifications}</button>
           </nav>
           <div className="mobile-admin-menu-footer">
             <button type="button" className="btn-secondary mobile-admin-menu-logout" onClick={logout}>{labels.logout}</button>
@@ -198,61 +230,82 @@ export default function UserDashboard() {
         </div>
       </div>
 
-      <main className="app-container compact-container">
-        {error && <div className="alert alert-danger">{error}</div>}
+      <main className="app-container compact-container admin-shell user-dashboard-shell">
+        <aside className="admin-sidebar-shell desktop-admin-sidebar user-desktop-sidebar">
+          <div className="panel-card console-sidebar-card">
+            <span className="resource-id">{labels.userConsole}</span>
+            <h2>{user?.name || user?.email || 'User'}</h2>
+            <p>{resources.length} {labels.counts.services} · {onlineCount} {labels.counts.online}</p>
+          </div>
+          <nav className="app-tabs console-nav-tabs" aria-label={labels.menu}>
+            <button type="button" className={activeTab === 'dashboard' ? 'active' : ''} onClick={() => selectTab('dashboard')}>{labels.dashboard}</button>
+            <button type="button" className={activeTab === 'settings' ? 'active' : ''} onClick={() => selectTab('settings')}>{labels.settings}</button>
+            <button type="button" onClick={openNotifications}>{labels.notifications}</button>
+          </nav>
+        </aside>
 
-        {activeTab === 'dashboard' && (
-          <>
-            {provisioningOptions.length > 0 && (
-              <div className="dashboard-actions desktop-only-block">
-                <button type="button" className="btn-primary" onClick={() => setShowCreate(true)}>{labels.createContainer}</button>
-              </div>
-            )}
+        <section className="admin-main-shell">
+          {error && <div className="alert alert-danger">{error}</div>}
 
-            {loading ? (
-              <div className="loading"><span className="spinner"></span><span>{labels.loadingServices}</span></div>
-            ) : resources.length === 0 ? (
-              <section className="empty-state panel-card">
-                <h2>{labels.noServices}</h2>
-                <p>{labels.noServicesText}</p>
+          {activeTab === 'dashboard' && (
+            <>
+              <section className="panel-card dashboard-hero-card user-dashboard-hero-card">
+                <div>
+                  <span className="resource-id">Hosting by TechByGiusi</span>
+                  <h2>{labels.hero.title}</h2>
+                </div>
                 {provisioningOptions.length > 0 && (
-                  <button type="button" className="btn-primary desktop-only-block" onClick={() => setShowCreate(true)}>{labels.firstContainer}</button>
+                  <div className="dashboard-hero-actions">
+                    <button type="button" className="btn-primary" onClick={() => setShowCreate(true)}>{labels.createContainer}</button>
+                  </div>
                 )}
               </section>
-            ) : (
-              <section className="resource-grid">
-                {resources.map(resource => (
-                  <ResourceCard
-                    key={resource.id}
-                    resource={resource}
-                    onOpenDetails={() => setDetailId(resource.id)}
-                    labels={labels}
-                  />
-                ))}
-              </section>
-            )}
-          </>
-        )}
 
-        {activeTab === 'settings' && (
-          <section className="panel-card user-settings-card">
-            <div className="panel-header"><h2>{labels.settings}</h2></div>
-            <div className="settings-option-card">
-              <div>
-                <h3>{labels.language}</h3>
-                <p>{labels.languageText}</p>
+              {loading ? (
+                <div className="loading"><span className="spinner"></span><span>{labels.loadingServices}</span></div>
+              ) : resources.length === 0 ? (
+                <section className="empty-state panel-card">
+                  <h2>{labels.noServices}</h2>
+                  <p>{labels.noServicesText}</p>
+                  {provisioningOptions.length > 0 && (
+                    <button type="button" className="btn-primary" onClick={() => setShowCreate(true)}>{labels.firstContainer}</button>
+                  )}
+                </section>
+              ) : (
+                <section className="resource-grid">
+                  {resources.map(resource => (
+                    <ResourceCard
+                      key={resource.id}
+                      resource={resource}
+                      onOpenDetails={() => setDetailId(resource.id)}
+                      labels={labels}
+                    />
+                  ))}
+                </section>
+              )}
+            </>
+          )}
+
+          {activeTab === 'settings' && (
+            <section className="panel-card user-settings-card">
+              <div className="panel-header"><h2>{labels.settings}</h2></div>
+              <div className="settings-language-card">
+                <div>
+                  <h3>{labels.language}</h3>
+                  <p>{labels.languageText}</p>
+                </div>
+                <LanguageSwitch value={language} onChange={selectLanguage} />
               </div>
-              <LanguageSwitch value={language} onChange={setLanguage} />
-            </div>
-            <div className="settings-option-card">
-              <div>
-                <h3>{labels.notifications}</h3>
-                <p>{labels.notificationsText}</p>
+              <div className="settings-option-card">
+                <div>
+                  <h3>{labels.notifications}</h3>
+                  <p>{labels.notificationsText}</p>
+                </div>
+                <button type="button" className="btn-secondary" onClick={() => setShowNotifications(true)}>{labels.notificationSettings}</button>
               </div>
-              <button type="button" className="btn-secondary" onClick={() => setShowNotifications(true)}>{labels.notificationSettings}</button>
-            </div>
-          </section>
-        )}
+            </section>
+          )}
+        </section>
       </main>
 
       {detailResource && (
@@ -315,7 +368,6 @@ function ResourceCard({ resource, onOpenDetails, labels }) {
       <button type="button" className="btn-secondary full-button service-detail-toggle" onClick={onOpenDetails}>
         {labels.details}
       </button>
-
     </article>
   );
 }
@@ -330,6 +382,7 @@ function Metric({ label, percent, detail }) {
     </div>
   );
 }
+
 function getCpuPercent(resource) {
   const cpu = Number(resource.cpu || 0);
   if (cpu <= 1) return Math.min(Math.max(cpu * 100, 0), 100);

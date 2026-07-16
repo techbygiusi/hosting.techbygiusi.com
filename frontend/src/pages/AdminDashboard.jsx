@@ -85,6 +85,8 @@ const MOBILE_MENU_TRANSLATIONS = {
     openMenu: 'Open menu',
     close: 'Close',
     closeMenu: 'Close menu',
+    language: 'Language',
+    languageText: 'Choose the language used by the portal, menus, placeholders and maintenance banners.',
     logout: 'Log out',
     adminConsole: 'Admin Console',
     loading: 'Loading data...',
@@ -137,6 +139,8 @@ const MOBILE_MENU_TRANSLATIONS = {
     openMenu: 'Menü öffnen',
     close: 'Schließen',
     closeMenu: 'Menü schließen',
+    language: 'Sprache',
+    languageText: 'Wähle die Sprache für Portal, Menüs, Platzhalter und Wartungsbanner.',
     logout: 'Abmelden',
     adminConsole: 'Admin-Konsole',
     loading: 'Daten werden geladen...',
@@ -1106,7 +1110,6 @@ export default function AdminDashboard() {
           <button type="button" className="site-brand site-brand-button" onClick={() => handleSelectTab('overview')} aria-label="Zum Dashboard"><h1>Hosting by TechByGiusi</h1></button>
           <div className="site-actions">
             <ThemeButton />
-            <LanguageSwitch value={mobileMenuLanguage} onChange={setMobileMenuLanguage} />
             <button type="button" className="btn-secondary admin-mobile-menu-toggle" onClick={() => setMobileMenuOpen(true)} aria-label={mobileMenuText.openMenu}><MenuIcon /><span>{mobileMenuText.menu}</span></button>
             <button type="button" className="btn-secondary logout-button" onClick={logout} aria-label={mobileMenuText.logout}><LogoutIcon /><span className="logout-label">{mobileMenuText.logout}</span></button>
           </div>
@@ -1368,6 +1371,13 @@ export default function AdminDashboard() {
             <PanelHeader title="Einstellungen" />
             <div className="settings-action-row">
               <button type="button" className="btn-secondary" onClick={openSetupCheck}>Einrichtung prüfen</button>
+            </div>
+            <div className="settings-language-card admin-settings-language-card">
+              <div>
+                <h3>{mobileMenuText.language}</h3>
+                <p>{mobileMenuText.languageText}</p>
+              </div>
+              <LanguageSwitch value={mobileMenuLanguage} onChange={handleOverlayLanguageChange} />
             </div>
             <form className="form-grid" onSubmit={handleSaveSettings}>
               <label className="form-group"><span>SMTP-Host</span><input type="text" name="smtpHost" value={settings.smtpHost} onChange={handleSettingsChange} placeholder="smtp.example.com" /></label>

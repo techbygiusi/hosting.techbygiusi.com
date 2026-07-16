@@ -6,7 +6,7 @@ The frontend is built with React and the backend with Express + SQLite. Proxmox 
 
 ## Version
 
-Current version: **v3.1.23**
+Current version: **v3.1.26**
 
 Versioning now follows a clean semantic sequence:
 
@@ -14,7 +14,7 @@ Versioning now follows a clean semantic sequence:
 - **Minor** versions for user-visible features.
 - **Major** versions only for breaking changes.
 
-The old history is kept below, but new releases should continue from the current `v2.x` line without date or numbering jumps.
+The old history is kept below, but new releases should continue from the current `v3.x` line without date or numbering jumps.
 
 ## What's new in v3.0.0
 
@@ -190,6 +190,34 @@ The database migrates itself on startup. Keep the backend data volume before upd
 
 ## Changelog
 
+### v3.1.26 - 2026-07-16
+
+**Commit:** `fix: move desktop language selection into settings and align user desktop layout`
+
+- removed the desktop header EN/DE switch for authenticated admin and user views
+- moved desktop language selection into the **Settings** area and kept the fullscreen mobile menu selector for smaller screens
+- aligned the normal user desktop layout with the admin shell by adding the same left sidebar pattern
+- restored clearer location markers on the cluster map with a visible marker halo
+
+
+### v3.1.25 - 2026-07-16
+
+**Commit:** `fix: align user menu language controls and restore map markers`
+
+- changed the normal user menu button to an icon-only control without the extra `Menu` text
+- added the same full-width **English / Deutsch** selector used by the admin overlay to the normal user fullscreen menu
+- removed the separate language card from normal user settings so language placement now follows the admin layout
+- placed country borders and cluster markers in separate Leaflet panes so asynchronously loaded country shapes can no longer cover the location markers
+
+### v3.1.24 - 2026-07-16
+
+**Commit:** `docs: normalize changelog version history`
+
+- corrected duplicated and misnumbered `v3.1.x` changelog headings
+- restored the continuous `v3.1.7` through `v3.1.23` release sequence
+- added the previously missing `v3.0.0` changelog entry
+- corrected the versioning note so new releases continue from the current `v3.x` line
+
 ### v3.1.23 - 2026-07-16
 
 **Commit:** `feat: persist user language for notifications and simplify cluster map borders`
@@ -259,7 +287,7 @@ The database migrates itself on startup. Keep the backend data volume before upd
 - Reused the same stored language setting as the mobile overlay, with English as the default.
 - Kept the mobile overlay language switch in sync with the desktop topbar selector.
 
-### v3.1.17 - 2026-07-09
+### v3.1.15 - 2026-07-09
 
 **Commit:** `fix: improve mobile overlay contrast and restore standard dashboard spacing`
 
@@ -267,7 +295,7 @@ The database migrates itself on startup. Keep the backend data volume before upd
 - Restored a cleaner, standard-sized gap between the dashboard metric cards and the Cluster-Standorte section on desktop and mobile.
 - Kept the mobile overlay language feature from v3.1.14 intact.
 
-### v3.1.17 - 2026-07-09
+### v3.1.14 - 2026-07-09
 
 **Commit:** `feat: add english and german language options to mobile overlay`
 
@@ -275,14 +303,14 @@ The database migrates itself on startup. Keep the backend data volume before upd
 - English is now the default overlay language.
 - The selected overlay language is stored locally and reused on the next visit.
 
-### v3.1.17 - 2026-07-09
+### v3.1.13 - 2026-07-09
 
 **Commit:** `fix: standardize overview wording to dashboard`
 
 - Standardized the main portal navigation wording from `Übersicht` to `Dashboard`.
 - Updated dashboard navigation labels and related accessibility labels for consistent wording.
 
-### v3.1.17 - 2026-07-09
+### v3.1.12 - 2026-07-09
 
 **Commit:** `style: normalize mobile self-service spacing`
 
@@ -290,14 +318,14 @@ The database migrates itself on startup. Keep the backend data volume before upd
 - Added consistent mobile padding for the self-service panel, toggle row, fields, storage/template blocks and form buttons.
 - Stacked self-service form grids on small screens to avoid cramped controls and horizontal overflow.
 
-### v3.1.17 - 2026-07-09
+### v3.1.11 - 2026-07-09
 
 **Commit:** `fix: add proper spacing to self-service cluster toggle`
 
 - Added proper left and right padding to the self-service cluster activation row.
 - Improved spacing between the toggle label and the switch so the row looks consistent and usable.
 
-### v3.1.17 - 2026-07-09
+### v3.1.10 - 2026-07-09
 
 **Commit:** `fix: polish service link layout and cluster map spacing`
 
@@ -306,7 +334,7 @@ The database migrates itself on startup. Keep the backend data volume before upd
 - Refined the 3/3 Nodes badges so they are aligned and consistently formatted.
 - The cluster map is now more tightly focused on Europe, without the visible map caption/attribution bar.
 
-### v3.1.17 - 2026-07-09
+### v3.1.9 - 2026-07-09
 
 **Commit:** `fix: handle shared management credentials and admin read-only user services`
 
@@ -315,14 +343,14 @@ The database migrates itself on startup. Keep the backend data volume before upd
 - Self-service/user-created services are read-only for admins: credentials stay hidden and edit/delete actions are blocked.
 - Backend checks now enforce the same read-only rules for user-managed services.
 
-### v3.1.17 - 2026-07-09
+### v3.1.8 - 2026-07-09
 
 **Commit:** `fix: remove dashboard showcase copy`
 
 - Removed the descriptive showcase sentence from the admin dashboard hero.
 - Kept the dashboard focused on productive actions and status information.
 
-### v3.1.17 - 2026-07-09
+### v3.1.7 - 2026-07-09
 
 **Commit:** `fix: refine cluster cards and modernize cluster map`
 
@@ -515,6 +543,16 @@ The database migrates itself on startup. Keep the backend data volume before upd
 - Test e-mails now use the authenticated SMTP user as the default sender and envelope sender when no `SMTP_FROM` is configured, which fixes strict providers such as STRATO.
 - Added a final mobile layout pass so modals stay full-width bottom sheets and spacing remains consistent.
 - Replaced typographic dashes in project text with normal hyphens.
+
+### v3.0.0 - 2026-07-08
+
+**Commit:** `feat: add maintenance monitoring notifications and secure password reset`
+
+- introduced maintenance windows with public banners and optional user e-mail notifications
+- added background service monitoring with outage and recovery notifications
+- added user notification preferences and recent status events on the admin dashboard
+- hardened password reset tokens, password requirements and audit logging
+- redesigned login, password-reset and branded e-mail workflows
 
 ### v2.9.6 - 2026-07-07
 

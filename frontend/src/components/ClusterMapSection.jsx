@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { CircleMarker, GeoJSON, MapContainer, Popup, useMap } from 'react-leaflet';
+import { CircleMarker, GeoJSON, MapContainer, Pane, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
@@ -107,18 +107,29 @@ export default function ClusterMapSection({ clusters = [], mappedCount = 0, onOp
         <div className="cluster-map-layout">
           <div className="cluster-map-canvas">
             <MapContainer center={[51, 10]} zoom={4} minZoom={2} scrollWheelZoom={false} attributionControl={false} className="cluster-map-widget">
-              {countryBorders && <GeoJSON key={theme} data={countryBorders} style={() => countryStyle} interactive={false} />}
+              <Pane name="country-borders-pane" style={{ zIndex: 200, pointerEvents: 'none' }}>
+                {countryBorders && <GeoJSON key={theme} data={countryBorders} style={() => countryStyle} interactive={false} />}
+              </Pane>
               <MapBounds points={points} />
-              {points.map(point => (
-                <CircleMarker key={point.id} center={[point.lat, point.lon]} radius={8} pathOptions={markerStyle}>
-                  <Popup>
-                    <strong>{point.name}</strong>
-                    <div>{point.label}</div>
-                    <div>{point.online}/{point.nodes} {labels?.nodesOnline || 'Nodes online'}</div>
-                    {point.url ? <div>{point.url}</div> : null}
-                  </Popup>
-                </CircleMarker>
-              ))}
+              <Pane name="cluster-markers-pane" style={{ zIndex: 450 }}>
+                {points.map(point => (
+                  <React.Fragment key={point.id}>
+                    <CircleMarker
+                      center={[point.lat, point.lon]}
+                      radius={14}
+                      pathOptions={{ color: markerStyle.fillColor, weight: 0, fillColor: markerStyle.fillColor, fillOpacity: theme === "dark" ? 0.18 : 0.14 }}
+                    />
+                    <CircleMarker center={[point.lat, point.lon]} radius={8} pathOptions={markerStyle}>
+                      <Popup>
+                        <strong>{point.name}</strong>
+                        <div>{point.label}</div>
+                        <div>{point.online}/{point.nodes} {labels?.nodesOnline || 'Nodes online'}</div>
+                        {point.url ? <div>{point.url}</div> : null}
+                      </Popup>
+                    </CircleMarker>
+                  </React.Fragment>
+                ))}
+              </Pane>
             </MapContainer>
           </div>
 

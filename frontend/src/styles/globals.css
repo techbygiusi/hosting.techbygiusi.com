@@ -5410,3 +5410,54 @@ body.theme-dark .cluster-map-canvas .leaflet-container {
 .cluster-map-canvas .leaflet-container {
   filter: none !important;
 }
+
+
+/* v3.1.25 - align user language controls and keep cluster markers above country shapes */
+.user-menu-toggle-icon-only {
+  width: 46px;
+  min-width: 46px;
+  padding-left: 0;
+  padding-right: 0;
+  justify-content: center;
+  gap: 0;
+}
+
+.user-menu-toggle-icon-only .menu-icon {
+  width: 19px;
+  height: 19px;
+}
+
+.user-fullscreen-menu-overlay .user-menu-language-switch {
+  width: 100%;
+}
+
+.user-settings-card .settings-option-card {
+  width: 100%;
+}
+
+.cluster-map-canvas .leaflet-country-borders-pane {
+  z-index: 200 !important;
+  pointer-events: none;
+}
+
+.cluster-map-canvas .leaflet-cluster-markers-pane {
+  z-index: 450 !important;
+}
+
+@media (max-width: 767px) {
+  .user-menu-toggle-icon-only {
+    width: 44px;
+    min-width: 44px;
+  }
+}
+
+/* v3.1.26 - desktop language settings and user sidebar alignment */
+.admin-settings-language-card {
+  margin-bottom: 16px;
+}
+
+.user-dashboard-shell .resource-grid,
+.user-dashboard-shell .empty-state,
+.user-dashboard-shell .loading {
+  margin-top: 18px;
+}
