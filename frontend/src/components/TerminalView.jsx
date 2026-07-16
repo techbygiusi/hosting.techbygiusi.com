@@ -24,6 +24,7 @@ export default function TerminalView({ resourceId, resourceName, fullscreen = fa
     let disposed = false;
     let ws = null;
     let pingTimer = null;
+    const autoLoginWakeTimers = [];
 
     const getResponsiveFontSize = () => {
       if (!fullscreen) return 14;
@@ -106,23 +107,47 @@ export default function TerminalView({ resourceId, resourceName, fullscreen = fa
           sentSecret: false,
           suppressTerminalReplies: !!(autoLogin?.username && autoLogin?.secret)
         };
-        const stripAnsi = (value) => String(value || '').replace(/\x1b\[[0-9;?]*[ -/]*[@-~]/g, '');
+        const stripAnsi = (value) => String(value || '')
+          .replace(/\x1b\][^\x07]*(?:\x07|\x1b\\)/g, '')
+          .replace(/\x1b\[[0-?]*[ -/]*[@-~]/g, '')
+          .replace(/\x1b[@-_]/g, '');
+        const normalizeConsoleText = (value) => stripAnsi(value)
+          .replace(/\r/g, '\n')
+          .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, '');
         const stripTerminalStatusReplies = (value) => String(value || '')
           .replace(/\x1b\[(?:\?|>|!)*[0-9;]*R/g, '')
           .replace(/\x1b\[(?:\?|>|!)*[0-9;]*[cn]/g, '');
-        const maybeSendAutoLogin = (chunk) => {
+        const readVisibleTerminalTail = () => {
+          try {
+            const active = term.buffer.active;
+            const cursorLine = active.baseY + active.cursorY;
+            const firstLine = Math.max(0, cursorLine - 10);
+            const lines = [];
+            for (let index = firstLine; index <= cursorLine; index += 1) {
+              const line = active.getLine(index);
+              if (line) lines.push(line.translateToString(true));
+            }
+            return lines.join('\n');
+          } catch (_) {
+            return '';
+          }
+        };
+        const maybeSendAutoLogin = (chunk, replaceBuffer = false) => {
           if (!autoLoginState.enabled || autoLoginState.sentSecret) return;
-          autoLoginState.buffer = (autoLoginState.buffer + stripAnsi(chunk)).slice(-1200);
+          const normalized = normalizeConsoleText(chunk);
+          autoLoginState.buffer = replaceBuffer
+            ? normalized.slice(-2000)
+            : (autoLoginState.buffer + normalized).slice(-2000);
           const visible = autoLoginState.buffer;
-          if (!autoLoginState.sentUsername && /(?:^|[\r\n])[^\r\n]{0,80}(?:login|username)\s*:\s*$/i.test(visible)) {
+          if (!autoLoginState.sentUsername && /(?:^|\n)[^\n]{0,120}(?:login|username)\s*:\s*$/i.test(visible)) {
             autoLoginState.sentUsername = true;
             autoLoginState.buffer = '';
-            // Clear any terminal status replies that may already be present on
-            // the login line before entering the username.
-            setTimeout(() => sendConsoleInput(`\x15${autoLoginState.username}\r`), 220);
+            // Clear the current getty input line before submitting the stored
+            // username, regardless of whether the terminal had focus before.
+            setTimeout(() => sendConsoleInput(`\x15${autoLoginState.username}\r`), 180);
             return;
           }
-          if (autoLoginState.sentUsername && !autoLoginState.sentSecret && /password\s*:\s*$/i.test(visible)) {
+          if (autoLoginState.sentUsername && !autoLoginState.sentSecret && /(?:^|\n)[^\n]{0,120}password\s*:\s*$/i.test(visible)) {
             autoLoginState.sentSecret = true;
             autoLoginState.buffer = '';
             setTimeout(() => {
@@ -130,16 +155,33 @@ export default function TerminalView({ resourceId, resourceName, fullscreen = fa
               // Keep filtering xterm device-status replies briefly while the
               // login program validates the submitted password.
               setTimeout(() => { autoLoginState.suppressTerminalReplies = false; }, 1500);
-            }, 220);
+            }, 180);
           }
+        };
+        const inspectRenderedPrompt = () => {
+          maybeSendAutoLogin(readVisibleTerminalTail(), true);
+        };
+        const wakeAutoLoginPrompt = () => {
+          if (!autoLoginState.enabled || autoLoginState.sentUsername || disposed) return;
+          inspectRenderedPrompt();
+          if (!autoLoginState.sentUsername) sendConsoleInput('\r');
         };
 
         ws.onopen = () => {
           setStatus('open');
           ws.send(`${user}:${ticket}\n`);
+          fitAndResize();
           setTimeout(fitAndResize, 150);
           setTimeout(fitAndResize, 700);
           setTimeout(fitAndResize, 1500);
+          if (autoLoginState.enabled) {
+            // Some getty sessions do not emit a fresh prompt until they
+            // receive the first carriage return. Probe automatically so the
+            // user never has to click the terminal and press Enter first.
+            [900, 2200, 4500].forEach(delay => {
+              autoLoginWakeTimers.push(setTimeout(wakeAutoLoginPrompt, delay));
+            });
+          }
           pingTimer = setInterval(() => {
             if (ws.readyState === WebSocket.OPEN) ws.send('2');
           }, 30 * 1000);
@@ -149,8 +191,8 @@ export default function TerminalView({ resourceId, resourceName, fullscreen = fa
           const data = typeof event.data === 'string'
             ? event.data
             : new TextDecoder().decode(event.data);
-          term.write(data);
           maybeSendAutoLogin(data);
+          term.write(data, inspectRenderedPrompt);
         };
 
         ws.onclose = () => {
@@ -180,6 +222,7 @@ export default function TerminalView({ resourceId, resourceName, fullscreen = fa
       window.removeEventListener('resize', onWindowResize);
       try { resizeObserver?.disconnect(); } catch (_) { /* noop */ }
       if (pingTimer) clearInterval(pingTimer);
+      autoLoginWakeTimers.forEach(timer => clearTimeout(timer));
       try { ws?.close(); } catch (_) { /* noop */ }
       term.dispose();
     };

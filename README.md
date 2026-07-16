@@ -6,7 +6,7 @@ The frontend is built with React and the backend with Express + SQLite. Proxmox 
 
 ## Version
 
-Current version: **v3.1.38**
+Current version: **v3.1.40**
 
 
 ## What's new in v3.0.0
@@ -27,7 +27,7 @@ Current version: **v3.1.38**
 ### Monitoring & user notifications
 
 - A background monitoring service polls all clusters (default every 60 s, debounced against flapping) and records status transitions.
-- Users choose in their own **Benachrichtigungen** settings whether to receive e-mails when a service goes **offline**, comes **back online**, or when **maintenance** is announced.
+- Users choose in the **Notifications** section inside their personal settings whether to receive e-mails when a service goes **offline**, comes **back online**, or when **maintenance** is announced.
 - Admin overview shows the most recent status events.
 
 ### Professional e-mails & login
@@ -63,6 +63,7 @@ Current version: **v3.1.38**
 - Add, edit or remove the public-page URL for directly assigned services. The link then appears as a button on the service card.
 - Create new LXC containers on desktop or mobile through template-only self-service with mandatory internet-only network isolation.
 - Delete containers that the user created through self-service.
+- Configure language and e-mail notification preferences together on the Settings page.
 
 ### Self-service provisioning
 
@@ -199,6 +200,22 @@ docker image prune -f
 The database migrates itself on startup. Keep the backend data volume before updating.
 
 ## Changelog
+
+### v3.1.40 - 2026-07-16
+
+**Commit:** `refactor: move user notifications into settings`
+
+- remove the separate Notifications item from the desktop and mobile user navigation
+- place e-mail notification preferences below the language controls on the Settings page
+- keep the existing notification API, preferences and save behavior unchanged
+
+### v3.1.39 - 2026-07-16
+
+**Commit:** `fix: start console auto-login without user input`
+
+- detect login and password prompts from the rendered xterm buffer in addition to raw WebSocket output
+- automatically wake inactive LXC getty sessions so users no longer need to click the console and press Enter before credentials are submitted
+- keep terminal status-reply filtering and clear the active input line before sending the stored root username and password
 
 ### v3.1.38 - 2026-07-16
 

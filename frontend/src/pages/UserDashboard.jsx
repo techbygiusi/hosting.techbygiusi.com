@@ -212,11 +212,6 @@ export default function UserDashboard() {
     storeLanguage(nextLanguage);
   };
 
-  const openNotifications = () => {
-    setActiveTab('notifications');
-    setMenuOpen(false);
-  };
-
   return (
     <div className="app-page user-page">
       <MaintenanceBanner />
@@ -258,7 +253,6 @@ export default function UserDashboard() {
           <nav className="console-nav-tabs mobile-admin-menu-nav" aria-label={labels.menu}>
             <button type="button" className={activeTab === 'dashboard' ? 'active' : ''} onClick={() => selectTab('dashboard')}>{labels.dashboard}</button>
             <button type="button" className={activeTab === 'settings' ? 'active' : ''} onClick={() => selectTab('settings')}>{labels.settings}</button>
-            <button type="button" className={activeTab === 'notifications' ? 'active' : ''} onClick={openNotifications}>{labels.notifications}</button>
           </nav>
           <div className="mobile-admin-menu-footer">
             <button type="button" className="btn-secondary mobile-admin-menu-logout" onClick={logout}>{labels.logout}</button>
@@ -276,7 +270,6 @@ export default function UserDashboard() {
           <nav className="app-tabs console-nav-tabs" aria-label={labels.menu}>
             <button type="button" className={activeTab === 'dashboard' ? 'active' : ''} onClick={() => selectTab('dashboard')}>{labels.dashboard}</button>
             <button type="button" className={activeTab === 'settings' ? 'active' : ''} onClick={() => selectTab('settings')}>{labels.settings}</button>
-            <button type="button" className={activeTab === 'notifications' ? 'active' : ''} onClick={openNotifications}>{labels.notifications}</button>
           </nav>
         </aside>
 
@@ -351,13 +344,12 @@ export default function UserDashboard() {
                   ))}
                 </div>
               </div>
-            </section>
-          )}
-
-          {activeTab === 'notifications' && (
-            <section className="panel-card user-notifications-card">
-              <div className="panel-header"><h2>{labels.notifications}</h2></div>
-              <NotificationSettingsPanel language={language} />
+              <div className="settings-notification-card">
+                <div className="settings-section-header">
+                  <h3>{labels.notifications}</h3>
+                </div>
+                <NotificationSettingsPanel language={language} />
+              </div>
             </section>
           )}
         </section>

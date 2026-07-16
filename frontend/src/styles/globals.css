@@ -5386,3 +5386,18 @@ body.theme-dark .cluster-map-canvas .leaflet-container {
     margin-right: 0;
   }
 }
+
+/* v3.1.40 - notification preferences inside user settings */
+.settings-notification-card {
+  display: grid;
+  gap: 16px;
+  padding: 16px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg-alt);
+}
+
+.settings-section-header h3 {
+  margin: 0;
+}
+
