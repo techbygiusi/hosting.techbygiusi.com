@@ -38,7 +38,7 @@ function isDown(status) {
 async function getRecipients(clusterId, containerId, prefColumn) {
   return all(
     `
-    SELECT DISTINCT u.id, u.email, u.name
+    SELECT DISTINCT u.id, u.email, u.name, u.preferred_language
     FROM resources r
     LEFT JOIN user_groups ug ON ug.group_id = r.group_id
     JOIN users u ON u.id = r.user_id OR u.id = ug.user_id
@@ -95,14 +95,16 @@ async function notifyTransition(cluster, resource, oldStatus, newStatus) {
           resourceName: displayName,
           containerId: resource.id,
           clusterName: cluster.name,
-          since: new Date()
+          since: new Date(),
+          language: user.preferred_language || 'en'
         })
       : resourceRecoveredTemplate({
           name: user.name,
           resourceName: displayName,
           containerId: resource.id,
           clusterName: cluster.name,
-          since: new Date()
+          since: new Date(),
+          language: user.preferred_language || 'en'
         });
     try {
       await sendEmail(user.email, template.subject, template.text, template.html);

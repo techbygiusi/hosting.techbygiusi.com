@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { authApi, getErrorMessage } from '../services/api';
 import '../styles/globals.css';
 import ThemeButton from '../components/ThemeButton';
+import LanguageSwitch, { readStoredLanguage } from '../components/LanguageSwitch';
 import MaintenanceBanner from '../components/MaintenanceBanner';
 
 function EyeIcon({ open }) {
@@ -86,7 +87,7 @@ export default function Login() {
     try {
       setLoading(true);
       setError('');
-      await authApi.forgotPassword(email);
+      await authApi.forgotPassword(email, readStoredLanguage());
       setInfo('Falls die E-Mail-Adresse existiert, wurde ein Link zum Zurücksetzen versendet. Der Link ist 1 Stunde gültig.');
     } catch (err) {
       setError(getErrorMessage(err, 'Anfrage fehlgeschlagen.'));
@@ -104,7 +105,7 @@ export default function Login() {
   return (
     <main className="login-split">
       <MaintenanceBanner />
-      <div className="login-theme-action"><ThemeButton /></div>
+      <div className="login-theme-action auth-utility-actions"><ThemeButton /><LanguageSwitch /></div>
 
       {/* Brand panel */}
       <section className="login-brand-panel" aria-hidden="true">

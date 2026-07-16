@@ -22,6 +22,16 @@ function BellIcon() {
 const USER_TRANSLATIONS = {
   en: {
     notifications: 'Notifications',
+    dashboard: 'Dashboard',
+    settings: 'Settings',
+    menu: 'Menu',
+    openMenu: 'Open menu',
+    closeMenu: 'Close menu',
+    close: 'Close',
+    language: 'Language',
+    languageText: 'Choose the language used by the portal, menus and maintenance banners.',
+    notificationsText: 'Manage e-mail notifications for outages, recoveries and maintenance.',
+    notificationSettings: 'Notification settings',
     logout: 'Log out',
     createContainer: 'Create new container',
     firstContainer: 'Create first container',
@@ -44,6 +54,16 @@ const USER_TRANSLATIONS = {
   },
   de: {
     notifications: 'Benachrichtigungen',
+    dashboard: 'Dashboard',
+    settings: 'Einstellungen',
+    menu: 'Menü',
+    openMenu: 'Menü öffnen',
+    closeMenu: 'Menü schließen',
+    close: 'Schließen',
+    language: 'Sprache',
+    languageText: 'Wähle die Sprache für Portal, Menüs und Wartungsbanner.',
+    notificationsText: 'Verwalte E-Mail-Benachrichtigungen für Ausfälle, Wiederherstellungen und Wartungen.',
+    notificationSettings: 'Benachrichtigungseinstellungen',
     logout: 'Abmelden',
     createContainer: 'Neuen Container erstellen',
     firstContainer: 'Ersten Container erstellen',
@@ -70,6 +90,16 @@ function renderUserStatus(status, labels) {
   return labels.status[status] || labels.status.unknown;
 }
 
+function MenuIcon() {
+  return (
+    <svg className="menu-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M4 7h16" />
+      <path d="M4 12h16" />
+      <path d="M4 17h16" />
+    </svg>
+  );
+}
+
 function LogoutIcon() {
   return (
     <svg className="logout-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -90,6 +120,8 @@ export default function UserDashboard() {
   const [showCreate, setShowCreate] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [language, setLanguage] = useState(readStoredLanguage);
+  const [activeTab, setActiveTab] = useState('dashboard');
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const fetchResources = useCallback(async (withSpinner = true) => {
     try {
@@ -123,6 +155,11 @@ export default function UserDashboard() {
   const detailResource = resources.find(item => item.id === detailId) || null;
   const labels = USER_TRANSLATIONS[language] || USER_TRANSLATIONS.en;
 
+  const selectTab = (tab) => {
+    setActiveTab(tab);
+    setMenuOpen(false);
+  };
+
   return (
     <div className="app-page">
       <MaintenanceBanner />
@@ -134,41 +171,86 @@ export default function UserDashboard() {
           <div className="site-actions">
             <ThemeButton />
             <LanguageSwitch value={language} onChange={setLanguage} />
-            <button type="button" className="btn-secondary logout-button" onClick={() => setShowNotifications(true)} aria-label={labels.notifications} title={labels.notifications}><BellIcon /><span className="logout-label">{labels.notifications}</span></button>
+            <button type="button" className="btn-secondary user-menu-toggle" onClick={() => setMenuOpen(true)} aria-label={labels.openMenu}><MenuIcon /><span className="logout-label">{labels.menu}</span></button>
             <button type="button" className="btn-secondary logout-button" onClick={logout} aria-label={labels.logout}><LogoutIcon /><span className="logout-label">{labels.logout}</span></button>
           </div>
         </div>
       </header>
 
+      <div className={`user-fullscreen-menu-overlay ${menuOpen ? 'open' : ''}`} onClick={() => setMenuOpen(false)} aria-hidden={!menuOpen}>
+        <div className="user-fullscreen-menu-panel" onClick={(e) => e.stopPropagation()}>
+          <div className="mobile-admin-menu-header">
+            <div>
+              <span className="resource-id">Hosting by TechByGiusi</span>
+              <h2>{labels.menu}</h2>
+              <p>{resources.length} {labels.status.running}</p>
+            </div>
+            <button type="button" className="btn-secondary mobile-admin-menu-close" onClick={() => setMenuOpen(false)} aria-label={labels.closeMenu}>{labels.close}</button>
+          </div>
+          <nav className="console-nav-tabs mobile-admin-menu-nav" aria-label={labels.menu}>
+            <button type="button" className={activeTab === 'dashboard' ? 'active' : ''} onClick={() => selectTab('dashboard')}>{labels.dashboard}</button>
+            <button type="button" onClick={() => { setMenuOpen(false); setShowNotifications(true); }}>{labels.notifications}</button>
+            <button type="button" className={activeTab === 'settings' ? 'active' : ''} onClick={() => selectTab('settings')}>{labels.settings}</button>
+          </nav>
+          <div className="mobile-admin-menu-footer">
+            <button type="button" className="btn-secondary mobile-admin-menu-logout" onClick={logout}>{labels.logout}</button>
+          </div>
+        </div>
+      </div>
+
       <main className="app-container compact-container">
         {error && <div className="alert alert-danger">{error}</div>}
 
-        {provisioningOptions.length > 0 && (
-          <div className="dashboard-actions desktop-only-block">
-            <button type="button" className="btn-primary" onClick={() => setShowCreate(true)}>{labels.createContainer}</button>
-          </div>
+        {activeTab === 'dashboard' && (
+          <>
+            {provisioningOptions.length > 0 && (
+              <div className="dashboard-actions desktop-only-block">
+                <button type="button" className="btn-primary" onClick={() => setShowCreate(true)}>{labels.createContainer}</button>
+              </div>
+            )}
+
+            {loading ? (
+              <div className="loading"><span className="spinner"></span><span>{labels.loadingServices}</span></div>
+            ) : resources.length === 0 ? (
+              <section className="empty-state panel-card">
+                <h2>{labels.noServices}</h2>
+                <p>{labels.noServicesText}</p>
+                {provisioningOptions.length > 0 && (
+                  <button type="button" className="btn-primary desktop-only-block" onClick={() => setShowCreate(true)}>{labels.firstContainer}</button>
+                )}
+              </section>
+            ) : (
+              <section className="resource-grid">
+                {resources.map(resource => (
+                  <ResourceCard
+                    key={resource.id}
+                    resource={resource}
+                    onOpenDetails={() => setDetailId(resource.id)}
+                    labels={labels}
+                  />
+                ))}
+              </section>
+            )}
+          </>
         )}
 
-        {loading ? (
-          <div className="loading"><span className="spinner"></span><span>{labels.loadingServices}</span></div>
-        ) : resources.length === 0 ? (
-          <section className="empty-state panel-card">
-            <h2>{labels.noServices}</h2>
-            <p>{labels.noServicesText}</p>
-            {provisioningOptions.length > 0 && (
-              <button type="button" className="btn-primary desktop-only-block" onClick={() => setShowCreate(true)}>{labels.firstContainer}</button>
-            )}
-          </section>
-        ) : (
-          <section className="resource-grid">
-            {resources.map(resource => (
-              <ResourceCard
-                key={resource.id}
-                resource={resource}
-                onOpenDetails={() => setDetailId(resource.id)}
-                labels={labels}
-              />
-            ))}
+        {activeTab === 'settings' && (
+          <section className="panel-card user-settings-card">
+            <div className="panel-header"><h2>{labels.settings}</h2></div>
+            <div className="settings-option-card">
+              <div>
+                <h3>{labels.language}</h3>
+                <p>{labels.languageText}</p>
+              </div>
+              <LanguageSwitch value={language} onChange={setLanguage} />
+            </div>
+            <div className="settings-option-card">
+              <div>
+                <h3>{labels.notifications}</h3>
+                <p>{labels.notificationsText}</p>
+              </div>
+              <button type="button" className="btn-secondary" onClick={() => setShowNotifications(true)}>{labels.notificationSettings}</button>
+            </div>
           </section>
         )}
       </main>

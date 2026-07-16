@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { authApi, getErrorMessage } from '../services/api';
+import { authApi, userApi, getErrorMessage } from '../services/api';
+import { readStoredLanguage, storeLanguage } from '../components/LanguageSwitch';
 
 const AuthContext = createContext();
 
@@ -25,15 +26,28 @@ export function AuthProvider({ children }) {
         const storedUser = localStorage.getItem('user');
 
         if (storedToken && storedUser) {
+          const parsedUser = JSON.parse(storedUser);
           setToken(storedToken);
-          setUser(JSON.parse(storedUser));
+          setUser(parsedUser);
+          if (parsedUser?.preferredLanguage) storeLanguage(parsedUser.preferredLanguage);
         }
 
         const setupState = await refreshSetupStatus();
 
         if (storedToken) {
           try {
-            await authApi.verify();
+            const verifyResponse = await authApi.verify();
+            if (verifyResponse.data?.user) {
+              const serverUser = verifyResponse.data.user;
+              const preferredLanguage = serverUser.preferredLanguage || readStoredLanguage();
+              const verifiedUser = { ...serverUser, preferredLanguage };
+              localStorage.setItem('user', JSON.stringify(verifiedUser));
+              setUser(verifiedUser);
+              storeLanguage(preferredLanguage);
+              if (!serverUser.preferredLanguage) {
+                await userApi.updateLanguage(preferredLanguage);
+              }
+            }
           } catch (err) {
             localStorage.removeItem('token');
             localStorage.removeItem('user');
@@ -58,6 +72,30 @@ export function AuthProvider({ children }) {
     initAuth();
   }, []);
 
+
+  useEffect(() => {
+    const handleLanguageChange = async (event) => {
+      if (!token || !user?.id) return;
+      const language = event.detail?.language || readStoredLanguage();
+      if (!['en', 'de'].includes(language)) return;
+      try {
+        const response = await userApi.updateLanguage(language);
+        const preferredLanguage = response.data?.preferredLanguage || language;
+        setUser(current => {
+          if (!current) return current;
+          const next = { ...current, preferredLanguage };
+          localStorage.setItem('user', JSON.stringify(next));
+          return next;
+        });
+      } catch (_) {
+        // Keep the local language active if the server is temporarily unavailable.
+      }
+    };
+
+    window.addEventListener('portal-language-change', handleLanguageChange);
+    return () => window.removeEventListener('portal-language-change', handleLanguageChange);
+  }, [token, user?.id]);
+
   const login = async (email, password) => {
     try {
       setError(null);
@@ -67,7 +105,7 @@ export function AuthProvider({ children }) {
         throw new Error('Die Erstkonfiguration ist noch nicht abgeschlossen.');
       }
 
-      const response = await authApi.login(email, password);
+      const response = await authApi.login(email, password, readStoredLanguage());
       const { token: newToken, user: userData } = response.data;
 
       localStorage.setItem('token', newToken);
@@ -75,6 +113,7 @@ export function AuthProvider({ children }) {
 
       setToken(newToken);
       setUser(userData);
+      storeLanguage(userData.preferredLanguage || 'en');
       setSetupRequired(false);
       return userData;
     } catch (err) {
@@ -97,7 +136,8 @@ export function AuthProvider({ children }) {
         smtpHost: smtpData.smtpHost,
         smtpPort: smtpData.smtpPort,
         smtpUser: smtpData.smtpUser,
-        smtpPassword: smtpData.smtpPassword
+        smtpPassword: smtpData.smtpPassword,
+        preferredLanguage: readStoredLanguage()
       });
 
       const { token: newToken, user: userData } = response.data;
@@ -107,6 +147,7 @@ export function AuthProvider({ children }) {
 
       setToken(newToken);
       setUser(userData);
+      storeLanguage(userData.preferredLanguage || readStoredLanguage());
       await refreshSetupStatus();
       return userData;
     } catch (err) {

@@ -47,6 +47,7 @@ async function initDatabase() {
           name TEXT NOT NULL,
           password_hash TEXT NOT NULL,
           role TEXT DEFAULT 'user' CHECK(role IN ('admin', 'user')),
+          preferred_language TEXT DEFAULT 'en',
           created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
           updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
@@ -239,6 +240,8 @@ async function initDatabase() {
       database.run(`ALTER TABLE users ADD COLUMN notify_resource_down INTEGER DEFAULT 0`, () => {});
       database.run(`ALTER TABLE users ADD COLUMN notify_resource_recovered INTEGER DEFAULT 0`, () => {});
       database.run(`ALTER TABLE users ADD COLUMN notify_maintenance INTEGER DEFAULT 1`, () => {});
+      // v3.1.23: persisted portal/e-mail language per user
+      database.run(`ALTER TABLE users ADD COLUMN preferred_language TEXT`, () => {});
 
       // v3.0: scheduled maintenance windows / announcements
       database.run(`

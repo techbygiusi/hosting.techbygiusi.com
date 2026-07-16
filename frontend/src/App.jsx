@@ -9,6 +9,7 @@ import AdminDashboard from './pages/AdminDashboard';
 import ConsolePage from './pages/ConsolePage';
 import ProvisioningConsolePage from './pages/ProvisioningConsolePage';
 import { useDocumentTheme } from './components/ThemeButton';
+import { usePortalLanguageRuntime } from './i18n';
 
 function FullscreenLoader({ text }) {
   return (
@@ -55,6 +56,7 @@ function PrivateRoute({ children, requiredRole = null }) {
 
 export default function App() {
   useDocumentTheme();
+  usePortalLanguageRuntime();
   const { setupRequired, loading, isAuthenticated, user, error } = useAuth();
 
   if (loading) {

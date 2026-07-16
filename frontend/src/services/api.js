@@ -1,4 +1,6 @@
 import axios from 'axios';
+import { readStoredLanguage } from '../components/LanguageSwitch';
+import { translatePortalText } from '../i18n';
 
 const configuredApiUrl = process.env.REACT_APP_API_URL || '';
 const API_URL = configuredApiUrl.trim() || '/api';
@@ -99,11 +101,32 @@ const MESSAGE_TRANSLATIONS = {
   'Admin password must be at least 8 characters': 'Das Admin-Passwort muss mindestens 8 Zeichen lang sein.',
   'Password must be at least 8 characters': 'Das Passwort muss mindestens 8 Zeichen lang sein.',
   'Please select a valid location from the search results': 'Bitte einen gültigen Standort aus den Suchergebnissen auswählen.',
-  'Location search failed': 'Standortsuche fehlgeschlagen.'
+  'Location search failed': 'Standortsuche fehlgeschlagen.',
+  'Invalid token purpose': 'Ungültiger Token-Zweck.',
+  'Timed out while starting Proxmox node command': 'Zeitüberschreitung beim Starten des Proxmox-Node-Befehls.',
+  'Name is required': 'Name ist erforderlich.',
+  'No available Proxmox storage found on the selected node': 'Auf der ausgewählten Node wurde kein verfügbarer Proxmox-Speicher gefunden.',
+  'Proxmox name, URL, and API token are required': 'Proxmox-Name, URL und API-Token sind erforderlich.',
+  'Proxmox URL must start with http:// or https://': 'Die Proxmox-URL muss mit http:// oder https:// beginnen.',
+  'Admin name, email, and password are required': 'Name, E-Mail-Adresse und Passwort für den Administrator sind erforderlich.',
+  'Email and password required': 'E-Mail-Adresse und Passwort sind erforderlich.',
+  'Email is required': 'E-Mail-Adresse ist erforderlich.',
+  'Token and new password required': 'Token und neues Passwort sind erforderlich.',
+  'Node name is invalid': 'Node-Name ist ungültig.',
+  'Disk storage is not available on the selected Proxmox node': 'Der Disk-Storage ist auf der ausgewählten Proxmox-Node nicht verfügbar.',
+  'This credential belongs to the user and cannot be viewed': 'Diese Zugangsdaten gehören dem Benutzer und können nicht angezeigt werden.',
+  'This credential belongs to the user and cannot be edited': 'Diese Zugangsdaten gehören dem Benutzer und können nicht bearbeitet werden.',
+  'This credential belongs to the user and cannot be deleted': 'Diese Zugangsdaten gehören dem Benutzer und können nicht gelöscht werden.'
 };
 
 export function translateMessage(message) {
   if (!message) return '';
+  const language = readStoredLanguage();
+
+  if (language !== 'de') {
+    return translatePortalText(message, 'en');
+  }
+
   if (MESSAGE_TRANSLATIONS[message]) return MESSAGE_TRANSLATIONS[message];
 
   if (message.startsWith('Connection failed with HTTP')) {
@@ -122,7 +145,7 @@ export function translateMessage(message) {
     return message.replace('SMTP test failed:', 'SMTP-Test fehlgeschlagen:');
   }
 
-  return message;
+  return translatePortalText(message, 'de');
 }
 
 export function getErrorMessage(error, fallback = 'Ein Fehler ist aufgetreten.') {
@@ -172,11 +195,11 @@ export const authApi = {
   setup: (data) => apiClient.post('/auth/setup', data),
   setupTestSmtp: (data) => apiClient.post('/auth/setup/test-smtp', data),
   setupTestProxmox: (data) => apiClient.post('/auth/setup/test-proxmox', data),
-  login: (email, password) => apiClient.post('/auth/login', { email, password }),
+  login: (email, password, preferredLanguage) => apiClient.post('/auth/login', { email, password, preferredLanguage }),
   verify: () => apiClient.get('/auth/verify'),
   logout: () => apiClient.post('/auth/logout'),
   changePassword: (currentPassword, newPassword) => apiClient.post('/auth/change-password', { currentPassword, newPassword }),
-  forgotPassword: (email) => apiClient.post('/auth/forgot-password', { email }),
+  forgotPassword: (email, preferredLanguage) => apiClient.post('/auth/forgot-password', { email, preferredLanguage }),
   resetPassword: (token, newPassword) => apiClient.post('/auth/reset-password', { token, newPassword })
 };
 
@@ -245,6 +268,7 @@ export const userApi = {
   getContainerDetails: (containerId) => apiClient.get(`/user/containers/${containerId}`),
   getProfile: () => apiClient.get('/user/profile'),
   updateProfile: (data) => apiClient.put('/user/profile', data),
+  updateLanguage: (language) => apiClient.put('/user/language', { language }),
   // v2.0
   powerAction: (resourceId, action) => apiClient.post(`/user/resources/${resourceId}/power`, { action }),
   getTasks: (resourceId) => apiClient.get(`/user/resources/${resourceId}/tasks`),

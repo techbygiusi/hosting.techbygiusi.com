@@ -51,7 +51,8 @@ export default function LanguageSwitch({ value, onChange, className = '' }) {
   };
 
   return (
-    <div className={`language-switch ${className}`.trim()} role="group" aria-label="Language">
+    <div className={`language-switch language-switch-${current} ${className}`.trim()} role="group" aria-label="Language">
+      <span className="language-switch-thumb" aria-hidden="true" />
       {LANGUAGES.map(option => (
         <button
           key={option.code}

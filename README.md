@@ -6,7 +6,7 @@ The frontend is built with React and the backend with Express + SQLite. Proxmox 
 
 ## Version
 
-Current version: **v3.1.18**
+Current version: **v3.1.23**
 
 Versioning now follows a clean semantic sequence:
 
@@ -189,6 +189,50 @@ docker image prune -f
 The database migrates itself on startup. Keep the backend data volume before updating.
 
 ## Changelog
+
+### v3.1.23 - 2026-07-16
+
+**Commit:** `feat: persist user language for notifications and simplify cluster map borders`
+
+- stores each authenticated user's last selected EN/DE language in the database
+- restores the stored language after login and synchronizes language changes across devices
+- sends password-reset, welcome, outage, recovery, maintenance and test e-mails in the recipient's stored language
+- renders the cluster map from a bundled country-boundary dataset with only national borders and no road or regional line clutter
+
+### v3.1.22 - 2026-07-16
+
+**Commit:** `fix: complete bilingual UI audit and compact node status pills`
+
+- completed a screen-by-screen English/German audit across login, setup, admin, user, service details, self-service, consoles, maintenance, notifications and status views
+- added missing translations for visible labels, helper text, audit actions, native confirmation dialogs, API errors, terminal messages and input/textarea placeholders
+- made timestamps and uptime values respect the selected portal language
+- reduced the desktop and mobile height of the cluster node-count pills and enforced a consistent compact pill shape
+- fixed the duplicated maintenance panel header found during the audit
+
+### v3.1.21 - 2026-07-16
+
+- tightened the **3/3 Nodes** pills in cluster location and cluster status cards so they no longer look oversized on desktop and stay cleaner on mobile
+- added missing portal translations for cluster-location labels and self-service range labels
+- added missing translations for multiple input placeholders and helper texts so English and German both cover placeholder content more consistently
+
+### v3.1.20 - 2026-07-09
+
+**Commit:** `feat: complete bilingual portal translation and refine language controls`
+
+- Hidden the admin EN/DE topbar switch on mobile because language selection already exists in the fullscreen menu.
+- Removed the duplicate language selector from desktop admin settings.
+- Redesigned the user language selector as a light/dark-style sliding control with theme-aware colors.
+- Added a portal-wide bilingual translation runtime for pages, dialogs, buttons, placeholders, errors and dynamically loaded UI.
+- Added language controls to sign-in, setup and password reset screens. English remains the default.
+
+### v3.1.19 - 2026-07-09
+
+**Commit:** `feat: add user fullscreen menu and language settings`
+
+- Added the EN/DE language switch inside the settings area.
+- Added a fullscreen user menu with Dashboard, Notifications and Settings.
+- Moved user notification access into the user menu and the new user settings page.
+- Added a language card to the admin settings page as well.
 
 ### v3.1.18 - 2026-07-09
 

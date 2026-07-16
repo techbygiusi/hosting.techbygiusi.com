@@ -3,6 +3,8 @@ import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import '@xterm/xterm/css/xterm.css';
 import { userApi, getErrorMessage } from '../services/api';
+import { readStoredLanguage } from './LanguageSwitch';
+import { translatePortalText } from '../i18n';
 
 /**
  * In-browser console for a resource. The backend relays the websocket to
@@ -14,6 +16,10 @@ import { userApi, getErrorMessage } from '../services/api';
  * - resize: "1:<cols>:<rows>:"
  * - ping:   "2"
  */
+function terminalText(value) {
+  return translatePortalText(value, readStoredLanguage());
+}
+
 export default function TerminalView({ resourceId, resourceName, fullscreen = false, sessionInfo = null, autoCloseOnDisconnect = false, disableReconnect = false, onDisconnect = null }) {
   const containerRef = useRef(null);
   const [status, setStatus] = useState('connecting'); // connecting | open | closed | error
@@ -185,7 +191,7 @@ export default function TerminalView({ resourceId, resourceName, fullscreen = fa
           term.write(data);
           maybeSendAutoLogin(data);
           if (didCommunityScriptAbort(data)) {
-            term.write('\r\n\x1b[90m[Hosting Portal: Script abgebrochen. Terminal wird geschlossen...]\x1b[0m\r\n');
+            term.write(`\r\n\x1b[90m${terminalText('[Hosting Portal: Script abgebrochen. Terminal wird geschlossen...]')}\x1b[0m\r\n`);
             closeCommunityScriptTerminal();
           }
         };
@@ -194,16 +200,16 @@ export default function TerminalView({ resourceId, resourceName, fullscreen = fa
           setStatus('closed');
           if (autoCloseOnDisconnect) {
             if (!scriptCloseTriggered) {
-              term.write('\r\n\x1b[90m[Script-/Terminal-Session beendet.]\x1b[0m\r\n');
+              term.write(`\r\n\x1b[90m${terminalText('[Script-/Terminal-Session beendet.]')}\x1b[0m\r\n`);
             }
             return;
           }
-          term.write('\r\n\x1b[90m[Verbindung beendet]\x1b[0m\r\n');
+          term.write(`\r\n\x1b[90m${terminalText('[Verbindung beendet]')}\x1b[0m\r\n`);
         };
 
         ws.onerror = () => {
           setStatus('error');
-          setMessage('Verbindung zur Konsole fehlgeschlagen.');
+          setMessage(terminalText('Verbindung zur Konsole fehlgeschlagen.'));
         };
 
         term.onData((input) => {

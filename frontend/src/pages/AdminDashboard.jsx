@@ -7,6 +7,7 @@ import Modal from '../components/Modal';
 import MaintenanceBanner from '../components/MaintenanceBanner';
 import ClusterMapSection from '../components/ClusterMapSection';
 import LanguageSwitch, { readStoredLanguage, storeLanguage } from '../components/LanguageSwitch';
+import { translatePortalText } from '../i18n';
 
 function LogoutIcon() {
   return (
@@ -44,7 +45,9 @@ function formatDateTime(value) {
     if (typeof input === 'string' && /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(input)) {
       input = input.replace(' ', 'T') + 'Z';
     }
-    return new Date(input).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) + ' Uhr';
+    const language = readStoredLanguage();
+    const formatted = new Date(input).toLocaleString(language === 'de' ? 'de-DE' : 'en-GB', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    return language === 'de' ? `${formatted} Uhr` : formatted;
   } catch (_) { return String(value); }
 }
 
@@ -116,7 +119,7 @@ const MOBILE_MENU_TRANSLATIONS = {
       emptyText: 'Open a Proxmox cluster, search for its address and select a location from the dropdown.',
       nodes: 'Nodes',
       problem: 'Problem',
-      nodesOnline: 'Nodes online'
+      nodesOnline: 'Online-Nodes'
     },
     clusterStatus: {
       title: 'Cluster status',
@@ -168,7 +171,7 @@ const MOBILE_MENU_TRANSLATIONS = {
       emptyText: 'Öffne einen Proxmox-Cluster, suche nach der Adresse und wähle einen Standort aus dem Dropdown aus.',
       nodes: 'Nodes',
       problem: 'Problem',
-      nodesOnline: 'Nodes online'
+      nodesOnline: 'Online-Nodes'
     },
     clusterStatus: {
       title: 'Cluster-Status',
@@ -468,7 +471,7 @@ export default function AdminDashboard() {
   };
 
   const handleDeleteUser = async (userId) => {
-    if (!window.confirm('Diesen Benutzer löschen?')) return;
+    if (!window.confirm(translatePortalText('Diesen Benutzer löschen?', readStoredLanguage()))) return;
 
     try {
       setActionLoading(true);
@@ -603,7 +606,7 @@ export default function AdminDashboard() {
   };
 
   const handleDeleteCluster = async (clusterId) => {
-    if (!window.confirm('Diesen Cluster löschen?')) return;
+    if (!window.confirm(translatePortalText('Diesen Cluster löschen?', readStoredLanguage()))) return;
 
     try {
       setActionLoading(true);
@@ -690,7 +693,7 @@ export default function AdminDashboard() {
   };
 
   const handleDeleteCred = async (credId) => {
-    if (!window.confirm('Diese Zugangsdaten löschen?')) return;
+    if (!window.confirm(translatePortalText('Diese Zugangsdaten löschen?', readStoredLanguage()))) return;
     try {
       setActionLoading(true);
       await adminApi.deleteAdminCredential(credId);
@@ -773,7 +776,7 @@ export default function AdminDashboard() {
   };
 
   const handleDeleteGroup = async (groupId) => {
-    if (!window.confirm('Diese Gruppe löschen? Zugeordnete Dienste verlieren die Gruppen-Freigabe.')) return;
+    if (!window.confirm(translatePortalText('Diese Gruppe löschen? Zugeordnete Dienste verlieren die Gruppen-Freigabe.', readStoredLanguage()))) return;
 
     try {
       setActionLoading(true);
@@ -874,7 +877,7 @@ export default function AdminDashboard() {
   };
 
   const handleDeleteResource = async (resourceId) => {
-    if (!window.confirm('Diesen Dienst entfernen?')) return;
+    if (!window.confirm(translatePortalText('Diesen Dienst entfernen?', readStoredLanguage()))) return;
 
     try {
       setActionLoading(true);
@@ -1068,7 +1071,7 @@ export default function AdminDashboard() {
   };
 
   const handleDeleteMaintenance = async (item) => {
-    if (!window.confirm(`Wartungsfenster "${item.title}" wirklich löschen?`)) return;
+    if (!window.confirm(translatePortalText(`Wartungsfenster "${item.title}" wirklich löschen?`, readStoredLanguage()))) return;
     try {
       setActionLoading(true);
       setError('');
@@ -1649,7 +1652,7 @@ function AdminResourceCredentials({ resource, onClose, onError }) {
   };
 
   const remove = async (item) => {
-    if (!window.confirm(`"${item.label}" wirklich löschen?`)) return;
+    if (!window.confirm(translatePortalText(`"${item.label}" wirklich löschen?`, readStoredLanguage()))) return;
     try {
       setBusy(true);
       await adminApi.deleteResourceCredential(resource.id, item.id);
@@ -1988,7 +1991,7 @@ function renderAuditAction(action) {
 function formatAuditTime(value) {  if (!value) return '';
   const date = new Date(`${value}Z`.replace(' ', 'T'));
   if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' });
+  return date.toLocaleString(readStoredLanguage() === 'de' ? 'de-DE' : 'en-GB', { dateStyle: 'short', timeStyle: 'short' });
 }
 
 function PanelHeader({ title, action, onAction }) {

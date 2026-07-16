@@ -150,7 +150,7 @@ async function attachSharedManagementUrls(resources) {
 router.get('/profile', async (req, res, next) => {
   try {
     const user = await get(
-      'SELECT id, email, name, role, created_at, updated_at FROM users WHERE id = ?',
+      'SELECT id, email, name, role, preferred_language, created_at, updated_at FROM users WHERE id = ?',
       [req.user.id]
     );
     if (!user) throw new AppError('User not found', HTTP_STATUS.NOT_FOUND);
@@ -161,7 +161,7 @@ router.get('/profile', async (req, res, next) => {
       WHERE ug.user_id = ?
     `, [req.user.id]);
 
-    res.json({ user: { ...user, groups } });
+    res.json({ user: { ...user, preferredLanguage: user.preferred_language || 'en', groups } });
   } catch (err) {
     next(err);
   }
@@ -178,10 +178,30 @@ router.put('/profile', async (req, res, next) => {
     );
 
     const user = await get(
-      'SELECT id, email, name, role, created_at, updated_at FROM users WHERE id = ?',
+      'SELECT id, email, name, role, preferred_language, created_at, updated_at FROM users WHERE id = ?',
       [req.user.id]
     );
-    res.json({ user });
+    res.json({ user: { ...user, preferredLanguage: user.preferred_language || 'en' } });
+  } catch (err) {
+    next(err);
+  }
+});
+
+
+/* --------------------------------------------------------- LANGUAGE ---- */
+router.put('/language', async (req, res, next) => {
+  try {
+    const language = String(req.body?.language || '').trim().toLowerCase();
+    if (!['en', 'de'].includes(language)) {
+      throw new AppError('Unsupported language', HTTP_STATUS.BAD_REQUEST);
+    }
+
+    await run(
+      'UPDATE users SET preferred_language = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+      [language, req.user.id]
+    );
+
+    res.json({ preferredLanguage: language });
   } catch (err) {
     next(err);
   }
@@ -191,7 +211,7 @@ router.put('/profile', async (req, res, next) => {
 router.get('/notifications', async (req, res, next) => {
   try {
     const row = await get(
-      'SELECT notify_resource_down, notify_resource_recovered, notify_maintenance FROM users WHERE id = ?',
+      'SELECT notify_resource_down, notify_resource_recovered, notify_maintenance, preferred_language FROM users WHERE id = ?',
       [req.user.id]
     );
     if (!row) throw new AppError('User not found', HTTP_STATUS.NOT_FOUND);
@@ -200,7 +220,8 @@ router.get('/notifications', async (req, res, next) => {
         notifyResourceDown: !!row.notify_resource_down,
         notifyResourceRecovered: !!row.notify_resource_recovered,
         notifyMaintenance: !!row.notify_maintenance
-      }
+      },
+      preferredLanguage: row.preferred_language || 'en'
     });
   } catch (err) {
     next(err);

@@ -17,7 +17,7 @@ const SETUP_KEYS = ['smtp_host', 'smtp_port', 'smtp_user', 'smtp_password'];
 
 async function getSetupState() {
   const adminUser = await get(
-    'SELECT id, email, name, role FROM users WHERE role = ? ORDER BY id ASC LIMIT 1',
+    'SELECT id, email, name, role, preferred_language FROM users WHERE role = ? ORDER BY id ASC LIMIT 1',
     [ROLES.ADMIN]
   );
   const proxmoxCluster = await get('SELECT id FROM proxmox_clusters ORDER BY id ASC LIMIT 1');
@@ -53,7 +53,8 @@ async function getSetupState() {
       id: adminUser.id,
       email: adminUser.email,
       name: adminUser.name,
-      role: adminUser.role
+      role: adminUser.role,
+      preferredLanguage: adminUser.preferred_language || 'en'
     } : null
   };
 }
@@ -146,7 +147,8 @@ router.post('/setup', async (req, res, next) => {
       smtpHost,
       smtpPort,
       smtpUser,
-      smtpPassword
+      smtpPassword,
+      preferredLanguage
     } = req.body;
 
     let adminUser = state.adminUser;
@@ -166,15 +168,16 @@ router.post('/setup', async (req, res, next) => {
 
       const passwordHash = await bcryptjs.hash(adminPassword, 12);
       const result = await run(
-        'INSERT INTO users (email, name, password_hash, role) VALUES (?, ?, ?, ?)',
-        [adminEmail.trim().toLowerCase(), adminName.trim(), passwordHash, ROLES.ADMIN]
+        'INSERT INTO users (email, name, password_hash, role, preferred_language) VALUES (?, ?, ?, ?, ?)',
+        [adminEmail.trim().toLowerCase(), adminName.trim(), passwordHash, ROLES.ADMIN, ['de', 'en'].includes(String(preferredLanguage || '').toLowerCase()) ? String(preferredLanguage).toLowerCase() : 'en']
       );
 
       adminUser = {
         id: result.lastID,
         email: adminEmail.trim().toLowerCase(),
         name: adminName.trim(),
-        role: ROLES.ADMIN
+        role: ROLES.ADMIN,
+        preferredLanguage: ['de', 'en'].includes(String(preferredLanguage || '').toLowerCase()) ? String(preferredLanguage).toLowerCase() : 'en'
       };
     }
 
@@ -262,7 +265,7 @@ function clearFailedLogins(email) {
 
 router.post('/login', async (req, res, next) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, preferredLanguage } = req.body;
 
     if (!email || !password) {
       throw new AppError('Email and password required', HTTP_STATUS.BAD_REQUEST);
@@ -293,6 +296,13 @@ router.post('/login', async (req, res, next) => {
     }
 
     clearFailedLogins(normalizedEmail);
+    const requestedLanguage = ['en', 'de'].includes(String(preferredLanguage || '').toLowerCase())
+      ? String(preferredLanguage).toLowerCase()
+      : (user.preferred_language || 'en');
+    if (requestedLanguage !== (user.preferred_language || 'en')) {
+      await run('UPDATE users SET preferred_language = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [requestedLanguage, user.id]);
+      user.preferred_language = requestedLanguage;
+    }
     await logAudit({ user: { id: user.id, email: user.email }, headers: req.headers, socket: req.socket }, 'auth.login', user.email);
     const token = generateToken(user.id, user.email, user.role);
 
@@ -302,7 +312,8 @@ router.post('/login', async (req, res, next) => {
         id: user.id,
         email: user.email,
         name: user.name,
-        role: user.role
+        role: user.role,
+        preferredLanguage: user.preferred_language || 'en'
       }
     });
   } catch (err) {
@@ -313,7 +324,18 @@ router.post('/login', async (req, res, next) => {
 router.get('/verify', authMiddleware, async (req, res, next) => {
   try {
     const setupState = await getSetupState();
-    res.json({ valid: true, user: req.user, setupRequired: setupState.setupRequired });
+    const storedUser = await get('SELECT id, email, name, role, preferred_language FROM users WHERE id = ?', [req.user.id]);
+    res.json({
+      valid: true,
+      user: storedUser ? {
+        id: storedUser.id,
+        email: storedUser.email,
+        name: storedUser.name,
+        role: storedUser.role,
+        preferredLanguage: storedUser.preferred_language || null
+      } : req.user,
+      setupRequired: setupState.setupRequired
+    });
   } catch (err) {
     next(err);
   }
@@ -359,7 +381,7 @@ router.post('/change-password', authMiddleware, async (req, res, next) => {
 
 router.post('/forgot-password', async (req, res, next) => {
   try {
-    const { email } = req.body;
+    const { email, preferredLanguage } = req.body;
 
     if (!email) {
       throw new AppError('Email is required', HTTP_STATUS.BAD_REQUEST);
@@ -371,10 +393,18 @@ router.post('/forgot-password', async (req, res, next) => {
       return res.json({ message: 'If email exists, password reset link has been sent' });
     }
 
+    const requestedLanguage = ['en', 'de'].includes(String(preferredLanguage || '').toLowerCase())
+      ? String(preferredLanguage).toLowerCase()
+      : (user.preferred_language || 'en');
+    if (requestedLanguage !== (user.preferred_language || 'en')) {
+      await run('UPDATE users SET preferred_language = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [requestedLanguage, user.id]);
+      user.preferred_language = requestedLanguage;
+    }
+
     const resetToken = generateResetToken(user.id, user.email);
     const resetLink = `${getPublicFrontendUrl(req)}/reset-password?token=${encodeURIComponent(resetToken)}`;
 
-    const template = passwordResetTemplate({ name: user.name, resetLink });
+    const template = passwordResetTemplate({ name: user.name, resetLink, language: user.preferred_language || 'en' });
     await sendEmail(user.email, template.subject, template.text, template.html);
     await logAudit(req, 'auth.password_reset_requested', user.email);
 

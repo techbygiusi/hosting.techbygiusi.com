@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { CircleMarker, MapContainer, Popup, TileLayer, useMap } from 'react-leaflet';
+import { CircleMarker, GeoJSON, MapContainer, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
@@ -33,6 +33,7 @@ function MapBounds({ points }) {
 
 export default function ClusterMapSection({ clusters = [], mappedCount = 0, onOpenClusters, labels }) {
   const [theme, setTheme] = useState(getBodyTheme);
+  const [countryBorders, setCountryBorders] = useState(null);
 
   useEffect(() => {
     if (typeof document === 'undefined') return undefined;
@@ -46,11 +47,24 @@ export default function ClusterMapSection({ clusters = [], mappedCount = 0, onOp
     return () => observer.disconnect();
   }, []);
 
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/country-borders.geojson')
+      .then(response => {
+        if (!response.ok) throw new Error('Country borders unavailable');
+        return response.json();
+      })
+      .then(data => { if (!cancelled) setCountryBorders(data); })
+      .catch(() => { if (!cancelled) setCountryBorders(null); });
+    return () => { cancelled = true; };
+  }, []);
+
   const isDark = theme === 'dark';
-  const tileUrl = isDark
-    ? 'https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png'
-    : 'https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png';
-    const markerStyle = isDark
+  const countryStyle = isDark
+    ? { color: 'rgba(194, 206, 167, 0.28)', weight: 0.8, fillColor: '#11161d', fillOpacity: 1 }
+    : { color: 'rgba(122, 135, 111, 0.34)', weight: 0.8, fillColor: '#f6f7f4', fillOpacity: 1 };
+  const markerStyle = isDark
     ? { color: '#101419', weight: 2, fillColor: '#c2cea7', fillOpacity: 0.95 }
     : { color: '#ffffff', weight: 2, fillColor: '#7a876f', fillOpacity: 0.95 };
 
@@ -93,7 +107,7 @@ export default function ClusterMapSection({ clusters = [], mappedCount = 0, onOp
         <div className="cluster-map-layout">
           <div className="cluster-map-canvas">
             <MapContainer center={[51, 10]} zoom={4} minZoom={2} scrollWheelZoom={false} attributionControl={false} className="cluster-map-widget">
-              <TileLayer url={tileUrl} subdomains={['a', 'b', 'c', 'd']} />
+              {countryBorders && <GeoJSON key={theme} data={countryBorders} style={() => countryStyle} interactive={false} />}
               <MapBounds points={points} />
               {points.map(point => (
                 <CircleMarker key={point.id} center={[point.lat, point.lon]} radius={8} pathOptions={markerStyle}>

@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import Modal from './Modal';
 import { userApi, getErrorMessage } from '../services/api';
+import { readStoredLanguage } from './LanguageSwitch';
+import { translatePortalText } from '../i18n';
 
 /**
  * Detail modal for one resource. Capability-driven:
@@ -53,7 +55,7 @@ export function PowerControls({ resource, onChanged, compact = false, onOpenCons
   if (!caps.canPower && !caps.canConsole) return null;
 
   const runAction = async (action, confirmText) => {
-    if (confirmText && !window.confirm(confirmText)) return;
+    if (confirmText && !window.confirm(translatePortalText(confirmText, readStoredLanguage()))) return;
     try {
       setBusyAction(action);
       setError('');
@@ -137,7 +139,7 @@ function DeleteMachineControl({ resource, onChanged, onClose }) {
   if (!resource.canDelete) return null;
 
   const deleteMachine = async () => {
-    if (!window.confirm(`${resource.name} wirklich löschen? Der Container wird in Proxmox entfernt.`)) return;
+    if (!window.confirm(translatePortalText(`${resource.name} wirklich löschen? Der Container wird in Proxmox entfernt.`, readStoredLanguage()))) return;
     try {
       setDeleteBusy(true);
       setDeleteError('');
@@ -298,7 +300,7 @@ function CredentialsTab({ resource }) {
   };
 
   const remove = async (item) => {
-    if (!window.confirm(`"${item.label}" wirklich löschen?`)) return;
+    if (!window.confirm(translatePortalText(`"${item.label}" wirklich löschen?`, readStoredLanguage()))) return;
     try {
       setBusy(true);
       await userApi.deleteCredential(resource.id, item.id);
@@ -476,14 +478,15 @@ function formatUptime(seconds) {
   const days = Math.floor(seconds / 86400);
   const hours = Math.floor((seconds % 86400) / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
-  if (days > 0) return `${days} T ${hours} Std`;
-  if (hours > 0) return `${hours} Std ${minutes} Min`;
-  return `${minutes} Min`;
+  const language = readStoredLanguage();
+  if (days > 0) return language === 'de' ? `${days} T ${hours} Std` : `${days} d ${hours} h`;
+  if (hours > 0) return language === 'de' ? `${hours} Std ${minutes} Min` : `${hours} h ${minutes} min`;
+  return language === 'de' ? `${minutes} Min` : `${minutes} min`;
 }
 
 function formatTimestamp(unix) {
   if (!unix) return '';
-  return new Date(unix * 1000).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' });
+  return new Date(unix * 1000).toLocaleString(readStoredLanguage() === 'de' ? 'de-DE' : 'en-GB', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' });
 }
 
 function renderTaskType(type) {
