@@ -1,13 +1,20 @@
 # Hosting Portal
 
-A lightweight self-hosted customer portal for Proxmox-based hosting. The portal gives administrators a clean web interface for users, groups, Proxmox clusters, services, credentials, SMTP settings and audit logs. Users can view their assigned services, open service details for power and delete actions when the token allows it, open a full-page desktop console, read task logs, manage service credentials and public service links, and create/delete their own LXC containers through self-service.
+A lightweight self-hosted customer portal for Proxmox-based hosting. The portal gives administrators a clean web interface for users, groups, Proxmox clusters, services, credentials, SMTP settings and audit logs. Users can view their assigned services, open service details for power and delete actions when the token allows it, open a full-page desktop console, read task logs, manage service credentials, publish their own services securely through Pangolin, and create/delete their own LXC containers through self-service.
 
 The frontend is built with React and the backend with Express + SQLite. Proxmox API tokens and stored secrets are encrypted at rest.
 
 ## Version
 
-Current version: **v3.1.40**
+Current version: **v3.1.42**
 
+
+## What's new in v3.1.42
+
+- The dedicated desktop console now fits exactly into the browser viewport, keeping the page itself fixed while only the terminal scrollback can move.
+- Selecting terminal text automatically copies it to the clipboard without an extra button or keyboard shortcut.
+- Right-click and Ctrl/Cmd+V now paste clipboard content directly into the active Proxmox console.
+- Console resizing continues to update Proxmox whenever the browser or terminal card dimensions change.
 
 ## What's new in v3.0.0
 
@@ -57,10 +64,10 @@ Current version: **v3.1.40**
 - View assigned services with live status, CPU, RAM and disk information.
 - See the reachable container IP address in the detail view. Static LXC IPs are read from the Proxmox network config and loopback addresses are ignored.
 - Start, stop, reboot, shut down or delete services from the detail view when the Proxmox token permits it.
-- Open a full-page console in a separate browser tab on desktop when the Proxmox token permits it. LXC consoles can automatically sign in with an attached root credential without forwarding terminal status replies into the login field.
+- Open a viewport-fitted full-page console in a separate browser tab on desktop when the Proxmox token permits it. Only terminal scrollback moves; selecting text copies automatically, while right-click or Ctrl/Cmd+V pastes into the session. LXC consoles can automatically sign in with an attached root credential without forwarding terminal status replies into the login field.
 - Read recent Proxmox tasks and logs for the assigned service.
 - Manage service credentials. The exact root password used during self-service provisioning, including a configured cluster default, is saved automatically on the created service.
-- Add, edit or remove the public-page URL for directly assigned services. The link then appears as a button on the service card.
+- Publish, edit or remove directly assigned services through Pangolin. The backend fixes the target to the service IP, validates the administrator-defined port policy and displays the generated public address on the service card.
 - Create new LXC containers on desktop or mobile through template-only self-service with mandatory internet-only network isolation.
 - Delete containers that the user created through self-service.
 - Configure language and e-mail notification preferences together on the Settings page.
@@ -104,6 +111,42 @@ Recommended role for full portal functionality:
 - `Datastore.AllocateSpace` on the storage used for LXC disks/templates
 
 The portal hides unavailable actions when the token does not provide the matching capability. The Proxmox Datacenter firewall must remain enabled before and during self-service. The portal never disables or globally changes it; isolation is applied only to each newly created container.
+
+## Pangolin Integration API setup
+
+The portal expects a working Pangolin Integration API endpoint. In the Pangolin dashboard, create an **Organization API key** with least-privilege permissions:
+
+- Organization: get organization.
+- Domain: list organization domains and get domain.
+- Site: list sites and get site.
+- Resource: create, delete, get, list and update.
+- Target: create, delete, get, list and update.
+
+Do not use a root key. Open **Admin Console → Settings → Pangolin publishing** and enter:
+
+- Integration API URL, including `/v1`, for example `https://pangolin-api.example.com/v1`.
+- Organization API key. It is encrypted at rest with the portal encryption key and never returned to the browser again.
+- Organization ID.
+- Newt site and Pangolin domain, selected after using **Load from Pangolin**.
+- Base domain used for generated user addresses, for example `apps.example.com`.
+- Allowed HTTP target ports and optional TCP/UDP port ranges.
+
+Port policies accept comma-, space- or semicolon-separated values and inclusive ranges:
+
+```text
+80,443,3000-3999,8080
+```
+
+For HTTP publishing, Pangolin terminates public TLS while the configured backend method controls the Newt-to-service connection. For raw TCP or UDP resources, the selected port is currently used as both the public Pangolin proxy port and the internal service port.
+
+### Publishing security model
+
+- Only the directly assigned service owner can create or change a publication.
+- The backend resolves the service IPv4 address itself; the user interface has no target-IP input.
+- Subdomains are validated, checked for local collisions and checked against the administrator's reserved list.
+- Target ports must match the active protocol's administrator-defined port policy.
+- Pangolin identifiers are stored in the `resource_publications` table so updates and deletes operate on the exact remote objects.
+- The API key is used only by the Express backend and must never be added to React environment variables or client-side code.
 
 ## Docker Compose
 
@@ -178,7 +221,7 @@ The included `frontend/nginx.conf` already contains the required upgrade headers
 - Legacy plaintext/base64 values are still accepted and are re-encrypted on save.
 - Credential reveal actions are logged in the audit log.
 - User self-service deletion is restricted to containers the same user created through the portal.
-- Public-page changes are restricted to the user directly assigned to the service; group-shared viewers cannot overwrite the link. Only validated `http://` or `https://` URLs are stored.
+- Pangolin publication changes are restricted to the user directly assigned to the service. The backend selects the service IP, validates subdomains and administrator-defined port ranges, and stores only Pangolin object IDs plus the generated public address. Group-shared viewers cannot change publishing.
 - Self-service creation is template-only; the removed Community Script endpoints and node-shell provisioning page are no longer available.
 - New self-service LXCs are created stopped, receive host-side outbound isolation rules, and are started only after the firewall configuration succeeds. The container output policy is `DROP`; private/local ranges, the complete guest subnet, cluster-node addresses, discovered guest addresses and IPv6 are blocked before a final public-IPv4 Internet allow rule is installed.
 - The portal never disables or changes the Proxmox Datacenter firewall. It must remain enabled so the per-container rules are enforced.
@@ -200,6 +243,26 @@ docker image prune -f
 The database migrates itself on startup. Keep the backend data volume before updating.
 
 ## Changelog
+
+### v3.1.42 - 2026-07-16
+
+**Commit:** `fix: fit desktop consoles and add native clipboard controls`
+
+- locked the dedicated desktop console route to the current viewport so the surrounding page no longer scrolls
+- kept scrolling inside xterm only and continued fitting rows and columns after container or window resizing
+- added automatic clipboard copy when terminal text is selected
+- added right-click and Ctrl/Cmd+V paste support without exposing Proxmox credentials to the browser
+
+### v3.1.41 - 2026-07-16
+
+**Commit:** `feat: add secure Pangolin publishing with admin port policies`
+
+- add server-side Pangolin Integration API support for creating, updating and deleting public resources and Newt targets
+- add a responsive user publishing dialog with automatic service-IP selection, HTTP backend method selection and prepared TCP/UDP modes
+- add responsive administrator settings for API credentials, organization, site, domain, reserved subdomains and protocol-specific port ranges
+- encrypt the Pangolin Organization API key and keep it out of the React frontend
+- remove remote Pangolin objects before deleting portal services or self-service containers
+- replace manual public-page URL entry with generated Pangolin publication metadata
 
 ### v3.1.40 - 2026-07-16
 

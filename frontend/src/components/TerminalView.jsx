@@ -24,6 +24,12 @@ export default function TerminalView({ resourceId, resourceName, fullscreen = fa
     let disposed = false;
     let ws = null;
     let pingTimer = null;
+    let selectionCopyTimer = null;
+    let selectionDisposable = null;
+    let pasteTarget = null;
+    let onPaste = null;
+    let onContextMenu = null;
+    let lastCopiedSelection = '';
     const autoLoginWakeTimers = [];
 
     const getResponsiveFontSize = () => {
@@ -47,7 +53,8 @@ export default function TerminalView({ resourceId, resourceName, fullscreen = fa
     });
     const fit = new FitAddon();
     term.loadAddon(fit);
-    term.open(containerRef.current);
+    const terminalHost = containerRef.current;
+    term.open(terminalHost);
     fit.fit();
 
     const updateTerminalFit = () => {
@@ -211,6 +218,80 @@ export default function TerminalView({ resourceId, resourceName, fullscreen = fa
             : input;
           if (outgoing) sendConsoleInput(outgoing);
         });
+
+        const fallbackCopy = (text) => {
+          const textarea = document.createElement('textarea');
+          textarea.value = text;
+          textarea.setAttribute('readonly', '');
+          textarea.style.position = 'fixed';
+          textarea.style.inset = '-9999px auto auto -9999px';
+          document.body.appendChild(textarea);
+          textarea.select();
+          try { document.execCommand('copy'); } catch (_) { /* noop */ }
+          textarea.remove();
+          term.focus();
+        };
+
+        const copySelection = async () => {
+          const selection = term.getSelection();
+          if (!selection) {
+            lastCopiedSelection = '';
+            return;
+          }
+          if (selection === lastCopiedSelection) return;
+          lastCopiedSelection = selection;
+          try {
+            if (navigator.clipboard?.writeText && window.isSecureContext) {
+              await navigator.clipboard.writeText(selection);
+            } else {
+              fallbackCopy(selection);
+            }
+          } catch (_) {
+            fallbackCopy(selection);
+          }
+        };
+
+        selectionDisposable = term.onSelectionChange(() => {
+          if (selectionCopyTimer) clearTimeout(selectionCopyTimer);
+          selectionCopyTimer = setTimeout(copySelection, 120);
+        });
+
+        term.attachCustomKeyEventHandler((event) => {
+          if (event.type !== 'keydown') return true;
+          const modifier = event.ctrlKey || event.metaKey;
+          const key = String(event.key || '').toLowerCase();
+          if (modifier && key === 'c' && term.hasSelection()) {
+            copySelection();
+            return false;
+          }
+          // Let the browser emit its native paste event. The handler below
+          // feeds the clipboard content through xterm exactly once.
+          if (modifier && key === 'v') return false;
+          return true;
+        });
+
+        pasteTarget = terminalHost;
+        onPaste = (event) => {
+          const text = event.clipboardData?.getData('text/plain');
+          if (!text) return;
+          event.preventDefault();
+          event.stopPropagation();
+          term.focus();
+          term.paste(text);
+        };
+        onContextMenu = async (event) => {
+          event.preventDefault();
+          term.focus();
+          try {
+            const text = await navigator.clipboard?.readText?.();
+            if (text) term.paste(text);
+          } catch (_) {
+            // Clipboard read permissions vary by browser. Ctrl/Cmd+V remains
+            // available through the native paste event when access is denied.
+          }
+        };
+        pasteTarget?.addEventListener('paste', onPaste, true);
+        pasteTarget?.addEventListener('contextmenu', onContextMenu);
       } catch (err) {
         setStatus('error');
         setMessage(getErrorMessage(err, 'Konsole konnte nicht geöffnet werden.'));
@@ -222,6 +303,10 @@ export default function TerminalView({ resourceId, resourceName, fullscreen = fa
       window.removeEventListener('resize', onWindowResize);
       try { resizeObserver?.disconnect(); } catch (_) { /* noop */ }
       if (pingTimer) clearInterval(pingTimer);
+      if (selectionCopyTimer) clearTimeout(selectionCopyTimer);
+      try { selectionDisposable?.dispose(); } catch (_) { /* noop */ }
+      if (pasteTarget && onPaste) pasteTarget.removeEventListener('paste', onPaste, true);
+      if (pasteTarget && onContextMenu) pasteTarget.removeEventListener('contextmenu', onContextMenu);
       autoLoginWakeTimers.forEach(timer => clearTimeout(timer));
       try { ws?.close(); } catch (_) { /* noop */ }
       term.dispose();
@@ -237,11 +322,18 @@ export default function TerminalView({ resourceId, resourceName, fullscreen = fa
           {status === 'closed' && 'Getrennt'}
           {status === 'error' && (message || 'Fehler')}
         </span>
-        {(status === 'closed' || status === 'error') && (
-          <button type="button" className="btn-secondary btn-small" onClick={() => { setStatus('connecting'); setMessage(''); setReconnectKey(key => key + 1); }}>
-            Neu verbinden
-          </button>
-        )}
+        <div className="terminal-toolbar-actions">
+          {status === 'open' && (
+            <span className="terminal-clipboard-hint">
+              {terminalText('Markieren kopiert · Rechtsklick oder Strg+V fügt ein')}
+            </span>
+          )}
+          {(status === 'closed' || status === 'error') && (
+            <button type="button" className="btn-secondary btn-small" onClick={() => { setStatus('connecting'); setMessage(''); setReconnectKey(key => key + 1); }}>
+              Neu verbinden
+            </button>
+          )}
+        </div>
       </div>
       <div ref={containerRef} className="terminal-container"></div>
     </div>

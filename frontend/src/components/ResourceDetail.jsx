@@ -11,7 +11,6 @@ import { translatePortalText } from '../i18n';
  * Read-only tokens only see overview, tasks/logs and credentials.
  */
 export default function ResourceDetail({ resource, onClose, onChanged, onManagePublicPage }) {
-  const caps = resource.capabilities || {};
   const tabs = [
     ['overview', 'Dashboard'],
     ['tasks', 'Aufgaben & Logs'],
@@ -117,7 +116,7 @@ function OverviewTab({ resource, onChanged, onOpenConsole, onClose, onManagePubl
       )}
       {resource.canManagePublicPage && onManagePublicPage && (
         <button type="button" className="btn-secondary full-button" onClick={onManagePublicPage}>
-          {publicUrl ? 'Öffentliche Seite bearbeiten' : 'Öffentliche Seite hinterlegen'}
+          {translatePortalText(publicUrl ? 'Öffentlichen Zugriff bearbeiten' : 'Dienst veröffentlichen', readStoredLanguage())}
         </button>
       )}
       <div className="resource-meta">

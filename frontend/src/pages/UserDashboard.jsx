@@ -37,10 +37,10 @@ const USER_TRANSLATIONS = {
     noServices: 'No services',
     noServicesText: 'No services have been assigned to you yet.',
     publicPage: 'Public page',
-    addPublicPage: 'Add public page',
-    editPublicPage: 'Edit public page',
+    addPublicPage: 'Publish service',
+    editPublicPage: 'Edit public access',
     publicPageUrl: 'Public page URL',
-    publicPageHelp: 'Add the public URL for this service. It will appear directly on the service card.',
+    publicPageHelp: 'Publish this service securely through Pangolin.',
     publicPageRequired: 'Enter a public page URL.',
     publicPageInvalid: 'The public page must be a valid URL starting with http:// or https://.',
     publicPageSaveFailed: 'The public page could not be saved.',
@@ -91,10 +91,10 @@ const USER_TRANSLATIONS = {
     noServices: 'Keine Dienste',
     noServicesText: 'Dir sind noch keine Dienste zugewiesen.',
     publicPage: 'Öffentliche Seite',
-    addPublicPage: 'Öffentliche Seite hinterlegen',
-    editPublicPage: 'Öffentliche Seite bearbeiten',
+    addPublicPage: 'Dienst veröffentlichen',
+    editPublicPage: 'Öffentlichen Zugriff bearbeiten',
     publicPageUrl: 'URL der öffentlichen Seite',
-    publicPageHelp: 'Hinterlege die öffentliche URL für diesen Dienst. Sie erscheint anschließend direkt auf der Dienstkarte.',
+    publicPageHelp: 'Veröffentliche diesen Dienst sicher über Pangolin.',
     publicPageRequired: 'Bitte eine URL für die öffentliche Seite eingeben.',
     publicPageInvalid: 'Die öffentliche Seite muss eine gültige URL mit http:// oder https:// sein.',
     publicPageSaveFailed: 'Die öffentliche Seite konnte nicht gespeichert werden.',
@@ -416,12 +416,13 @@ function ResourceCard({ resource, onOpenDetails, onManagePublicPage, labels }) {
       <Metric label="RAM" percent={memPercent} detail={`${formatBytes(resource.mem)} / ${formatBytes(resource.maxmem)}`} />
 
       {(publicUrl || adminUrl || resource.canManagePublicPage) ? (
-        <div className={`service-link-row ${((publicUrl || resource.canManagePublicPage) && adminUrl) ? 'dual-links' : ''}`}>
-          {publicUrl ? (
-            <a className="btn-primary full-button" href={publicUrl} target="_blank" rel="noreferrer">{labels.publicPage}</a>
-          ) : resource.canManagePublicPage ? (
-            <button type="button" className="btn-primary full-button" onClick={onManagePublicPage}>{labels.addPublicPage}</button>
-          ) : null}
+        <div className="service-link-row publishing-service-links">
+          {publicUrl && <a className="btn-primary full-button" href={publicUrl} target="_blank" rel="noreferrer">{labels.publicPage}</a>}
+          {resource.canManagePublicPage && (
+            <button type="button" className={publicUrl ? 'btn-secondary full-button' : 'btn-primary full-button'} onClick={onManagePublicPage}>
+              {publicUrl ? labels.editPublicPage : labels.addPublicPage}
+            </button>
+          )}
           {adminUrl && <a className="btn-secondary full-button" href={adminUrl} target="_blank" rel="noreferrer">{labels.managementPage}</a>}
         </div>
       ) : null}

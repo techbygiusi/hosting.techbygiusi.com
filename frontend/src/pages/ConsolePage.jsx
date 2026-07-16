@@ -11,6 +11,15 @@ export default function ConsolePage() {
   const [error, setError] = useState('');
 
   useEffect(() => {
+    document.documentElement.classList.add('console-route-active');
+    document.body.classList.add('console-route-active');
+    return () => {
+      document.documentElement.classList.remove('console-route-active');
+      document.body.classList.remove('console-route-active');
+    };
+  }, []);
+
+  useEffect(() => {
     let cancelled = false;
 
     async function loadResource() {

@@ -39,6 +39,7 @@ export const DE_EN_PHRASES = {
   "Kopieren": "Copy",
   "Kopiert ✓": "Copied ✓",
   "Kopieren fehlgeschlagen.": "Copy failed.",
+  "Markieren kopiert · Rechtsklick oder Strg+V fügt ein": "Selection copies automatically · Right-click or Ctrl+V pastes",
   "Automatisch beim Erstellen des Containers gespeichert.": "Saved automatically when the container was created.",
   "Lädt...": "Loading...",
   "Löschen": "Delete",

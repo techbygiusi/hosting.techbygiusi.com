@@ -261,6 +261,29 @@ async function initDatabase() {
       `);
       database.run(`CREATE INDEX IF NOT EXISTS idx_status_events_created ON status_events(created_at DESC)`, () => {});
 
+      // v3.1.41: Pangolin-managed public resources per portal service
+      database.run(`
+        CREATE TABLE IF NOT EXISTS resource_publications (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          resource_id INTEGER NOT NULL UNIQUE,
+          pangolin_resource_id INTEGER,
+          pangolin_target_id INTEGER,
+          protocol TEXT NOT NULL DEFAULT 'http' CHECK(protocol IN ('http', 'tcp', 'udp')),
+          subdomain TEXT,
+          public_port INTEGER,
+          target_port INTEGER NOT NULL,
+          target_method TEXT,
+          public_url TEXT,
+          status TEXT NOT NULL DEFAULT 'active',
+          last_error TEXT,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (resource_id) REFERENCES resources(id) ON DELETE CASCADE
+        )
+      `);
+      database.run(`CREATE INDEX IF NOT EXISTS idx_resource_publications_protocol ON resource_publications(protocol)`, () => {});
+      database.run(`CREATE UNIQUE INDEX IF NOT EXISTS idx_resource_publications_subdomain ON resource_publications(subdomain) WHERE subdomain IS NOT NULL AND subdomain != ''`, () => {});
+
       // Settings (key-value store)
       database.run(`
         CREATE TABLE IF NOT EXISTS settings (

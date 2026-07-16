@@ -6,6 +6,7 @@ import ThemeButton from '../components/ThemeButton';
 import Modal from '../components/Modal';
 import MaintenanceBanner from '../components/MaintenanceBanner';
 import ClusterMapSection from '../components/ClusterMapSection';
+import PangolinSettingsPanel from '../components/PangolinSettingsPanel';
 import { readStoredLanguage, storeLanguage } from '../components/LanguageSwitch';
 import { translatePortalText } from '../i18n';
 
@@ -69,7 +70,7 @@ const emptyMaintenance = () => ({
   notifyUsers: false
 });
 const emptyCluster = { name: '', url: '', apiToken: '', allowProvisioning: false, locationLabel: '', locationLat: '', locationLon: '' };
-const emptyResource = { name: '', containerId: '', clusterId: '', userId: '', groupId: '', publicUrl: '', adminUrl: '' };
+const emptyResource = { name: '', containerId: '', clusterId: '', userId: '', groupId: '', adminUrl: '' };
 const emptyGroup = { name: '', memberIds: [] };
 const emptyAdminCred = { label: '', username: '', secret: '', url: '', notes: '', clusterId: '', userId: '' };
 const emptySmtp = { smtpHost: '', smtpPort: '587', smtpUser: '', smtpPassword: '' };
@@ -785,7 +786,6 @@ export default function AdminDashboard() {
       clusterId: item.clusterId || '',
       userId: item.userId || '',
       groupId: item.groupId || '',
-      publicUrl: item.publicUrl || item.webUrl || '',
       adminUrl: item.adminUrl || ''
     });
     setClusterContainers([]);
@@ -1381,6 +1381,13 @@ export default function AdminDashboard() {
         )}
 
         {!loading && activeTab === 'settings' && (
+          <PangolinSettingsPanel
+            onSuccess={showSuccess}
+            onError={(msg) => setError(msg)}
+          />
+        )}
+
+        {!loading && activeTab === 'settings' && (
           <ProvisioningSettings
             clusters={clusters}
             onSaved={() => loadData('settings')}
@@ -1535,7 +1542,7 @@ export default function AdminDashboard() {
             <label className="form-group"><span>Anzeigename</span><input type="text" value={newResource.name} onChange={e => setNewResource(prev => ({ ...prev, name: e.target.value }))} placeholder="Optional" /></label>
             <label className="form-group"><span>Benutzer</span><select value={newResource.userId} onChange={e => setNewResource(prev => ({ ...prev, userId: e.target.value }))}><option value="">Bitte auswählen</option>{users.map(item => <option key={item.id} value={item.id}>{item.name} · {item.email}</option>)}</select></label>
             <label className="form-group"><span>Gruppe (geteilter Zugriff)</span><select value={newResource.groupId} onChange={e => setNewResource(prev => ({ ...prev, groupId: e.target.value }))}><option value="">Keine Gruppe</option>{groups.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
-            <label className="form-group"><span>Öffentliche Seite</span><input type="url" value={newResource.publicUrl} onChange={e => setNewResource(prev => ({ ...prev, publicUrl: e.target.value }))} placeholder="https://app.example.com" /></label>
+            <div className="hint-text publishing-admin-hint">Öffentliche Seiten werden vom zugewiesenen Benutzer über Pangolin veröffentlicht. Ziel-IP und erlaubte Ports werden serverseitig geprüft.</div>
             <label className="form-group"><span>Verwaltungsseite</span><input type="url" value={newResource.adminUrl} onChange={e => setNewResource(prev => ({ ...prev, adminUrl: e.target.value }))} placeholder="https://admin.example.com" /></label>
             <div className="form-actions"><button type="button" className="btn-secondary" onClick={closeResourceModal}>Abbrechen</button><button type="submit" className="btn-primary" disabled={actionLoading}>{editResourceId ? 'Speichern' : 'Anlegen'}</button></div>
           </form>

@@ -13,6 +13,14 @@ const { welcomeTemplate, maintenanceTemplate, testMailTemplate } = require('../s
 const { encrypt, decrypt } = require('../services/cryptoService');
 const { logAudit } = require('../services/auditService');
 const { getPublicFrontendUrl } = require('../utils/publicUrl');
+const {
+  getPangolinConfig,
+  savePangolinConfig,
+  publicConfig: getPublicPangolinConfig,
+  testPangolinConnection,
+  discoverPangolin,
+  deletePublication
+} = require('../services/pangolinService');
 
 router.use(adminMiddleware);
 
@@ -1155,7 +1163,7 @@ router.get('/resources', async (req, res, next) => {
 
 router.post('/resources', async (req, res, next) => {
   try {
-    const { name, containerId, clusterId, userId, groupId, webUrl, publicUrl, adminUrl } = req.body;
+    const { name, containerId, clusterId, userId, groupId, adminUrl } = req.body;
 
     if (!containerId || !clusterId || !userId) {
       throw new AppError('Resource, cluster, and user are required', HTTP_STATUS.BAD_REQUEST);
@@ -1191,7 +1199,7 @@ router.post('/resources', async (req, res, next) => {
       if (!resourceName) resourceName = `Ressource ${containerId}`;
     }
 
-    const cleanPublicUrl = validateWebUrl(publicUrl || webUrl, 'Public link');
+    const cleanPublicUrl = '';
     const cleanAdminUrl = validateWebUrl(adminUrl, 'Admin link');
 
     const result = await run(
@@ -1212,7 +1220,7 @@ router.post('/resources', async (req, res, next) => {
 router.put('/resources/:id', async (req, res, next) => {
   try {
     const resourceId = req.params.id;
-    const { name, containerId, clusterId, userId, groupId, webUrl, publicUrl, adminUrl } = req.body;
+    const { name, containerId, clusterId, userId, groupId, adminUrl } = req.body;
     const resource = await get('SELECT * FROM resources WHERE id = ?', [resourceId]);
 
     if (!resource) {
@@ -1245,7 +1253,7 @@ router.put('/resources/:id', async (req, res, next) => {
     let nextName = String(name || resource.name || '').trim();
     if (!nextName) nextName = `Ressource ${nextContainerId}`;
 
-    const cleanPublicUrl = validateWebUrl(publicUrl ?? webUrl ?? resource.public_url ?? resource.web_url, 'Public link');
+    const cleanPublicUrl = resource.public_url || resource.web_url || '';
     const cleanAdminUrl = validateWebUrl(adminUrl ?? resource.admin_url, 'Admin link');
 
     await run(
@@ -1273,6 +1281,13 @@ router.delete('/resources/:id', async (req, res, next) => {
     }
 
     await assertResourceEditableByAdmin(resourceId, 'entfernt');
+
+    const publication = await get('SELECT * FROM resource_publications WHERE resource_id = ?', [resourceId]);
+    if (publication) {
+      const publishingConfig = await getPangolinConfig();
+      await deletePublication(publishingConfig, publication);
+      await run('DELETE FROM resource_publications WHERE resource_id = ?', [resourceId]);
+    }
 
     await run('DELETE FROM resources WHERE id = ?', [resourceId]);
     res.json({ message: 'Resource deleted successfully' });
@@ -1355,13 +1370,110 @@ router.delete('/assignments/:id', async (req, res, next) => {
   }
 });
 
+router.get('/pangolin-publications', async (req, res, next) => {
+  try {
+    const publications = await all(`
+      SELECT
+        rp.*,
+        r.name AS resource_name,
+        r.container_id,
+        u.name AS user_name,
+        u.email AS user_email,
+        pc.name AS cluster_name
+      FROM resource_publications rp
+      JOIN resources r ON r.id = rp.resource_id
+      JOIN users u ON u.id = r.user_id
+      JOIN proxmox_clusters pc ON pc.id = r.cluster_id
+      ORDER BY rp.updated_at DESC
+    `);
+    res.json({
+      publications: publications.map((item) => ({
+        id: item.id,
+        resourceId: item.resource_id,
+        resourceName: item.resource_name,
+        containerId: item.container_id,
+        userName: item.user_name,
+        userEmail: item.user_email,
+        clusterName: item.cluster_name,
+        protocol: item.protocol,
+        subdomain: item.subdomain || '',
+        publicPort: item.public_port,
+        targetPort: item.target_port,
+        targetMethod: item.target_method || '',
+        publicUrl: item.public_url || '',
+        status: item.status || 'active',
+        lastError: item.last_error || '',
+        updatedAt: item.updated_at
+      }))
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.delete('/pangolin-publications/:resourceId', async (req, res, next) => {
+  try {
+    const publication = await get('SELECT * FROM resource_publications WHERE resource_id = ?', [req.params.resourceId]);
+    if (!publication) throw new AppError('Publication not found', HTTP_STATUS.NOT_FOUND);
+    const config = await getPangolinConfig();
+    await deletePublication(config, publication);
+    await run('DELETE FROM resource_publications WHERE resource_id = ?', [req.params.resourceId]);
+    await run("UPDATE resources SET web_url = '', public_url = '', updated_at = CURRENT_TIMESTAMP WHERE id = ?", [req.params.resourceId]);
+    await logAudit(req, 'resource.publication.admin-remove', `resource:${req.params.resourceId}`);
+    res.json({ message: 'Public access removed' });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get('/pangolin-settings', async (req, res, next) => {
+  try {
+    const config = await getPangolinConfig();
+    const publicationCount = await get('SELECT COUNT(*) AS total FROM resource_publications');
+    res.json({
+      settings: getPublicPangolinConfig(config),
+      publicationCount: Number(publicationCount?.total || 0)
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.put('/pangolin-settings', async (req, res, next) => {
+  try {
+    const config = await savePangolinConfig(req.body || {});
+    await logAudit(req, 'settings.pangolin.update', 'pangolin', `enabled=${config.enabled}`);
+    res.json({ message: 'Pangolin settings updated successfully', settings: getPublicPangolinConfig(config) });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/pangolin-settings/test', async (req, res, next) => {
+  try {
+    const result = await testPangolinConnection(req.body || {});
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/pangolin-settings/discover', async (req, res, next) => {
+  try {
+    const result = await discoverPangolin(req.body || {});
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.get('/settings', async (req, res, next) => {
   try {
     const settings = await all('SELECT key, value FROM settings');
     const settingsObj = {};
 
     settings.forEach(setting => {
-      settingsObj[setting.key] = setting.key === 'smtp_password' ? '***hidden***' : setting.value;
+      settingsObj[setting.key] = ['smtp_password', 'pangolin_api_key'].includes(setting.key) ? '***hidden***' : setting.value;
     });
 
     res.json({ settings: settingsObj });
