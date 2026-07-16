@@ -344,6 +344,7 @@ body.theme-dark .btn-danger:hover:not(:disabled) {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  margin-top: 18px;
 }
 body.theme-dark .alert-success { color: var(--color-primary); }
 body.theme-dark .alert-danger  { color: #f8c4c4; }
@@ -5367,5 +5368,21 @@ body.theme-dark .cluster-map-canvas .leaflet-container {
 @media (max-width: 767px) {
   .notification-settings-actions .btn-primary {
     width: 100%;
+  }
+}
+
+/* v3.1.38 - user-managed public page */
+.public-page-modal-card {
+  width: min(560px, calc(100vw - 32px));
+}
+.public-page-modal-hint {
+  margin: 0;
+}
+.public-page-form-actions .btn-danger {
+  margin-right: auto;
+}
+@media (max-width: 767px) {
+  .public-page-form-actions .btn-danger {
+    margin-right: 0;
   }
 }

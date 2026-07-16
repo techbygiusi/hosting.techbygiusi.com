@@ -8,6 +8,7 @@ import ResourceDetail, { getPercent, formatBytes, renderType } from '../componen
 import CreateMachineModal from '../components/CreateMachineModal';
 import MaintenanceBanner from '../components/MaintenanceBanner';
 import NotificationSettingsPanel from '../components/NotificationSettingsPanel';
+import PublicPageModal from '../components/PublicPageModal';
 
 const USER_LANGUAGE_OPTIONS = [
   { code: 'en', label: 'English' },
@@ -36,8 +37,21 @@ const USER_TRANSLATIONS = {
     noServices: 'No services',
     noServicesText: 'No services have been assigned to you yet.',
     publicPage: 'Public page',
+    addPublicPage: 'Add public page',
+    editPublicPage: 'Edit public page',
+    publicPageUrl: 'Public page URL',
+    publicPageHelp: 'Add the public URL for this service. It will appear directly on the service card.',
+    publicPageRequired: 'Enter a public page URL.',
+    publicPageInvalid: 'The public page must be a valid URL starting with http:// or https://.',
+    publicPageSaveFailed: 'The public page could not be saved.',
+    publicPageRemoveFailed: 'The public page could not be removed.',
+    removePublicPage: 'Remove public page',
+    removePublicPageConfirm: 'Remove the public page from this service?',
     managementPage: 'Management page',
     details: 'Show details',
+    save: 'Save',
+    saving: 'Saving...',
+    cancel: 'Cancel',
     cluster: 'Cluster',
     node: 'Node',
     unknown: 'Unknown',
@@ -77,8 +91,21 @@ const USER_TRANSLATIONS = {
     noServices: 'Keine Dienste',
     noServicesText: 'Dir sind noch keine Dienste zugewiesen.',
     publicPage: 'Öffentliche Seite',
+    addPublicPage: 'Öffentliche Seite hinterlegen',
+    editPublicPage: 'Öffentliche Seite bearbeiten',
+    publicPageUrl: 'URL der öffentlichen Seite',
+    publicPageHelp: 'Hinterlege die öffentliche URL für diesen Dienst. Sie erscheint anschließend direkt auf der Dienstkarte.',
+    publicPageRequired: 'Bitte eine URL für die öffentliche Seite eingeben.',
+    publicPageInvalid: 'Die öffentliche Seite muss eine gültige URL mit http:// oder https:// sein.',
+    publicPageSaveFailed: 'Die öffentliche Seite konnte nicht gespeichert werden.',
+    publicPageRemoveFailed: 'Die öffentliche Seite konnte nicht entfernt werden.',
+    removePublicPage: 'Öffentliche Seite entfernen',
+    removePublicPageConfirm: 'Die öffentliche Seite von diesem Dienst entfernen?',
     managementPage: 'Verwaltungsseite',
     details: 'Details anzeigen',
+    save: 'Speichern',
+    saving: 'Wird gespeichert...',
+    cancel: 'Abbrechen',
     cluster: 'Cluster',
     node: 'Node',
     unknown: 'Unbekannt',
@@ -131,6 +158,7 @@ export default function UserDashboard() {
   const [detailId, setDetailId] = useState(null);
   const [provisioningOptions, setProvisioningOptions] = useState([]);
   const [showCreate, setShowCreate] = useState(false);
+  const [publicPageResource, setPublicPageResource] = useState(null);
   const [language, setLanguage] = useState(readStoredLanguage);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [menuOpen, setMenuOpen] = useState(false);
@@ -293,6 +321,7 @@ export default function UserDashboard() {
                       key={resource.id}
                       resource={resource}
                       onOpenDetails={() => setDetailId(resource.id)}
+                      onManagePublicPage={() => setPublicPageResource(resource)}
                       labels={labels}
                     />
                   ))}
@@ -339,9 +368,22 @@ export default function UserDashboard() {
           resource={detailResource}
           onClose={() => setDetailId(null)}
           onChanged={() => fetchResources(false)}
+          onManagePublicPage={() => {
+            setDetailId(null);
+            setPublicPageResource(detailResource);
+          }}
         />
       )}
 
+
+      {publicPageResource && (
+        <PublicPageModal
+          resource={publicPageResource}
+          labels={labels}
+          onClose={() => setPublicPageResource(null)}
+          onSaved={() => fetchResources(false)}
+        />
+      )}
 
       {showCreate && (
         <CreateMachineModal
@@ -354,7 +396,7 @@ export default function UserDashboard() {
   );
 }
 
-function ResourceCard({ resource, onOpenDetails, labels }) {
+function ResourceCard({ resource, onOpenDetails, onManagePublicPage, labels }) {
   const cpuPercent = getCpuPercent(resource);
   const memPercent = getPercent(resource.mem, resource.maxmem);
   const publicUrl = resource.publicUrl || resource.webUrl;
@@ -381,9 +423,13 @@ function ResourceCard({ resource, onOpenDetails, labels }) {
       <Metric label="CPU" percent={cpuPercent} detail={`${cpuPercent.toFixed(1)} %`} />
       <Metric label="RAM" percent={memPercent} detail={`${formatBytes(resource.mem)} / ${formatBytes(resource.maxmem)}`} />
 
-      {(publicUrl || adminUrl) ? (
-        <div className={`service-link-row ${(publicUrl && adminUrl) ? 'dual-links' : ''}`}>
-          {publicUrl && <a className="btn-primary full-button" href={publicUrl} target="_blank" rel="noreferrer">{labels.publicPage}</a>}
+      {(publicUrl || adminUrl || resource.canManagePublicPage) ? (
+        <div className={`service-link-row ${((publicUrl || resource.canManagePublicPage) && adminUrl) ? 'dual-links' : ''}`}>
+          {publicUrl ? (
+            <a className="btn-primary full-button" href={publicUrl} target="_blank" rel="noreferrer">{labels.publicPage}</a>
+          ) : resource.canManagePublicPage ? (
+            <button type="button" className="btn-primary full-button" onClick={onManagePublicPage}>{labels.addPublicPage}</button>
+          ) : null}
           {adminUrl && <a className="btn-secondary full-button" href={adminUrl} target="_blank" rel="noreferrer">{labels.managementPage}</a>}
         </div>
       ) : null}

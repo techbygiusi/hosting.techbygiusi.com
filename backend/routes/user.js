@@ -39,6 +39,27 @@ const ACCESS_FILTER = `(
   OR (r.group_id IS NOT NULL AND r.group_id IN (SELECT group_id FROM user_groups WHERE user_id = ?))
 )`;
 
+function validatePublicPageUrl(value) {
+  const normalized = String(value || '').trim();
+  if (!normalized) return '';
+  if (normalized.length > 2048) {
+    throw new AppError('Public page URL is too long', HTTP_STATUS.BAD_REQUEST);
+  }
+
+  let parsed;
+  try {
+    parsed = new URL(normalized);
+  } catch (_) {
+    throw new AppError('Public page must be a valid URL', HTTP_STATUS.BAD_REQUEST);
+  }
+
+  if (!['http:', 'https:'].includes(parsed.protocol) || !parsed.hostname) {
+    throw new AppError('Public page must start with http:// or https://', HTTP_STATUS.BAD_REQUEST);
+  }
+
+  return normalized;
+}
+
 async function getResourceRowsForUser(userId, resourceId = null) {
   const params = [userId, userId];
   let filter = `WHERE ${ACCESS_FILTER}`;
@@ -266,6 +287,7 @@ router.get('/resources', async (req, res, next) => {
     res.json({
       resources: resources.map(resource => ({
         ...resource,
+        canManagePublicPage: String(resource.userId) === String(req.user.id),
         canDelete: !!resource.canDelete && String(resource.userId) === String(req.user.id) && !!capsByCluster[resource.clusterId]?.canProvision,
         // Power and console capabilities are cluster-token based for every
         // accessible resource. They are not limited to self-provisioned machines,
@@ -286,7 +308,48 @@ router.get('/resources/:id', async (req, res, next) => {
 
     const resources = await attachSharedManagementUrls(await enrichResources(rows));
     const caps = await getClusterCapabilities(rows[0].cluster_id, rows[0].cluster_url, decrypt(rows[0].api_token));
-    res.json({ resource: { ...resources[0], canDelete: !!resources[0].canDelete && String(resources[0].userId) === String(req.user.id) && !!caps.canProvision, capabilities: caps } });
+    res.json({
+      resource: {
+        ...resources[0],
+        canManagePublicPage: String(resources[0].userId) === String(req.user.id),
+        canDelete: !!resources[0].canDelete && String(resources[0].userId) === String(req.user.id) && !!caps.canProvision,
+        capabilities: caps
+      }
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+
+router.put('/resources/:id/public-page', async (req, res, next) => {
+  try {
+    const resource = await get(
+      'SELECT id, name, user_id, public_url, web_url FROM resources WHERE id = ? AND user_id = ?',
+      [req.params.id, req.user.id]
+    );
+
+    if (!resource) {
+      throw new AppError('Only the assigned user can manage this public page', HTTP_STATUS.FORBIDDEN);
+    }
+
+    const publicUrl = validatePublicPageUrl(req.body?.url);
+    await run(
+      'UPDATE resources SET web_url = ?, public_url = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+      [publicUrl, publicUrl, resource.id]
+    );
+
+    await logAudit(
+      req,
+      publicUrl ? 'resource.public-page.update' : 'resource.public-page.remove',
+      `resource:${resource.id}`,
+      publicUrl || resource.name || ''
+    );
+
+    res.json({
+      message: publicUrl ? 'Public page saved' : 'Public page removed',
+      publicUrl
+    });
   } catch (err) {
     next(err);
   }

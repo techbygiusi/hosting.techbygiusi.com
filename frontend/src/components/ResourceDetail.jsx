@@ -10,7 +10,7 @@ import { translatePortalText } from '../i18n';
  * - capabilities.canConsole -> desktop-only console button
  * Read-only tokens only see overview, tasks/logs and credentials.
  */
-export default function ResourceDetail({ resource, onClose, onChanged }) {
+export default function ResourceDetail({ resource, onClose, onChanged, onManagePublicPage }) {
   const caps = resource.capabilities || {};
   const tabs = [
     ['overview', 'Dashboard'],
@@ -32,7 +32,7 @@ export default function ResourceDetail({ resource, onClose, onChanged }) {
       </nav>
 
       <div className="detail-tab-body">
-        {activeTab === 'overview' && <OverviewTab resource={resource} onChanged={onChanged} onOpenConsole={openConsole} onClose={onClose} />}
+        {activeTab === 'overview' && <OverviewTab resource={resource} onChanged={onChanged} onOpenConsole={openConsole} onClose={onClose} onManagePublicPage={onManagePublicPage} />}
         {activeTab === 'tasks' && <TasksTab resource={resource} />}
         {activeTab === 'credentials' && <CredentialsTab resource={resource} />}
       </div>
@@ -101,7 +101,7 @@ export function PowerControls({ resource, onChanged, compact = false, onOpenCons
   );
 }
 
-function OverviewTab({ resource, onChanged, onOpenConsole, onClose }) {
+function OverviewTab({ resource, onChanged, onOpenConsole, onClose, onManagePublicPage }) {
   const primaryIp = getPrimaryIp(resource);
   const publicUrl = resource.publicUrl || resource.webUrl || '';
   const adminUrl = resource.adminUrl || '';
@@ -114,6 +114,11 @@ function OverviewTab({ resource, onChanged, onOpenConsole, onClose }) {
           {publicUrl && <a className="btn-secondary full-button" href={publicUrl} target="_blank" rel="noreferrer">Öffentliche Seite</a>}
           {adminUrl && <a className="btn-secondary full-button" href={adminUrl} target="_blank" rel="noreferrer">Verwaltungsseite</a>}
         </div>
+      )}
+      {resource.canManagePublicPage && onManagePublicPage && (
+        <button type="button" className="btn-secondary full-button" onClick={onManagePublicPage}>
+          {publicUrl ? 'Öffentliche Seite bearbeiten' : 'Öffentliche Seite hinterlegen'}
+        </button>
       )}
       <div className="resource-meta">
         {resource.groupName && (<><span>Gruppe</span><span>{resource.groupName}</span></>)}

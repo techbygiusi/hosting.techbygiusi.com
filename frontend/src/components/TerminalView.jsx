@@ -103,21 +103,34 @@ export default function TerminalView({ resourceId, resourceName, fullscreen = fa
           secret: autoLogin?.secret || '',
           buffer: '',
           sentUsername: false,
-          sentSecret: false
+          sentSecret: false,
+          suppressTerminalReplies: !!(autoLogin?.username && autoLogin?.secret)
         };
         const stripAnsi = (value) => String(value || '').replace(/\x1b\[[0-9;?]*[ -/]*[@-~]/g, '');
+        const stripTerminalStatusReplies = (value) => String(value || '')
+          .replace(/\x1b\[(?:\?|>|!)*[0-9;]*R/g, '')
+          .replace(/\x1b\[(?:\?|>|!)*[0-9;]*[cn]/g, '');
         const maybeSendAutoLogin = (chunk) => {
           if (!autoLoginState.enabled || autoLoginState.sentSecret) return;
           autoLoginState.buffer = (autoLoginState.buffer + stripAnsi(chunk)).slice(-1200);
           const visible = autoLoginState.buffer;
           if (!autoLoginState.sentUsername && /(?:^|[\r\n])[^\r\n]{0,80}(?:login|username)\s*:\s*$/i.test(visible)) {
             autoLoginState.sentUsername = true;
-            setTimeout(() => sendConsoleInput(`${autoLoginState.username}\r`), 180);
+            autoLoginState.buffer = '';
+            // Clear any terminal status replies that may already be present on
+            // the login line before entering the username.
+            setTimeout(() => sendConsoleInput(`\x15${autoLoginState.username}\r`), 220);
             return;
           }
           if (autoLoginState.sentUsername && !autoLoginState.sentSecret && /password\s*:\s*$/i.test(visible)) {
             autoLoginState.sentSecret = true;
-            setTimeout(() => sendConsoleInput(`${autoLoginState.secret}\r`), 180);
+            autoLoginState.buffer = '';
+            setTimeout(() => {
+              sendConsoleInput(`\x15${autoLoginState.secret}\r`);
+              // Keep filtering xterm device-status replies briefly while the
+              // login program validates the submitted password.
+              setTimeout(() => { autoLoginState.suppressTerminalReplies = false; }, 1500);
+            }, 220);
           }
         };
 
@@ -150,7 +163,12 @@ export default function TerminalView({ resourceId, resourceName, fullscreen = fa
           setMessage(terminalText('Verbindung zur Konsole fehlgeschlagen.'));
         };
 
-        term.onData(sendConsoleInput);
+        term.onData((input) => {
+          const outgoing = autoLoginState.suppressTerminalReplies
+            ? stripTerminalStatusReplies(input)
+            : input;
+          if (outgoing) sendConsoleInput(outgoing);
+        });
       } catch (err) {
         setStatus('error');
         setMessage(getErrorMessage(err, 'Konsole konnte nicht geöffnet werden.'));

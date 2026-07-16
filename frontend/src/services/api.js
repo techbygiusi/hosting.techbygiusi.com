@@ -31,6 +31,10 @@ const MESSAGE_TRANSLATIONS = {
   'Selected Proxmox resource was not found': 'Der ausgewählte Proxmox-Dienst wurde nicht gefunden.',
   'Web link must start with http:// or https://': 'Der Weblink muss mit http:// oder https:// beginnen.',
   'Public link must start with http:// or https://': 'Die öffentliche Seite muss mit http:// oder https:// beginnen.',
+  'Public page must start with http:// or https://': 'Die öffentliche Seite muss mit http:// oder https:// beginnen.',
+  'Public page must be a valid URL': 'Die öffentliche Seite muss eine gültige URL sein.',
+  'Public page URL is too long': 'Die URL der öffentlichen Seite ist zu lang.',
+  'Only the assigned user can manage this public page': 'Nur der direkt zugewiesene Benutzer kann diese öffentliche Seite bearbeiten.',
   'Admin link must start with http:// or https://': 'Die Verwaltungsseite muss mit http:// oder https:// beginnen.',
   'Settings updated successfully': 'Einstellungen erfolgreich gespeichert.',
   'Email service not configured': 'Der E-Mail-Dienst ist noch nicht konfiguriert.',
@@ -271,6 +275,7 @@ export const adminApi = {
 export const userApi = {
   getResources: () => apiClient.get('/user/resources'),
   getResourceDetails: (resourceId) => apiClient.get(`/user/resources/${resourceId}`),
+  updatePublicPage: (resourceId, url) => apiClient.put(`/user/resources/${resourceId}/public-page`, { url }),
   getContainers: () => apiClient.get('/user/containers'),
   getContainerDetails: (containerId) => apiClient.get(`/user/containers/${containerId}`),
   getProfile: () => apiClient.get('/user/profile'),

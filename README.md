@@ -1,12 +1,12 @@
 # Hosting Portal
 
-A lightweight self-hosted customer portal for Proxmox-based hosting. The portal gives administrators a clean web interface for users, groups, Proxmox clusters, services, credentials, SMTP settings and audit logs. Users can view their assigned services, open service details for power and delete actions when the token allows it, open a full-page desktop console, read task logs, manage service credentials and create/delete their own LXC containers through self-service.
+A lightweight self-hosted customer portal for Proxmox-based hosting. The portal gives administrators a clean web interface for users, groups, Proxmox clusters, services, credentials, SMTP settings and audit logs. Users can view their assigned services, open service details for power and delete actions when the token allows it, open a full-page desktop console, read task logs, manage service credentials and public service links, and create/delete their own LXC containers through self-service.
 
 The frontend is built with React and the backend with Express + SQLite. Proxmox API tokens and stored secrets are encrypted at rest.
 
 ## Version
 
-Current version: **v3.1.35**
+Current version: **v3.1.38**
 
 
 ## What's new in v3.0.0
@@ -57,9 +57,10 @@ Current version: **v3.1.35**
 - View assigned services with live status, CPU, RAM and disk information.
 - See the reachable container IP address in the detail view. Static LXC IPs are read from the Proxmox network config and loopback addresses are ignored.
 - Start, stop, reboot, shut down or delete services from the detail view when the Proxmox token permits it.
-- Open a full-page console in a separate browser tab on desktop when the Proxmox token permits it.
+- Open a full-page console in a separate browser tab on desktop when the Proxmox token permits it. LXC consoles can automatically sign in with an attached root credential without forwarding terminal status replies into the login field.
 - Read recent Proxmox tasks and logs for the assigned service.
 - Manage service credentials. The exact root password used during self-service provisioning, including a configured cluster default, is saved automatically on the created service.
+- Add, edit or remove the public-page URL for directly assigned services. The link then appears as a button on the service card.
 - Create new LXC containers on desktop or mobile through template-only self-service with mandatory internet-only network isolation.
 - Delete containers that the user created through self-service.
 
@@ -176,6 +177,7 @@ The included `frontend/nginx.conf` already contains the required upgrade headers
 - Legacy plaintext/base64 values are still accepted and are re-encrypted on save.
 - Credential reveal actions are logged in the audit log.
 - User self-service deletion is restricted to containers the same user created through the portal.
+- Public-page changes are restricted to the user directly assigned to the service; group-shared viewers cannot overwrite the link. Only validated `http://` or `https://` URLs are stored.
 - Self-service creation is template-only; the removed Community Script endpoints and node-shell provisioning page are no longer available.
 - New self-service LXCs are created stopped, receive host-side outbound isolation rules, and are started only after the firewall configuration succeeds. The container output policy is `DROP`; private/local ranges, the complete guest subnet, cluster-node addresses, discovered guest addresses and IPv6 are blocked before a final public-IPv4 Internet allow rule is installed.
 - The portal never disables or changes the Proxmox Datacenter firewall. It must remain enabled so the per-container rules are enforced.
@@ -197,6 +199,31 @@ docker image prune -f
 The database migrates itself on startup. Keep the backend data volume before updating.
 
 ## Changelog
+
+### v3.1.38 - 2026-07-16
+
+**Commit:** `feat: let users manage public service pages`
+
+- let directly assigned users add a public-page URL from a service card when no link exists
+- add an edit/remove action for the public page in the service detail view
+- validate public links server-side and accept only complete `http://` or `https://` URLs
+- keep group-shared resources read-only for public-page metadata and record changes in the audit log
+
+### v3.1.37 - 2026-07-16
+
+**Commit:** `fix: stabilize console auto-login and localize credential copy actions`
+
+- filter terminal cursor/status replies during automatic LXC login so escape sequences are not entered as part of the username
+- clear the login and password lines before submitting the stored root credentials
+- translate the credential copy action to `Copy` in English and keep `Kopieren` in German
+- translate the automatic root-credential note in the English portal
+
+### v3.1.36 - 2026-07-16
+
+**Commit:** `style: add spacing above the provisioning warning banner`
+
+- add spacing above the self-service availability warning on the user dashboard
+- keep the container provisioning and firewall behavior unchanged
 
 ### v3.1.35 - 2026-07-16
 
