@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { authApi, getErrorMessage } from '../services/api';
 import '../styles/globals.css';
 import ThemeButton from '../components/ThemeButton';
-import LanguageSwitch, { readStoredLanguage } from '../components/LanguageSwitch';
+import { readStoredLanguage } from '../components/LanguageSwitch';
 import MaintenanceBanner from '../components/MaintenanceBanner';
 
 function EyeIcon({ open }) {
@@ -105,7 +105,7 @@ export default function Login() {
   return (
     <main className="login-split">
       <MaintenanceBanner />
-      <div className="login-theme-action auth-utility-actions"><ThemeButton /><LanguageSwitch /></div>
+      <div className="login-theme-action auth-utility-actions"><ThemeButton /></div>
 
       {/* Brand panel */}
       <section className="login-brand-panel" aria-hidden="true">

@@ -3,7 +3,6 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { authApi, getErrorMessage } from '../services/api';
 import '../styles/globals.css';
 import ThemeButton from '../components/ThemeButton';
-import LanguageSwitch from '../components/LanguageSwitch';
 
 export default function ResetPassword() {
   const navigate = useNavigate();
@@ -46,7 +45,7 @@ export default function ResetPassword() {
 
   return (
     <main className="auth-shell login-shell">
-      <div className="auth-theme-action auth-utility-actions"><ThemeButton /><LanguageSwitch /></div>
+      <div className="auth-theme-action auth-utility-actions"><ThemeButton /></div>
       <section className="auth-card login-card">
         <header className="auth-header">
           <p className="eyebrow">Hosting by TechByGiusi</p>

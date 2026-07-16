@@ -3,11 +3,11 @@ import { useAuth } from '../context/AuthContext';
 import { userApi, getErrorMessage } from '../services/api';
 import '../styles/globals.css';
 import ThemeButton from '../components/ThemeButton';
-import LanguageSwitch, { readStoredLanguage, storeLanguage } from '../components/LanguageSwitch';
+import { readStoredLanguage, storeLanguage } from '../components/LanguageSwitch';
 import ResourceDetail, { getPercent, formatBytes, renderType } from '../components/ResourceDetail';
 import CreateMachineModal from '../components/CreateMachineModal';
 import MaintenanceBanner from '../components/MaintenanceBanner';
-import NotificationSettingsModal from '../components/NotificationSettingsModal';
+import NotificationSettingsPanel from '../components/NotificationSettingsPanel';
 
 const USER_LANGUAGE_OPTIONS = [
   { code: 'en', label: 'English' },
@@ -129,7 +129,6 @@ export default function UserDashboard() {
   const [detailId, setDetailId] = useState(null);
   const [provisioningOptions, setProvisioningOptions] = useState([]);
   const [showCreate, setShowCreate] = useState(false);
-  const [showNotifications, setShowNotifications] = useState(false);
   const [language, setLanguage] = useState(readStoredLanguage);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [menuOpen, setMenuOpen] = useState(false);
@@ -176,9 +175,8 @@ export default function UserDashboard() {
   };
 
   const openNotifications = () => {
-    setActiveTab('settings');
+    setActiveTab('notifications');
     setMenuOpen(false);
-    setShowNotifications(true);
   };
 
   return (
@@ -222,7 +220,7 @@ export default function UserDashboard() {
           <nav className="console-nav-tabs mobile-admin-menu-nav" aria-label={labels.menu}>
             <button type="button" className={activeTab === 'dashboard' ? 'active' : ''} onClick={() => selectTab('dashboard')}>{labels.dashboard}</button>
             <button type="button" className={activeTab === 'settings' ? 'active' : ''} onClick={() => selectTab('settings')}>{labels.settings}</button>
-            <button type="button" onClick={openNotifications}>{labels.notifications}</button>
+            <button type="button" className={activeTab === 'notifications' ? 'active' : ''} onClick={openNotifications}>{labels.notifications}</button>
           </nav>
           <div className="mobile-admin-menu-footer">
             <button type="button" className="btn-secondary mobile-admin-menu-logout" onClick={logout}>{labels.logout}</button>
@@ -240,7 +238,7 @@ export default function UserDashboard() {
           <nav className="app-tabs console-nav-tabs" aria-label={labels.menu}>
             <button type="button" className={activeTab === 'dashboard' ? 'active' : ''} onClick={() => selectTab('dashboard')}>{labels.dashboard}</button>
             <button type="button" className={activeTab === 'settings' ? 'active' : ''} onClick={() => selectTab('settings')}>{labels.settings}</button>
-            <button type="button" onClick={openNotifications}>{labels.notifications}</button>
+            <button type="button" className={activeTab === 'notifications' ? 'active' : ''} onClick={openNotifications}>{labels.notifications}</button>
           </nav>
         </aside>
 
@@ -289,20 +287,31 @@ export default function UserDashboard() {
           {activeTab === 'settings' && (
             <section className="panel-card user-settings-card">
               <div className="panel-header"><h2>{labels.settings}</h2></div>
-              <div className="settings-language-card">
+              <div className="settings-language-card language-settings-block">
                 <div>
                   <h3>{labels.language}</h3>
                   <p>{labels.languageText}</p>
                 </div>
-                <LanguageSwitch value={language} onChange={selectLanguage} />
-              </div>
-              <div className="settings-option-card">
-                <div>
-                  <h3>{labels.notifications}</h3>
-                  <p>{labels.notificationsText}</p>
+                <div className="mobile-admin-language-switch settings-language-buttons" role="group" aria-label={labels.language}>
+                  {USER_LANGUAGE_OPTIONS.map(option => (
+                    <button
+                      key={option.code}
+                      type="button"
+                      className={language === option.code ? 'active' : ''}
+                      onClick={() => selectLanguage(option.code)}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
                 </div>
-                <button type="button" className="btn-secondary" onClick={() => setShowNotifications(true)}>{labels.notificationSettings}</button>
               </div>
+            </section>
+          )}
+
+          {activeTab === 'notifications' && (
+            <section className="panel-card user-notifications-card">
+              <div className="panel-header"><h2>{labels.notifications}</h2></div>
+              <NotificationSettingsPanel language={language} />
             </section>
           )}
         </section>
@@ -316,9 +325,6 @@ export default function UserDashboard() {
         />
       )}
 
-      {showNotifications && (
-        <NotificationSettingsModal onClose={() => setShowNotifications(false)} />
-      )}
 
       {showCreate && (
         <CreateMachineModal

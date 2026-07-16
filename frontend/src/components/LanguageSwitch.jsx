@@ -9,7 +9,8 @@ const LANGUAGES = [
 
 export function readStoredLanguage() {
   try {
-    return localStorage.getItem(LANGUAGE_STORAGE_KEY) || 'en';
+    const stored = localStorage.getItem(LANGUAGE_STORAGE_KEY);
+    return stored === 'de' || stored === 'en' ? stored : 'en';
   } catch (_) {
     return 'en';
   }

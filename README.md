@@ -6,7 +6,7 @@ The frontend is built with React and the backend with Express + SQLite. Proxmox 
 
 ## Version
 
-Current version: **v3.1.26**
+Current version: **v3.1.28**
 
 Versioning now follows a clean semantic sequence:
 
@@ -189,6 +189,25 @@ docker image prune -f
 The database migrates itself on startup. Keep the backend data volume before updating.
 
 ## Changelog
+
+### v3.1.28 - 2026-07-16
+
+**Commit:** `fix: remember auth language without showing a login language switch`
+
+- removed the EN/DE switch from the login, password-reset and initial-setup screens
+- fresh browsers now use English automatically on all unauthenticated pages
+- browsers that previously stored a user language continue to use that language for login, forgot-password, password reset, setup text and maintenance banners
+- kept the stored language when logging out, so returning users see authentication pages in their last selected language
+- validated the stored language value and fall back to English for missing or invalid values
+
+### v3.1.27 - 2026-07-16
+
+**Commit:** `fix: move user notifications inline and use language buttons in settings`
+
+- replaced the normal user notification modal with a dedicated inline **Notifications** page on desktop and mobile
+- kept notification preferences directly accessible from the user sidebar and fullscreen mobile menu
+- changed language selection in admin and user settings from a compact slider to two full-width **English / Deutsch** buttons matching the mobile menu
+- kept the selected language synchronized with the stored user preference used for portal text, maintenance banners and e-mail notifications
 
 ### v3.1.26 - 2026-07-16
 

@@ -6,7 +6,7 @@ import ThemeButton from '../components/ThemeButton';
 import Modal from '../components/Modal';
 import MaintenanceBanner from '../components/MaintenanceBanner';
 import ClusterMapSection from '../components/ClusterMapSection';
-import LanguageSwitch, { readStoredLanguage, storeLanguage } from '../components/LanguageSwitch';
+import { readStoredLanguage, storeLanguage } from '../components/LanguageSwitch';
 import { translatePortalText } from '../i18n';
 
 function LogoutIcon() {
@@ -1372,12 +1372,23 @@ export default function AdminDashboard() {
             <div className="settings-action-row">
               <button type="button" className="btn-secondary" onClick={openSetupCheck}>Einrichtung prüfen</button>
             </div>
-            <div className="settings-language-card admin-settings-language-card">
+            <div className="settings-language-card admin-settings-language-card language-settings-block">
               <div>
                 <h3>{mobileMenuText.language}</h3>
                 <p>{mobileMenuText.languageText}</p>
               </div>
-              <LanguageSwitch value={mobileMenuLanguage} onChange={handleOverlayLanguageChange} />
+              <div className="mobile-admin-language-switch settings-language-buttons" role="group" aria-label={mobileMenuText.language}>
+                {OVERLAY_LANGUAGE_OPTIONS.map(option => (
+                  <button
+                    key={option.code}
+                    type="button"
+                    className={mobileMenuLanguage === option.code ? 'active' : ''}
+                    onClick={() => handleOverlayLanguageChange(option.code)}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
             </div>
             <form className="form-grid" onSubmit={handleSaveSettings}>
               <label className="form-group"><span>SMTP-Host</span><input type="text" name="smtpHost" value={settings.smtpHost} onChange={handleSettingsChange} placeholder="smtp.example.com" /></label>
