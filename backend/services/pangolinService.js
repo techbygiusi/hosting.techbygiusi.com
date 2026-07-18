@@ -119,7 +119,10 @@ function assertRawPort(port, protocol) {
 
 function normalizeSubdomain(value) {
   const subdomain = String(value || '').trim().toLowerCase();
-  if (!subdomain || subdomain.length > 63 || !/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(subdomain)) {
+  if (!subdomain) {
+    throw new AppError('Subdomain is required', HTTP_STATUS.BAD_REQUEST);
+  }
+  if (subdomain.length > 63 || !/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(subdomain)) {
     throw new AppError('Subdomain may only contain lowercase letters, numbers and hyphens', HTTP_STATUS.BAD_REQUEST);
   }
   return subdomain;
@@ -403,12 +406,9 @@ async function createPublication(config, input) {
   const publicPort = Number(input.publicPort || targetPort);
   assertPublishingEnabled(config, protocol, targetPort, publicPort);
 
-  let subdomain = '';
-  if (protocol === 'http') {
-    subdomain = normalizeSubdomain(input.subdomain);
-    if (reservedSubdomainSet(config).has(subdomain)) {
-      throw new AppError('This subdomain is reserved by the administrator', HTTP_STATUS.CONFLICT);
-    }
+  const subdomain = normalizeSubdomain(input.subdomain);
+  if (reservedSubdomainSet(config).has(subdomain)) {
+    throw new AppError('This subdomain is reserved by the administrator', HTTP_STATUS.CONFLICT);
   }
 
   const resourceBody = protocol === 'http'
@@ -453,7 +453,7 @@ async function createPublication(config, input) {
       targetMethod: protocol === 'http' ? targetBody.method : '',
       publicUrl: protocol === 'http'
         ? `https://${subdomain}.${config.baseDomain}`
-        : `${protocol}://${config.baseDomain}:${publicPort}`
+        : `${protocol}://${subdomain}.${config.baseDomain}:${publicPort}`
     };
   } catch (err) {
     await request(config, 'delete', `/resource/${resourceId}`).catch(() => {});
@@ -468,13 +468,12 @@ async function updatePublication(config, publication, input) {
   const targetPort = Number(input.targetPort);
   const publicPort = Number(input.publicPort || publication.public_port || targetPort);
   assertPublishingEnabled(config, protocol, targetPort, publicPort);
-  let subdomain = publication.subdomain || '';
+  const subdomain = normalizeSubdomain(input.subdomain);
+  if (reservedSubdomainSet(config).has(subdomain) && subdomain !== publication.subdomain) {
+    throw new AppError('This subdomain is reserved by the administrator', HTTP_STATUS.CONFLICT);
+  }
 
   if (protocol === 'http') {
-    subdomain = normalizeSubdomain(input.subdomain);
-    if (reservedSubdomainSet(config).has(subdomain) && subdomain !== publication.subdomain) {
-      throw new AppError('This subdomain is reserved by the administrator', HTTP_STATUS.CONFLICT);
-    }
     await request(config, 'post', `/resource/${publication.pangolin_resource_id}`, {
       name: String(input.name || subdomain).slice(0, 255),
       subdomain,
@@ -511,7 +510,7 @@ async function updatePublication(config, publication, input) {
     targetMethod: protocol === 'http' ? targetBody.method : '',
     publicUrl: protocol === 'http'
       ? `https://${subdomain}.${config.baseDomain}`
-      : `${protocol}://${config.baseDomain}:${publicPort}`
+      : `${protocol}://${subdomain}.${config.baseDomain}:${publicPort}`
   };
 }
 

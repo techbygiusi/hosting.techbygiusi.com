@@ -5542,8 +5542,7 @@ body.theme-dark .cluster-map-canvas .leaflet-container {
 }
 
 .publishing-security-note,
-.publishing-preview,
-.publishing-raw-hint {
+.publishing-preview {
   display: grid;
   gap: 7px;
   padding: 14px 16px;
@@ -5562,8 +5561,7 @@ body.theme-dark .cluster-map-canvas .leaflet-container {
 }
 
 .publishing-security-note small,
-.publishing-preview span,
-.publishing-raw-hint p {
+.publishing-preview span {
   color: var(--color-text-light);
   margin: 0;
   line-height: 1.45;
@@ -5625,6 +5623,10 @@ body.theme-dark .cluster-map-canvas .leaflet-container {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
   align-items: start;
+}
+
+.publishing-raw-fields-grid {
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .publishing-http-fields-grid > .publishing-control-field {
@@ -5976,8 +5978,7 @@ body.theme-dark .cluster-map-canvas .leaflet-container {
 
 .publishing-modal-card .alert,
 .publishing-modal-card .publishing-security-note,
-.publishing-modal-card .publishing-preview,
-.publishing-modal-card .publishing-raw-hint {
+.publishing-modal-card .publishing-preview {
   overflow-wrap: anywhere;
 }
 
@@ -6009,8 +6010,7 @@ body.theme-dark .cluster-map-canvas .leaflet-container {
   }
 
   .publishing-security-note,
-  .publishing-preview,
-  .publishing-raw-hint {
+  .publishing-preview {
     padding: 12px;
   }
 }
@@ -6182,5 +6182,202 @@ body.theme-dark .settings-section-card {
 
   .settings-setup-tests {
     grid-template-columns: 1fr;
+  }
+}
+
+
+/* v3.1.56 - content-sized publishing dialog and protocol-specific hostnames */
+.publishing-modal-card {
+  height: auto;
+  max-height: calc(100dvh - 32px);
+}
+
+.publishing-modal-card .publishing-form {
+  flex: 0 1 auto;
+  overflow-y: auto;
+  scrollbar-gutter: auto;
+}
+
+.publishing-subdomain-fields-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (max-width: 767px) {
+  .publishing-modal-card {
+    height: auto;
+    max-height: calc(100dvh - env(safe-area-inset-top, 0px));
+  }
+}
+
+/* v3.1.57 - multiple parallel publications and assigned resource details */
+.publishing-manager-modal-card {
+  width: min(860px, calc(100vw - 32px));
+  height: auto;
+  max-height: calc(100dvh - 32px);
+  overflow: hidden;
+}
+
+.publishing-manager-content {
+  display: grid;
+  gap: 18px;
+  min-height: 0;
+  max-height: calc(100dvh - 132px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 2px 4px 2px 2px;
+}
+
+.publishing-manager-modal-card .publishing-manager-form {
+  display: grid;
+  flex: none;
+  gap: 18px;
+  min-height: auto;
+  overflow: visible;
+  padding: 0;
+  scrollbar-gutter: auto;
+  background: transparent;
+}
+
+.publishing-existing-section,
+.publishing-manager-form {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg-alt);
+}
+
+.publishing-section-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.publishing-section-heading h3,
+.publishing-section-heading p {
+  margin: 0;
+}
+
+.publishing-section-heading p {
+  margin-top: 5px;
+  color: var(--color-text-light);
+  line-height: 1.45;
+}
+
+.publishing-count-badge,
+.publishing-protocol-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  min-width: 32px;
+  min-height: 28px;
+  padding: 4px 9px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-card);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.publishing-empty-state {
+  margin: 0;
+}
+
+.publishing-existing-list {
+  display: grid;
+  gap: 10px;
+}
+
+.publishing-existing-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 13px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-card);
+}
+
+.publishing-existing-card.editing {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary) 15%, transparent);
+}
+
+.publishing-existing-card-main {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  min-width: 0;
+}
+
+.publishing-existing-card-main > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.publishing-existing-card-main strong,
+.publishing-existing-card-main small {
+  overflow-wrap: anywhere;
+}
+
+.publishing-existing-card-main small {
+  color: var(--color-text-light);
+}
+
+.publishing-existing-card-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.publishing-manager-modal-card .publishing-actions {
+  position: static;
+  padding: 0;
+  background: transparent;
+}
+
+@media (max-width: 767px) {
+  .publishing-manager-modal-card {
+    height: auto;
+    max-height: calc(100dvh - env(safe-area-inset-top, 0px));
+  }
+
+  .publishing-manager-content {
+    max-height: calc(100dvh - 96px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+    padding-right: 2px;
+  }
+
+  .publishing-existing-section,
+  .publishing-manager-form {
+    padding: 13px;
+  }
+
+  .publishing-section-heading,
+  .publishing-existing-card,
+  .publishing-existing-card-main {
+    align-items: stretch;
+  }
+
+  .publishing-section-heading,
+  .publishing-existing-card {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .publishing-existing-card-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .publishing-existing-card-actions > * {
+    width: 100%;
   }
 }

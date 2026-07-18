@@ -59,7 +59,6 @@ const TEXT = {
     udpDescription: 'Raw UDP publishing through the dedicated public port pool. The selected port is used externally and internally.',
     allowedPorts: 'Allowed ports / ranges',
     example: 'Example: 80,443,8000-8999',
-    rawPoolHint: 'Only ports and ranges within 20000-26000 can be published.',
     managed: 'managed publication(s)',
     test: 'Test connection',
     testing: 'Testing...',
@@ -120,7 +119,6 @@ const TEXT = {
     udpDescription: 'Rohe UDP-Freigaben über den festgelegten öffentlichen Portpool. Der gewählte Port wird extern und intern verwendet.',
     allowedPorts: 'Erlaubte Ports / Bereiche',
     example: 'Beispiel: 80,443,8000-8999',
-    rawPoolHint: 'Es können ausschließlich Ports und Bereiche innerhalb von 20000-26000 veröffentlicht werden.',
     managed: 'verwaltete Veröffentlichung(en)',
     test: 'Verbindung testen',
     testing: 'Test läuft...',
@@ -287,10 +285,10 @@ export default function PangolinSettingsPanel({ onSuccess, onError, language: la
   const removePublication = async (publication) => {
     if (!window.confirm(text.removeConfirm(publication.resourceName))) return;
     try {
-      setBusy(`remove-${publication.resourceId}`);
+      setBusy(`remove-${publication.id}`);
       setResult(null);
-      await adminApi.deletePangolinPublication(publication.resourceId);
-      setPublications((items) => items.filter((item) => item.resourceId !== publication.resourceId));
+      await adminApi.deletePangolinPublication(publication.id);
+      setPublications((items) => items.filter((item) => item.id !== publication.id));
       setPublicationCount((count) => Math.max(0, count - 1));
       setResult({ success: true, message: text.removed });
     } catch (err) {
@@ -409,6 +407,7 @@ export default function PangolinSettingsPanel({ onSuccess, onError, language: la
             ports={form.allowedHttpPorts}
             onPorts={(value) => update('allowedHttpPorts', value)}
             placeholder="80,443,3000-9999"
+            helperText={text.example}
             text={text}
           />
           <ProtocolPolicy
@@ -419,7 +418,6 @@ export default function PangolinSettingsPanel({ onSuccess, onError, language: la
             ports={form.allowedTcpPorts}
             onPorts={(value) => update('allowedTcpPorts', value)}
             placeholder={RAW_PORT_POLICY}
-            helperText={text.rawPoolHint}
             text={text}
           />
           <ProtocolPolicy
@@ -430,7 +428,6 @@ export default function PangolinSettingsPanel({ onSuccess, onError, language: la
             ports={form.allowedUdpPorts}
             onPorts={(value) => update('allowedUdpPorts', value)}
             placeholder={RAW_PORT_POLICY}
-            helperText={text.rawPoolHint}
             text={text}
           />
         </div>
@@ -474,7 +471,7 @@ export default function PangolinSettingsPanel({ onSuccess, onError, language: la
                 <div className="form-actions">
                   {publication.publicUrl?.startsWith('http') && <a className="btn-secondary" href={publication.publicUrl} target="_blank" rel="noreferrer">{text.open}</a>}
                   <button type="button" className="btn-danger" onClick={() => removePublication(publication)} disabled={!!busy}>
-                    {busy === `remove-${publication.resourceId}` ? text.removing : text.remove}
+                    {busy === `remove-${publication.id}` ? text.removing : text.remove}
                   </button>
                 </div>
               </article>
@@ -501,7 +498,7 @@ function ProtocolPolicy({ title, description, enabled, onEnabled, ports, onPorts
       <label className="form-group">
         <span>{text.allowedPorts}</span>
         <input type="text" value={ports} onChange={(event) => onPorts(event.target.value)} placeholder={placeholder} disabled={!enabled} />
-        <small>{helperText || text.example}</small>
+        {helperText && <small>{helperText}</small>}
       </label>
     </article>
   );

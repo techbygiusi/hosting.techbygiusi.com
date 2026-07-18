@@ -39,6 +39,7 @@ const USER_TRANSLATIONS = {
     publicPage: 'Public page',
     addPublicPage: 'Publish service',
     editPublicPage: 'Edit public access',
+    managePublicAccess: 'Manage public access',
     publicPageUrl: 'Public page URL',
     publicPageHelp: 'Publish this service securely through Pangolin.',
     publicPageRequired: 'Enter a public page URL.',
@@ -93,6 +94,7 @@ const USER_TRANSLATIONS = {
     publicPage: 'Öffentliche Seite',
     addPublicPage: 'Dienst veröffentlichen',
     editPublicPage: 'Öffentlichen Zugriff bearbeiten',
+    managePublicAccess: 'Öffentliche Zugriffe verwalten',
     publicPageUrl: 'URL der öffentlichen Seite',
     publicPageHelp: 'Veröffentliche diesen Dienst sicher über Pangolin.',
     publicPageRequired: 'Bitte eine URL für die öffentliche Seite eingeben.',
@@ -421,7 +423,7 @@ function ResourceCard({ resource, onOpenDetails, onManagePublicPage, labels }) {
           {publicUrl && <a className="btn-primary full-button" href={publicUrl} target="_blank" rel="noreferrer">{labels.publicPage}</a>}
           {resource.canManagePublicPage && (
             <button type="button" className={publicUrl ? 'btn-secondary full-button' : 'btn-primary full-button'} onClick={onManagePublicPage}>
-              {publicUrl && !resource.canPublish ? labels.removePublicPage : publicUrl ? labels.editPublicPage : labels.addPublicPage}
+              {labels.managePublicAccess}{Number(resource.publicationCount || 0) > 0 ? ` (${resource.publicationCount})` : ''}
             </button>
           )}
           {adminUrl && <a className="btn-secondary full-button" href={adminUrl} target="_blank" rel="noreferrer">{labels.managementPage}</a>}

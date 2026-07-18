@@ -123,18 +123,19 @@ async function getContainerDetails(clusterUrl, apiToken, node, type, vmid) {
   return response.data?.data || {};
 }
 
-async function getVmConfigDisks(client, node, type, vmid) {
+async function getVmConfig(client, node, type, vmid) {
   const endpoint = type === 'lxc'
     ? `/api2/json/nodes/${node}/lxc/${vmid}/config`
     : `/api2/json/nodes/${node}/qemu/${vmid}/config`;
 
   const response = await client.get(endpoint);
-  if (response.status < 200 || response.status >= 300) return [];
+  if (response.status < 200 || response.status >= 300) return {};
+  return response.data?.data || {};
+}
 
-  const config = response.data?.data || {};
+function getVmConfigDisks(config, type) {
   const matcher = type === 'lxc' ? LXC_DISK_KEY : VM_DISK_KEY;
-
-  return Object.entries(config)
+  return Object.entries(config || {})
     .filter(([key]) => matcher.test(key))
     .map(([key, value]) => parseDiskDefinition(key, value))
     .filter(Boolean)
@@ -166,6 +167,64 @@ async function getQemuGuestFilesystems(client, node, vmid) {
     .filter(Boolean);
 }
 
+
+const LXC_OS_LABELS = {
+  alpine: 'Alpine Linux',
+  archlinux: 'Arch Linux',
+  centos: 'CentOS',
+  debian: 'Debian',
+  devuan: 'Devuan',
+  fedora: 'Fedora',
+  gentoo: 'Gentoo Linux',
+  nixos: 'NixOS',
+  opensuse: 'openSUSE',
+  ubuntu: 'Ubuntu',
+  unmanaged: 'Unmanaged Linux container'
+};
+
+const QEMU_OS_LABELS = {
+  other: 'Other operating system',
+  wxp: 'Microsoft Windows XP',
+  w2k: 'Microsoft Windows 2000',
+  w2k3: 'Microsoft Windows Server 2003',
+  w2k8: 'Microsoft Windows Server 2008',
+  wvista: 'Microsoft Windows Vista',
+  win7: 'Microsoft Windows 7 / Server 2008 R2',
+  win8: 'Microsoft Windows 8 / Server 2012',
+  win10: 'Microsoft Windows 10 / Server 2016 or later',
+  win11: 'Microsoft Windows 11 / Server 2022 or later',
+  l24: 'Linux 2.4 kernel',
+  l26: 'Linux',
+  solaris: 'Solaris'
+};
+
+function formatConfiguredOs(type, ostype) {
+  const code = String(ostype || '').trim().toLowerCase();
+  if (!code) return '';
+  const labels = type === 'lxc' ? LXC_OS_LABELS : QEMU_OS_LABELS;
+  return labels[code] || code;
+}
+
+/**
+ * Query the QEMU Guest Agent for the installed operating system. Callers fall
+ * back to the configured Proxmox OS type when the agent is unavailable.
+ */
+async function getQemuGuestOperatingSystem(client, node, vmid) {
+  const response = await client.get(`/api2/json/nodes/${node}/qemu/${vmid}/agent/get-osinfo`);
+  if (response.status < 200 || response.status >= 300) return '';
+  const info = response.data?.data?.result || response.data?.data || {};
+  return String(info['pretty-name'] || info.prettyName || info.name || '').trim();
+}
+
+function getConfiguredSystemInfo(type, config) {
+  const operatingSystemCode = String(config?.ostype || '').trim();
+  return {
+    operatingSystem: formatConfiguredOs(type, operatingSystemCode),
+    operatingSystemCode,
+    sourceTemplate: String(config?.ostemplate || '').trim()
+  };
+}
+
 async function getResourceDiskDetails(clusterUrl, apiToken, resource) {
   if (!resource?.node || !resource?.vmid || !resource?.type) {
     return { disks: [], filesystems: [], disk: Number(resource?.disk || 0), maxdisk: Number(resource?.maxdisk || 0) };
@@ -175,12 +234,17 @@ async function getResourceDiskDetails(clusterUrl, apiToken, resource) {
   const type = resource.type;
   const vmid = resource.vmid;
   const node = resource.node;
-  const disks = await getVmConfigDisks(client, node, type, vmid);
+  const config = await getVmConfig(client, node, type, vmid);
+  const disks = getVmConfigDisks(config, type);
+  const configuredSystemInfo = getConfiguredSystemInfo(type, config);
   const liveDisk = Number(resource.disk || 0);
   const liveMaxDisk = Number(resource.maxdisk || 0);
 
   if (type === 'qemu') {
-    const filesystems = await getQemuGuestFilesystems(client, node, vmid);
+    const [filesystems, detectedOperatingSystem] = await Promise.all([
+      getQemuGuestFilesystems(client, node, vmid),
+      getQemuGuestOperatingSystem(client, node, vmid)
+    ]);
     const configuredTotal = disks.reduce((sum, disk) => sum + Number(disk.maxdisk || 0), 0);
     const fsUsed = filesystems.reduce((sum, disk) => sum + Number(disk.used || 0), 0);
     const fsTotal = filesystems.reduce((sum, disk) => sum + Number(disk.maxdisk || 0), 0);
@@ -189,7 +253,11 @@ async function getResourceDiskDetails(clusterUrl, apiToken, resource) {
       disks,
       filesystems,
       disk: fsUsed || liveDisk,
-      maxdisk: fsTotal || configuredTotal || liveMaxDisk
+      maxdisk: fsTotal || configuredTotal || liveMaxDisk,
+      systemInfo: {
+        ...configuredSystemInfo,
+        operatingSystem: detectedOperatingSystem || configuredSystemInfo.operatingSystem
+      }
     };
   }
 
@@ -206,7 +274,8 @@ async function getResourceDiskDetails(clusterUrl, apiToken, resource) {
     disks: normalizedDisks,
     filesystems: [],
     disk: liveDisk,
-    maxdisk: liveMaxDisk || normalizedDisks.reduce((sum, disk) => sum + Number(disk.maxdisk || 0), 0)
+    maxdisk: liveMaxDisk || normalizedDisks.reduce((sum, disk) => sum + Number(disk.maxdisk || 0), 0),
+    systemInfo: configuredSystemInfo
   };
 }
 

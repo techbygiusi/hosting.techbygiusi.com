@@ -36,7 +36,31 @@ function normalizeIpEntries(entries = []) {
     });
 }
 
-function normalizeResourceRow(row, liveResource = null, error = null, diskInfo = null, ipEntries = []) {
+
+function templateDisplayName(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  const withoutStorage = raw.includes(':') ? raw.slice(raw.indexOf(':') + 1) : raw;
+  return withoutStorage.replace(/^vztmpl\//i, '');
+}
+
+function inferOperatingSystemFromTemplate(value) {
+  const filename = templateDisplayName(value).toLowerCase();
+  if (!filename) return '';
+  const labels = [
+    ['ubuntu', 'Ubuntu'], ['debian', 'Debian'], ['alpine', 'Alpine Linux'],
+    ['archlinux', 'Arch Linux'], ['centos', 'CentOS'], ['rockylinux', 'Rocky Linux'],
+    ['rocky', 'Rocky Linux'], ['alma', 'AlmaLinux'], ['fedora', 'Fedora'],
+    ['opensuse', 'openSUSE'], ['devuan', 'Devuan'], ['gentoo', 'Gentoo Linux'],
+    ['nixos', 'NixOS']
+  ];
+  const match = labels.find(([needle]) => filename.includes(needle));
+  if (!match) return '';
+  const version = filename.match(/(?:^|[-_])(\d+(?:\.\d+){0,2})(?:[-_]|$)/)?.[1];
+  return version ? `${match[1]} ${version}` : match[1];
+}
+
+function normalizeResourceRow(row, liveResource = null, error = null, diskInfo = null, ipEntries = [], systemInfo = null) {
   const liveName = liveResource?.name || liveResource?.id || liveResource?.vmid;
   const disks = Array.isArray(diskInfo?.disks) ? diskInfo.disks : [];
   const filesystems = Array.isArray(diskInfo?.filesystems) ? diskInfo.filesystems : [];
@@ -45,6 +69,8 @@ function normalizeResourceRow(row, liveResource = null, error = null, diskInfo =
   const livePrimaryIp = ips.find(item => item.ipv4)?.ipv4 || '';
   const primaryIp = provisionedIp || livePrimaryIp;
   const isSelfService = !!row.provisioned_id && String(row.provisioned_user_id || '') === String(row.user_id || '');
+  const sourceTemplate = String(row.provisioned_template || systemInfo?.sourceTemplate || '').trim();
+  const operatingSystem = String(systemInfo?.operatingSystem || inferOperatingSystemFromTemplate(sourceTemplate) || '').trim();
 
   if (provisionedIp && !ips.some(item => item.ipv4 === provisionedIp)) {
     ips.unshift({ interface: 'reserved', ipv4: provisionedIp, ipv6: '' });
@@ -77,6 +103,10 @@ function normalizeResourceRow(row, liveResource = null, error = null, diskInfo =
     userEmail: row.user_email || '',
     groupId: row.group_id || null,
     groupName: row.group_name || '',
+    operatingSystem,
+    operatingSystemCode: String(systemInfo?.operatingSystemCode || '').trim(),
+    sourceTemplate,
+    sourceTemplateName: templateDisplayName(sourceTemplate),
     webUrl: row.public_url || row.web_url || '',
     publicUrl: row.public_url || row.web_url || '',
     adminUrl: row.admin_url || '',
@@ -123,20 +153,18 @@ async function enrichResources(rows) {
       let rowError = clusterError;
 
       if (liveResource && !clusterError) {
-        try {
-          diskInfo = await getResourceDiskDetails(group.clusterUrl, group.apiToken, liveResource);
-        } catch (err) {
-          rowError = err.message || 'Disk-Informationen konnten nicht geladen werden.';
-        }
+        const [diskResult, ipResult] = await Promise.allSettled([
+          getResourceDiskDetails(group.clusterUrl, group.apiToken, liveResource),
+          getContainerIps(group.clusterUrl, group.apiToken, liveResource.node, liveResource.type, liveResource.vmid)
+        ]);
 
-        try {
-          ipEntries = await getContainerIps(group.clusterUrl, group.apiToken, liveResource.node, liveResource.type, liveResource.vmid);
-        } catch (_) {
-          ipEntries = [];
-        }
+        if (diskResult.status === 'fulfilled') diskInfo = diskResult.value;
+        else rowError = diskResult.reason?.message || 'Disk-Informationen konnten nicht geladen werden.';
+
+        if (ipResult.status === 'fulfilled') ipEntries = ipResult.value;
       }
 
-      result.push(normalizeResourceRow(row, liveResource, rowError, diskInfo, ipEntries));
+      result.push(normalizeResourceRow(row, liveResource, rowError, diskInfo, ipEntries, diskInfo?.systemInfo || null));
     }
   }
 

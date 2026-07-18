@@ -199,6 +199,7 @@ async function getResourceRows(where = '', params = []) {
       cg.name as group_name,
       pm.id as provisioned_id,
       pm.ip as provisioned_ip,
+      pm.source_template as provisioned_template,
       pm.user_id as provisioned_user_id
     FROM resources r
     JOIN proxmox_clusters pc ON r.cluster_id = pc.id
@@ -1290,10 +1291,12 @@ router.delete('/resources/:id', async (req, res, next) => {
 
     await assertResourceEditableByAdmin(resourceId, 'entfernt');
 
-    const publication = await get('SELECT * FROM resource_publications WHERE resource_id = ?', [resourceId]);
-    if (publication) {
+    const publications = await all('SELECT * FROM resource_publications WHERE resource_id = ?', [resourceId]);
+    if (publications.length > 0) {
       const publishingConfig = await getPangolinConfig();
-      await deletePublication(publishingConfig, publication);
+      for (const publication of publications) {
+        await deletePublication(publishingConfig, publication);
+      }
       await run('DELETE FROM resource_publications WHERE resource_id = ?', [resourceId]);
     }
 
@@ -1419,15 +1422,27 @@ router.get('/pangolin-publications', async (req, res, next) => {
   }
 });
 
-router.delete('/pangolin-publications/:resourceId', async (req, res, next) => {
+router.delete('/pangolin-publications/:publicationId', async (req, res, next) => {
   try {
-    const publication = await get('SELECT * FROM resource_publications WHERE resource_id = ?', [req.params.resourceId]);
+    const publication = await get('SELECT * FROM resource_publications WHERE id = ?', [req.params.publicationId]);
     if (!publication) throw new AppError('Publication not found', HTTP_STATUS.NOT_FOUND);
     const config = await getPangolinConfig();
     await deletePublication(config, publication);
-    await run('DELETE FROM resource_publications WHERE resource_id = ?', [req.params.resourceId]);
-    await run("UPDATE resources SET web_url = '', public_url = '', updated_at = CURRENT_TIMESTAMP WHERE id = ?", [req.params.resourceId]);
-    await logAudit(req, 'resource.publication.admin-remove', `resource:${req.params.resourceId}`);
+    await run('DELETE FROM resource_publications WHERE id = ?', [publication.id]);
+    const primary = await get(
+      `SELECT public_url
+       FROM resource_publications
+       WHERE resource_id = ? AND protocol = 'http' AND status = 'active'
+       ORDER BY created_at ASC, id ASC
+       LIMIT 1`,
+      [publication.resource_id]
+    );
+    const publicUrl = primary?.public_url || '';
+    await run(
+      'UPDATE resources SET web_url = ?, public_url = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+      [publicUrl, publicUrl, publication.resource_id]
+    );
+    await logAudit(req, 'resource.publication.admin-remove', `resource:${publication.resource_id}:publication:${publication.id}`);
     res.json({ message: 'Public access removed' });
   } catch (err) {
     next(err);

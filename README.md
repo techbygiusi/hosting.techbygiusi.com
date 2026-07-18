@@ -6,7 +6,38 @@ The frontend is built with React and the backend with Express + SQLite. Proxmox 
 
 ## Version
 
-Current version: **v3.1.53**
+Current version: **v3.1.57**
+
+## What's new in v3.1.57
+
+- Service details now show the assigned CPU core count and configured memory capacity in addition to live utilization metrics.
+- Users can create and manage multiple Pangolin publications for the same service instead of being limited to one public endpoint.
+- HTTP, TCP and UDP publications can run in parallel, including several TCP or UDP public ports for one container.
+- Every publication is stored, edited and removed independently, while existing single-publication databases are migrated automatically without losing Pangolin resource IDs.
+- The publishing dialog now includes a localized list of all active endpoints and keeps the add/edit form separate for clearer management.
+
+
+## What's new in v3.1.56
+
+- The Pangolin publishing dialog now grows with its content and shows an internal scrollbar only when the available browser height is genuinely too small.
+- HTTP, TCP and UDP publications now all require a validated subdomain instead of exposing raw services on the base domain hostname.
+- Raw public addresses now use protocol-specific hostnames such as `tcp://service.apps.example.com:20001` and `udp://service.apps.example.com:20001`.
+- Added matching German and English validation messages for the required subdomain workflow.
+
+
+## What's new in v3.1.55
+
+- Service details now show the guest operating system reported by Proxmox and the exact LXC template used for new self-service containers.
+- Existing LXC containers fall back to the configured Proxmox OS type, while QEMU guests use QEMU Guest Agent OS information when available.
+- Removed the redundant TCP/UDP helper panel completely and expanded the public-port field across the available dialog width.
+- Added matching German and English localization for the new operating-system label.
+
+
+## What's new in v3.1.54
+
+- Removed the fixed `20000-26000` helper comments from the Pangolin administrator and user publishing forms.
+- The user publishing dialog now displays the TCP and UDP port policies saved by the administrator without an additional hard-coded range message.
+- TCP and UDP inputs now select their initial port and browser input bounds from the configured administrator policy.
 
 
 ## What's new in v3.1.53
@@ -139,7 +170,7 @@ Current version: **v3.1.53**
 - Open a viewport-fitted full-page console in a separate browser tab on desktop when the Proxmox token permits it. Only terminal scrollback moves; selecting text copies automatically, while right-click or Ctrl/Cmd+V pastes into the session. LXC consoles can automatically sign in with an attached root credential without forwarding terminal status replies into the login field.
 - Read Proxmox tasks and logs for the current service lifecycle only. Reused VMIDs do not expose the previous machine history.
 - Manage service credentials. The exact root password used during self-service provisioning, including a configured cluster default, is saved automatically on the created service.
-- Publish, edit or remove directly assigned services through Pangolin. The backend fixes the target to the service IP, validates the administrator-defined port policy and displays the generated public address on the service card.
+- Publish, edit or remove directly assigned services through Pangolin. Every HTTP, TCP and UDP publication requires its own validated subdomain; the backend fixes the target to the service IP, validates the administrator-defined port policy and displays the generated public address on the service card.
 - Create new LXC containers on desktop or mobile through template-only self-service with mandatory internet-only network isolation.
 - Delete containers that the user created through self-service.
 - Configure language and e-mail notification preferences together on the Settings page.
@@ -210,7 +241,7 @@ Port policies accept comma-, space- or semicolon-separated values and inclusive 
 80,443,3000-3999,8080
 ```
 
-For HTTP publishing, Pangolin terminates public TLS while the configured backend method controls the Newt-to-service connection. For raw TCP or UDP resources, the selected port is used as both the public Pangolin proxy port and the internal service port. The portal accepts and publishes raw ports only inside the dedicated `20000-26000` pool; this limit is enforced in both the administrator settings and every backend publication request.
+For HTTP publishing, Pangolin terminates public TLS while the configured backend method controls the Newt-to-service connection. Every protocol requires a unique subdomain. Raw TCP or UDP resources use that hostname together with the selected port, for example `tcp://service.apps.example.com:20001`; the selected port is used as both the public Pangolin proxy port and the internal service port. The portal accepts and publishes raw ports only inside the dedicated `20000-26000` pool; this limit is enforced in both the administrator settings and every backend publication request.
 
 ### Publishing security model
 
@@ -317,6 +348,43 @@ docker image prune -f
 The database migrates itself on startup. Keep the backend data volume before updating.
 
 ## Changelog
+
+### v3.1.57 - 2026-07-18
+
+**Commit:** `feat: support multiple parallel service publications`
+
+- Added assigned CPU core and memory values to the localized service detail view.
+- Replaced the one-publication-per-service database constraint with a backward-compatible automatic migration.
+- Added independent create, edit and delete operations for multiple HTTP, TCP and UDP publications.
+- Added a localized publication manager that lists all endpoints and supports parallel raw ports and HTTP hostnames.
+- Updated administrator publication removal to target an individual publication instead of deleting every endpoint of a service.
+
+### v3.1.56 - 2026-07-18
+
+**Commit:** `fix: require publishing subdomains and remove idle scrollbars`
+
+- Made the publishing dialog content-sized so its internal scrollbar appears only when required by the viewport.
+- Required unique subdomains for HTTP, TCP and UDP publications.
+- Generated raw TCP and UDP addresses with the selected subdomain hostname.
+- Added German and English validation copy for the new required field.
+
+### v3.1.55 - 2026-07-18
+
+**Commit:** `feat: show guest operating systems and source templates`
+
+- read the configured guest OS from Proxmox and prefer QEMU Guest Agent details when available
+- persist the exact source template for newly provisioned LXC containers and expose it in service details
+- remove the redundant TCP/UDP helper panel and let the public-port field use the full row
+- localize the new detail label in German and English
+
+### v3.1.54 - 2026-07-18
+
+**Commit:** `fix: use configured publishing port ranges`
+
+- remove the fixed raw-port helper comments from both Pangolin forms
+- keep the user-visible TCP and UDP ranges sourced from the administrator settings
+- derive the initial raw port and HTML input bounds from the configured policy
+
 
 ### v3.1.53 - 2026-07-18
 

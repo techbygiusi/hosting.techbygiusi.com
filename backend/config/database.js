@@ -218,11 +218,14 @@ async function initDatabase() {
           vmid INTEGER NOT NULL,
           ip TEXT,
           hostname TEXT,
+          source_template TEXT,
           user_id INTEGER,
           created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
           FOREIGN KEY (cluster_id) REFERENCES proxmox_clusters(id) ON DELETE CASCADE
         )
       `);
+      // v3.1.55: remember the exact LXC template used by self-service provisioning
+      database.run(`ALTER TABLE provisioned_machines ADD COLUMN source_template TEXT`, () => {});
 
       // v3.0: per-user notification preferences
       database.run(`ALTER TABLE users ADD COLUMN notify_resource_down INTEGER DEFAULT 0`, () => {});
@@ -264,11 +267,12 @@ async function initDatabase() {
       `);
       database.run(`CREATE INDEX IF NOT EXISTS idx_status_events_created ON status_events(created_at DESC)`, () => {});
 
-      // v3.1.41: Pangolin-managed public resources per portal service
+      // v3.1.57: Pangolin-managed public resources. A service may have
+      // several HTTP, TCP and UDP publications at the same time.
       database.run(`
         CREATE TABLE IF NOT EXISTS resource_publications (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
-          resource_id INTEGER NOT NULL UNIQUE,
+          resource_id INTEGER NOT NULL,
           pangolin_resource_id INTEGER,
           pangolin_target_id INTEGER,
           protocol TEXT NOT NULL DEFAULT 'http' CHECK(protocol IN ('http', 'tcp', 'udp')),
@@ -284,25 +288,107 @@ async function initDatabase() {
           FOREIGN KEY (resource_id) REFERENCES resources(id) ON DELETE CASCADE
         )
       `);
-      database.run(`CREATE INDEX IF NOT EXISTS idx_resource_publications_protocol ON resource_publications(protocol)`, () => {});
-      database.run(`CREATE UNIQUE INDEX IF NOT EXISTS idx_resource_publications_subdomain ON resource_publications(subdomain) WHERE subdomain IS NOT NULL AND subdomain != ''`, () => {});
 
-      // Settings (key-value store)
-      database.run(`
-        CREATE TABLE IF NOT EXISTS settings (
-          key TEXT PRIMARY KEY,
-          value TEXT,
-          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
-      `, (err) => {
-        if (err) {
-          reject(err);
-        } else {
-          console.log('✓ All tables initialized');
-          resolve();
+      // Older installations used UNIQUE(resource_id), which limited every
+      // service to one publication. Rebuild the table once while preserving
+      // all existing Pangolin IDs and URLs.
+      database.get(
+        `SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'resource_publications'`,
+        (schemaError, schemaRow) => {
+          if (schemaError) {
+            reject(schemaError);
+            return;
+          }
+
+          const legacySinglePublicationSchema = /resource_id\s+INTEGER\s+NOT\s+NULL\s+UNIQUE/i.test(schemaRow?.sql || '');
+          const finishInitialization = () => {
+            database.exec(`
+              DROP INDEX IF EXISTS idx_resource_publications_subdomain;
+              CREATE INDEX IF NOT EXISTS idx_resource_publications_protocol
+                ON resource_publications(protocol);
+              CREATE INDEX IF NOT EXISTS idx_resource_publications_resource
+                ON resource_publications(resource_id, updated_at DESC);
+              CREATE UNIQUE INDEX IF NOT EXISTS idx_resource_publications_http_subdomain
+                ON resource_publications(subdomain)
+                WHERE protocol = 'http' AND subdomain IS NOT NULL AND subdomain != '';
+              CREATE INDEX IF NOT EXISTS idx_resource_publications_raw_port
+                ON resource_publications(protocol, public_port)
+                WHERE protocol IN ('tcp', 'udp') AND public_port IS NOT NULL;
+            `, (indexError) => {
+              if (indexError) {
+                reject(indexError);
+                return;
+              }
+
+              // Settings (key-value store)
+              database.run(`
+                CREATE TABLE IF NOT EXISTS settings (
+                  key TEXT PRIMARY KEY,
+                  value TEXT,
+                  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+              `, (settingsError) => {
+                if (settingsError) {
+                  reject(settingsError);
+                } else {
+                  console.log('✓ All tables initialized');
+                  resolve();
+                }
+              });
+            });
+          };
+
+          if (!legacySinglePublicationSchema) {
+            finishInitialization();
+            return;
+          }
+
+          database.exec(`
+            PRAGMA foreign_keys = OFF;
+            BEGIN TRANSACTION;
+            DROP INDEX IF EXISTS idx_resource_publications_protocol;
+            DROP INDEX IF EXISTS idx_resource_publications_subdomain;
+            ALTER TABLE resource_publications RENAME TO resource_publications_single_legacy;
+            CREATE TABLE resource_publications (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              resource_id INTEGER NOT NULL,
+              pangolin_resource_id INTEGER,
+              pangolin_target_id INTEGER,
+              protocol TEXT NOT NULL DEFAULT 'http' CHECK(protocol IN ('http', 'tcp', 'udp')),
+              subdomain TEXT,
+              public_port INTEGER,
+              target_port INTEGER NOT NULL,
+              target_method TEXT,
+              public_url TEXT,
+              status TEXT NOT NULL DEFAULT 'active',
+              last_error TEXT,
+              created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+              updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+              FOREIGN KEY (resource_id) REFERENCES resources(id) ON DELETE CASCADE
+            );
+            INSERT INTO resource_publications (
+              id, resource_id, pangolin_resource_id, pangolin_target_id, protocol,
+              subdomain, public_port, target_port, target_method, public_url,
+              status, last_error, created_at, updated_at
+            )
+            SELECT
+              id, resource_id, pangolin_resource_id, pangolin_target_id, protocol,
+              subdomain, public_port, target_port, target_method, public_url,
+              status, last_error, created_at, updated_at
+            FROM resource_publications_single_legacy;
+            DROP TABLE resource_publications_single_legacy;
+            COMMIT;
+            PRAGMA foreign_keys = ON;
+          `, (migrationError) => {
+            if (migrationError) {
+              database.exec('ROLLBACK; PRAGMA foreign_keys = ON;', () => reject(migrationError));
+              return;
+            }
+            finishInitialization();
+          });
         }
-      });
+      );
     });
   });
 }

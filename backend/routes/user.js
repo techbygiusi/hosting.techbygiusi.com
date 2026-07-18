@@ -68,6 +68,7 @@ async function getResourceRowsForUser(userId, resourceId = null) {
       cg.name as group_name,
       pm.id as provisioned_id,
       pm.ip as provisioned_ip,
+      pm.source_template as provisioned_template,
       pm.user_id as provisioned_user_id
     FROM resources r
     JOIN proxmox_clusters pc ON r.cluster_id = pc.id
@@ -216,40 +217,58 @@ async function attachSharedManagementUrls(resources) {
   }));
 }
 
+function mapPublicationRow(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    resourceId: row.resource_id,
+    pangolinResourceId: row.pangolin_resource_id,
+    pangolinTargetId: row.pangolin_target_id,
+    protocol: row.protocol,
+    subdomain: row.subdomain || '',
+    publicPort: row.public_port || null,
+    targetPort: row.target_port,
+    targetMethod: row.target_method || '',
+    publicUrl: row.public_url || '',
+    status: row.status || 'active',
+    lastError: row.last_error || '',
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
+  };
+}
+
 async function attachPublications(resources) {
   if (!Array.isArray(resources) || resources.length === 0) return resources;
   const ids = resources.map(resource => resource.id).filter(Boolean);
   if (ids.length === 0) return resources;
   const placeholders = ids.map(() => '?').join(',');
   const rows = await all(
-    `SELECT * FROM resource_publications WHERE resource_id IN (${placeholders})`,
+    `SELECT *
+     FROM resource_publications
+     WHERE resource_id IN (${placeholders})
+     ORDER BY CASE protocol WHEN 'http' THEN 0 WHEN 'tcp' THEN 1 ELSE 2 END,
+              created_at ASC,
+              id ASC`,
     ids
   );
   const byResource = rows.reduce((acc, row) => {
-    acc[String(row.resource_id)] = {
-      id: row.id,
-      resourceId: row.resource_id,
-      pangolinResourceId: row.pangolin_resource_id,
-      pangolinTargetId: row.pangolin_target_id,
-      protocol: row.protocol,
-      subdomain: row.subdomain || '',
-      publicPort: row.public_port || null,
-      targetPort: row.target_port,
-      targetMethod: row.target_method || '',
-      publicUrl: row.public_url || '',
-      status: row.status || 'active',
-      lastError: row.last_error || '',
-      createdAt: row.created_at,
-      updatedAt: row.updated_at
-    };
+    const key = String(row.resource_id);
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(mapPublicationRow(row));
     return acc;
   }, {});
-  return resources.map(resource => ({
-    ...resource,
-    publication: byResource[String(resource.id)] || null,
-    publicUrl: byResource[String(resource.id)]?.publicUrl || resource.publicUrl || '',
-    webUrl: byResource[String(resource.id)]?.publicUrl || resource.webUrl || ''
-  }));
+  return resources.map(resource => {
+    const publications = byResource[String(resource.id)] || [];
+    const primaryHttpPublication = publications.find(item => item.protocol === 'http' && item.publicUrl) || null;
+    return {
+      ...resource,
+      publications,
+      publication: publications[0] || null,
+      publicationCount: publications.length,
+      publicUrl: primaryHttpPublication?.publicUrl || '',
+      webUrl: primaryHttpPublication?.publicUrl || ''
+    };
+  });
 }
 
 async function getOwnedPublishableResource(userId, resourceId, { requireClusterPublishing = false } = {}) {
@@ -404,7 +423,7 @@ router.get('/resources', async (req, res, next) => {
         const canPublish = ownsResource && !!resource.primaryIp && !!publishingConfig.enabled && clusterPublishingEnabled;
         return {
           ...resource,
-          canManagePublicPage: ownsResource && (canPublish || !!resource.publication),
+          canManagePublicPage: ownsResource && (canPublish || Number(resource.publicationCount || 0) > 0),
           canPublish,
           publishingClusterEnabled: clusterPublishingEnabled,
           canDelete: !!resource.canDelete && ownsResource && !!capsByCluster[resource.clusterId]?.canProvision,
@@ -435,7 +454,7 @@ router.get('/resources/:id', async (req, res, next) => {
     res.json({
       resource: {
         ...resources[0],
-        canManagePublicPage: ownsResource && (canPublish || !!resources[0].publication),
+        canManagePublicPage: ownsResource && (canPublish || Number(resources[0].publicationCount || 0) > 0),
         canPublish,
         publishingClusterEnabled: clusterPublishingEnabled,
         canDelete: !!resources[0].canDelete && ownsResource && !!caps.canProvision,
@@ -481,10 +500,217 @@ router.get('/publishing/options', async (req, res, next) => {
   }
 });
 
+function normalizePublicationInput(body, config) {
+  const protocol = normalizePublishingProtocol(body?.protocol);
+  const targetPort = Number(body?.targetPort);
+  const publicPort = Number(body?.publicPort || targetPort);
+  const subdomain = String(body?.subdomain || '').trim().toLowerCase();
+  const targetMethod = protocol === 'http'
+    ? String(body?.targetMethod || config.defaultTargetMethod || 'http').trim().toLowerCase()
+    : '';
+
+  if (!Number.isInteger(targetPort) || targetPort < 1 || targetPort > 65535) {
+    throw new AppError('Target port must be between 1 and 65535', HTTP_STATUS.BAD_REQUEST);
+  }
+  if (protocol !== 'http' && (!Number.isInteger(publicPort) || publicPort < 1 || publicPort > 65535)) {
+    throw new AppError('Public port must be between 1 and 65535', HTTP_STATUS.BAD_REQUEST);
+  }
+
+  return { protocol, targetPort, publicPort, subdomain, targetMethod };
+}
+
+async function assertPublicationSlotAvailable(input, publicationId = null) {
+  if (input.protocol === 'http') {
+    const collision = await get(
+      `SELECT id
+       FROM resource_publications
+       WHERE protocol = 'http'
+         AND subdomain = ?
+         AND (? IS NULL OR id != ?)`,
+      [input.subdomain, publicationId, publicationId]
+    );
+    if (collision) throw new AppError('This subdomain is already in use', HTTP_STATUS.CONFLICT);
+    return;
+  }
+
+  const collision = await get(
+    `SELECT id
+     FROM resource_publications
+     WHERE protocol = ?
+       AND public_port = ?
+       AND (? IS NULL OR id != ?)`,
+    [input.protocol, input.publicPort, publicationId, publicationId]
+  );
+  if (collision) {
+    throw new AppError(`This ${input.protocol.toUpperCase()} public port is already in use`, HTTP_STATUS.CONFLICT);
+  }
+}
+
+async function syncResourcePrimaryPublicationUrl(resourceId) {
+  const primary = await get(
+    `SELECT public_url
+     FROM resource_publications
+     WHERE resource_id = ? AND protocol = 'http' AND status = 'active'
+     ORDER BY created_at ASC, id ASC
+     LIMIT 1`,
+    [resourceId]
+  );
+  const publicUrl = primary?.public_url || '';
+  await run(
+    'UPDATE resources SET web_url = ?, public_url = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+    [publicUrl, publicUrl, resourceId]
+  );
+  return publicUrl;
+}
+
+function publicationDisplayName(resource, input) {
+  const endpoint = input.protocol === 'http' ? input.subdomain : input.publicPort;
+  return `${resource.name} (${resource.containerId}) ${input.protocol.toUpperCase()} ${endpoint}`;
+}
+
+async function createResourcePublication(req, resource, config, input) {
+  await assertPublicationSlotAvailable(input);
+  const result = await createPublication(config, {
+    name: publicationDisplayName(resource, input),
+    ip: resource.primaryIp,
+    ...input
+  });
+
+  try {
+    const insertResult = await run(
+      `INSERT INTO resource_publications
+        (resource_id, pangolin_resource_id, pangolin_target_id, protocol, subdomain, public_port, target_port, target_method, public_url, status, last_error, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', '', CURRENT_TIMESTAMP)`,
+      [resource.id, result.pangolinResourceId, result.pangolinTargetId, result.protocol, result.subdomain || null, result.publicPort, result.targetPort, result.targetMethod || null, result.publicUrl]
+    );
+    await syncResourcePrimaryPublicationUrl(resource.id);
+    const publication = { ...result, id: insertResult.lastID, resourceId: resource.id, status: 'active', lastError: '' };
+    await logAudit(req, 'resource.publication.create', `resource:${resource.id}:publication:${insertResult.lastID}`, result.publicUrl);
+    return publication;
+  } catch (databaseError) {
+    await deletePublication(config, {
+      pangolin_resource_id: result.pangolinResourceId,
+      pangolin_target_id: result.pangolinTargetId
+    }).catch(() => {});
+    throw databaseError;
+  }
+}
+
+async function updateResourcePublication(req, resource, config, existing, input) {
+  if (existing.protocol !== input.protocol) {
+    throw new AppError('The protocol of an existing publication cannot be changed', HTTP_STATUS.BAD_REQUEST);
+  }
+  await assertPublicationSlotAvailable(input, existing.id);
+  const result = await updatePublication(config, existing, {
+    name: publicationDisplayName(resource, input),
+    ip: resource.primaryIp,
+    ...input
+  });
+
+  await run(
+    `UPDATE resource_publications
+     SET pangolin_resource_id = ?,
+         pangolin_target_id = ?,
+         protocol = ?,
+         subdomain = ?,
+         public_port = ?,
+         target_port = ?,
+         target_method = ?,
+         public_url = ?,
+         status = 'active',
+         last_error = '',
+         updated_at = CURRENT_TIMESTAMP
+     WHERE id = ? AND resource_id = ?`,
+    [result.pangolinResourceId, result.pangolinTargetId, result.protocol, result.subdomain || null, result.publicPort, result.targetPort, result.targetMethod || null, result.publicUrl, existing.id, resource.id]
+  );
+  await syncResourcePrimaryPublicationUrl(resource.id);
+  await logAudit(req, 'resource.publication.update', `resource:${resource.id}:publication:${existing.id}`, result.publicUrl);
+  return { ...result, id: existing.id, resourceId: resource.id, status: 'active', lastError: '' };
+}
+
+async function deleteResourcePublication(req, resource, publication) {
+  const config = await getPangolinConfig();
+  await deletePublication(config, publication);
+  await run('DELETE FROM resource_publications WHERE id = ? AND resource_id = ?', [publication.id, resource.id]);
+  await syncResourcePrimaryPublicationUrl(resource.id);
+  await logAudit(req, 'resource.publication.remove', `resource:${resource.id}:publication:${publication.id}`, publication.public_url || '');
+}
+
+async function getOwnedResourceWithoutIpRequirement(userId, resourceId) {
+  const rows = await getResourceRowsForUser(userId, resourceId);
+  if (rows.length === 0 || String(rows[0].user_id) !== String(userId)) {
+    throw new AppError('Only the assigned user can manage publishing for this service', HTTP_STATUS.FORBIDDEN);
+  }
+  const enriched = await attachPublications(await enrichResources(rows));
+  return enriched[0];
+}
+
+router.get('/resources/:id/publications', async (req, res, next) => {
+  try {
+    const resource = await getOwnedResourceWithoutIpRequirement(req.user.id, req.params.id);
+    res.json({ publications: resource.publications || [], primaryIp: resource.primaryIp || '' });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/resources/:id/publications', async (req, res, next) => {
+  try {
+    const resource = await getOwnedPublishableResource(req.user.id, req.params.id, { requireClusterPublishing: true });
+    const config = await getPangolinConfig();
+    const input = normalizePublicationInput(req.body, config);
+    const publication = await createResourcePublication(req, resource, config, input);
+    res.status(HTTP_STATUS.CREATED).json({ message: 'Public access added', publication });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.put('/resources/:id/publications/:publicationId', async (req, res, next) => {
+  try {
+    const resource = await getOwnedPublishableResource(req.user.id, req.params.id, { requireClusterPublishing: true });
+    const existing = await get(
+      'SELECT * FROM resource_publications WHERE id = ? AND resource_id = ?',
+      [req.params.publicationId, resource.id]
+    );
+    if (!existing) throw new AppError('Publication not found', HTTP_STATUS.NOT_FOUND);
+    const config = await getPangolinConfig();
+    const input = normalizePublicationInput(req.body, config);
+    const publication = await updateResourcePublication(req, resource, config, existing, input);
+    res.json({ message: 'Public access saved', publication });
+  } catch (err) {
+    try {
+      await run(
+        `UPDATE resource_publications
+         SET status = 'error', last_error = ?, updated_at = CURRENT_TIMESTAMP
+         WHERE id = ? AND resource_id = ?`,
+        [String(err.message || 'Publishing failed').slice(0, 1000), req.params.publicationId, req.params.id]
+      );
+    } catch (_) {}
+    next(err);
+  }
+});
+
+router.delete('/resources/:id/publications/:publicationId', async (req, res, next) => {
+  try {
+    const resource = await getOwnedResourceWithoutIpRequirement(req.user.id, req.params.id);
+    const publication = await get(
+      'SELECT * FROM resource_publications WHERE id = ? AND resource_id = ?',
+      [req.params.publicationId, resource.id]
+    );
+    if (!publication) throw new AppError('Publication not found', HTTP_STATUS.NOT_FOUND);
+    await deleteResourcePublication(req, resource, publication);
+    res.json({ message: 'Public access removed' });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Backward-compatible singular endpoints for older cached frontends.
 router.get('/resources/:id/publication', async (req, res, next) => {
   try {
-    const resource = await getOwnedPublishableResource(req.user.id, req.params.id);
-    res.json({ publication: resource.publication, primaryIp: resource.primaryIp });
+    const resource = await getOwnedResourceWithoutIpRequirement(req.user.id, req.params.id);
+    res.json({ publication: resource.publications?.[0] || null, publications: resource.publications || [], primaryIp: resource.primaryIp || '' });
   } catch (err) {
     next(err);
   }
@@ -494,107 +720,27 @@ router.put('/resources/:id/publication', async (req, res, next) => {
   try {
     const resource = await getOwnedPublishableResource(req.user.id, req.params.id, { requireClusterPublishing: true });
     const config = await getPangolinConfig();
-    const protocol = normalizePublishingProtocol(req.body?.protocol);
-    const targetPort = Number(req.body?.targetPort);
-    const publicPort = Number(req.body?.publicPort || targetPort);
-    const subdomain = protocol === 'http' ? String(req.body?.subdomain || '').trim().toLowerCase() : '';
-    const targetMethod = protocol === 'http' ? String(req.body?.targetMethod || config.defaultTargetMethod || 'http').trim().toLowerCase() : '';
-
-    if (!Number.isInteger(targetPort) || targetPort < 1 || targetPort > 65535) {
-      throw new AppError('Target port must be between 1 and 65535', HTTP_STATUS.BAD_REQUEST);
-    }
-    if (protocol !== 'http' && (!Number.isInteger(publicPort) || publicPort < 1 || publicPort > 65535)) {
-      throw new AppError('Public port must be between 1 and 65535', HTTP_STATUS.BAD_REQUEST);
-    }
-
-    if (subdomain) {
-      const collision = await get(
-        'SELECT resource_id FROM resource_publications WHERE subdomain = ? AND resource_id != ?',
-        [subdomain, resource.id]
-      );
-      if (collision) throw new AppError('This subdomain is already in use', HTTP_STATUS.CONFLICT);
-    }
-
-    const existing = await get('SELECT * FROM resource_publications WHERE resource_id = ?', [resource.id]);
-    let result;
-    if (existing && existing.protocol === protocol) {
-      result = await updatePublication(config, existing, {
-        name: `${resource.name} (${resource.containerId})`,
-        ip: resource.primaryIp,
-        protocol,
-        subdomain,
-        targetPort,
-        publicPort,
-        targetMethod
-      });
-    } else {
-      if (existing) await deletePublication(config, existing);
-      result = await createPublication(config, {
-        name: `${resource.name} (${resource.containerId})`,
-        ip: resource.primaryIp,
-        protocol,
-        subdomain,
-        targetPort,
-        publicPort,
-        targetMethod
-      });
-    }
-
-    const remoteWasCreated = !existing || existing.protocol !== protocol;
-    try {
-      await run(
-        `INSERT INTO resource_publications
-          (resource_id, pangolin_resource_id, pangolin_target_id, protocol, subdomain, public_port, target_port, target_method, public_url, status, last_error, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', '', CURRENT_TIMESTAMP)
-         ON CONFLICT(resource_id) DO UPDATE SET
-           pangolin_resource_id = excluded.pangolin_resource_id,
-           pangolin_target_id = excluded.pangolin_target_id,
-           protocol = excluded.protocol,
-           subdomain = excluded.subdomain,
-           public_port = excluded.public_port,
-           target_port = excluded.target_port,
-           target_method = excluded.target_method,
-           public_url = excluded.public_url,
-           status = 'active',
-           last_error = '',
-           updated_at = CURRENT_TIMESTAMP`,
-        [resource.id, result.pangolinResourceId, result.pangolinTargetId, result.protocol, result.subdomain || null, result.publicPort, result.targetPort, result.targetMethod || null, result.publicUrl]
-      );
-      await run('UPDATE resources SET web_url = ?, public_url = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [result.publicUrl, result.publicUrl, resource.id]);
-    } catch (databaseError) {
-      if (remoteWasCreated) {
-        await deletePublication(config, {
-          pangolin_resource_id: result.pangolinResourceId,
-          pangolin_target_id: result.pangolinTargetId
-        }).catch(() => {});
-      }
-      throw databaseError;
-    }
-    await logAudit(req, existing ? 'resource.publication.update' : 'resource.publication.create', `resource:${resource.id}`, result.publicUrl);
-    res.json({ message: 'Public access saved', publication: result });
+    const input = normalizePublicationInput(req.body, config);
+    const existing = await get(
+      'SELECT * FROM resource_publications WHERE resource_id = ? ORDER BY created_at ASC, id ASC LIMIT 1',
+      [resource.id]
+    );
+    const publication = existing && existing.protocol === input.protocol
+      ? await updateResourcePublication(req, resource, config, existing, input)
+      : await createResourcePublication(req, resource, config, input);
+    res.json({ message: 'Public access saved', publication });
   } catch (err) {
-    try {
-      await run(
-        `UPDATE resource_publications SET status = 'error', last_error = ?, updated_at = CURRENT_TIMESTAMP WHERE resource_id = ?`,
-        [String(err.message || 'Publishing failed').slice(0, 1000), req.params.id]
-      );
-    } catch (_) {}
     next(err);
   }
 });
 
 router.delete('/resources/:id/publication', async (req, res, next) => {
   try {
-    const resource = await get('SELECT id, name, user_id FROM resources WHERE id = ? AND user_id = ?', [req.params.id, req.user.id]);
-    if (!resource) throw new AppError('Only the assigned user can remove publishing for this service', HTTP_STATUS.FORBIDDEN);
-    const publication = await get('SELECT * FROM resource_publications WHERE resource_id = ?', [resource.id]);
-    if (publication) {
-      const config = await getPangolinConfig();
-      await deletePublication(config, publication);
+    const resource = await getOwnedResourceWithoutIpRequirement(req.user.id, req.params.id);
+    const publications = await all('SELECT * FROM resource_publications WHERE resource_id = ?', [resource.id]);
+    for (const publication of publications) {
+      await deleteResourcePublication(req, resource, publication);
     }
-    await run('DELETE FROM resource_publications WHERE resource_id = ?', [resource.id]);
-    await run("UPDATE resources SET web_url = '', public_url = '', updated_at = CURRENT_TIMESTAMP WHERE id = ?", [resource.id]);
-    await logAudit(req, 'resource.publication.remove', `resource:${resource.id}`, resource.name || '');
     res.json({ message: 'Public access removed' });
   } catch (err) {
     next(err);
@@ -635,10 +781,12 @@ router.delete('/resources/:id', async (req, res, next) => {
       throw new AppError('Machine deletion is not permitted for this cluster token', HTTP_STATUS.FORBIDDEN);
     }
 
-    const publication = await get('SELECT * FROM resource_publications WHERE resource_id = ?', [row.id]);
-    if (publication) {
+    const publications = await all('SELECT * FROM resource_publications WHERE resource_id = ?', [row.id]);
+    if (publications.length > 0) {
       const publishingConfig = await getPangolinConfig();
-      await deletePublication(publishingConfig, publication);
+      for (const publication of publications) {
+        await deletePublication(publishingConfig, publication);
+      }
       await run('DELETE FROM resource_publications WHERE resource_id = ?', [row.id]);
     }
 
@@ -1125,8 +1273,8 @@ router.post('/provisioning/create', async (req, res, next) => {
     });
 
     await run(
-      'INSERT INTO provisioned_machines (cluster_id, vmid, ip, hostname, user_id) VALUES (?, ?, ?, ?, ?)',
-      [cluster.id, vmid, ip, cleanHostname, req.user.id]
+      'INSERT INTO provisioned_machines (cluster_id, vmid, ip, hostname, source_template, user_id) VALUES (?, ?, ?, ?, ?, ?)',
+      [cluster.id, vmid, ip, cleanHostname, template, req.user.id]
     );
 
     // Register as portal resource owned by the requesting user

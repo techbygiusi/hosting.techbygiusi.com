@@ -120,6 +120,7 @@ export const DE_EN_PHRASES = {
   "Öffentliche Seite hinterlegen": "Add public page",
   "Dienst veröffentlichen": "Publish service",
   "Öffentlichen Zugriff bearbeiten": "Edit public access",
+  "Öffentliche Zugriffe verwalten": "Manage public access",
   "Öffentlichen Zugriff entfernen": "Remove public access",
   "Anmeldung läuft...": "Signing in...",
   "Cluster hinzufügen": "Add cluster",
@@ -602,6 +603,14 @@ export const DE_EN_PHRASES = {
   "IP-Adresse": "IP address",
   "Detailbereiche": "Detail sections",
   "Template": "Template",
+  "Zugewiesene CPU-Kerne": "Assigned CPU cores",
+  "Zugewiesener Arbeitsspeicher": "Assigned memory",
+  "Betriebssystem": "Operating system",
+  "Nicht verwalteter Linux-Container": "Unmanaged Linux container",
+  "Anderes Betriebssystem": "Other operating system",
+  "Linux-2.4-Kernel": "Linux 2.4 kernel",
+  "Microsoft Windows 10 / Server 2016 oder neuer": "Microsoft Windows 10 / Server 2016 or later",
+  "Microsoft Windows 11 / Server 2022 oder neuer": "Microsoft Windows 11 / Server 2022 or later",
   "Hostname": "Hostname",
   "Proxmox Console": "Proxmox Console",
   "Administrator": "Administrator",
@@ -643,7 +652,14 @@ export const DE_EN_PHRASES = {
 };
 const EN_DE_PHRASES = {
   ...Object.fromEntries(Object.entries(DE_EN_PHRASES).map(([de, en]) => [en, de])),
-  'Name, URL, and API token are required': 'Name, URL und API-Token sind erforderlich.'
+  'Name, URL, and API token are required': 'Name, URL und API-Token sind erforderlich.',
+  'Public access added': 'Öffentlicher Zugriff wurde hinzugefügt',
+  'Public access saved': 'Öffentlicher Zugriff wurde gespeichert',
+  'Public access removed': 'Öffentlicher Zugriff wurde entfernt',
+  'Publication not found': 'Veröffentlichung wurde nicht gefunden',
+  'The protocol of an existing publication cannot be changed': 'Das Protokoll einer bestehenden Veröffentlichung kann nicht geändert werden',
+  'This TCP public port is already in use': 'Dieser öffentliche TCP-Port wird bereits verwendet',
+  'This UDP public port is already in use': 'Dieser öffentliche UDP-Port wird bereits verwendet'
 };
 const originalText = new WeakMap();
 const lastAppliedText = new WeakMap();

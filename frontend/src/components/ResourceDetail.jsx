@@ -116,7 +116,7 @@ function OverviewTab({ resource, onChanged, onOpenConsole, onClose, onManagePubl
       )}
       {resource.canManagePublicPage && onManagePublicPage && (
         <button type="button" className="btn-secondary full-button" onClick={onManagePublicPage}>
-          {translatePortalText(publicUrl && !resource.canPublish ? 'Öffentlichen Zugriff entfernen' : publicUrl ? 'Öffentlichen Zugriff bearbeiten' : 'Dienst veröffentlichen', readStoredLanguage())}
+          {translatePortalText('Öffentliche Zugriffe verwalten', readStoredLanguage())}{Number(resource.publicationCount || 0) > 0 ? ` (${resource.publicationCount})` : ''}
         </button>
       )}
       <div className="resource-meta">
@@ -124,6 +124,10 @@ function OverviewTab({ resource, onChanged, onOpenConsole, onClose, onManagePubl
         <span>Cluster</span><span>{resource.clusterName || 'Unbekannt'}</span>
         <span>Node</span><span>{resource.node || 'Unbekannt'}</span>
         <span>Typ</span><span>{renderType(resource.type)}</span>
+        <span>Zugewiesene CPU-Kerne</span><span>{Number(resource.maxcpu || 0) > 0 ? Number(resource.maxcpu) : 'Nicht bekannt'}</span>
+        <span>Zugewiesener Arbeitsspeicher</span><span>{Number(resource.maxmem || 0) > 0 ? formatBytes(resource.maxmem) : 'Nicht bekannt'}</span>
+        <span>Betriebssystem</span><span>{resource.operatingSystem || 'Nicht bekannt'}</span>
+        {resource.sourceTemplate && (<><span>Template</span><span title={resource.sourceTemplate}>{resource.sourceTemplateName || resource.sourceTemplate}</span></>)}
         <span>ID</span><span>{resource.containerId || 'Unbekannt'}</span>
         <span>IP-Adresse</span><span>{primaryIp || 'Nicht bekannt'}</span>
         <span>Status</span><span>{renderStatus(resource.status)}</span>
