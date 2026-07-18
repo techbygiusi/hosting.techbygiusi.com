@@ -107,6 +107,7 @@ const MESSAGE_TRANSLATIONS = {
   'Power management is not permitted for this cluster token': 'Der API-Token dieses Clusters erlaubt keine Power-Aktionen.',
   'Console access is not permitted for this cluster token': 'Der API-Token dieses Clusters erlaubt keinen Konsolen-Zugriff.',
   'Only the assigned user can manage the service IP': 'Nur der direkt zugewiesene Benutzer kann die Dienst-IP bearbeiten.',
+  'Manual service IPs are only available for administrator-assigned QEMU VMs': 'Manuelle Dienst-IPs sind nur für vom Administrator zugewiesene QEMU-VMs verfügbar.',
   'The service IP must be a valid IPv4 address': 'Die Dienst-IP muss eine gültige IPv4-Adresse sein.',
   'The SSH port must be between 1 and 65535': 'Der SSH-Port muss zwischen 1 und 65535 liegen.',
   'Add SSH credentials with a username and password in the Credentials tab before opening the IP console': 'Hinterlege vor dem Öffnen der IP-Konsole im Tab Zugangsdaten einen SSH-Eintrag mit Benutzername und Passwort.',

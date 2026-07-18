@@ -6,7 +6,17 @@ The frontend is built with React and the backend with Express + SQLite. Proxmox 
 
 ## Version
 
-Current version: **v3.1.62**
+Current version: **v3.1.63**
+
+## What's new in v3.1.63
+
+- Restricted manual service IPs to administrator-assigned QEMU VMs that already exist as visible portal services.
+- The manual IPv4 and SSH-port fields are no longer shown while creating an assignment; they become available to the administrator after assignment and to the directly assigned user in service details.
+- LXC containers never expose the manual-IP workflow. Their addresses continue to come from the Proxmox API or from the self-service reservation stored by the portal.
+- Self-service creation remains LXC-only and still allocates the next free IPv4 address from the administrator-defined pool without any change to the provisioning logic.
+- Stored the Proxmox resource type on portal assignments and added backend checks so LXC or self-service resources cannot enable the SSH-IP fallback through direct API requests.
+- Kept the fully localized manual website fallback for Pangolin-disabled clusters and the compact, overflow-safe service-card action typography in both German and English.
+
 
 ## What's new in v3.1.62
 
@@ -393,6 +403,16 @@ docker image prune -f
 The database migrates itself on startup. Keep the backend data volume before updating.
 
 ## Changelog
+
+### v3.1.63 - 2026-07-18
+
+**Commit:** `fix: restrict manual service IPs to assigned QEMU VMs`
+
+- Limit manual guest IPv4 and SSH settings to administrator-assigned QEMU VMs after the portal assignment exists.
+- Hide the manual-IP controls for LXC containers and during initial service assignment.
+- Enforce the same restriction in administrator and user APIs and remember the Proxmox resource type in the resource record.
+- Keep LXC IP discovery and self-service next-free-address allocation unchanged.
+- Preserve complete German and English localization for the service-IP and Pangolin-disabled website fallback workflows.
 
 ### v3.1.62 - 2026-07-18
 

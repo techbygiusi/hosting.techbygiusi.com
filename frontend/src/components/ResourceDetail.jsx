@@ -204,7 +204,7 @@ function ServiceIpControl({ resource, onChanged }) {
       <div className="service-ip-heading">
         <div>
           <h3>{text('Dienst-IP und SSH-Konsole')}</h3>
-          <p>{text('Für VMs ohne erkannte Gast-IP kann hier eine feste IPv4-Adresse hinterlegt werden.')}</p>
+          <p>{text('Nur bei einer vom Administrator zugewiesenen QEMU-VM ohne erkannte Gast-IP kann hier eine feste IPv4-Adresse hinterlegt werden.')}</p>
         </div>
         {resource.consoleMode === 'ssh' && <span className="credential-badge">SSH</span>}
       </div>

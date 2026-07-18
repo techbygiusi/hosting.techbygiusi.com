@@ -69,16 +69,22 @@ function normalizeResourceRow(row, liveResource = null, error = null, diskInfo =
   const provisionedIp = stripCidr(row.provisioned_ip || '');
   const livePrimaryIp = ips.find(item => item.ipv4)?.ipv4 || '';
   const detectedIp = provisionedIp || livePrimaryIp;
-  const primaryIp = isUsableIpv4(manualIp) ? manualIp : detectedIp;
   const isSelfService = !!row.provisioned_id && String(row.provisioned_user_id || '') === String(row.user_id || '');
+  const resourceType = String(liveResource?.type || row.resource_type || row.container_type || 'unknown').toLowerCase();
+  // Manual service IPs are intentionally limited to administrator-assigned
+  // QEMU VMs. LXC addresses remain API/provisioning managed and self-service
+  // containers continue using their automatically allocated pool address.
+  const canConfigureManualIp = !row.provisioned_id && resourceType === 'qemu';
+  const effectiveManualIp = canConfigureManualIp && isUsableIpv4(manualIp) ? manualIp : '';
+  const primaryIp = effectiveManualIp || detectedIp;
   const sourceTemplate = String(row.provisioned_template || systemInfo?.sourceTemplate || '').trim();
   const operatingSystem = String(systemInfo?.operatingSystem || inferOperatingSystemFromTemplate(sourceTemplate) || '').trim();
 
   if (provisionedIp && !ips.some(item => item.ipv4 === provisionedIp)) {
     ips.unshift({ interface: 'reserved', ipv4: provisionedIp, ipv6: '' });
   }
-  if (isUsableIpv4(manualIp) && !ips.some(item => item.ipv4 === manualIp)) {
-    ips.unshift({ interface: 'manual', ipv4: manualIp, ipv6: '' });
+  if (effectiveManualIp && !ips.some(item => item.ipv4 === effectiveManualIp)) {
+    ips.unshift({ interface: 'manual', ipv4: effectiveManualIp, ipv6: '' });
   }
 
   return {
@@ -86,7 +92,7 @@ function normalizeResourceRow(row, liveResource = null, error = null, diskInfo =
     name: row.name || liveName || `Ressource ${row.container_id}`,
     containerId: String(row.container_id),
     vmid: liveResource?.vmid || row.container_id,
-    type: liveResource?.type || row.container_type || 'unbekannt',
+    type: resourceType,
     status: liveResource?.status || 'unknown',
     node: liveResource?.node || row.node || '',
     cpu: Number(liveResource?.cpu || 0),
@@ -101,7 +107,8 @@ function normalizeResourceRow(row, liveResource = null, error = null, diskInfo =
     ips,
     primaryIp,
     detectedIp,
-    manualIp: isUsableIpv4(manualIp) ? manualIp : '',
+    manualIp: effectiveManualIp,
+    canConfigureManualIp,
     sshPort: Number(row.ssh_port || 22),
     clusterId: row.cluster_id,
     clusterName: row.cluster_name || '',

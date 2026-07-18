@@ -1199,7 +1199,7 @@ router.get('/resources', async (req, res, next) => {
 
 router.post('/resources', async (req, res, next) => {
   try {
-    const { name, containerId, clusterId, userId, groupId, adminUrl, manualIp, sshPort } = req.body;
+    const { name, containerId, clusterId, userId, groupId, adminUrl } = req.body;
 
     if (!containerId || !clusterId || !userId) {
       throw new AppError('Resource, cluster, and user are required', HTTP_STATUS.BAD_REQUEST);
@@ -1223,26 +1223,32 @@ router.post('/resources', async (req, res, next) => {
     }
 
     let resourceName = String(name || '').trim();
+    let selectedResource = null;
     try {
       const containers = await getClusterResources(cluster.url, decrypt(cluster.api_token));
-      const selected = containers.find(item => String(item.vmid) === String(containerId));
-      if (!selected) {
+      selectedResource = containers.find(item => String(item.vmid) === String(containerId));
+      if (!selectedResource) {
         throw new AppError('Selected Proxmox resource was not found', HTTP_STATUS.BAD_REQUEST);
       }
-      if (!resourceName) resourceName = selected.name || `Ressource ${containerId}`;
+      if (!resourceName) resourceName = selectedResource.name || `Ressource ${containerId}`;
     } catch (err) {
       if (err instanceof AppError) throw err;
       if (!resourceName) resourceName = `Ressource ${containerId}`;
     }
 
+    const resourceType = String(selectedResource?.type || '').toLowerCase();
+
     const cleanPublicUrl = '';
     const cleanAdminUrl = validateWebUrl(adminUrl, 'Admin link');
-    const cleanManualIp = normalizeManualIpv4(manualIp);
-    const cleanSshPort = normalizeSshPort(sshPort);
+    // A manual service IP is deliberately not accepted while the portal
+    // assignment is being created. It becomes available only after an
+    // administrator-assigned QEMU VM exists as a visible user service.
+    const cleanManualIp = '';
+    const cleanSshPort = 22;
 
     const result = await run(
-      'INSERT INTO resources (name, container_id, cluster_id, user_id, group_id, web_url, public_url, admin_url, manual_ip, ssh_port) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [resourceName, String(containerId), clusterId, userId, cleanGroupId, cleanPublicUrl, cleanPublicUrl, cleanAdminUrl, cleanManualIp || null, cleanSshPort]
+      'INSERT INTO resources (name, container_id, cluster_id, user_id, group_id, web_url, public_url, admin_url, manual_ip, ssh_port, resource_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [resourceName, String(containerId), clusterId, userId, cleanGroupId, cleanPublicUrl, cleanPublicUrl, cleanAdminUrl, cleanManualIp || null, cleanSshPort, resourceType || null]
     );
 
     await logAudit(req, 'resource.create', `resource:${result.lastID}`, resourceName);
@@ -1291,14 +1297,36 @@ router.put('/resources/:id', async (req, res, next) => {
     let nextName = String(name || resource.name || '').trim();
     if (!nextName) nextName = `Ressource ${nextContainerId}`;
 
+    let resourceType = String(resource.resource_type || '').toLowerCase();
+    try {
+      const containers = await getClusterResources(cluster.url, decrypt(cluster.api_token));
+      const selectedResource = containers.find(item => String(item.vmid) === nextContainerId);
+      if (!selectedResource) {
+        throw new AppError('Selected Proxmox resource was not found', HTTP_STATUS.BAD_REQUEST);
+      }
+      resourceType = String(selectedResource.type || resourceType).toLowerCase();
+      if (!name && selectedResource.name) nextName = selectedResource.name;
+    } catch (err) {
+      if (err instanceof AppError) throw err;
+    }
+
+    const suppliedManualIp = manualIp !== undefined ? normalizeManualIpv4(manualIp) : '';
+    if (suppliedManualIp && resourceType !== 'qemu') {
+      throw new AppError('Manual service IPs are only available for administrator-assigned QEMU VMs', HTTP_STATUS.BAD_REQUEST);
+    }
+
     const cleanPublicUrl = resource.public_url || resource.web_url || '';
     const cleanAdminUrl = validateWebUrl(adminUrl ?? resource.admin_url, 'Admin link');
-    const cleanManualIp = normalizeManualIpv4(manualIp ?? resource.manual_ip);
-    const cleanSshPort = normalizeSshPort(sshPort ?? resource.ssh_port);
+    const cleanManualIp = resourceType === 'qemu'
+      ? normalizeManualIpv4(manualIp !== undefined ? manualIp : resource.manual_ip)
+      : '';
+    const cleanSshPort = resourceType === 'qemu'
+      ? normalizeSshPort(sshPort !== undefined ? sshPort : resource.ssh_port)
+      : 22;
 
     await run(
-      'UPDATE resources SET name = ?, container_id = ?, cluster_id = ?, user_id = ?, group_id = ?, web_url = ?, public_url = ?, admin_url = ?, manual_ip = ?, ssh_port = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-      [nextName, nextContainerId, nextClusterId, nextUserId, nextGroupId, cleanPublicUrl, cleanPublicUrl, cleanAdminUrl, cleanManualIp || null, cleanSshPort, resourceId]
+      'UPDATE resources SET name = ?, container_id = ?, cluster_id = ?, user_id = ?, group_id = ?, web_url = ?, public_url = ?, admin_url = ?, manual_ip = ?, ssh_port = ?, resource_type = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+      [nextName, nextContainerId, nextClusterId, nextUserId, nextGroupId, cleanPublicUrl, cleanPublicUrl, cleanAdminUrl, cleanManualIp || null, cleanSshPort, resourceType || null, resourceId]
     );
 
     await logAudit(req, 'resource.update', `resource:${resourceId}`, nextName);

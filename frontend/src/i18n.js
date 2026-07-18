@@ -651,6 +651,8 @@ export const DE_EN_PHRASES = {
   "Diese Zugangsdaten gehören dem Benutzer und können nicht gelöscht werden.": "These credentials belong to the user and cannot be deleted.",
   "Dienst-IP und SSH-Konsole": "Service IP and SSH console",
   "Für VMs ohne erkannte Gast-IP kann hier eine feste IPv4-Adresse hinterlegt werden.": "A fixed IPv4 address can be entered here for VMs whose guest IP cannot be detected.",
+  "Nur bei einer vom Administrator zugewiesenen QEMU-VM ohne erkannte Gast-IP kann hier eine feste IPv4-Adresse hinterlegt werden.": "A fixed IPv4 address can only be entered for an administrator-assigned QEMU VM whose guest IP cannot be detected.",
+  "Nur für vom Administrator zugewiesene QEMU-VMs ohne erkannte Gast-IP. LXC-Adressen werden automatisch über Proxmox ausgelesen.": "Only for administrator-assigned QEMU VMs whose guest IP cannot be detected. LXC addresses are read automatically from Proxmox.",
   "Manuelle IPv4-Adresse": "Manual IPv4 address",
   "SSH-Port": "SSH port",
   "Automatisch erkannte IP": "Automatically detected IP",

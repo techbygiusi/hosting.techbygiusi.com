@@ -70,7 +70,7 @@ const emptyMaintenance = () => ({
   notifyUsers: false
 });
 const emptyCluster = { name: '', url: '', apiToken: '', allowProvisioning: false, allowPublishing: true, locationLabel: '', locationLat: '', locationLon: '' };
-const emptyResource = { name: '', containerId: '', clusterId: '', userId: '', groupId: '', adminUrl: '', manualIp: '', sshPort: '22' };
+const emptyResource = { name: '', containerId: '', clusterId: '', userId: '', groupId: '', adminUrl: '', manualIp: '', sshPort: '22', resourceType: '' };
 const emptyGroup = { name: '', memberIds: [] };
 const emptyAdminCred = { label: '', username: '', secret: '', url: '', notes: '', clusterId: '', userId: '' };
 const emptySmtp = { smtpHost: '', smtpPort: '587', smtpUser: '', smtpPassword: '' };
@@ -873,7 +873,8 @@ export default function AdminDashboard() {
       groupId: item.groupId || '',
       adminUrl: item.adminUrl || '',
       manualIp: item.manualIp || '',
-      sshPort: String(item.sshPort || 22)
+      sshPort: String(item.sshPort || 22),
+      resourceType: String(item.type || '').toLowerCase()
     });
     setClusterContainers([]);
     setShowResourceModal(true);
@@ -909,10 +910,14 @@ export default function AdminDashboard() {
 
   const handleResourceContainerChange = (containerId) => {
     const selected = clusterContainers.find(item => String(item.vmid) === String(containerId));
+    const resourceType = String(selected?.type || '').toLowerCase();
     setNewResource(prev => ({
       ...prev,
       containerId,
-      name: prev.name || selected?.name || ''
+      name: prev.name || selected?.name || '',
+      resourceType,
+      manualIp: resourceType === 'qemu' ? prev.manualIp : '',
+      sshPort: resourceType === 'qemu' ? prev.sshPort : '22'
     }));
   };
 
@@ -1644,15 +1649,19 @@ export default function AdminDashboard() {
       {showResourceModal && (
         <Modal title={editResourceId ? 'Dienst bearbeiten' : 'Dienst anlegen'} onClose={closeResourceModal}>
           <form className="form-stack" onSubmit={handleSaveResource}>
-            <label className="form-group"><span>Cluster</span><select value={newResource.clusterId} onChange={e => { setNewResource(prev => ({ ...prev, clusterId: e.target.value, containerId: '', name: editResourceId ? prev.name : '' })); setClusterContainers([]); }}><option value="">Bitte auswählen</option>{clusters.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+            <label className="form-group"><span>Cluster</span><select value={newResource.clusterId} onChange={e => { setNewResource(prev => ({ ...prev, clusterId: e.target.value, containerId: '', name: editResourceId ? prev.name : '', resourceType: '', manualIp: '', sshPort: '22' })); setClusterContainers([]); }}><option value="">Bitte auswählen</option>{clusters.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
             <button type="button" className="btn-secondary" onClick={handleLoadClusterContainers} disabled={actionLoading || !newResource.clusterId}>{currentClusterName ? `Dienste von ${currentClusterName} laden` : 'Dienste laden'}</button>
             <label className="form-group"><span>Container oder VM</span>{clusterContainers.length > 0 ? <select value={newResource.containerId} onChange={e => handleResourceContainerChange(e.target.value)}><option value="">Bitte auswählen</option>{clusterContainers.map(item => <option key={`${item.type}-${item.vmid}`} value={item.vmid}>{item.vmid} · {item.name || item.type} · {renderType(item.type)} · {renderStatus(item.status)}</option>)}</select> : <input type="text" value={newResource.containerId} onChange={e => setNewResource(prev => ({ ...prev, containerId: e.target.value }))} placeholder="VMID oder CTID" />}</label>
             <label className="form-group"><span>Anzeigename</span><input type="text" value={newResource.name} onChange={e => setNewResource(prev => ({ ...prev, name: e.target.value }))} placeholder="Optional" /></label>
-            <div className="service-ip-fields admin-service-ip-fields">
-              <label className="form-group"><span>Manuelle IPv4-Adresse</span><input type="text" inputMode="decimal" value={newResource.manualIp} onChange={e => setNewResource(prev => ({ ...prev, manualIp: e.target.value }))} placeholder="10.10.20.16" /></label>
-              <label className="form-group service-ip-port"><span>SSH-Port</span><input type="number" min="1" max="65535" value={newResource.sshPort} onChange={e => setNewResource(prev => ({ ...prev, sshPort: e.target.value }))} /></label>
-            </div>
-            <small className="hint-text">Für VMs ohne erkannte Gast-IP. Die Konsole verwendet bei gesetzter Adresse SSH und passende gespeicherte Zugangsdaten.</small>
+            {editResourceId && newResource.resourceType === 'qemu' && (
+              <>
+                <div className="service-ip-fields admin-service-ip-fields">
+                  <label className="form-group"><span>Manuelle IPv4-Adresse</span><input type="text" inputMode="decimal" value={newResource.manualIp} onChange={e => setNewResource(prev => ({ ...prev, manualIp: e.target.value }))} placeholder="10.10.20.16" /></label>
+                  <label className="form-group service-ip-port"><span>SSH-Port</span><input type="number" min="1" max="65535" value={newResource.sshPort} onChange={e => setNewResource(prev => ({ ...prev, sshPort: e.target.value }))} /></label>
+                </div>
+                <small className="hint-text">Nur für vom Administrator zugewiesene QEMU-VMs ohne erkannte Gast-IP. LXC-Adressen werden automatisch über Proxmox ausgelesen.</small>
+              </>
+            )}
             <label className="form-group"><span>Benutzer</span><select value={newResource.userId} onChange={e => setNewResource(prev => ({ ...prev, userId: e.target.value }))}><option value="">Bitte auswählen</option>{users.map(item => <option key={item.id} value={item.id}>{item.name} · {item.email}</option>)}</select></label>
             <label className="form-group"><span>Gruppe (geteilter Zugriff)</span><select value={newResource.groupId} onChange={e => setNewResource(prev => ({ ...prev, groupId: e.target.value }))}><option value="">Keine Gruppe</option>{groups.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
             <div className="hint-text publishing-admin-hint">Öffentliche Seiten werden vom zugewiesenen Benutzer über Pangolin veröffentlicht. Ziel-IP und erlaubte Ports werden serverseitig geprüft.</div>

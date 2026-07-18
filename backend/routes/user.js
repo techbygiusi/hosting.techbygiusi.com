@@ -455,7 +455,7 @@ router.get('/resources', async (req, res, next) => {
           webUrl: effectivePublicUrl,
           publicAccessMode: pangolinAvailable ? 'pangolin' : 'manual',
           canManageManualPublicPage,
-          canManageServiceIp: ownsResource,
+          canManageServiceIp: ownsResource && !!resource.canConfigureManualIp,
           canManagePublicPage: ownsResource && (canPublish || canManageManualPublicPage || Number(resource.publicationCount || 0) > 0),
           canPublish,
           publishingClusterEnabled: clusterPublishingEnabled,
@@ -463,10 +463,10 @@ router.get('/resources', async (req, res, next) => {
           // Power remains cluster-token based. Console access uses VM.Console
           // for the traditional Proxmox serial console, while a manually configured
           // service IP enables the backend SSH relay independently of that permission.
-          consoleMode: resource.manualIp ? 'ssh' : 'proxmox',
+          consoleMode: resource.canConfigureManualIp && resource.manualIp ? 'ssh' : 'proxmox',
           capabilities: {
             ...(capsByCluster[resource.clusterId] || { readOnly: true }),
-            canConsole: !!resource.manualIp || !!capsByCluster[resource.clusterId]?.canConsole
+            canConsole: !!(resource.canConfigureManualIp && resource.manualIp) || !!capsByCluster[resource.clusterId]?.canConsole
           }
         };
       })
@@ -499,13 +499,13 @@ router.get('/resources/:id', async (req, res, next) => {
         webUrl: effectivePublicUrl,
         publicAccessMode: pangolinAvailable ? 'pangolin' : 'manual',
         canManageManualPublicPage,
-        canManageServiceIp: ownsResource,
+        canManageServiceIp: ownsResource && !!resources[0].canConfigureManualIp,
         canManagePublicPage: ownsResource && (canPublish || canManageManualPublicPage || Number(resources[0].publicationCount || 0) > 0),
         canPublish,
         publishingClusterEnabled: clusterPublishingEnabled,
         canDelete: !!resources[0].canDelete && ownsResource && !!caps.canProvision,
-        consoleMode: resources[0].manualIp ? 'ssh' : 'proxmox',
-        capabilities: { ...caps, canConsole: !!resources[0].manualIp || !!caps.canConsole }
+        consoleMode: resources[0].canConfigureManualIp && resources[0].manualIp ? 'ssh' : 'proxmox',
+        capabilities: { ...caps, canConsole: !!(resources[0].canConfigureManualIp && resources[0].manualIp) || !!caps.canConsole }
       }
     });
   } catch (err) {
@@ -985,24 +985,26 @@ router.get('/resources/:id/tasks/:upid/log', async (req, res, next) => {
 /* ------------------------------------------------------ SERVICE IP ---- */
 router.put('/resources/:id/service-ip', async (req, res, next) => {
   try {
-    const rows = await getResourceRowsForUser(req.user.id, req.params.id);
-    if (rows.length === 0) throw new AppError('Resource not accessible', HTTP_STATUS.FORBIDDEN);
-    if (String(rows[0].user_id) !== String(req.user.id)) {
+    const target = await getAccessibleResource(req.user.id, req.params.id);
+    if (String(target.row.user_id) !== String(req.user.id)) {
       throw new AppError('Only the assigned user can manage the service IP', HTTP_STATUS.FORBIDDEN);
+    }
+    if (target.row.provisioned_id || String(target.type || '').toLowerCase() !== 'qemu') {
+      throw new AppError('Manual service IPs are only available for administrator-assigned QEMU VMs', HTTP_STATUS.BAD_REQUEST);
     }
 
     const manualIp = normalizeManualIpv4(req.body?.ip);
     const sshPort = normalizeSshPort(req.body?.sshPort);
     await run(
-      'UPDATE resources SET manual_ip = ?, ssh_port = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-      [manualIp || null, sshPort, req.params.id]
+      'UPDATE resources SET manual_ip = ?, ssh_port = ?, resource_type = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+      [manualIp || null, sshPort, 'qemu', req.params.id]
     );
 
     await logAudit(
       req,
       manualIp ? 'resource.service_ip.update' : 'resource.service_ip.clear',
       `resource:${req.params.id}`,
-      manualIp ? `${manualIp}:${sshPort}` : rows[0].name || `VMID ${rows[0].container_id}`
+      manualIp ? `${manualIp}:${sshPort}` : target.row.name || `VMID ${target.row.container_id}`
     );
 
     res.json({ manualIp, sshPort, message: manualIp ? 'Service IP saved' : 'Service IP removed' });
@@ -1039,7 +1041,8 @@ router.post('/resources/:id/console', async (req, res, next) => {
     const target = await getAccessibleResource(req.user.id, req.params.id);
     const languageRow = await get('SELECT preferred_language FROM users WHERE id = ?', [req.user.id]);
     const language = languageRow?.preferred_language === 'de' ? 'de' : 'en';
-    const manualIp = normalizeManualIpv4(target.row.manual_ip || '');
+    const manualIpEligible = !target.row.provisioned_id && String(target.type || '').toLowerCase() === 'qemu';
+    const manualIp = manualIpEligible ? normalizeManualIpv4(target.row.manual_ip || '') : '';
 
     if (manualIp) {
       const sshCredential = await getSshConsoleCredential(req.params.id);
@@ -1478,8 +1481,8 @@ router.post('/provisioning/create', async (req, res, next) => {
 
     // Register as portal resource owned by the requesting user
     const resourceResult = await run(
-      'INSERT INTO resources (name, container_id, cluster_id, user_id, web_url, public_url, admin_url) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [cleanHostname, String(vmid), cluster.id, req.user.id, '', '', '']
+      'INSERT INTO resources (name, container_id, cluster_id, user_id, web_url, public_url, admin_url, resource_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      [cleanHostname, String(vmid), cluster.id, req.user.id, '', '', '', 'lxc']
     );
 
     // Persist the exact root password used for provisioning on the newly

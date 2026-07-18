@@ -125,6 +125,9 @@ async function initDatabase() {
       // address cannot be discovered through the Proxmox guest agent.
       database.run(`ALTER TABLE resources ADD COLUMN manual_ip TEXT`, () => {});
       database.run(`ALTER TABLE resources ADD COLUMN ssh_port INTEGER DEFAULT 22`, () => {});
+      // v3.1.63: remember the Proxmox resource type so manual IP eligibility
+      // remains restricted to administrator-assigned QEMU VMs.
+      database.run(`ALTER TABLE resources ADD COLUMN resource_type TEXT`, () => {});
 
       // v2.0: shared access via groups (owner stays user_id, group_id grants shared access)
       database.run(`ALTER TABLE resources ADD COLUMN group_id INTEGER REFERENCES customer_groups(id) ON DELETE SET NULL`, () => {});
