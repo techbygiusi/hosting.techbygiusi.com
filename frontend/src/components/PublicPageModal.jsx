@@ -11,7 +11,7 @@ const TEXT = {
     noIp: 'This service has no reachable IPv4 address yet.', protocol: 'Protocol', subdomain: 'Subdomain',
     targetPort: 'Service port', publicPort: 'Public port', backendProtocol: 'Backend protocol',
     backendProtocolHint: 'Protocol Pangolin uses to connect to the service.',
-    preview: 'Public address', autoIp: 'Target IP is selected automatically from your own service:',
+    autoIp: 'Target IP is selected automatically from your own service:',
     ranges: 'Allowed ports', add: 'Add access', update: 'Save changes', saving: 'Saving...', close: 'Close',
     cancelEdit: 'Cancel editing', edit: 'Edit', remove: 'Remove', removing: 'Removing...', open: 'Open',
     removeConfirm: (address) => `Remove public access ${address || ''}?`,
@@ -19,7 +19,7 @@ const TEXT = {
     subdomainHint: 'Lowercase letters, numbers and hyphens only.', subdomainRequired: 'Enter a subdomain.',
     security: 'You cannot enter another IP address. The portal always publishes this service only.',
     disabled: 'Disabled by administrator', existingTitle: 'Published access', noPublications: 'No public access has been configured yet.',
-    addTitle: 'Add public access', editTitle: 'Edit public access', target: 'Target', publicAddress: 'Public address',
+    addTitle: 'Add public access', editTitle: 'Edit public access', target: 'Target',
     saved: 'Public access was saved.', removed: 'Public access was removed.',
     multipleHint: 'You can add several HTTP, TCP and UDP publications for this service and use them in parallel.',
     protocolLocked: 'The protocol stays fixed while editing. Create another publication to use a different protocol.'
@@ -31,7 +31,7 @@ const TEXT = {
     noIp: 'Für diesen Dienst ist noch keine erreichbare IPv4-Adresse bekannt.', protocol: 'Protokoll', subdomain: 'Subdomain',
     targetPort: 'Dienst-Port', publicPort: 'Öffentlicher Port', backendProtocol: 'Backend-Protokoll',
     backendProtocolHint: 'Protokoll, mit dem Pangolin den Dienst erreicht.',
-    preview: 'Öffentliche Adresse', autoIp: 'Die Ziel-IP wird automatisch von deinem eigenen Dienst übernommen:',
+    autoIp: 'Die Ziel-IP wird automatisch von deinem eigenen Dienst übernommen:',
     ranges: 'Erlaubte Ports', add: 'Zugriff hinzufügen', update: 'Änderungen speichern', saving: 'Speichert...', close: 'Schließen',
     cancelEdit: 'Bearbeitung abbrechen', edit: 'Bearbeiten', remove: 'Entfernen', removing: 'Entfernt...', open: 'Öffnen',
     removeConfirm: (address) => `Öffentlichen Zugriff ${address || ''} entfernen?`,
@@ -39,7 +39,7 @@ const TEXT = {
     subdomainHint: 'Nur Kleinbuchstaben, Zahlen und Bindestriche.', subdomainRequired: 'Bitte gib eine Subdomain ein.',
     security: 'Du kannst keine andere IP-Adresse eintragen. Das Portal veröffentlicht immer nur diesen Dienst.',
     disabled: 'Vom Administrator deaktiviert', existingTitle: 'Veröffentlichte Zugriffe', noPublications: 'Es wurde noch kein öffentlicher Zugriff eingerichtet.',
-    addTitle: 'Öffentlichen Zugriff hinzufügen', editTitle: 'Öffentlichen Zugriff bearbeiten', target: 'Ziel', publicAddress: 'Öffentliche Adresse',
+    addTitle: 'Öffentlichen Zugriff hinzufügen', editTitle: 'Öffentlichen Zugriff bearbeiten', target: 'Ziel',
     saved: 'Der öffentliche Zugriff wurde gespeichert.', removed: 'Der öffentliche Zugriff wurde entfernt.',
     multipleHint: 'Du kannst für diesen Dienst mehrere HTTP-, TCP- und UDP-Freigaben anlegen und parallel verwenden.',
     protocolLocked: 'Das Protokoll bleibt beim Bearbeiten unverändert. Lege für ein anderes Protokoll eine weitere Freigabe an.'
@@ -103,12 +103,6 @@ export default function PublicPageModal({ resource, onClose, onSaved, language: 
     () => getPortPolicyBounds(options?.protocols?.[protocol]?.allowedPorts),
     [options, protocol]
   );
-
-  const preview = subdomain && options?.baseDomain
-    ? (protocol === 'http'
-      ? `https://${subdomain}.${options.baseDomain}`
-      : `${protocol}://${subdomain}.${options.baseDomain}:${publicPort}`)
-    : '';
 
   const resetForm = (currentPublications = publications, preferredProtocol = null) => {
     const nextProtocol = preferredProtocol && options?.protocols?.[preferredProtocol]?.enabled
@@ -342,13 +336,6 @@ export default function PublicPageModal({ resource, onClose, onSaved, language: 
                   />
                   <small>{text.ranges}: {options?.protocols?.[protocol]?.allowedPorts || '—'}</small>
                 </label>
-              </div>
-            )}
-
-            {preview && (
-              <div className="publishing-preview">
-                <span>{text.preview}</span>
-                <strong>{preview}</strong>
               </div>
             )}
 

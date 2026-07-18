@@ -356,25 +356,17 @@ async function discoverPangolin(input = {}) {
 async function testPangolinConnection(input = {}) {
   const stored = await getPangolinConfig();
   const config = mergeInputWithStored(input, stored);
-  const result = await discoverPangolin(input);
-  if (config.siteId && !result.sites.some((site) => String(site.id) === String(config.siteId))) {
-    throw new AppError('The configured Pangolin site was not found', HTTP_STATUS.BAD_REQUEST);
-  }
-  const selectedDomain = config.domainId
-    ? result.domains.find((domain) => String(domain.id) === String(config.domainId))
-    : null;
-  if (config.domainId && !selectedDomain) {
-    throw new AppError('The configured Pangolin domain was not found', HTTP_STATUS.BAD_REQUEST);
-  }
-  if (selectedDomain && config.baseDomain && normalizeBaseDomain(selectedDomain.name) !== config.baseDomain) {
-    throw new AppError('The configured base domain does not match the selected Pangolin domain', HTTP_STATUS.BAD_REQUEST);
-  }
+  validateConfig(config);
+
+  // Use the Integration API root endpoint for the connection test. This uses
+  // the same base URL and Bearer authentication as publication creation, but
+  // does not require extra organization catalogue permissions.
+  await request(config, 'get', '/');
+
   return {
     success: true,
     message: 'Pangolin connection successful',
-    organization: result.organization,
-    domains: result.domains,
-    sites: result.sites
+    apiUrl: config.apiUrl
   };
 }
 

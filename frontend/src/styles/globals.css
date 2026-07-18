@@ -5541,8 +5541,7 @@ body.theme-dark .cluster-map-canvas .leaflet-container {
   gap: 18px;
 }
 
-.publishing-security-note,
-.publishing-preview {
+.publishing-security-note {
   display: grid;
   gap: 7px;
   padding: 14px 16px;
@@ -5560,16 +5559,12 @@ body.theme-dark .cluster-map-canvas .leaflet-container {
   font-size: 0.95rem;
 }
 
-.publishing-security-note small,
-.publishing-preview span {
+.publishing-security-note small {
   color: var(--color-text-light);
   margin: 0;
   line-height: 1.45;
 }
 
-.publishing-preview strong {
-  overflow-wrap: anywhere;
-}
 
 .publishing-protocol-fieldset {
   min-width: 0;
@@ -5977,8 +5972,7 @@ body.theme-dark .cluster-map-canvas .leaflet-container {
 }
 
 .publishing-modal-card .alert,
-.publishing-modal-card .publishing-security-note,
-.publishing-modal-card .publishing-preview {
+.publishing-modal-card .publishing-security-note {
   overflow-wrap: anywhere;
 }
 
@@ -6009,8 +6003,7 @@ body.theme-dark .cluster-map-canvas .leaflet-container {
     background: var(--color-surface);
   }
 
-  .publishing-security-note,
-  .publishing-preview {
+  .publishing-security-note {
     padding: 12px;
   }
 }
@@ -6209,7 +6202,7 @@ body.theme-dark .settings-section-card {
   }
 }
 
-/* v3.1.57 - multiple parallel publications and assigned resource details */
+/* v3.1.58 - Pangolin resource naming and connection test */
 .publishing-manager-modal-card {
   width: min(860px, calc(100vw - 32px));
   height: auto;
@@ -6234,9 +6227,9 @@ body.theme-dark .settings-section-card {
   gap: 18px;
   min-height: auto;
   overflow: visible;
-  padding: 0;
+  padding: 22px;
   scrollbar-gutter: auto;
-  background: transparent;
+  background: var(--color-bg-alt);
 }
 
 .publishing-existing-section,
@@ -6379,5 +6372,35 @@ body.theme-dark .settings-section-card {
 
   .publishing-existing-card-actions > * {
     width: 100%;
+  }
+}
+
+
+/* v3.1.59 - publishing form spacing and compact resource actions */
+.publishing-manager-modal-card .publishing-manager-form {
+  padding: 22px;
+}
+
+.publishing-service-links {
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 10px;
+}
+
+.publishing-service-links > * {
+  min-width: 0;
+  max-width: 100%;
+  padding-inline: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 767px) {
+  .publishing-manager-modal-card .publishing-manager-form {
+    padding: 16px;
+  }
+
+  .publishing-service-links {
+    grid-template-columns: repeat(auto-fit, minmax(105px, 1fr));
   }
 }

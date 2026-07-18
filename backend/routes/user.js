@@ -28,6 +28,7 @@ const { enrichResources } = require('../services/resourceService');
 const { encrypt, decrypt } = require('../services/cryptoService');
 const { createConsoleSession } = require('../services/consoleService');
 const { logAudit } = require('../services/auditService');
+const { buildPangolinResourceName } = require('../utils/pangolinResourceName');
 const {
   getPangolinConfig,
   publicConfig: getPublicPangolinConfig,
@@ -564,8 +565,16 @@ async function syncResourcePrimaryPublicationUrl(resourceId) {
 }
 
 function publicationDisplayName(resource, input) {
-  const endpoint = input.protocol === 'http' ? input.subdomain : input.publicPort;
-  return `${resource.name} (${resource.containerId}) ${input.protocol.toUpperCase()} ${endpoint}`;
+  return buildPangolinResourceName({
+    userName: resource.userName,
+    userEmail: resource.userEmail,
+    userId: resource.userId,
+    containerName: resource.name,
+    containerId: resource.containerId,
+    protocol: input.protocol,
+    targetPort: input.targetPort,
+    publicPort: input.publicPort
+  });
 }
 
 async function createResourcePublication(req, resource, config, input) {

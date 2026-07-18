@@ -36,10 +36,12 @@ const USER_TRANSLATIONS = {
     loadingServices: 'Loading services...',
     noServices: 'No services',
     noServicesText: 'No services have been assigned to you yet.',
-    publicPage: 'Public page',
+    publicPage: 'Website',
+    publicPageTitle: 'Open public website',
     addPublicPage: 'Publish service',
     editPublicPage: 'Edit public access',
-    managePublicAccess: 'Manage public access',
+    managePublicAccess: 'Access',
+    managePublicAccessTitle: 'Manage public access',
     publicPageUrl: 'Public page URL',
     publicPageHelp: 'Publish this service securely through Pangolin.',
     publicPageRequired: 'Enter a public page URL.',
@@ -48,7 +50,8 @@ const USER_TRANSLATIONS = {
     publicPageRemoveFailed: 'The public page could not be removed.',
     removePublicPage: 'Remove public page',
     removePublicPageConfirm: 'Remove the public page from this service?',
-    managementPage: 'Management page',
+    managementPage: 'Admin',
+    managementPageTitle: 'Open management page',
     details: 'Show details',
     save: 'Save',
     saving: 'Saving...',
@@ -91,10 +94,12 @@ const USER_TRANSLATIONS = {
     loadingServices: 'Dienste werden geladen...',
     noServices: 'Keine Dienste',
     noServicesText: 'Dir sind noch keine Dienste zugewiesen.',
-    publicPage: 'Öffentliche Seite',
+    publicPage: 'Webseite',
+    publicPageTitle: 'Öffentliche Webseite öffnen',
     addPublicPage: 'Dienst veröffentlichen',
     editPublicPage: 'Öffentlichen Zugriff bearbeiten',
-    managePublicAccess: 'Öffentliche Zugriffe verwalten',
+    managePublicAccess: 'Freigaben',
+    managePublicAccessTitle: 'Öffentliche Zugriffe verwalten',
     publicPageUrl: 'URL der öffentlichen Seite',
     publicPageHelp: 'Veröffentliche diesen Dienst sicher über Pangolin.',
     publicPageRequired: 'Bitte eine URL für die öffentliche Seite eingeben.',
@@ -103,7 +108,8 @@ const USER_TRANSLATIONS = {
     publicPageRemoveFailed: 'Die öffentliche Seite konnte nicht entfernt werden.',
     removePublicPage: 'Öffentliche Seite entfernen',
     removePublicPageConfirm: 'Die öffentliche Seite von diesem Dienst entfernen?',
-    managementPage: 'Verwaltungsseite',
+    managementPage: 'Admin',
+    managementPageTitle: 'Verwaltungsseite öffnen',
     details: 'Details anzeigen',
     save: 'Speichern',
     saving: 'Wird gespeichert...',
@@ -420,13 +426,41 @@ function ResourceCard({ resource, onOpenDetails, onManagePublicPage, labels }) {
 
       {(publicUrl || adminUrl || resource.canManagePublicPage) ? (
         <div className="service-link-row publishing-service-links">
-          {publicUrl && <a className="btn-primary full-button" href={publicUrl} target="_blank" rel="noreferrer">{labels.publicPage}</a>}
+          {publicUrl && (
+            <a
+              className="btn-primary full-button"
+              href={publicUrl}
+              target="_blank"
+              rel="noreferrer"
+              title={labels.publicPageTitle}
+              aria-label={labels.publicPageTitle}
+            >
+              {labels.publicPage}
+            </a>
+          )}
           {resource.canManagePublicPage && (
-            <button type="button" className={publicUrl ? 'btn-secondary full-button' : 'btn-primary full-button'} onClick={onManagePublicPage}>
+            <button
+              type="button"
+              className={publicUrl ? 'btn-secondary full-button' : 'btn-primary full-button'}
+              onClick={onManagePublicPage}
+              title={labels.managePublicAccessTitle}
+              aria-label={labels.managePublicAccessTitle}
+            >
               {labels.managePublicAccess}{Number(resource.publicationCount || 0) > 0 ? ` (${resource.publicationCount})` : ''}
             </button>
           )}
-          {adminUrl && <a className="btn-secondary full-button" href={adminUrl} target="_blank" rel="noreferrer">{labels.managementPage}</a>}
+          {adminUrl && (
+            <a
+              className="btn-secondary full-button"
+              href={adminUrl}
+              target="_blank"
+              rel="noreferrer"
+              title={labels.managementPageTitle}
+              aria-label={labels.managementPageTitle}
+            >
+              {labels.managementPage}
+            </a>
+          )}
         </div>
       ) : null}
 

@@ -6,7 +6,25 @@ The frontend is built with React and the backend with Express + SQLite. Proxmox 
 
 ## Version
 
-Current version: **v3.1.57**
+Current version: **v3.1.59**
+
+## What's new in v3.1.59
+
+- Restored consistent inner padding around the complete **Add public access** form; the previous high-specificity rule unintentionally overrode the section padding with zero.
+- Removed the generated **Public address** preview from the add/edit form. Published endpoints remain visible only in the existing-publications list after Pangolin has created them.
+- Shortened service-card action captions to **Website**, **Access** and **Admin** (with equivalent German labels) so two or three actions fit without overlapping.
+- Added localized descriptive tooltips and accessible labels while keeping the visible buttons compact.
+- Improved responsive action grids so buttons wrap cleanly instead of allowing text to escape their borders.
+
+
+## What's new in v3.1.58
+
+- New Pangolin resources use the deterministic name format `UserName_ContainerName_PROTOCOL_PORT`, for example `Erik_Schmidt_test_TCP_20001`.
+- User and container names are normalized to underscore-separated Pangolin-safe values while the protocol remains uppercase.
+- The administrator connection test now probes the Pangolin Integration API root with the same URL and Bearer authentication used by real publication operations.
+- The connection test no longer depends on organization, site and domain catalogue reads; the separate **Load from Pangolin** action remains responsible for discovery.
+- Updated German and English connection-test diagnostics so an upstream test failure is no longer reported as a general portal-container problem.
+
 
 ## What's new in v3.1.57
 
@@ -348,6 +366,24 @@ docker image prune -f
 The database migrates itself on startup. Keep the backend data volume before updating.
 
 ## Changelog
+
+### v3.1.59 - 2026-07-18
+
+**Commit:** `fix: refine publishing layout and service actions`
+
+- Restore the intended inner spacing of the Pangolin add/edit publication section.
+- Remove the generated public-address preview from the form while retaining created endpoints in the publication list.
+- Use compact localized service-card actions with full accessible descriptions.
+- Make two- and three-button resource-card layouts wrap safely at narrower widths.
+
+### v3.1.58 - 2026-07-18
+
+**Commit:** `fix: align Pangolin resource names and connection testing`
+
+- Name newly created and edited Pangolin resources as `UserName_ContainerName_PROTOCOL_PORT`.
+- Normalize name components to stable underscore-separated values before sending them to Pangolin.
+- Replace the multi-request catalogue-based connection check with a direct Integration API root probe using the stored publication credentials.
+- Keep catalogue discovery separate and improve localized connection-test failure text.
 
 ### v3.1.57 - 2026-07-18
 

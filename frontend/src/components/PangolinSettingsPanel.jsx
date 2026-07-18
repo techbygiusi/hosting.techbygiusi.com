@@ -84,7 +84,7 @@ const TEXT = {
     removeConfirm: (name) => `Remove the publication for ${name}?`,
     removed: 'Publication removed.',
     removeFailed: 'Publication could not be removed.',
-    proxy502: 'The portal proxy could not reach the backend. Rebuild both portal containers or restart the frontend after the backend was recreated.'
+    proxy502: 'The Pangolin connection test did not return a usable response. Check the backend log for the exact upstream error.'
   },
   de: {
     eyebrow: 'ÖFFENTLICHER ZUGRIFF',
@@ -144,7 +144,7 @@ const TEXT = {
     removeConfirm: (name) => `Veröffentlichung für ${name} wirklich entfernen?`,
     removed: 'Veröffentlichung wurde entfernt.',
     removeFailed: 'Veröffentlichung konnte nicht entfernt werden.',
-    proxy502: 'Der Portal-Proxy konnte das Backend nicht erreichen. Erstelle beide Portal-Container neu oder starte das Frontend nach einem Backend-Neustart ebenfalls neu.'
+    proxy502: 'Der Pangolin-Verbindungstest hat keine verwertbare Antwort geliefert. Prüfe das Backend-Log für den genauen Upstream-Fehler.'
   }
 };
 
@@ -248,8 +248,7 @@ export default function PangolinSettingsPanel({ onSuccess, onError, language: la
     try {
       setBusy('test');
       setResult(null);
-      const response = await adminApi.testPangolin(connectionPayload());
-      applyDiscovery(response.data.sites || sites, response.data.domains || domains);
+      await adminApi.testPangolin(connectionPayload());
       setResult({ success: true, message: text.connectionSuccess });
     } catch (err) {
       setResult({ success: false, message: errorText(err, text.connectionFailed, text) });
