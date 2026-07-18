@@ -6,15 +6,39 @@ The frontend is built with React and the backend with Express + SQLite. Proxmox 
 
 ## Version
 
-Current version: **v3.1.44**
+Current version: **v3.1.48**
 
+
+## What's new in v3.1.48
+
+- Proxmox tasks are now limited to the current VM or container lifecycle, starting with the latest create, clone or restore operation.
+- Reusing a previously deleted VMID no longer shows tasks or logs from the old machine.
+- Direct task-log requests are validated against the current lifecycle as well, preventing access to stale logs through an old UPID.
+
+## What's new in v3.1.47
+
+- The Proxmox console now detects an existing interactive shell prompt instead of sending repeated synthetic Enter keys.
+- Existing blank rows and duplicate prompts are collapsed so one active prompt starts on the first terminal row.
+- The terminal receives focus automatically as soon as the shell prompt is ready, allowing immediate typing without an extra click.
+
+## What's new in v3.1.46
+
+- Removed the bottom fade from the publishing dialog action row.
+- Kept the sticky action buttons on a flat background matching the rest of the modal on desktop and mobile.
+
+## What's new in v3.1.45
+
+- Removed the extra Pangolin Site ID explanatory note from the administrator settings.
+- Aligned the service-port and backend-protocol controls at the top of the user publishing dialog.
+- Added matching German and English help text for the backend protocol so both columns keep a consistent responsive layout.
+- Kept the two-column desktop form and single-column mobile form visually balanced.
 
 ## What's new in v3.1.44
 
 - Fixed intermittent portal `502 Bad Gateway` responses after recreating only the backend container. Nginx now resolves the Docker backend hostname dynamically instead of retaining an obsolete container IP.
 - Reworked the user publishing dialog so its header stays visible and only the dialog content scrolls on desktop and mobile.
 - Localized all Pangolin publishing settings and status messages in German and English.
-- Renamed the misleading **Newt site** field to **Pangolin site**, shows the numeric Site ID in the selector and explains that the Newt connector ID is not used.
+- Renamed the misleading **Newt site** field to **Pangolin site** and shows the numeric Site ID in the selector.
 - Improved Pangolin connectivity diagnostics for DNS, timeout, refused connection and TLS verification failures.
 
 ## What's new in v3.1.43
@@ -80,7 +104,7 @@ Current version: **v3.1.44**
 - See the reachable container IP address in the detail view. Static LXC IPs are read from the Proxmox network config and loopback addresses are ignored.
 - Start, stop, reboot, shut down or delete services from the detail view when the Proxmox token permits it.
 - Open a viewport-fitted full-page console in a separate browser tab on desktop when the Proxmox token permits it. Only terminal scrollback moves; selecting text copies automatically, while right-click or Ctrl/Cmd+V pastes into the session. LXC consoles can automatically sign in with an attached root credential without forwarding terminal status replies into the login field.
-- Read recent Proxmox tasks and logs for the assigned service.
+- Read Proxmox tasks and logs for the current service lifecycle only. Reused VMIDs do not expose the previous machine history.
 - Manage service credentials. The exact root password used during self-service provisioning, including a configured cluster default, is saved automatically on the created service.
 - Publish, edit or remove directly assigned services through Pangolin. The backend fixes the target to the service IP, validates the administrator-defined port policy and displays the generated public address on the service card.
 - Create new LXC containers on desktop or mobile through template-only self-service with mandatory internet-only network isolation.
@@ -261,6 +285,40 @@ The database migrates itself on startup. Keep the backend data volume before upd
 
 ## Changelog
 
+### v3.1.48 - 2026-07-18
+
+**Commit:** `fix: isolate Proxmox task history by machine lifecycle`
+
+- start the visible task history at the newest create, clone or restore operation for the current portal resource
+- use the portal resource creation timestamp as a safe fallback for manually assigned machines
+- hide tasks from previously deleted machines when Proxmox later reuses the same VMID
+- reject task-log requests whose UPID does not belong to the current machine lifecycle
+
+### v3.1.47 - 2026-07-18
+
+**Commit:** `fix: stabilize console prompts and initial focus`
+
+- detect an already authenticated shell prompt before attempting automatic login wake-up
+- send at most one synthetic carriage return and only when the console is completely blank
+- clear stale terminal rows while preserving the active prompt as the first visible line
+- focus the terminal automatically when the interactive prompt becomes ready
+
+### v3.1.46 - 2026-07-18
+
+**Commit:** `fix: remove the publishing action gradient`
+
+- replace the publishing dialog action-row fade with the same flat surface background used by the modal
+- keep the sticky desktop and mobile action controls without introducing a visual style used nowhere else in the portal
+
+### v3.1.45 - 2026-07-18
+
+**Commit:** `fix: align publishing controls and simplify Pangolin settings`
+
+- remove the redundant numeric Site ID versus Newt connector explanation from the Pangolin administrator form
+- align the service-port and backend-protocol fields from the top instead of bottom-aligning controls with different helper-text heights
+- add localized German and English backend-protocol guidance to keep both desktop columns balanced
+- retain the responsive single-column publishing form on mobile devices
+
 ### v3.1.44 - 2026-07-16
 
 **Commit:** `fix: stabilize Pangolin settings and publishing dialogs`
@@ -268,7 +326,7 @@ The database migrates itself on startup. Keep the backend data volume before upd
 - resolve the backend service dynamically in Nginx so frontend requests survive backend container recreation without stale-upstream 502 errors
 - keep the publishing modal header visible and constrain scrolling to the modal body on desktop and mobile
 - localize all new Pangolin administration settings and publication controls in German and English
-- clarify and display the numeric Pangolin Site ID instead of referring to the Newt connector ID
+- display the numeric Pangolin Site ID clearly in the Pangolin site selector
 - return more useful Pangolin connection diagnostics and use IPv4-aware keep-alive agents for outbound API calls
 
 ### v3.1.43 - 2026-07-16

@@ -10,6 +10,7 @@ const TEXT = {
     clusterDisabled: 'Publishing is disabled for this cluster. Existing access remains online and can still be removed.',
     noIp: 'This service has no reachable IPv4 address yet.', protocol: 'Protocol', subdomain: 'Subdomain',
     targetPort: 'Service port', publicPort: 'Public port', backendProtocol: 'Backend protocol',
+    backendProtocolHint: 'Protocol Pangolin uses to connect to the service.',
     preview: 'Public address', autoIp: 'Target IP is selected automatically from your own service:',
     ranges: 'Allowed ports', save: 'Publish', update: 'Save changes', saving: 'Saving...', cancel: 'Cancel', close: 'Close',
     remove: 'Remove public access', removeConfirm: 'Remove public access for this service?',
@@ -23,6 +24,7 @@ const TEXT = {
     clusterDisabled: 'Die Veröffentlichung ist für diesen Cluster deaktiviert. Ein bestehender Zugriff bleibt online und kann weiterhin entfernt werden.',
     noIp: 'Für diesen Dienst ist noch keine erreichbare IPv4-Adresse bekannt.', protocol: 'Protokoll', subdomain: 'Subdomain',
     targetPort: 'Dienst-Port', publicPort: 'Öffentlicher Port', backendProtocol: 'Backend-Protokoll',
+    backendProtocolHint: 'Protokoll, mit dem Pangolin den Dienst erreicht.',
     preview: 'Öffentliche Adresse', autoIp: 'Die Ziel-IP wird automatisch von deinem eigenen Dienst übernommen:',
     ranges: 'Erlaubte Ports', save: 'Veröffentlichen', update: 'Änderungen speichern', saving: 'Speichert...', cancel: 'Abbrechen', close: 'Schließen',
     remove: 'Öffentlichen Zugriff entfernen', removeConfirm: 'Öffentlichen Zugriff für diesen Dienst entfernen?',
@@ -160,7 +162,7 @@ export default function PublicPageModal({ resource, onClose, onSaved, language: 
           </fieldset>
 
           {protocol === 'http' ? (
-            <div className="publishing-fields-grid">
+            <div className="publishing-fields-grid publishing-http-fields-grid">
               <label className="form-group publishing-subdomain-field">
                 <span>{text.subdomain}</span>
                 <div className="subdomain-input-row">
@@ -176,18 +178,19 @@ export default function PublicPageModal({ resource, onClose, onSaved, language: 
                 </div>
                 <small>{text.subdomainHint}</small>
               </label>
-              <label className="form-group">
+              <label className="form-group publishing-control-field">
                 <span>{text.targetPort}</span>
                 <input type="number" min="1" max="65535" value={targetPort} onChange={(event) => setTargetPort(event.target.value)} disabled={busy || !options?.enabled} />
                 <small>{text.ranges}: {options?.protocols?.http?.allowedPorts || '—'}</small>
               </label>
-              <label className="form-group">
+              <label className="form-group publishing-control-field">
                 <span>{text.backendProtocol}</span>
                 <select value={targetMethod} onChange={(event) => setTargetMethod(event.target.value)} disabled={busy || !options?.enabled}>
                   <option value="http">HTTP</option>
                   <option value="https">HTTPS</option>
                   <option value="h2c">h2c</option>
                 </select>
+                <small>{text.backendProtocolHint}</small>
               </label>
             </div>
           ) : (

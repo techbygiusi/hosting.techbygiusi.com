@@ -109,6 +109,70 @@ async function getAccessibleResource(userId, resourceId) {
   };
 }
 
+
+const RESOURCE_CREATION_TASK_TYPES = new Set([
+  'vzcreate',
+  'qmcreate',
+  'qmclone',
+  'vzrestore',
+  'qmrestore'
+]);
+
+/**
+ * Convert SQLite's UTC `YYYY-MM-DD HH:mm:ss` timestamps to Unix seconds.
+ * Portal resource rows are recreated when a VMID is assigned again, which
+ * gives us a reliable lower boundary for the current machine lifecycle.
+ */
+function portalTimestampToUnix(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return 0;
+  const normalized = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(raw)
+    ? raw
+    : `${raw.replace(' ', 'T')}Z`;
+  const millis = Date.parse(normalized);
+  return Number.isFinite(millis) ? Math.floor(millis / 1000) : 0;
+}
+
+/**
+ * Keep only tasks belonging to the current VM/CT lifecycle. Proxmox reuses
+ * task history by VMID, so a deleted machine and a later replacement with the
+ * same ID would otherwise expose the old machine's tasks and logs.
+ *
+ * The newest create/clone/restore task near or after the portal resource's
+ * creation time is the preferred boundary. The portal creation timestamp is
+ * used as a safe fallback for manually assigned resources.
+ */
+function filterTasksForCurrentLifecycle(tasks, resourceRow) {
+  const list = Array.isArray(tasks) ? tasks : [];
+  const portalCreatedAt = portalTimestampToUnix(resourceRow?.created_at);
+  const createLookupFloor = portalCreatedAt > 0 ? portalCreatedAt - (10 * 60) : 0;
+
+  const latestCreate = list.reduce((latest, task) => {
+    const started = Number(task?.starttime || 0);
+    if (!RESOURCE_CREATION_TASK_TYPES.has(String(task?.type || ''))) return latest;
+    if (createLookupFloor > 0 && started < createLookupFloor) return latest;
+    return started > latest ? started : latest;
+  }, 0);
+
+  const lifecycleStart = latestCreate || portalCreatedAt;
+  if (!lifecycleStart) return list;
+
+  return list.filter(task => Number(task?.starttime || task?.endtime || 0) >= lifecycleStart);
+}
+
+async function getCurrentLifecycleTasks(target, limit = 30) {
+  // Fetch a wider window so the lifecycle create task is still available even
+  // after several power, console or backup actions.
+  const tasks = await getVmTasks(
+    target.clusterUrl,
+    target.apiToken,
+    target.node,
+    target.vmid,
+    Math.max(Number(limit) || 30, 200)
+  );
+  return filterTasksForCurrentLifecycle(tasks, target.row).slice(0, limit);
+}
+
 // Capability cache per cluster (60s) to avoid hammering /access/permissions
 const capabilityCache = new Map();
 async function getClusterCapabilities(clusterId, clusterUrl, apiToken) {
@@ -628,7 +692,7 @@ router.post('/resources/:id/power', async (req, res, next) => {
 router.get('/resources/:id/tasks', async (req, res, next) => {
   try {
     const target = await getAccessibleResource(req.user.id, req.params.id);
-    const tasks = await getVmTasks(target.clusterUrl, target.apiToken, target.node, target.vmid);
+    const tasks = await getCurrentLifecycleTasks(target, 30);
     res.json({ tasks, node: target.node });
   } catch (err) {
     next(err);
@@ -640,12 +704,11 @@ router.get('/resources/:id/tasks/:upid/log', async (req, res, next) => {
     const target = await getAccessibleResource(req.user.id, req.params.id);
     const upid = String(req.params.upid || '');
 
-    // Only allow reading logs of tasks belonging to this VMID
-    if (!upid.includes(`:${target.vmid}:`) && !upid.includes(`:${String(target.vmid).padStart(8, '0')}`)) {
-      const tasks = await getVmTasks(target.clusterUrl, target.apiToken, target.node, target.vmid, 100);
-      if (!tasks.some(task => task.upid === upid)) {
-        throw new AppError('Forbidden', HTTP_STATUS.FORBIDDEN);
-      }
+    // Validate against the filtered current lifecycle, not only the VMID in
+    // the UPID. VMIDs can be reused and old task logs must stay inaccessible.
+    const tasks = await getCurrentLifecycleTasks(target, 200);
+    if (!tasks.some(task => task.upid === upid)) {
+      throw new AppError('Task log does not belong to the current machine lifecycle', HTTP_STATUS.FORBIDDEN);
     }
 
     const [log, status] = await Promise.all([

@@ -30,6 +30,8 @@ export default function TerminalView({ resourceId, resourceName, fullscreen = fa
     let onPaste = null;
     let onContextMenu = null;
     let lastCopiedSelection = '';
+    let promptStabilized = false;
+    let wakeAttempted = false;
     const autoLoginWakeTimers = [];
 
     const getResponsiveFontSize = () => {
@@ -139,6 +141,47 @@ export default function TerminalView({ resourceId, resourceName, fullscreen = fa
             return '';
           }
         };
+        const readCurrentTerminalLine = () => {
+          try {
+            const active = term.buffer.active;
+            const cursorLine = active.baseY + active.cursorY;
+            return active.getLine(cursorLine)?.translateToString(true) || '';
+          } catch (_) {
+            return '';
+          }
+        };
+        const cancelAutoLoginWakeTimers = () => {
+          autoLoginWakeTimers.splice(0).forEach(timer => clearTimeout(timer));
+        };
+        const stabilizeInteractivePrompt = () => {
+          if (promptStabilized) return true;
+          const currentLine = stripAnsi(readCurrentTerminalLine()).trimEnd();
+          if (!currentLine || currentLine.length > 180 || !/[#$]\s*$/.test(currentLine)) {
+            return false;
+          }
+
+          promptStabilized = true;
+          autoLoginState.enabled = false;
+          autoLoginState.sentUsername = true;
+          autoLoginState.sentSecret = true;
+          autoLoginState.suppressTerminalReplies = false;
+          cancelAutoLoginWakeTimers();
+
+          // Keep only the active shell prompt. Proxmox can return an existing
+          // terminal screen with blank rows or repeated prompts from an older
+          // session; xterm.clear() promotes the current prompt to the first row
+          // without sending another Enter key to the guest.
+          try {
+            term.clear();
+            term.scrollToBottom();
+          } catch (_) { /* noop */ }
+
+          requestAnimationFrame(() => {
+            fitAndResize();
+            term.focus();
+          });
+          return true;
+        };
         const maybeSendAutoLogin = (chunk, replaceBuffer = false) => {
           if (!autoLoginState.enabled || autoLoginState.sentSecret) return;
           const normalized = normalizeConsoleText(chunk);
@@ -166,12 +209,21 @@ export default function TerminalView({ resourceId, resourceName, fullscreen = fa
           }
         };
         const inspectRenderedPrompt = () => {
+          if (stabilizeInteractivePrompt()) return;
           maybeSendAutoLogin(readVisibleTerminalTail(), true);
         };
         const wakeAutoLoginPrompt = () => {
-          if (!autoLoginState.enabled || autoLoginState.sentUsername || disposed) return;
+          if (!autoLoginState.enabled || autoLoginState.sentUsername || disposed || promptStabilized) return;
           inspectRenderedPrompt();
-          if (!autoLoginState.sentUsername) sendConsoleInput('\r');
+          if (autoLoginState.sentUsername || promptStabilized || wakeAttempted) return;
+
+          // Wake a completely blank getty exactly once. Repeated synthetic
+          // carriage returns caused extra empty shell prompts whenever the
+          // console was already logged in.
+          if (!readVisibleTerminalTail().trim()) {
+            wakeAttempted = true;
+            sendConsoleInput('\r');
+          }
         };
 
         ws.onopen = () => {
@@ -181,13 +233,12 @@ export default function TerminalView({ resourceId, resourceName, fullscreen = fa
           setTimeout(fitAndResize, 150);
           setTimeout(fitAndResize, 700);
           setTimeout(fitAndResize, 1500);
+          term.focus();
           if (autoLoginState.enabled) {
-            // Some getty sessions do not emit a fresh prompt until they
-            // receive the first carriage return. Probe automatically so the
-            // user never has to click the terminal and press Enter first.
-            [900, 2200, 4500].forEach(delay => {
-              autoLoginWakeTimers.push(setTimeout(wakeAutoLoginPrompt, delay));
-            });
+            // Some getty sessions remain completely blank until the first
+            // carriage return. Perform one delayed blank-screen wake-up only;
+            // an existing shell prompt is detected and focused instead.
+            autoLoginWakeTimers.push(setTimeout(wakeAutoLoginPrompt, 1400));
           }
           pingTimer = setInterval(() => {
             if (ws.readyState === WebSocket.OPEN) ws.send('2');

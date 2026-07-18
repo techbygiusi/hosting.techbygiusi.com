@@ -40,7 +40,6 @@ const TEXT = {
     discovering: 'Loading...',
     site: 'Pangolin site',
     siteSelect: 'Select site',
-    siteHint: 'The portal needs the numeric Pangolin site ID, not the Newt connector ID. Use “Load from Pangolin” to select it safely.',
     domain: 'Pangolin domain',
     domainSelect: 'Select domain',
     baseDomain: 'Base domain for users',
@@ -101,7 +100,6 @@ const TEXT = {
     discovering: 'Wird geladen...',
     site: 'Pangolin-Standort',
     siteSelect: 'Standort wählen',
-    siteHint: 'Benötigt wird die numerische Pangolin Site ID, nicht die Newt-Connector-ID. Mit „Aus Pangolin laden“ kannst du den Standort sicher auswählen.',
     domain: 'Pangolin-Domain',
     domainSelect: 'Domain wählen',
     baseDomain: 'Basisdomain für Benutzer',
@@ -364,7 +362,6 @@ export default function PangolinSettingsPanel({ onSuccess, onError, language: la
             ) : (
               <input type="number" min="1" value={form.siteId} onChange={(event) => update('siteId', event.target.value)} placeholder="Site ID" />
             )}
-            <small>{text.siteHint}</small>
           </label>
           <label className="form-group">
             <span>{text.domain}</span>
