@@ -73,7 +73,6 @@ const TEXT = {
     settingsSaved: 'Pangolin settings saved.',
     settingsSaveFailed: 'Pangolin settings could not be saved.',
     publicationsTitle: 'Managed publications',
-    publicationsText: 'Administrators can review existing publications and remove them completely from Pangolin when necessary.',
     noPublications: 'No services published yet.',
     user: 'User',
     target: 'Target',
@@ -133,7 +132,6 @@ const TEXT = {
     settingsSaved: 'Pangolin-Einstellungen wurden gespeichert.',
     settingsSaveFailed: 'Pangolin-Einstellungen konnten nicht gespeichert werden.',
     publicationsTitle: 'Verwaltete Veröffentlichungen',
-    publicationsText: 'Administratoren können bestehende Freigaben prüfen und bei Bedarf vollständig aus Pangolin entfernen.',
     noPublications: 'Noch keine Dienste veröffentlicht.',
     user: 'Benutzer',
     target: 'Ziel',
@@ -446,7 +444,6 @@ export default function PangolinSettingsPanel({ onSuccess, onError, language: la
       <div className="pangolin-publication-admin-list">
         <div className="settings-section-header">
           <h3>{text.publicationsTitle}</h3>
-          <p>{text.publicationsText}</p>
         </div>
         {publications.length === 0 ? (
           <p className="hint-text">{text.noPublications}</p>

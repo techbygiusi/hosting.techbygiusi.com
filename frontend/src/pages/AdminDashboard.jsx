@@ -80,6 +80,79 @@ const OVERLAY_LANGUAGE_OPTIONS = [
   { code: 'de', label: 'Deutsch' }
 ];
 
+const CLUSTER_UI_TEXT = {
+  en: {
+    addCluster: 'Add cluster',
+    noCluster: 'No clusters configured',
+    mapSaved: 'Map location configured.',
+    mapMissing: 'No map location configured.',
+    permissionsUnavailable: 'Permissions could not be loaded. Check the API token and connection.',
+    permissionsLoading: 'Loading permissions…',
+    checkPermissions: 'Check permissions',
+    checkingPermissions: 'Checking…',
+    edit: 'Edit',
+    delete: 'Delete',
+    editTitle: 'Edit Proxmox',
+    addTitle: 'Add Proxmox',
+    name: 'Name',
+    url: 'URL',
+    mapLocation: 'Dashboard map location',
+    addressPlaceholder: 'Enter an address or place',
+    mapHint: 'Enter an address and select a suggestion to place the cluster on the dashboard map.',
+    searchingLocations: 'Searching locations…',
+    selected: 'Selected',
+    apiToken: 'API token',
+    existingTokenPlaceholder: 'Leave blank to keep the existing token',
+    testConnection: 'Test Proxmox connection',
+    selfService: 'Self-service: users may create machines',
+    allowPublishing: 'Allow Pangolin publishing for this cluster',
+    publishingHelp: 'When disabled, existing publications remain reachable. Users can only remove them; new or changed publications are blocked by the backend.',
+    cancel: 'Cancel',
+    save: 'Save',
+    capabilities: {
+      read: 'Read',
+      power: 'Power',
+      console: 'Console',
+      create: 'Create'
+    }
+  },
+  de: {
+    addCluster: 'Cluster hinzufügen',
+    noCluster: 'Keine Cluster konfiguriert',
+    mapSaved: 'Kartenstandort hinterlegt.',
+    mapMissing: 'Kein Kartenstandort hinterlegt.',
+    permissionsUnavailable: 'Berechtigungen konnten nicht geladen werden. API-Token und Verbindung prüfen.',
+    permissionsLoading: 'Berechtigungen werden geladen…',
+    checkPermissions: 'Berechtigungen prüfen',
+    checkingPermissions: 'Prüft…',
+    edit: 'Bearbeiten',
+    delete: 'Löschen',
+    editTitle: 'Proxmox bearbeiten',
+    addTitle: 'Proxmox hinzufügen',
+    name: 'Name',
+    url: 'URL',
+    mapLocation: 'Dashboard-Kartenstandort',
+    addressPlaceholder: 'Adresse oder Ort eingeben',
+    mapHint: 'Gib eine Adresse ein und wähle einen Vorschlag aus, damit der Cluster auf der Dashboard-Karte platziert wird.',
+    searchingLocations: 'Standorte werden gesucht…',
+    selected: 'Ausgewählt',
+    apiToken: 'API-Token',
+    existingTokenPlaceholder: 'Leer lassen, um den vorhandenen Token beizubehalten',
+    testConnection: 'Proxmox-Verbindung testen',
+    selfService: 'Self-Service: Benutzer dürfen Maschinen erstellen',
+    allowPublishing: 'Pangolin-Veröffentlichungen für diesen Cluster erlauben',
+    publishingHelp: 'Beim Deaktivieren bleiben bestehende Veröffentlichungen erreichbar. Benutzer können sie nur entfernen; neue oder geänderte Freigaben werden vom Backend blockiert.',
+    cancel: 'Abbrechen',
+    save: 'Speichern',
+    capabilities: {
+      read: 'Lesen',
+      power: 'Start/Stopp',
+      console: 'Konsole',
+      create: 'Erstellen'
+    }
+  }
+};
+
 const MOBILE_MENU_TRANSLATIONS = {
   en: {
     menu: 'Menu',
@@ -265,6 +338,7 @@ export default function AdminDashboard() {
   const mobileMenuText = MOBILE_MENU_TRANSLATIONS[mobileMenuLanguage] || MOBILE_MENU_TRANSLATIONS.en;
   const mobileMenuTabs = tabs.map(([key]) => [key, mobileMenuText.tabs[key] || key]);
   const dashboardText = mobileMenuText.dashboard;
+  const clusterText = CLUSTER_UI_TEXT[mobileMenuLanguage] || CLUSTER_UI_TEXT.en;
 
   const adminCount = users.filter(item => item.role === 'admin').length;
   const userCount = users.filter(item => item.role === 'user').length;
@@ -1228,26 +1302,26 @@ export default function AdminDashboard() {
 
         {!loading && activeTab === 'clusters' && (
           <section className="panel-card">
-            <PanelHeader title="Proxmox" action="Cluster hinzufügen" onAction={openCreateCluster} />
+            <PanelHeader title="Proxmox" action={clusterText.addCluster} onAction={openCreateCluster} />
             {clusters.length === 0 ? (
-              <div className="empty-state soft-box"><h2>Kein Cluster</h2></div>
+              <div className="empty-state soft-box"><h2>{clusterText.noCluster}</h2></div>
             ) : (
               <div className="list-grid">
                 {clusters.map(item => (
                   <article key={item.id} className="list-card cluster-list-card">
                     <div>
                       <h2>{item.name}</h2>
-                      {item.location_label ? <p className="cluster-location-status">Karten-Standort gespeichert.</p> : <p className="hint-text">Noch kein Karten-Standort hinterlegt.</p>}
+                      {item.location_label ? <p className="cluster-location-status">{clusterText.mapSaved}</p> : <p className="hint-text">{clusterText.mapMissing}</p>}
                       {clusterCaps[item.id]
                         ? (clusterCaps[item.id].error
-                            ? <p className="hint-text caps-error">Berechtigungen nicht abrufbar - Token/Verbindung prüfen.</p>
-                            : <CapabilityBadges caps={clusterCaps[item.id]} />)
-                        : <p className="hint-text caps-loading">{capsLoading ? 'Berechtigungen werden geladen…' : '-'}</p>}
+                            ? <p className="hint-text caps-error">{clusterText.permissionsUnavailable}</p>
+                            : <CapabilityBadges caps={clusterCaps[item.id]} labels={clusterText.capabilities} />)
+                        : <p className="hint-text caps-loading">{capsLoading ? clusterText.permissionsLoading : '-'}</p>}
                     </div>
                     <div className="card-actions">
-                      <button type="button" className="btn-secondary btn-small" onClick={() => handleCheckCapabilities(item.id)} disabled={checkingCapsId === item.id}>{checkingCapsId === item.id ? 'Prüfe…' : 'Token prüfen'}</button>
-                      <button type="button" className="btn-secondary btn-small" onClick={() => openEditCluster(item)}>Bearbeiten</button>
-                      <button type="button" className="btn-danger btn-small" onClick={() => handleDeleteCluster(item.id)} disabled={actionLoading}>Löschen</button>
+                      <button type="button" className="btn-secondary btn-small" onClick={() => handleCheckCapabilities(item.id)} disabled={checkingCapsId === item.id}>{checkingCapsId === item.id ? clusterText.checkingPermissions : clusterText.checkPermissions}</button>
+                      <button type="button" className="btn-secondary btn-small" onClick={() => openEditCluster(item)}>{clusterText.edit}</button>
+                      <button type="button" className="btn-danger btn-small" onClick={() => handleDeleteCluster(item.id)} disabled={actionLoading}>{clusterText.delete}</button>
                     </div>
                   </article>
                 ))}
@@ -1515,17 +1589,17 @@ export default function AdminDashboard() {
       )}
 
       {showClusterModal && (
-        <Modal title={editClusterId ? 'Proxmox bearbeiten' : 'Proxmox hinzufügen'} onClose={closeClusterModal}>
+        <Modal title={editClusterId ? clusterText.editTitle : clusterText.addTitle} onClose={closeClusterModal}>
           <form className="form-stack" onSubmit={handleSaveCluster}>
-            <label className="form-group"><span>Name</span><input type="text" value={newCluster.name} onChange={e => handleClusterChange('name', e.target.value)} placeholder="Home Lab" /></label>
-            <label className="form-group"><span>URL</span><input type="text" value={newCluster.url} onChange={e => handleClusterChange('url', e.target.value)} placeholder="https://10.10.0.10:8006" /></label>
+            <label className="form-group"><span>{clusterText.name}</span><input type="text" value={newCluster.name} onChange={e => handleClusterChange('name', e.target.value)} placeholder="Home Lab" /></label>
+            <label className="form-group"><span>{clusterText.url}</span><input type="text" value={newCluster.url} onChange={e => handleClusterChange('url', e.target.value)} placeholder="https://10.10.0.10:8006" /></label>
             <div className="form-group location-field-group">
-              <span>Standort für Dashboard-Karte</span>
-              <input type="text" value={newCluster.locationLabel} onChange={e => handleClusterChange('locationLabel', e.target.value)} placeholder="Adresse oder Ort eingeben" autoComplete="off" />
-              <small>Adresse eingeben und einen Vorschlag auswählen, damit der Cluster auf der Karte platziert wird.</small>
+              <span>{clusterText.mapLocation}</span>
+              <input type="text" value={newCluster.locationLabel} onChange={e => handleClusterChange('locationLabel', e.target.value)} placeholder={clusterText.addressPlaceholder} autoComplete="off" />
+              <small>{clusterText.mapHint}</small>
               {(locationSearchLoading || locationResults.length > 0) && (
                 <div className="location-search-dropdown">
-                  {locationSearchLoading && <div className="location-search-item muted">Standorte werden gesucht…</div>}
+                  {locationSearchLoading && <div className="location-search-item muted">{clusterText.searchingLocations}</div>}
                   {!locationSearchLoading && locationResults.map((result, index) => (
                     <button key={`${result.label}-${index}`} type="button" className="location-search-item" onClick={() => handleSelectLocation(result)}>
                       <strong>{result.label}</strong>
@@ -1535,32 +1609,32 @@ export default function AdminDashboard() {
                 </div>
               )}
               {newCluster.locationLat !== '' && newCluster.locationLon !== '' && (
-                <small className="location-selected-hint">Ausgewählt: {Number(newCluster.locationLat).toFixed(4)}, {Number(newCluster.locationLon).toFixed(4)}</small>
+                <small className="location-selected-hint">{clusterText.selected}: {Number(newCluster.locationLat).toFixed(4)}, {Number(newCluster.locationLon).toFixed(4)}</small>
               )}
             </div>
-            <label className="form-group"><span>API-Token</span><input type="password" value={newCluster.apiToken} onChange={e => handleClusterChange('apiToken', e.target.value)} placeholder={editClusterId ? 'Leer lassen, vorhandenen Token verwenden' : 'api@pam!hosting=secret'} /></label>
-            <button type="button" className="btn-secondary full-button" onClick={handleTestCluster} disabled={actionLoading}>Proxmox-Verbindung testen</button>
+            <label className="form-group"><span>{clusterText.apiToken}</span><input type="password" value={newCluster.apiToken} onChange={e => handleClusterChange('apiToken', e.target.value)} placeholder={editClusterId ? clusterText.existingTokenPlaceholder : 'api@pam!hosting=secret'} /></label>
+            <button type="button" className="btn-secondary full-button" onClick={handleTestCluster} disabled={actionLoading}>{clusterText.testConnection}</button>
             {clusterTestResult && <div className={`test-result ${clusterTestResult.success ? 'success' : 'error'}`}>{translateMessage(clusterTestResult.message)}</div>}
 
             <div className="form-section-divider cluster-feature-toggles">
               <label className="toggle-row">
-                <span className="toggle-label">Self-Service: Benutzer dürfen Maschinen erstellen</span>
+                <span className="toggle-label">{clusterText.selfService}</span>
                 <span className="toggle-switch">
                   <input type="checkbox" checked={newCluster.allowProvisioning} onChange={e => handleClusterChange('allowProvisioning', e.target.checked)} />
                   <span className="toggle-track"><span className="toggle-thumb"></span></span>
                 </span>
               </label>
               <label className="toggle-row">
-                <span className="toggle-label">Pangolin-Veröffentlichung für diesen Cluster erlauben</span>
+                <span className="toggle-label">{clusterText.allowPublishing}</span>
                 <span className="toggle-switch">
                   <input type="checkbox" checked={newCluster.allowPublishing} onChange={e => handleClusterChange('allowPublishing', e.target.checked)} />
                   <span className="toggle-track"><span className="toggle-thumb"></span></span>
                 </span>
               </label>
-              <small className="cluster-publishing-help">Beim Abschalten bleiben bestehende Veröffentlichungen erreichbar. Benutzer können sie nur noch entfernen; neue oder geänderte Freigaben werden serverseitig blockiert.</small>
+              <small className="cluster-publishing-help">{clusterText.publishingHelp}</small>
             </div>
 
-            <div className="form-actions"><button type="button" className="btn-secondary" onClick={closeClusterModal}>Abbrechen</button><button type="submit" className="btn-primary" disabled={actionLoading}>Speichern</button></div>
+            <div className="form-actions"><button type="button" className="btn-secondary" onClick={closeClusterModal}>{clusterText.cancel}</button><button type="submit" className="btn-primary" disabled={actionLoading}>{clusterText.save}</button></div>
           </form>
         </Modal>
       )}
@@ -1969,12 +2043,12 @@ function ProvisioningSettings({ clusters, onSaved, onError, onSuccess }) {
   );
 }
 
-function CapabilityBadges({ caps }) {
+function CapabilityBadges({ caps, labels }) {
   const items = [
-    ['Lesen', true],
-    ['Power', caps.canPower],
-    ['Konsole', caps.canConsole],
-    ['Erstellen', caps.canProvision]
+    [labels?.read || 'Read', true],
+    [labels?.power || 'Power', caps.canPower],
+    [labels?.console || 'Console', caps.canConsole],
+    [labels?.create || 'Create', caps.canProvision]
   ];
   return (
     <div className="capability-badges">

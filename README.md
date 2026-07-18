@@ -6,7 +6,14 @@ The frontend is built with React and the backend with Express + SQLite. Proxmox 
 
 ## Version
 
-Current version: **v3.1.59**
+Current version: **v3.1.60**
+
+## What's new in v3.1.60
+
+- Replaced the remaining mixed-language Proxmox cluster labels with explicit German and English UI text for cluster cards, capability badges and the add/edit dialog.
+- Renamed the permission action to **Check permissions / Berechtigungen prüfen** and localized all loading, map-location, token, self-service and Pangolin publishing texts consistently.
+- Removed the explanatory administrator paragraph below **Managed publications / Verwaltete Veröffentlichungen** in the Pangolin settings panel.
+
 
 ## What's new in v3.1.59
 
@@ -366,6 +373,15 @@ docker image prune -f
 The database migrates itself on startup. Keep the backend data volume before updating.
 
 ## Changelog
+
+### v3.1.60 - 2026-07-18
+
+**Commit:** `fix: correct Proxmox localization`
+
+- Use explicit German and English labels for Proxmox cluster cards and capability indicators.
+- Fully localize the Proxmox add/edit dialog, including the selected map coordinates and cluster feature settings.
+- Replace the token-check caption with a clearer localized permission-check action.
+- Remove the redundant administrator explanation from the managed Pangolin publications section.
 
 ### v3.1.59 - 2026-07-18
 
