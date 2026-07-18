@@ -105,9 +105,7 @@ function OverviewTab({ resource, onChanged, onOpenConsole, onClose, onManagePubl
   const publicUrl = resource.publicUrl || resource.webUrl || '';
   const adminUrl = resource.adminUrl || '';
   const language = readStoredLanguage();
-  const managePublicPageLabel = resource.publicAccessMode === 'manual'
-    ? translatePortalText(resource.manualPublicUrl ? 'Öffentliche Seite bearbeiten' : 'Öffentliche Seite hinterlegen', language)
-    : `${translatePortalText('Öffentliche Zugriffe verwalten', language)}${Number(resource.publicationCount || 0) > 0 ? ` (${resource.publicationCount})` : ''}`;
+  const managePublicPageLabel = translatePortalText('Öffentlichen Zugriff bearbeiten', language);
 
   return (
     <div className="resource-details detail-modal-content">
@@ -348,7 +346,7 @@ function CredentialsTab({ resource }) {
       setLoading(true);
       setError('');
       const res = await userApi.getCredentials(resource.id);
-      setCredentials(res.data.credentials || []);
+      setCredentials((res.data.credentials || []).filter(item => item.purpose !== 'management'));
     } catch (err) {
       setError(getErrorMessage(err, 'Zugangsdaten konnten nicht geladen werden.'));
     } finally {
@@ -358,17 +356,7 @@ function CredentialsTab({ resource }) {
 
   useEffect(() => { load(); }, [load]);
 
-  const managementCredential = credentials.find(item => item.purpose === 'management');
   const openCreate = () => { setEditId(null); setForm(emptyCredential); setShowForm(true); };
-  const openManagement = () => {
-    if (managementCredential) {
-      openEdit(managementCredential);
-      return;
-    }
-    setEditId(null);
-    setForm({ label: 'Verwaltungsseite', username: '', secret: '', url: resource.adminUrl || '', notes: '', purpose: 'management' });
-    setShowForm(true);
-  };
   const openEdit = (item) => {
     setEditId(item.id);
     setForm({ label: item.label || '', username: item.username || '', secret: '', url: item.url || '', notes: item.notes || '', purpose: item.purpose || 'general' });
@@ -443,9 +431,8 @@ function CredentialsTab({ resource }) {
       {error && <div className="alert alert-danger">{error}</div>}
 
       <div className="tasks-toolbar">
-        <span className="hint-text">Zugangsdaten für die Verwaltungsseite können Admins und berechtigte Benutzer gemeinsam pflegen.</span>
+        <span className="hint-text">Hinterlege hier SSH- und weitere Zugangsdaten für den Dienst. Öffentliche und Verwaltungsseiten werden im Dashboard unter „Öffentlichen Zugriff bearbeiten“ gepflegt.</span>
         <div className="inline-actions">
-          <button type="button" className="btn-secondary btn-small" onClick={openManagement}>{managementCredential ? 'Verwaltungsseite bearbeiten' : 'Verwaltungsseite hinterlegen'}</button>
           <button type="button" className="btn-primary btn-small" onClick={openCreate}>Hinzufügen</button>
         </div>
       </div>

@@ -232,7 +232,7 @@ async function attachSharedManagementUrls(resources) {
 
   return resources.map(resource => ({
     ...resource,
-    adminUrl: resource.adminUrl || credentialUrls[String(resource.id)] || ''
+    adminUrl: credentialUrls[String(resource.id)] || resource.adminUrl || ''
   }));
 }
 
@@ -456,7 +456,7 @@ router.get('/resources', async (req, res, next) => {
           publicAccessMode: pangolinAvailable ? 'pangolin' : 'manual',
           canManageManualPublicPage,
           canManageServiceIp: ownsResource && !!resource.canConfigureManualIp,
-          canManagePublicPage: ownsResource && (canPublish || canManageManualPublicPage || Number(resource.publicationCount || 0) > 0),
+          canManagePublicPage: ownsResource,
           canPublish,
           publishingClusterEnabled: clusterPublishingEnabled,
           canDelete: !!resource.canDelete && ownsResource && !!capsByCluster[resource.clusterId]?.canProvision,
@@ -500,7 +500,7 @@ router.get('/resources/:id', async (req, res, next) => {
         publicAccessMode: pangolinAvailable ? 'pangolin' : 'manual',
         canManageManualPublicPage,
         canManageServiceIp: ownsResource && !!resources[0].canConfigureManualIp,
-        canManagePublicPage: ownsResource && (canPublish || canManageManualPublicPage || Number(resources[0].publicationCount || 0) > 0),
+        canManagePublicPage: ownsResource,
         canPublish,
         publishingClusterEnabled: clusterPublishingEnabled,
         canDelete: !!resources[0].canDelete && ownsResource && !!caps.canProvision,
@@ -823,6 +823,27 @@ function normalizeManualPublicUrl(value) {
   return parsed.toString();
 }
 
+
+function normalizeManagementPageUrl(value) {
+  const raw = String(value || '').trim();
+  if (!raw) throw new AppError('Management page URL is required', HTTP_STATUS.BAD_REQUEST);
+
+  let parsed;
+  try {
+    parsed = new URL(raw);
+  } catch (_) {
+    throw new AppError('Management page URL must be a valid http:// or https:// URL', HTTP_STATUS.BAD_REQUEST);
+  }
+
+  if (!['http:', 'https:'].includes(parsed.protocol) || !parsed.hostname) {
+    throw new AppError('Management page URL must be a valid http:// or https:// URL', HTTP_STATUS.BAD_REQUEST);
+  }
+  if (parsed.username || parsed.password) {
+    throw new AppError('Management page URL must not contain login credentials', HTTP_STATUS.BAD_REQUEST);
+  }
+  return parsed.toString();
+}
+
 async function getOwnedManualPublicPageResource(userId, resourceId) {
   const rows = await getResourceRowsForUser(userId, resourceId);
   if (rows.length === 0 || String(rows[0].user_id) !== String(userId)) {
@@ -1112,6 +1133,96 @@ async function assertResourceAccess(userId, resourceId) {
   if (rows.length === 0) throw new AppError('Resource not accessible', HTTP_STATUS.FORBIDDEN);
   return rows[0];
 }
+
+async function getManagementPageRecord(resourceId) {
+  return get(
+    `SELECT id, label, username, url, notes, created_by_role, created_at, updated_at,
+            CASE WHEN secret_encrypted IS NOT NULL AND secret_encrypted != '' THEN 1 ELSE 0 END AS has_secret
+     FROM resource_credentials
+     WHERE resource_id = ? AND COALESCE(purpose, 'general') = 'management'
+     ORDER BY id DESC
+     LIMIT 1`,
+    [resourceId]
+  );
+}
+
+router.get('/resources/:id/management-page', async (req, res, next) => {
+  try {
+    const resource = await assertResourceAccess(req.user.id, req.params.id);
+    const credential = await getManagementPageRecord(req.params.id);
+    res.json({
+      managementPage: {
+        id: credential?.id || null,
+        url: credential?.url || resource.admin_url || '',
+        username: credential?.username || '',
+        notes: credential?.notes || '',
+        hasSecret: !!credential?.has_secret,
+        fromAdmin: credential?.created_by_role === 'admin'
+      }
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.put('/resources/:id/management-page', async (req, res, next) => {
+  try {
+    const resource = await assertResourceAccess(req.user.id, req.params.id);
+    const url = normalizeManagementPageUrl(req.body?.url);
+    const username = String(req.body?.username || '').trim();
+    const notes = String(req.body?.notes || '').trim();
+    const secretProvided = req.body?.secret !== undefined && String(req.body.secret) !== '';
+    const existing = await getManagementPageRecord(req.params.id);
+
+    if (existing) {
+      const encryptedSecret = secretProvided
+        ? encrypt(String(req.body.secret))
+        : (await get('SELECT secret_encrypted FROM resource_credentials WHERE id = ?', [existing.id]))?.secret_encrypted;
+      await run(
+        `UPDATE resource_credentials
+         SET label = ?, username = ?, secret_encrypted = ?, url = ?, notes = ?, purpose = 'management', updated_at = CURRENT_TIMESTAMP
+         WHERE id = ? AND resource_id = ?`,
+        ['Management page', username, encryptedSecret || null, url, notes, existing.id, resource.id]
+      );
+    } else {
+      await run(
+        `INSERT INTO resource_credentials
+         (resource_id, label, username, secret_encrypted, url, notes, created_by, created_by_role, purpose)
+         VALUES (?, ?, ?, ?, ?, ?, ?, 'user', 'management')`,
+        [resource.id, 'Management page', username, secretProvided ? encrypt(String(req.body.secret)) : null, url, notes, req.user.id]
+      );
+    }
+
+    await run('UPDATE resources SET admin_url = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [url, resource.id]);
+    await logAudit(req, 'resource.management-page.save', `resource:${resource.id}`, url);
+    const saved = await getManagementPageRecord(resource.id);
+    res.json({
+      message: 'Management page saved',
+      managementPage: {
+        id: saved?.id || null,
+        url,
+        username,
+        notes,
+        hasSecret: !!saved?.has_secret,
+        fromAdmin: saved?.created_by_role === 'admin'
+      }
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.delete('/resources/:id/management-page', async (req, res, next) => {
+  try {
+    const resource = await assertResourceAccess(req.user.id, req.params.id);
+    await run("DELETE FROM resource_credentials WHERE resource_id = ? AND COALESCE(purpose, 'general') = 'management'", [resource.id]);
+    await run("UPDATE resources SET admin_url = '', updated_at = CURRENT_TIMESTAMP WHERE id = ?", [resource.id]);
+    await logAudit(req, 'resource.management-page.remove', `resource:${resource.id}`);
+    res.json({ message: 'Management page removed' });
+  } catch (err) {
+    next(err);
+  }
+});
 
 
 async function getRootConsoleCredential(resourceId) {

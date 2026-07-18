@@ -410,13 +410,8 @@ function ResourceCard({ resource, onOpenDetails, onManagePublicPage, labels }) {
   const memPercent = getPercent(resource.mem, resource.maxmem);
   const publicUrl = resource.publicUrl || resource.webUrl;
   const adminUrl = resource.adminUrl || '';
-  const manualPublicPageMode = resource.publicAccessMode === 'manual';
-  const managePublicPageLabel = manualPublicPageMode
-    ? (resource.manualPublicUrl ? labels.editWebsite : labels.addWebsite)
-    : `${labels.managePublicAccess}${Number(resource.publicationCount || 0) > 0 ? ` (${resource.publicationCount})` : ''}`;
-  const managePublicPageTitle = manualPublicPageMode
-    ? (resource.manualPublicUrl ? labels.editWebsiteTitle : labels.addWebsiteTitle)
-    : labels.managePublicAccessTitle;
+  const managePublicPageLabel = `${labels.managePublicAccess}${Number(resource.publicationCount || 0) > 0 ? ` (${resource.publicationCount})` : ''}`;
+  const managePublicPageTitle = labels.editPublicPage;
 
   return (
     <article className="resource-card compact-resource-card">

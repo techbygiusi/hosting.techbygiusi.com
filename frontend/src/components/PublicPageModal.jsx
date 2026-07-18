@@ -5,7 +5,7 @@ import { readStoredLanguage } from './LanguageSwitch';
 
 const TEXT = {
   en: {
-    title: 'Manage public access', loading: 'Loading public access settings...',
+    title: 'Edit public access', loading: 'Loading access settings...',
     unavailable: 'Public publishing is not available. Ask an administrator to configure Pangolin.',
     noIp: 'This service has no reachable IPv4 address yet.', protocol: 'Protocol', subdomain: 'Subdomain',
     targetPort: 'Service port', publicPort: 'Public port', backendProtocol: 'Backend protocol',
@@ -36,10 +36,29 @@ const TEXT = {
     manualSaveFailed: 'The public website link could not be saved.',
     manualRemoveFailed: 'The public website link could not be removed.',
     previousPangolinTitle: 'Existing Pangolin access',
-    previousPangolinHint: 'These existing publications remain online while Pangolin is disabled and can still be removed.'
+    previousPangolinHint: 'These existing publications remain online while Pangolin is disabled and can still be removed.',
+    managementTitle: 'Management page',
+    managementDescription: 'Save the management-page address and optional login credentials for this service.',
+    managementUrl: 'Management page URL',
+    managementUrlHint: 'Enter the complete address starting with http:// or https://.',
+    managementUsername: 'Username',
+    managementPassword: 'Password / secret',
+    managementPasswordHint: 'Leave blank to keep the currently saved password.',
+    managementNotes: 'Notes',
+    optional: 'Optional',
+    managementSave: 'Save management page',
+    managementSaved: 'The management page was saved.',
+    managementRemoved: 'The management page was removed.',
+    managementRemove: 'Remove management page',
+    managementRemoveConfirm: 'Remove the management page and its saved login credentials from this service?',
+    managementRequired: 'Enter a management page URL.',
+    managementInvalid: 'The management page must be a valid URL starting with http:// or https://.',
+    managementSaveFailed: 'The management page could not be saved.',
+    managementRemoveFailed: 'The management page could not be removed.',
+    credentialsSaved: 'Login credentials saved'
   },
   de: {
-    title: 'Öffentliche Zugriffe verwalten', loading: 'Einstellungen für öffentliche Zugriffe werden geladen...',
+    title: 'Öffentlichen Zugriff bearbeiten', loading: 'Zugriffseinstellungen werden geladen...',
     unavailable: 'Die Veröffentlichung ist nicht verfügbar. Ein Administrator muss Pangolin konfigurieren.',
     noIp: 'Für diesen Dienst ist noch keine erreichbare IPv4-Adresse bekannt.', protocol: 'Protokoll', subdomain: 'Subdomain',
     targetPort: 'Dienst-Port', publicPort: 'Öffentlicher Port', backendProtocol: 'Backend-Protokoll',
@@ -70,7 +89,26 @@ const TEXT = {
     manualSaveFailed: 'Der Link zur öffentlichen Webseite konnte nicht gespeichert werden.',
     manualRemoveFailed: 'Der Link zur öffentlichen Webseite konnte nicht entfernt werden.',
     previousPangolinTitle: 'Bestehende Pangolin-Zugriffe',
-    previousPangolinHint: 'Diese bestehenden Freigaben bleiben trotz deaktiviertem Pangolin online und können weiterhin entfernt werden.'
+    previousPangolinHint: 'Diese bestehenden Freigaben bleiben trotz deaktiviertem Pangolin online und können weiterhin entfernt werden.',
+    managementTitle: 'Verwaltungsseite',
+    managementDescription: 'Hinterlege die Adresse der Verwaltungsseite und optional die zugehörigen Anmeldedaten für diesen Dienst.',
+    managementUrl: 'URL der Verwaltungsseite',
+    managementUrlHint: 'Gib die vollständige Adresse mit http:// oder https:// ein.',
+    managementUsername: 'Benutzername',
+    managementPassword: 'Passwort / Secret',
+    managementPasswordHint: 'Leer lassen, um das aktuell gespeicherte Passwort beizubehalten.',
+    managementNotes: 'Notizen',
+    optional: 'Optional',
+    managementSave: 'Verwaltungsseite speichern',
+    managementSaved: 'Die Verwaltungsseite wurde gespeichert.',
+    managementRemoved: 'Die Verwaltungsseite wurde entfernt.',
+    managementRemove: 'Verwaltungsseite entfernen',
+    managementRemoveConfirm: 'Die Verwaltungsseite und ihre gespeicherten Anmeldedaten von diesem Dienst entfernen?',
+    managementRequired: 'Bitte gib eine URL für die Verwaltungsseite ein.',
+    managementInvalid: 'Die Verwaltungsseite muss eine gültige URL mit http:// oder https:// sein.',
+    managementSaveFailed: 'Die Verwaltungsseite konnte nicht gespeichert werden.',
+    managementRemoveFailed: 'Die Verwaltungsseite konnte nicht entfernt werden.',
+    credentialsSaved: 'Anmeldedaten gespeichert'
   }
 };
 
@@ -89,6 +127,8 @@ export default function PublicPageModal({ resource, onClose, onSaved, language: 
   const [publications, setPublications] = useState(initialPublications);
   const [manualUrl, setManualUrl] = useState(initialManualUrl);
   const [savedManualUrl, setSavedManualUrl] = useState(initialManualUrl);
+  const [managementPage, setManagementPage] = useState(null);
+  const [managementForm, setManagementForm] = useState({ url: resource?.adminUrl || '', username: '', secret: '', notes: '' });
   const [editingId, setEditingId] = useState(null);
   const [protocol, setProtocol] = useState('http');
   const [subdomain, setSubdomain] = useState(slugify(resource?.name || 'service'));
@@ -104,9 +144,10 @@ export default function PublicPageModal({ resource, onClose, onSaved, language: 
     let active = true;
     Promise.all([
       userApi.getPublishingOptions(resource?.id),
-      userApi.getPublications(resource?.id)
+      userApi.getPublications(resource?.id),
+      userApi.getManagementPage(resource?.id)
     ])
-      .then(([optionsResponse, publicationsResponse]) => {
+      .then(([optionsResponse, publicationsResponse, managementResponse]) => {
         if (!active) return;
         const publishing = optionsResponse.data.publishing || {};
         const currentPublications = publicationsResponse.data.publications || [];
@@ -115,6 +156,14 @@ export default function PublicPageModal({ resource, onClose, onSaved, language: 
         setPublications(currentPublications);
         setManualUrl(publicationsResponse.data.manualPublicUrl || '');
         setSavedManualUrl(publicationsResponse.data.manualPublicUrl || '');
+        const currentManagementPage = managementResponse.data.managementPage || null;
+        setManagementPage(currentManagementPage);
+        setManagementForm({
+          url: currentManagementPage?.url || resource?.adminUrl || '',
+          username: currentManagementPage?.username || '',
+          secret: '',
+          notes: currentManagementPage?.notes || ''
+        });
         const firstProtocol = getFirstEnabledProtocol(publishing);
         setProtocol(firstProtocol);
         setSubdomain(getSuggestedSubdomain(resource?.name, firstProtocol, currentPublications));
@@ -124,7 +173,7 @@ export default function PublicPageModal({ resource, onClose, onSaved, language: 
       .catch((err) => active && setError(getErrorMessage(err, text.unavailable)))
       .finally(() => active && setLoading(false));
     return () => { active = false; };
-  }, [resource?.id, resource?.name, resource?.primaryIp, text.unavailable]);
+  }, [resource?.id, resource?.name, resource?.primaryIp, resource?.adminUrl, text.unavailable]);
 
   const manualMode = options?.manualLinkEnabled === true;
   const protocolOptions = useMemo(() => ['http', 'tcp', 'udp'].map((key) => ({
@@ -255,6 +304,59 @@ export default function PublicPageModal({ resource, onClose, onSaved, language: 
       setNotice(text.manualRemoved);
     } catch (err) {
       setError(getErrorMessage(err, text.manualRemoveFailed));
+    } finally {
+      setBusy('');
+    }
+  };
+
+  const saveManagementPage = async (event) => {
+    event.preventDefault();
+    const normalized = normalizeManualUrl(managementForm.url);
+    if (!normalized) {
+      setError(managementForm.url.trim() ? text.managementInvalid : text.managementRequired);
+      return;
+    }
+
+    try {
+      setBusy('management-save');
+      setError('');
+      setNotice('');
+      const response = await userApi.saveManagementPage(resource.id, {
+        url: normalized,
+        username: managementForm.username.trim(),
+        secret: managementForm.secret,
+        notes: managementForm.notes.trim()
+      });
+      const saved = response.data.managementPage || { url: normalized };
+      setManagementPage(saved);
+      setManagementForm({
+        url: saved.url || normalized,
+        username: saved.username || managementForm.username.trim(),
+        secret: '',
+        notes: saved.notes || managementForm.notes.trim()
+      });
+      await onSaved?.();
+      setNotice(text.managementSaved);
+    } catch (err) {
+      setError(getErrorMessage(err, text.managementSaveFailed));
+    } finally {
+      setBusy('');
+    }
+  };
+
+  const removeManagementPage = async () => {
+    if (!window.confirm(text.managementRemoveConfirm)) return;
+    try {
+      setBusy('management-remove');
+      setError('');
+      setNotice('');
+      await userApi.removeManagementPage(resource.id);
+      setManagementPage(null);
+      setManagementForm({ url: '', username: '', secret: '', notes: '' });
+      await onSaved?.();
+      setNotice(text.managementRemoved);
+    } catch (err) {
+      setError(getErrorMessage(err, text.managementRemoveFailed));
     } finally {
       setBusy('');
     }
@@ -493,6 +595,93 @@ export default function PublicPageModal({ resource, onClose, onSaved, language: 
               </form>
             </>
           )}
+
+          <section className="publishing-existing-section management-page-section">
+            <div className="publishing-section-heading">
+              <div>
+                <h3>{text.managementTitle}</h3>
+                <p>{text.managementDescription}</p>
+              </div>
+              {managementPage?.url && <span className="publishing-protocol-badge">ADMIN</span>}
+            </div>
+
+            {managementPage?.url && (
+              <article className="publishing-existing-card management-page-card">
+                <div className="publishing-existing-card-main">
+                  <span className="publishing-protocol-badge">WEB</span>
+                  <div>
+                    <strong>{managementPage.url}</strong>
+                    {managementPage.username && <small>{managementPage.username}</small>}
+                    {managementPage.hasSecret && <small>{text.credentialsSaved}</small>}
+                  </div>
+                </div>
+                <div className="publishing-existing-card-actions">
+                  <a className="btn-secondary btn-small" href={managementPage.url} target="_blank" rel="noreferrer">{text.open}</a>
+                  <button type="button" className="btn-danger btn-small" onClick={removeManagementPage} disabled={!!busy}>
+                    {busy === 'management-remove' ? text.removing : text.managementRemove}
+                  </button>
+                </div>
+              </article>
+            )}
+
+            <form className="publishing-form management-page-form" onSubmit={saveManagementPage} noValidate>
+              <label className="form-group">
+                <span>{text.managementUrl}</span>
+                <input
+                  type="url"
+                  value={managementForm.url}
+                  onChange={(event) => setManagementForm((current) => ({ ...current, url: event.target.value }))}
+                  placeholder="https://admin.example.com"
+                  required
+                  disabled={!!busy}
+                />
+                <small>{text.managementUrlHint}</small>
+              </label>
+
+              <div className="management-page-fields-grid">
+                <label className="form-group">
+                  <span>{text.managementUsername}</span>
+                  <input
+                    type="text"
+                    value={managementForm.username}
+                    onChange={(event) => setManagementForm((current) => ({ ...current, username: event.target.value }))}
+                    placeholder={text.optional}
+                    autoComplete="off"
+                    disabled={!!busy}
+                  />
+                </label>
+                <label className="form-group">
+                  <span>{text.managementPassword}</span>
+                  <input
+                    type="password"
+                    value={managementForm.secret}
+                    onChange={(event) => setManagementForm((current) => ({ ...current, secret: event.target.value }))}
+                    placeholder={managementPage?.hasSecret ? text.managementPasswordHint : text.optional}
+                    autoComplete="new-password"
+                    disabled={!!busy}
+                  />
+                </label>
+              </div>
+
+              <label className="form-group">
+                <span>{text.managementNotes}</span>
+                <textarea
+                  rows="2"
+                  value={managementForm.notes}
+                  onChange={(event) => setManagementForm((current) => ({ ...current, notes: event.target.value }))}
+                  placeholder={text.optional}
+                  disabled={!!busy}
+                />
+              </label>
+
+              <div className="form-actions public-page-form-actions publishing-actions">
+                <button type="button" className="btn-secondary" onClick={onClose} disabled={!!busy}>{text.close}</button>
+                <button type="submit" className="btn-primary" disabled={!!busy}>
+                  {busy === 'management-save' ? text.saving : text.managementSave}
+                </button>
+              </div>
+            </form>
+          </section>
         </div>
       )}
     </Modal>

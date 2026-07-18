@@ -58,7 +58,6 @@ const TEXT = {
     udpTitle: 'UDP',
     udpDescription: 'Raw UDP publishing through the dedicated public port pool. The selected port is used externally and internally.',
     allowedPorts: 'Allowed ports / ranges',
-    example: 'Example: 80,443,8000-8999',
     managed: 'managed publication(s)',
     test: 'Test connection',
     testing: 'Testing...',
@@ -117,7 +116,6 @@ const TEXT = {
     udpTitle: 'UDP',
     udpDescription: 'Rohe UDP-Freigaben über den festgelegten öffentlichen Portpool. Der gewählte Port wird extern und intern verwendet.',
     allowedPorts: 'Erlaubte Ports / Bereiche',
-    example: 'Beispiel: 80,443,8000-8999',
     managed: 'verwaltete Veröffentlichung(en)',
     test: 'Verbindung testen',
     testing: 'Test läuft...',
@@ -404,7 +402,6 @@ export default function PangolinSettingsPanel({ onSuccess, onError, language: la
             ports={form.allowedHttpPorts}
             onPorts={(value) => update('allowedHttpPorts', value)}
             placeholder="80,443,3000-9999"
-            helperText={text.example}
             text={text}
           />
           <ProtocolPolicy
@@ -481,7 +478,7 @@ export default function PangolinSettingsPanel({ onSuccess, onError, language: la
   );
 }
 
-function ProtocolPolicy({ title, description, enabled, onEnabled, ports, onPorts, placeholder, helperText, text }) {
+function ProtocolPolicy({ title, description, enabled, onEnabled, ports, onPorts, placeholder, text }) {
   return (
     <article className={`pangolin-protocol-card ${enabled ? 'enabled' : ''}`}>
       <label className="pangolin-protocol-toggle">
@@ -494,7 +491,6 @@ function ProtocolPolicy({ title, description, enabled, onEnabled, ports, onPorts
       <label className="form-group">
         <span>{text.allowedPorts}</span>
         <input type="text" value={ports} onChange={(event) => onPorts(event.target.value)} placeholder={placeholder} disabled={!enabled} />
-        {helperText && <small>{helperText}</small>}
       </label>
     </article>
   );

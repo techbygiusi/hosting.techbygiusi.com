@@ -1654,17 +1654,13 @@ export default function AdminDashboard() {
             <label className="form-group"><span>Container oder VM</span>{clusterContainers.length > 0 ? <select value={newResource.containerId} onChange={e => handleResourceContainerChange(e.target.value)}><option value="">Bitte auswählen</option>{clusterContainers.map(item => <option key={`${item.type}-${item.vmid}`} value={item.vmid}>{item.vmid} · {item.name || item.type} · {renderType(item.type)} · {renderStatus(item.status)}</option>)}</select> : <input type="text" value={newResource.containerId} onChange={e => setNewResource(prev => ({ ...prev, containerId: e.target.value }))} placeholder="VMID oder CTID" />}</label>
             <label className="form-group"><span>Anzeigename</span><input type="text" value={newResource.name} onChange={e => setNewResource(prev => ({ ...prev, name: e.target.value }))} placeholder="Optional" /></label>
             {editResourceId && newResource.resourceType === 'qemu' && (
-              <>
-                <div className="service-ip-fields admin-service-ip-fields">
-                  <label className="form-group"><span>Manuelle IPv4-Adresse</span><input type="text" inputMode="decimal" value={newResource.manualIp} onChange={e => setNewResource(prev => ({ ...prev, manualIp: e.target.value }))} placeholder="10.10.20.16" /></label>
-                  <label className="form-group service-ip-port"><span>SSH-Port</span><input type="number" min="1" max="65535" value={newResource.sshPort} onChange={e => setNewResource(prev => ({ ...prev, sshPort: e.target.value }))} /></label>
-                </div>
-                <small className="hint-text">Nur für vom Administrator zugewiesene QEMU-VMs ohne erkannte Gast-IP. LXC-Adressen werden automatisch über Proxmox ausgelesen.</small>
-              </>
+              <div className="service-ip-fields admin-service-ip-fields">
+                <label className="form-group"><span>Manuelle IPv4-Adresse</span><input type="text" inputMode="decimal" value={newResource.manualIp} onChange={e => setNewResource(prev => ({ ...prev, manualIp: e.target.value }))} placeholder="10.10.20.16" /></label>
+                <label className="form-group service-ip-port"><span>SSH-Port</span><input type="number" min="1" max="65535" value={newResource.sshPort} onChange={e => setNewResource(prev => ({ ...prev, sshPort: e.target.value }))} /></label>
+              </div>
             )}
             <label className="form-group"><span>Benutzer</span><select value={newResource.userId} onChange={e => setNewResource(prev => ({ ...prev, userId: e.target.value }))}><option value="">Bitte auswählen</option>{users.map(item => <option key={item.id} value={item.id}>{item.name} · {item.email}</option>)}</select></label>
             <label className="form-group"><span>Gruppe (geteilter Zugriff)</span><select value={newResource.groupId} onChange={e => setNewResource(prev => ({ ...prev, groupId: e.target.value }))}><option value="">Keine Gruppe</option>{groups.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
-            <div className="hint-text publishing-admin-hint">Öffentliche Seiten werden vom zugewiesenen Benutzer über Pangolin veröffentlicht. Ziel-IP und erlaubte Ports werden serverseitig geprüft.</div>
             <label className="form-group"><span>Verwaltungsseite</span><input type="url" value={newResource.adminUrl} onChange={e => setNewResource(prev => ({ ...prev, adminUrl: e.target.value }))} placeholder="https://admin.example.com" /></label>
             <div className="form-actions"><button type="button" className="btn-secondary" onClick={closeResourceModal}>Abbrechen</button><button type="submit" className="btn-primary" disabled={actionLoading}>{editResourceId ? 'Speichern' : 'Anlegen'}</button></div>
           </form>
@@ -1695,9 +1691,8 @@ export default function AdminDashboard() {
 }
 
 /**
- * Admin management of credentials attached to a specific resource.
- * The admin can add/edit/delete its own entries.
- * A management-page credential is shared: admin and authorized users can edit it.
+ * Admin management of general credentials attached to a specific resource.
+ * Management-page access is maintained in the Dashboard access editor.
  */
 function AdminResourceCredentials({ resource, onClose, onError }) {
   const emptyForm = { label: '', username: '', secret: '', url: '', notes: '', purpose: 'general' };
@@ -1724,17 +1719,7 @@ function AdminResourceCredentials({ resource, onClose, onError }) {
 
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [resource.id]);
 
-  const managementCredential = credentials.find(item => item.purpose === 'management');
   const openCreate = () => { setEditId(null); setForm(emptyForm); setShowForm(true); };
-  const openManagement = () => {
-    if (managementCredential) {
-      openEdit(managementCredential);
-      return;
-    }
-    setEditId(null);
-    setForm({ label: 'Verwaltungsseite', username: '', secret: '', url: resource.adminUrl || '', notes: '', purpose: 'management' });
-    setShowForm(true);
-  };
   const openEdit = (item) => {
     setEditId(item.id);
     setForm({ label: item.label || '', username: item.username || '', secret: '', url: item.url || '', notes: item.notes || '', purpose: item.purpose || 'general' });
@@ -1743,7 +1728,7 @@ function AdminResourceCredentials({ resource, onClose, onError }) {
 
   const save = async (e) => {
     e.preventDefault();
-    if (!form.label.trim() && form.purpose !== 'management') { onError('Bitte eine Bezeichnung eingeben.'); return; }
+    if (!form.label.trim()) { onError('Bitte eine Bezeichnung eingeben.'); return; }
     try {
       setBusy(true);
       if (editId) await adminApi.updateResourceCredential(resource.id, editId, form);
@@ -1783,8 +1768,8 @@ function AdminResourceCredentials({ resource, onClose, onError }) {
     }
   };
 
-  const adminCreds = credentials.filter(item => item.canManage);
-  const userCreds = credentials.filter(item => !item.canManage);
+  const adminCreds = credentials.filter(item => item.canManage && item.purpose !== 'management');
+  const userCreds = credentials.filter(item => !item.canManage && item.purpose !== 'management');
 
   if (adminReadOnly) {
     return (
@@ -1796,12 +1781,9 @@ function AdminResourceCredentials({ resource, onClose, onError }) {
 
   return (
     <Modal title={`Zugangsdaten · ${resource.name}`} onClose={onClose}>
-      <p className="hint-text panel-hint">Zugangsdaten für die Verwaltungsseite sind gemeinsam bearbeitbar. Sonstige Benutzer-Zugangsdaten bleiben privat.</p>
-
       <div className="tasks-toolbar">
         <span className="hint-text">{adminCreds.length} verwaltbar · {userCreds.length} privat</span>
         <div className="inline-actions">
-          <button type="button" className="btn-secondary btn-small" onClick={openManagement}>{managementCredential ? 'Verwaltungsseite bearbeiten' : 'Verwaltungsseite hinterlegen'}</button>
           <button type="button" className="btn-primary btn-small" onClick={openCreate}>Hinzufügen</button>
         </div>
       </div>
@@ -1811,7 +1793,7 @@ function AdminResourceCredentials({ resource, onClose, onError }) {
       {!loading && adminCreds.map(item => (
         <div key={item.id} className="credential-row">
           <div className="credential-main">
-            <strong>{item.label}<span className={`cred-tag ${item.purpose === 'management' ? 'credential-badge' : item.fromAdmin ? 'cred-tag-admin' : 'cred-tag-user'}`}>{item.purpose === 'management' ? 'Verwaltungsseite' : item.fromAdmin ? 'von Admin' : 'vom Benutzer'}</span></strong>
+            <strong>{item.label}<span className={`cred-tag ${item.fromAdmin ? 'cred-tag-admin' : 'cred-tag-user'}`}>{item.fromAdmin ? 'von Admin' : 'vom Benutzer'}</span></strong>
             {item.username && <span className="credential-user">{item.username}</span>}
             {item.url && <a href={item.url} target="_blank" rel="noreferrer" className="credential-url">{item.url}</a>}
             {item.notes && <small className="credential-notes">{item.notes}</small>}
@@ -1837,14 +1819,13 @@ function AdminResourceCredentials({ resource, onClose, onError }) {
         </div>
       ))}
 
-      {!loading && credentials.length === 0 && !showForm && (
+      {!loading && adminCreds.length === 0 && userCreds.length === 0 && !showForm && (
         <p className="hint-text tab-empty">Noch keine Zugangsdaten hinterlegt.</p>
       )}
 
       {showForm && (
         <form className="form-stack credential-form" onSubmit={save}>
-          {form.purpose === 'management' && <div className="credential-purpose-note">Zugangsdaten für die Verwaltungsseite</div>}
-          <label className="form-group"><span>Bezeichnung</span><input type="text" value={form.label} onChange={e => setForm(prev => ({ ...prev, label: e.target.value }))} placeholder={form.purpose === 'management' ? 'Verwaltungsseite' : 'z. B. SSH root'} /></label>
+          <label className="form-group"><span>Bezeichnung</span><input type="text" value={form.label} onChange={e => setForm(prev => ({ ...prev, label: e.target.value }))} placeholder="z. B. SSH root" /></label>
           <label className="form-group"><span>Benutzername</span><input type="text" value={form.username} onChange={e => setForm(prev => ({ ...prev, username: e.target.value }))} placeholder="Optional" autoComplete="off" /></label>
           <label className="form-group"><span>Passwort / Secret</span><input type="password" value={form.secret} onChange={e => setForm(prev => ({ ...prev, secret: e.target.value }))} placeholder={editId ? 'Leer lassen, wenn unverändert' : ''} autoComplete="new-password" /></label>
           <label className="form-group"><span>URL</span><input type="url" value={form.url} onChange={e => setForm(prev => ({ ...prev, url: e.target.value }))} placeholder="Optional" /></label>

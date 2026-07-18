@@ -5792,12 +5792,6 @@ body.theme-dark .cluster-map-canvas .leaflet-container {
   overflow-wrap: anywhere;
 }
 
-.publishing-admin-hint {
-  padding: 12px 14px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  background: var(--color-bg-alt);
-}
 
 @media (max-width: 767px) {
   .pangolin-publication-grid {
@@ -6512,5 +6506,38 @@ body.theme-dark .settings-section-card {
     min-height: 40px;
     padding: 6px 5px;
     font-size: 9.5px;
+  }
+}
+
+/* v3.1.65 - streamlined service and credential administration */
+.management-page-section {
+  gap: 18px;
+}
+
+.management-page-form {
+  display: grid;
+  gap: 16px;
+  min-height: 0;
+  overflow: visible;
+  padding-top: 4px;
+}
+
+.management-page-form .form-group {
+  margin: 0;
+}
+
+.management-page-fields-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.management-page-card .publishing-existing-card-main strong {
+  word-break: break-word;
+}
+
+@media (max-width: 767px) {
+  .management-page-fields-grid {
+    grid-template-columns: 1fr;
   }
 }

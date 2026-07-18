@@ -6,7 +6,28 @@ The frontend is built with React and the backend with Express + SQLite. Proxmox 
 
 ## Version
 
-Current version: **v3.1.63**
+Current version: **v3.1.65**
+
+## What's new in v3.1.65
+
+- Removed the explanatory manual-IPv4 note from the administrator service editor while keeping the QEMU-only manual address workflow unchanged.
+- Removed the redundant Pangolin publishing information box from the administrator service editor.
+- Removed the obsolete **Add management page** action and related management-page explanation from the administrator credentials dialog; management-page settings remain in the combined Dashboard access editor.
+- Kept management-page credentials out of the administrator credentials list so the dialog now focuses on general entries such as SSH credentials.
+- Removed the HTTP/HTTPS allowed-port example below the Pangolin policy field.
+- Preserved German and English behavior while simplifying the affected administration views.
+
+
+## What's new in v3.1.64
+
+- Moved management-page setup out of the user **Credentials** tab and into the service Dashboard access editor.
+- Renamed the combined action to **Edit public access / Öffentlichen Zugriff bearbeiten**.
+- The same localized dialog now manages Pangolin publications or the manual public website fallback together with the management-page URL.
+- Added optional management-page username, password/secret and notes fields, including update and removal actions.
+- Kept general credentials such as SSH logins in the **Credentials** tab while hiding the dedicated management-page record there.
+- Made the access editor available to the directly assigned user even when a service has no publishable guest IP, because the management-page URL does not depend on Pangolin.
+- Synchronized management-page changes with the service record so Dashboard and detail buttons update immediately.
+
 
 ## What's new in v3.1.63
 
@@ -403,6 +424,25 @@ docker image prune -f
 The database migrates itself on startup. Keep the backend data volume before updating.
 
 ## Changelog
+
+### v3.1.65 - 2026-07-18
+
+**Commit:** `fix: streamline service and credential administration`
+
+- Remove redundant help text from the administrator service editor.
+- Remove the legacy management-page action from administrator credentials because management access is maintained in the Dashboard access editor.
+- Hide management-purpose records from the general administrator credential list.
+- Remove the HTTP/HTTPS example below the Pangolin allowed-port policy.
+
+### v3.1.64 - 2026-07-18
+
+**Commit:** `feat: combine public and management access editing`
+
+- Move management-page configuration from the user Credentials tab into the Dashboard access editor.
+- Manage the public website or Pangolin publications and the management page from one German/English dialog.
+- Store optional management-page login credentials and notes without exposing saved secrets to the browser.
+- Allow the assigned user to open the access editor independently of Pangolin IP availability.
+- Keep SSH and other general credentials in the dedicated Credentials tab.
 
 ### v3.1.63 - 2026-07-18
 
