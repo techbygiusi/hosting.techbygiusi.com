@@ -2,6 +2,12 @@ import { useEffect } from 'react';
 import { readStoredLanguage } from './components/LanguageSwitch';
 
 export const DE_EN_PHRASES = {
+  "SMTP-Einstellungen": "SMTP settings",
+  "Konfiguriere den Mailversand für Tests, Benachrichtigungen und Passwort-Zurücksetzungen.": "Configure email delivery for tests, notifications and password resets.",
+  "Prüfe Administrator, Proxmox und SMTP direkt in den Einstellungen.": "Check the administrator, Proxmox and SMTP directly in Settings.",
+  "Proxmox-Verbindung": "Proxmox connection",
+  "SMTP-Verbindung": "SMTP connection",
+  "Prüft die aktuell gespeicherte SMTP-Konfiguration.": "Checks the currently saved SMTP configuration.",
   "Pangolin-Veröffentlichung für diesen Cluster erlauben": "Allow Pangolin publishing for this cluster",
   "Beim Abschalten bleiben bestehende Veröffentlichungen erreichbar. Benutzer können sie nur noch entfernen; neue oder geänderte Freigaben werden serverseitig blockiert.": "When disabled, existing publications remain reachable. Users can only remove them; new or changed publications are blocked by the backend.",
   "Veröffentlichung: aktiviert": "Publishing: enabled",

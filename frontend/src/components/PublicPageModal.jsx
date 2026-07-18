@@ -3,6 +3,9 @@ import Modal from './Modal';
 import { userApi, getErrorMessage } from '../services/api';
 import { readStoredLanguage } from './LanguageSwitch';
 
+const RAW_PORT_MIN = 20000;
+const RAW_PORT_MAX = 26000;
+
 const TEXT = {
   en: {
     addTitle: 'Publish service', editTitle: 'Edit public access', loading: 'Loading publishing settings...',
@@ -15,7 +18,7 @@ const TEXT = {
     ranges: 'Allowed ports', save: 'Publish', update: 'Save changes', saving: 'Saving...', cancel: 'Cancel', close: 'Close',
     remove: 'Remove public access', removeConfirm: 'Remove public access for this service?',
     saveFailed: 'Public access could not be saved.', removeFailed: 'Public access could not be removed.',
-    subdomainHint: 'Lowercase letters, numbers and hyphens only.', rawHint: 'For TCP/UDP the selected port is used externally and internally.',
+    subdomainHint: 'Lowercase letters, numbers and hyphens only.', rawHint: 'For TCP/UDP the selected port is used externally and internally. Only ports from 20000 through 26000 can be published.',
     security: 'You cannot enter another IP address. The portal always publishes this service only.', disabled: 'Disabled by administrator'
   },
   de: {
@@ -29,7 +32,7 @@ const TEXT = {
     ranges: 'Erlaubte Ports', save: 'Veröffentlichen', update: 'Änderungen speichern', saving: 'Speichert...', cancel: 'Abbrechen', close: 'Schließen',
     remove: 'Öffentlichen Zugriff entfernen', removeConfirm: 'Öffentlichen Zugriff für diesen Dienst entfernen?',
     saveFailed: 'Der öffentliche Zugriff konnte nicht gespeichert werden.', removeFailed: 'Der öffentliche Zugriff konnte nicht entfernt werden.',
-    subdomainHint: 'Nur Kleinbuchstaben, Zahlen und Bindestriche.', rawHint: 'Bei TCP/UDP wird der gewählte Port extern und intern verwendet.',
+    subdomainHint: 'Nur Kleinbuchstaben, Zahlen und Bindestriche.', rawHint: 'Bei TCP/UDP wird der gewählte Port extern und intern verwendet. Veröffentlicht werden können ausschließlich Ports von 20000 bis 26000.',
     security: 'Du kannst keine andere IP-Adresse eintragen. Das Portal veröffentlicht immer nur diesen Dienst.', disabled: 'Vom Administrator deaktiviert'
   }
 };
@@ -44,7 +47,7 @@ export default function PublicPageModal({ resource, onClose, onSaved, language: 
   const [protocol, setProtocol] = useState(existing?.protocol || 'http');
   const [subdomain, setSubdomain] = useState(existing?.subdomain || slugify(resource?.name || 'service'));
   const [targetPort, setTargetPort] = useState(String(existing?.targetPort || 80));
-  const [publicPort, setPublicPort] = useState(String(existing?.publicPort || existing?.targetPort || 25565));
+  const [publicPort, setPublicPort] = useState(String(existing?.publicPort || existing?.targetPort || RAW_PORT_MIN));
   const [targetMethod, setTargetMethod] = useState(existing?.targetMethod || 'http');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -81,7 +84,7 @@ export default function PublicPageModal({ resource, onClose, onSaved, language: 
     setError('');
     if (next === 'http' && (!targetPort || Number(targetPort) === Number(publicPort))) setTargetPort('80');
     if (next !== 'http') {
-      const rawPort = existing?.protocol === next ? (existing.publicPort || existing.targetPort) : 25565;
+      const rawPort = existing?.protocol === next ? (existing.publicPort || existing.targetPort) : RAW_PORT_MIN;
       setPublicPort(String(rawPort));
       setTargetPort(String(rawPort));
     }
@@ -199,8 +202,8 @@ export default function PublicPageModal({ resource, onClose, onSaved, language: 
                 <span>{text.publicPort}</span>
                 <input
                   type="number"
-                  min="1"
-                  max="65535"
+                  min={RAW_PORT_MIN}
+                  max={RAW_PORT_MAX}
                   value={publicPort}
                   onChange={(event) => { setPublicPort(event.target.value); setTargetPort(event.target.value); }}
                   disabled={busy || !options?.enabled}

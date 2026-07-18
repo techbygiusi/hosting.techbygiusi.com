@@ -6014,3 +6014,173 @@ body.theme-dark .cluster-map-canvas .leaflet-container {
     padding: 12px;
   }
 }
+
+/* v3.1.50 - balanced publishing modal spacing and aligned HTTP controls */
+.publishing-modal-card .publishing-form {
+  padding-inline: 2px;
+  scrollbar-gutter: stable both-edges;
+}
+
+.publishing-http-fields-grid {
+  align-items: stretch;
+}
+
+.publishing-http-fields-grid > .publishing-control-field {
+  display: grid;
+  grid-template-rows: minmax(1.45em, auto) var(--ui-control-height) minmax(1.45em, auto);
+  align-content: start;
+  align-self: stretch;
+}
+
+.publishing-http-fields-grid > .publishing-control-field > span {
+  display: flex;
+  align-items: flex-end;
+  min-height: 1.45em;
+  margin: 0;
+  line-height: 1.45;
+}
+
+.publishing-http-fields-grid > .publishing-control-field input,
+.publishing-http-fields-grid > .publishing-control-field select {
+  height: var(--ui-control-height);
+  min-height: var(--ui-control-height);
+}
+
+.publishing-http-fields-grid > .publishing-control-field small {
+  display: block;
+  margin: 0;
+}
+
+@media (max-width: 767px) {
+  .publishing-modal-card .publishing-form {
+    padding-inline: 2px;
+    scrollbar-gutter: auto;
+  }
+
+  .publishing-http-fields-grid > .publishing-control-field {
+    grid-template-rows: auto var(--ui-control-height) auto;
+  }
+}
+
+/* v3.1.51 - keep publishing actions on the exact modal background */
+.publishing-modal-card .publishing-form,
+.publishing-modal-card .publishing-actions {
+  background-color: inherit;
+}
+
+/* v3.1.53 - separate localized settings sections with inline setup checks */
+.settings-card {
+  gap: 20px;
+}
+
+.settings-section-card {
+  display: grid;
+  gap: 18px;
+  padding: 22px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+
+.settings-section-heading {
+  display: grid;
+  gap: 6px;
+}
+
+.settings-section-heading h3,
+.settings-section-heading p {
+  margin: 0;
+}
+
+.settings-section-heading h3 {
+  font-size: 20px;
+  line-height: 1.25;
+}
+
+.settings-section-heading p,
+.settings-section-note {
+  color: var(--color-text-light);
+  line-height: 1.55;
+}
+
+.settings-section-note {
+  margin: 0;
+}
+
+.settings-section-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.settings-section-header > .settings-section-heading {
+  min-width: 0;
+}
+
+.settings-section-header > .btn-secondary {
+  flex: 0 0 auto;
+}
+
+.settings-language-section .settings-language-buttons {
+  width: 100%;
+}
+
+.settings-testmail-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.settings-testmail-row .test-result {
+  flex: 1 1 280px;
+}
+
+.settings-inline-check-grid {
+  gap: 14px;
+}
+
+.settings-setup-tests {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.settings-setup-tests .setup-check-test {
+  align-content: start;
+}
+
+body.theme-light .settings-section-card {
+  background: #ffffff;
+  border-color: rgba(17, 17, 17, 0.08);
+}
+
+body.theme-dark .settings-section-card {
+  background: #111418;
+  border-color: #2a2f36;
+}
+
+@media (max-width: 767px) {
+  .settings-section-card {
+    gap: 16px;
+    padding: 16px;
+  }
+
+  .settings-section-header,
+  .settings-testmail-row {
+    display: grid;
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .settings-section-header > .btn-secondary,
+  .settings-testmail-row > .btn-secondary {
+    width: 100%;
+  }
+
+  .settings-setup-tests {
+    grid-template-columns: 1fr;
+  }
+}

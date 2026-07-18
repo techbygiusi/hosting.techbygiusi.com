@@ -6,8 +6,41 @@ The frontend is built with React and the backend with Express + SQLite. Proxmox 
 
 ## Version
 
-Current version: **v3.1.48**
+Current version: **v3.1.53**
 
+
+## What's new in v3.1.53
+
+- Reorganized the main Settings panel into distinct Language, SMTP settings and Setup check sections.
+- Moved the complete setup status and Proxmox/SMTP connection tests out of the popup and directly into Settings.
+- Added automatic inline setup loading, refresh controls and complete German/English localization for the new section copy.
+
+
+## What's new in v3.1.52
+
+- Removed the publishing-enabled status chip from Proxmox cluster cards while keeping the per-cluster publishing setting and backend enforcement unchanged.
+- Removed only the Isolation and Firewall check capability chips from cluster cards; both permission checks and security functions continue to operate normally.
+- Kept the remaining Read, Power, Console and Provision capability indicators visible.
+
+
+## What's new in v3.1.51
+
+- The sticky publishing action row now uses the exact background color of the surrounding popup in every theme.
+- Removed the visibly different rectangle behind the Cancel and Publish buttons while keeping the actions fixed during scrolling.
+
+
+## What's new in v3.1.50
+
+- The user publishing dialog now keeps equal visual spacing on its left and right sides, including when its content scrolls.
+- The service-port and backend-protocol labels and controls now share the same row height and top alignment on desktop.
+- The mobile publishing form keeps the existing single-column layout and consistent localized spacing.
+
+## What's new in v3.1.49
+
+- Raw TCP and UDP publishing is now presented as an active feature instead of a prepared placeholder.
+- New and previously untouched installations use the dedicated `20000-26000` TCP/UDP pool by default.
+- The administrator form explains the fixed pool in German and English and rejects policies outside it.
+- The backend independently enforces the raw port pool for every publication request, while the user dialog applies matching input limits.
 
 ## What's new in v3.1.48
 
@@ -169,7 +202,7 @@ Do not use a root key. Open **Admin Console → Settings → Pangolin publishing
 - Organization ID.
 - Pangolin site and Pangolin domain, selected after using **Load from Pangolin**. The site selector uses the numeric Pangolin `siteId`; the alphanumeric Newt connector ID is not used.
 - Base domain used for generated user addresses, for example `apps.example.com`.
-- Allowed HTTP target ports and optional TCP/UDP port ranges.
+- Allowed HTTP target ports and the fixed raw TCP/UDP publication pool. TCP and UDP policies may only contain ports from `20000` through `26000`.
 
 Port policies accept comma-, space- or semicolon-separated values and inclusive ranges:
 
@@ -177,7 +210,7 @@ Port policies accept comma-, space- or semicolon-separated values and inclusive 
 80,443,3000-3999,8080
 ```
 
-For HTTP publishing, Pangolin terminates public TLS while the configured backend method controls the Newt-to-service connection. For raw TCP or UDP resources, the selected port is currently used as both the public Pangolin proxy port and the internal service port.
+For HTTP publishing, Pangolin terminates public TLS while the configured backend method controls the Newt-to-service connection. For raw TCP or UDP resources, the selected port is used as both the public Pangolin proxy port and the internal service port. The portal accepts and publishes raw ports only inside the dedicated `20000-26000` pool; this limit is enforced in both the administrator settings and every backend publication request.
 
 ### Publishing security model
 
@@ -285,6 +318,50 @@ The database migrates itself on startup. Keep the backend data volume before upd
 
 ## Changelog
 
+### v3.1.53 - 2026-07-18
+
+**Commit:** `refactor: organize settings into inline sections`
+
+- separate language, SMTP and setup verification into clearly bounded settings sections
+- replace the setup-check popup with an automatically loaded inline status and test area
+- localize all new headings, descriptions and connection-test labels in German and English
+
+
+### v3.1.52 - 2026-07-18
+
+**Commit:** `refactor: simplify Proxmox cluster status badges`
+
+- hide the cluster publishing-state chip without changing the stored setting or its backend enforcement
+- remove the Isolation and Firewall check chips from the visual capability list only
+- keep all firewall verification, isolation and permission logic active
+
+
+### v3.1.51 - 2026-07-18
+
+**Commit:** `fix: match publishing actions to the modal background`
+
+- inherit the popup background through the scrollable publishing form and sticky action row
+- remove the differently colored block behind the cancel and publish buttons in light and dark themes
+
+
+### v3.1.50 - 2026-07-18
+
+**Commit:** `fix: balance publishing modal spacing and field alignment`
+
+- reserve matching scrollbar gutters on both sides of the desktop publishing form
+- align the service-port and backend-protocol field labels, controls and help rows
+- preserve the localized single-column mobile publishing layout
+
+### v3.1.49 - 2026-07-18
+
+**Commit:** `feat: activate the restricted raw publishing pool`
+
+- remove the prepared labels from the TCP and UDP administrator cards
+- activate the `20000-26000` raw TCP/UDP pool by default, including migration of the previous untouched prepared state
+- add localized German and English explanations for the fixed raw publication range
+- reject administrator policies and user publication requests outside the raw pool in the backend
+- limit raw port inputs in the user publishing dialog to the same minimum and maximum
+
 ### v3.1.48 - 2026-07-18
 
 **Commit:** `fix: isolate Proxmox task history by machine lifecycle`
@@ -352,7 +429,7 @@ The database migrates itself on startup. Keep the backend data volume before upd
 **Commit:** `feat: add secure Pangolin publishing with admin port policies`
 
 - add server-side Pangolin Integration API support for creating, updating and deleting public resources and Newt targets
-- add a responsive user publishing dialog with automatic service-IP selection, HTTP backend method selection and prepared TCP/UDP modes
+- add a responsive user publishing dialog with automatic service-IP selection, HTTP backend method selection and configurable TCP/UDP modes
 - add responsive administrator settings for API credentials, organization, site, domain, reserved subdomains and protocol-specific port ranges
 - encrypt the Pangolin Organization API key and keep it out of the React frontend
 - remove remote Pangolin objects before deleting portal services or self-service containers

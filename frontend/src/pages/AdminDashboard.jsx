@@ -214,7 +214,6 @@ export default function AdminDashboard() {
   const [showResourceModal, setShowResourceModal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
-  const [showSetupCheckModal, setShowSetupCheckModal] = useState(false);
   const [setupCheck, setSetupCheck] = useState(null);
   const [setupCheckLoading, setSetupCheckLoading] = useState(false);
   const [selectedSetupClusterId, setSelectedSetupClusterId] = useState('');
@@ -275,6 +274,16 @@ export default function AdminDashboard() {
     const cluster = clusters.find(item => String(item.id) === String(newResource.clusterId));
     return cluster?.name || '';
   }, [clusters, newResource.clusterId]);
+  const setupAdminCount = (setupCheck?.users || []).filter(item => item.role === 'admin').length;
+  const setupClusterCount = (setupCheck?.clusters || []).length;
+  const setupAdminDetail = setupCheck?.adminUser?.email || (
+    mobileMenuLanguage === 'de'
+      ? `${setupAdminCount} ${setupAdminCount === 1 ? 'Administrator' : 'Administratoren'}`
+      : `${setupAdminCount} ${setupAdminCount === 1 ? 'administrator' : 'administrators'}`
+  );
+  const setupClusterDetail = mobileMenuLanguage === 'de'
+    ? `${setupClusterCount} Cluster`
+    : `${setupClusterCount} ${setupClusterCount === 1 ? 'cluster' : 'clusters'}`;
 
   useEffect(() => {
     if (activeTab !== 'audit') loadData(activeTab);
@@ -346,6 +355,7 @@ export default function AdminDashboard() {
       if (needsClusterStats) requests.push(adminApi.getClusterStats().then(res => setClusterStats(res.data.clusters || [])).catch(() => setClusterStats([])));
       if (needsSettings) {
         requests.push(loadSettings());
+        requests.push(loadSetupCheck());
       }
       if (needsMaintenance) requests.push(adminApi.getMaintenanceWindows().then(res => setMaintenanceWindows(res.data.windows || [])));
       if (needsEvents) requests.push(adminApi.getStatusEvents(15).then(res => setStatusEvents(res.data.events || [])).catch(() => setStatusEvents([])));
@@ -898,6 +908,7 @@ export default function AdminDashboard() {
       setActionLoading(true);
       setError('');
       await adminApi.updateSettings(settings);
+      await loadSetupCheck({ resetTestResults: false });
       setSettings(prev => ({ ...prev, smtpPassword: '' }));
       showSuccess('SMTP wurde gespeichert.');
     } catch (err) {
@@ -907,11 +918,12 @@ export default function AdminDashboard() {
     }
   };
 
-  const openSetupCheck = async () => {
-    setShowSetupCheckModal(true);
+  const loadSetupCheck = async ({ resetTestResults = true } = {}) => {
     setSetupCheckLoading(true);
-    setSetupClusterTestResult(null);
-    setSetupSmtpTestResult(null);
+    if (resetTestResults) {
+      setSetupClusterTestResult(null);
+      setSetupSmtpTestResult(null);
+    }
     setError('');
 
     try {
@@ -928,32 +940,27 @@ export default function AdminDashboard() {
 
       setUsers(loadedUsers);
       setClusters(loadedClusters);
-      setSettings({
+      setSettings(prev => ({
         smtpHost: loadedSettings.smtp_host || '',
         smtpPort: loadedSettings.smtp_port || '587',
         smtpUser: loadedSettings.smtp_user || '',
-        smtpPassword: ''
-      });
+        smtpPassword: prev.smtpPassword || ''
+      }));
       setSetupCheck({
         ...(stateRes.data || {}),
         users: loadedUsers,
         clusters: loadedClusters,
         settings: loadedSettings
       });
-      setSelectedSetupClusterId(loadedClusters[0]?.id ? String(loadedClusters[0].id) : '');
+      setSelectedSetupClusterId(current => {
+        if (loadedClusters.some(item => String(item.id) === String(current))) return current;
+        return loadedClusters[0]?.id ? String(loadedClusters[0].id) : '';
+      });
     } catch (err) {
       setSetupCheck({ error: getErrorMessage(err, 'Einrichtung konnte nicht geprüft werden.') });
     } finally {
       setSetupCheckLoading(false);
     }
-  };
-
-  const closeSetupCheck = () => {
-    setShowSetupCheckModal(false);
-    setSetupCheck(null);
-    setSelectedSetupClusterId('');
-    setSetupClusterTestResult(null);
-    setSetupSmtpTestResult(null);
   };
 
   const handleTestSetupCluster = async () => {
@@ -1231,9 +1238,6 @@ export default function AdminDashboard() {
                     <div>
                       <h2>{item.name}</h2>
                       {item.location_label ? <p className="cluster-location-status">Karten-Standort gespeichert.</p> : <p className="hint-text">Noch kein Karten-Standort hinterlegt.</p>}
-                      <p className={`cluster-publishing-status ${item.allow_publishing === 0 ? 'disabled' : 'enabled'}`}>
-                        Veröffentlichung: {item.allow_publishing === 0 ? 'deaktiviert' : 'aktiviert'}
-                      </p>
                       {clusterCaps[item.id]
                         ? (clusterCaps[item.id].error
                             ? <p className="hint-text caps-error">Berechtigungen nicht abrufbar - Token/Verbindung prüfen.</p>
@@ -1348,12 +1352,10 @@ export default function AdminDashboard() {
         {!loading && activeTab === 'settings' && (
           <section className="panel-card settings-card">
             <PanelHeader title="Einstellungen" />
-            <div className="settings-action-row">
-              <button type="button" className="btn-secondary" onClick={openSetupCheck}>Einrichtung prüfen</button>
-            </div>
-            <div className="settings-language-card admin-settings-language-card language-settings-block">
-              <div>
-                <h3>{mobileMenuText.language}</h3>
+
+            <section className="settings-section-card settings-language-section" aria-labelledby="settings-language-title">
+              <div className="settings-section-heading">
+                <h3 id="settings-language-title">{mobileMenuText.language}</h3>
                 <p>{mobileMenuText.languageText}</p>
               </div>
               <div className="mobile-admin-language-switch settings-language-buttons" role="group" aria-label={mobileMenuText.language}>
@@ -1368,19 +1370,75 @@ export default function AdminDashboard() {
                   </button>
                 ))}
               </div>
-            </div>
-            <form className="form-grid" onSubmit={handleSaveSettings}>
-              <label className="form-group"><span>SMTP-Host</span><input type="text" name="smtpHost" value={settings.smtpHost} onChange={handleSettingsChange} placeholder="smtp.example.com" /></label>
-              <label className="form-group"><span>SMTP-Port</span><input type="text" name="smtpPort" value={settings.smtpPort} onChange={handleSettingsChange} placeholder="587" /></label>
-              <label className="form-group"><span>SMTP-Benutzer</span><input type="email" name="smtpUser" value={settings.smtpUser} onChange={handleSettingsChange} placeholder="noreply@example.com" /></label>
-              <label className="form-group"><span>SMTP-Passwort</span><input type="password" name="smtpPassword" value={settings.smtpPassword} onChange={handleSettingsChange} placeholder="Leer lassen, vorhandenes Passwort verwenden" /></label>
-              <div className="form-actions full-width"><button type="button" className="btn-secondary" onClick={handleTestSmtp} disabled={actionLoading}>SMTP testen</button><button type="submit" className="btn-primary" disabled={actionLoading}>Speichern</button></div>
-            </form>
-            {smtpTestResult && <div className={`test-result ${smtpTestResult.success ? 'success' : 'error'}`}>{translateMessage(smtpTestResult.message)}</div>}
-            <div className="settings-action-row settings-testmail-row">
-              <button type="button" className="btn-secondary" onClick={handleSendTestMail} disabled={actionLoading}>Test-E-Mail an mich senden</button>
-              {testMailResult && <div className={`test-result ${testMailResult.success ? 'success' : 'error'}`}>{testMailResult.message}</div>}
-            </div>
+            </section>
+
+            <section className="settings-section-card settings-smtp-section" aria-labelledby="settings-smtp-title">
+              <div className="settings-section-heading">
+                <h3 id="settings-smtp-title">SMTP-Einstellungen</h3>
+                <p>Konfiguriere den Mailversand für Tests, Benachrichtigungen und Passwort-Zurücksetzungen.</p>
+              </div>
+              <form className="form-grid" onSubmit={handleSaveSettings}>
+                <label className="form-group"><span>SMTP-Host</span><input type="text" name="smtpHost" value={settings.smtpHost} onChange={handleSettingsChange} placeholder="smtp.example.com" /></label>
+                <label className="form-group"><span>SMTP-Port</span><input type="text" name="smtpPort" value={settings.smtpPort} onChange={handleSettingsChange} placeholder="587" /></label>
+                <label className="form-group"><span>SMTP-Benutzer</span><input type="email" name="smtpUser" value={settings.smtpUser} onChange={handleSettingsChange} placeholder="noreply@example.com" /></label>
+                <label className="form-group"><span>SMTP-Passwort</span><input type="password" name="smtpPassword" value={settings.smtpPassword} onChange={handleSettingsChange} placeholder="Leer lassen, vorhandenes Passwort verwenden" /></label>
+                <div className="form-actions full-width"><button type="button" className="btn-secondary" onClick={handleTestSmtp} disabled={actionLoading}>SMTP testen</button><button type="submit" className="btn-primary" disabled={actionLoading}>Speichern</button></div>
+              </form>
+              {smtpTestResult && <div className={`test-result ${smtpTestResult.success ? 'success' : 'error'}`}>{translateMessage(smtpTestResult.message)}</div>}
+              <div className="settings-testmail-row">
+                <button type="button" className="btn-secondary" onClick={handleSendTestMail} disabled={actionLoading}>Test-E-Mail an mich senden</button>
+                {testMailResult && <div className={`test-result ${testMailResult.success ? 'success' : 'error'}`}>{translateMessage(testMailResult.message)}</div>}
+              </div>
+            </section>
+
+            <section className="settings-section-card settings-setup-section" aria-labelledby="settings-setup-title">
+              <div className="settings-section-header">
+                <div className="settings-section-heading">
+                  <h3 id="settings-setup-title">Einrichtung prüfen</h3>
+                  <p>Prüfe Administrator, Proxmox und SMTP direkt in den Einstellungen.</p>
+                </div>
+                <button type="button" className="btn-secondary" onClick={() => loadSetupCheck()} disabled={setupCheckLoading || actionLoading}>
+                  {setupCheckLoading ? 'Prüfe…' : 'Aktualisieren'}
+                </button>
+              </div>
+
+              {setupCheckLoading ? (
+                <div className="loading inline-loading"><span className="spinner"></span><span>Prüfung läuft...</span></div>
+              ) : setupCheck?.error ? (
+                <div className="alert alert-danger">{setupCheck.error}</div>
+              ) : (
+                <div className="setup-check-grid settings-inline-check-grid">
+                  <SetupCheckRow label="Administrator" ok={setupCheck?.adminConfigured} detail={setupAdminDetail} />
+                  <SetupCheckRow label="Proxmox" ok={setupCheck?.proxmoxConfigured} detail={setupClusterDetail} />
+                  <SetupCheckRow label="SMTP" ok={setupCheck?.smtpConfigured} detail={setupCheck?.settings?.smtp_user || 'Nicht hinterlegt'} />
+
+                  <div className="settings-setup-tests">
+                    <div className="setup-check-test">
+                      <h3>Proxmox-Verbindung</h3>
+                      <div className="setup-check-actions">
+                        <select value={selectedSetupClusterId} onChange={e => { setSelectedSetupClusterId(e.target.value); setSetupClusterTestResult(null); }}>
+                          <option value="">Cluster auswählen</option>
+                          {(setupCheck?.clusters || []).map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
+                        </select>
+                        <button type="button" className="btn-secondary" onClick={handleTestSetupCluster} disabled={actionLoading || !selectedSetupClusterId}>Testen</button>
+                      </div>
+                      {setupClusterTestResult && <div className={`test-result ${setupClusterTestResult.success ? 'success' : 'error'}`}>{translateMessage(setupClusterTestResult.message)}</div>}
+                    </div>
+
+                    <div className="setup-check-test">
+                      <h3>SMTP-Verbindung</h3>
+                      <p className="settings-section-note">Prüft die aktuell gespeicherte SMTP-Konfiguration.</p>
+                      <button type="button" className="btn-secondary" onClick={handleTestSetupSmtp} disabled={actionLoading}>SMTP testen</button>
+                      {setupSmtpTestResult && <div className={`test-result ${setupSmtpTestResult.success ? 'success' : 'error'}`}>{translateMessage(setupSmtpTestResult.message)}</div>}
+                    </div>
+                  </div>
+
+                  {setupCheck?.setupRequired && (
+                    <button type="button" className="btn-primary full-button" onClick={() => { window.location.href = '/setup'; }}>Setup öffnen</button>
+                  )}
+                </div>
+              )}
+            </section>
           </section>
         )}
 
@@ -1411,45 +1469,6 @@ export default function AdminDashboard() {
           onClose={() => setResourceCredsFor(null)}
           onError={(msg) => setError(msg)}
         />
-      )}
-
-      {showSetupCheckModal && (
-        <Modal title="Einrichtung prüfen" onClose={closeSetupCheck} className="setup-check-modal">
-          {setupCheckLoading ? (
-            <div className="loading inline-loading"><span className="spinner"></span><span>Prüfung läuft...</span></div>
-          ) : setupCheck?.error ? (
-            <div className="alert alert-danger">{setupCheck.error}</div>
-          ) : (
-            <div className="setup-check-grid">
-              <SetupCheckRow label="Administrator" ok={setupCheck?.adminConfigured} detail={setupCheck?.adminUser?.email || `${(setupCheck?.users || []).filter(item => item.role === 'admin').length} Administrator`} />
-              <SetupCheckRow label="Proxmox" ok={setupCheck?.proxmoxConfigured} detail={`${setupCheck?.clusters?.length || 0} Cluster`} />
-              <SetupCheckRow label="SMTP" ok={setupCheck?.smtpConfigured} detail={setupCheck?.settings?.smtp_user || 'Nicht hinterlegt'} />
-
-              <div className="setup-check-test">
-                <h3>Proxmox</h3>
-                <div className="setup-check-actions">
-                  <select value={selectedSetupClusterId} onChange={e => { setSelectedSetupClusterId(e.target.value); setSetupClusterTestResult(null); }}>
-                    <option value="">Cluster auswählen</option>
-                    {(setupCheck?.clusters || []).map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
-                  </select>
-                  <button type="button" className="btn-secondary" onClick={handleTestSetupCluster} disabled={actionLoading || !selectedSetupClusterId}>Testen</button>
-                </div>
-                {setupClusterTestResult && <div className={`test-result ${setupClusterTestResult.success ? 'success' : 'error'}`}>{translateMessage(setupClusterTestResult.message)}</div>}
-              </div>
-
-              <div className="setup-check-test">
-                <h3>SMTP</h3>
-                <button type="button" className="btn-secondary" onClick={handleTestSetupSmtp} disabled={actionLoading}>SMTP testen</button>
-                {setupSmtpTestResult && <div className={`test-result ${setupSmtpTestResult.success ? 'success' : 'error'}`}>{translateMessage(setupSmtpTestResult.message)}</div>}
-              </div>
-
-              {setupCheck?.setupRequired && (
-                <button type="button" className="btn-primary full-button" onClick={() => { window.location.href = '/setup'; }}>Setup öffnen</button>
-              )}
-            </div>
-          )}
-          <div className="form-actions"><button type="button" className="btn-secondary" onClick={closeSetupCheck}>Schließen</button></div>
-        </Modal>
       )}
 
       {showMaintenanceModal && (
@@ -1955,9 +1974,7 @@ function CapabilityBadges({ caps }) {
     ['Lesen', true],
     ['Power', caps.canPower],
     ['Konsole', caps.canConsole],
-    ['Erstellen', caps.canProvision],
-    ['Isolation', caps.canManageFirewall],
-    ['Firewall-Prüfung', caps.canVerifyFirewall]
+    ['Erstellen', caps.canProvision]
   ];
   return (
     <div className="capability-badges">

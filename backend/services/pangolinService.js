@@ -6,6 +6,10 @@ const { encrypt, decrypt } = require('./cryptoService');
 const { AppError } = require('../middleware/errorHandler');
 const { HTTP_STATUS } = require('../config/constants');
 
+const RAW_PORT_MIN = 20000;
+const RAW_PORT_MAX = 26000;
+const RAW_PORT_POLICY = `${RAW_PORT_MIN}-${RAW_PORT_MAX}`;
+
 const SETTING_KEYS = {
   enabled: 'pangolin_enabled',
   apiUrl: 'pangolin_api_url',
@@ -33,11 +37,11 @@ const DEFAULTS = {
   domainId: '',
   baseDomain: '',
   httpEnabled: true,
-  tcpEnabled: false,
-  udpEnabled: false,
+  tcpEnabled: true,
+  udpEnabled: true,
   allowedHttpPorts: '80,443,3000-9999',
-  allowedTcpPorts: '',
-  allowedUdpPorts: '',
+  allowedTcpPorts: RAW_PORT_POLICY,
+  allowedUdpPorts: RAW_PORT_POLICY,
   defaultTargetMethod: 'http',
   reservedSubdomains: 'www,api,admin,pangolin,pangolin-api,portal'
 };
@@ -98,6 +102,21 @@ function isPortAllowed(port, policy) {
   return parsePortPolicy(policy).some((range) => value >= range.start && value <= range.end);
 }
 
+function validateRawPortPolicy(protocol, policy) {
+  if (!policy) return;
+  const outsidePool = parsePortPolicy(policy).some((range) => range.start < RAW_PORT_MIN || range.end > RAW_PORT_MAX);
+  if (outsidePool) {
+    throw new AppError(`${protocol.toUpperCase()} port ranges must stay within ${RAW_PORT_MIN}-${RAW_PORT_MAX}`, HTTP_STATUS.BAD_REQUEST);
+  }
+}
+
+function assertRawPort(port, protocol) {
+  const value = Number(port);
+  if (!Number.isInteger(value) || value < RAW_PORT_MIN || value > RAW_PORT_MAX) {
+    throw new AppError(`Raw ${protocol.toUpperCase()} ports must be between ${RAW_PORT_MIN} and ${RAW_PORT_MAX}`, HTTP_STATUS.FORBIDDEN);
+  }
+}
+
 function normalizeSubdomain(value) {
   const subdomain = String(value || '').trim().toLowerCase();
   if (!subdomain || subdomain.length > 63 || !/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(subdomain)) {
@@ -130,6 +149,10 @@ async function readSettingRows() {
 }
 
 function configFromRows(rows = {}) {
+  const storedTcpPolicy = String(rows[SETTING_KEYS.allowedTcpPorts] ?? '').trim();
+  const storedUdpPolicy = String(rows[SETTING_KEYS.allowedUdpPorts] ?? '').trim();
+  const legacyPreparedRawState = !storedTcpPolicy && !storedUdpPolicy;
+
   return {
     enabled: toBoolean(rows[SETTING_KEYS.enabled], DEFAULTS.enabled),
     apiUrl: normalizeApiUrl(rows[SETTING_KEYS.apiUrl] ?? DEFAULTS.apiUrl),
@@ -139,11 +162,12 @@ function configFromRows(rows = {}) {
     domainId: String(rows[SETTING_KEYS.domainId] ?? DEFAULTS.domainId).trim(),
     baseDomain: normalizeBaseDomain(rows[SETTING_KEYS.baseDomain] ?? DEFAULTS.baseDomain),
     httpEnabled: toBoolean(rows[SETTING_KEYS.httpEnabled], DEFAULTS.httpEnabled),
-    tcpEnabled: toBoolean(rows[SETTING_KEYS.tcpEnabled], DEFAULTS.tcpEnabled),
-    udpEnabled: toBoolean(rows[SETTING_KEYS.udpEnabled], DEFAULTS.udpEnabled),
+    // v3.1.49: turn the previous empty "prepared" raw state into the active fixed pool.
+    tcpEnabled: legacyPreparedRawState ? true : toBoolean(rows[SETTING_KEYS.tcpEnabled], DEFAULTS.tcpEnabled),
+    udpEnabled: legacyPreparedRawState ? true : toBoolean(rows[SETTING_KEYS.udpEnabled], DEFAULTS.udpEnabled),
     allowedHttpPorts: rows[SETTING_KEYS.allowedHttpPorts] ?? DEFAULTS.allowedHttpPorts,
-    allowedTcpPorts: rows[SETTING_KEYS.allowedTcpPorts] ?? DEFAULTS.allowedTcpPorts,
-    allowedUdpPorts: rows[SETTING_KEYS.allowedUdpPorts] ?? DEFAULTS.allowedUdpPorts,
+    allowedTcpPorts: storedTcpPolicy || DEFAULTS.allowedTcpPorts,
+    allowedUdpPorts: storedUdpPolicy || DEFAULTS.allowedUdpPorts,
     defaultTargetMethod: ['http', 'https', 'h2c'].includes(String(rows[SETTING_KEYS.defaultTargetMethod] || '').toLowerCase())
       ? String(rows[SETTING_KEYS.defaultTargetMethod]).toLowerCase()
       : DEFAULTS.defaultTargetMethod,
@@ -180,6 +204,8 @@ function mergeInputWithStored(input = {}, stored = DEFAULTS) {
 }
 
 function validateConfig(config, { requireSelection = true } = {}) {
+  validateRawPortPolicy('tcp', config.allowedTcpPorts);
+  validateRawPortPolicy('udp', config.allowedUdpPorts);
   if (!config.apiUrl || !/^https?:\/\//i.test(config.apiUrl)) {
     throw new AppError('Pangolin API URL must start with http:// or https://', HTTP_STATUS.BAD_REQUEST);
   }
@@ -201,6 +227,8 @@ function validateConfig(config, { requireSelection = true } = {}) {
 async function savePangolinConfig(input = {}) {
   const stored = await getPangolinConfig();
   const config = mergeInputWithStored(input, stored);
+  validateRawPortPolicy('tcp', config.allowedTcpPorts);
+  validateRawPortPolicy('udp', config.allowedUdpPorts);
   if (config.enabled) validateConfig(config);
 
   const entries = [
@@ -348,6 +376,10 @@ async function testPangolinConnection(input = {}) {
 }
 
 function assertPublishingEnabled(config, protocol, targetPort, publicPort = targetPort) {
+  if (protocol === 'tcp' || protocol === 'udp') {
+    assertRawPort(targetPort, protocol);
+    assertRawPort(publicPort, protocol);
+  }
   if (!config.enabled) throw new AppError('Public publishing is not configured', HTTP_STATUS.SERVICE_UNAVAILABLE);
   const enabledKey = `${protocol}Enabled`;
   if (!config[enabledKey]) throw new AppError(`${protocol.toUpperCase()} publishing is disabled`, HTTP_STATUS.FORBIDDEN);
@@ -500,6 +532,9 @@ async function deletePublication(config, publication) {
 module.exports = {
   DEFAULTS,
   SETTING_KEYS,
+  RAW_PORT_MIN,
+  RAW_PORT_MAX,
+  RAW_PORT_POLICY,
   getPangolinConfig,
   savePangolinConfig,
   publicConfig,
@@ -510,6 +545,8 @@ module.exports = {
   normalizePortPolicy,
   parsePortPolicy,
   isPortAllowed,
+  validateRawPortPolicy,
+  assertRawPort,
   normalizeSubdomain,
   createPublication,
   updatePublication,

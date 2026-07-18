@@ -2,6 +2,10 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { adminApi, getErrorMessage } from '../services/api';
 import { readStoredLanguage } from './LanguageSwitch';
 
+const RAW_PORT_MIN = 20000;
+const RAW_PORT_MAX = 26000;
+const RAW_PORT_POLICY = `${RAW_PORT_MIN}-${RAW_PORT_MAX}`;
+
 const DEFAULTS = {
   enabled: false,
   apiUrl: 'https://pangolin-api.example.com/v1',
@@ -12,11 +16,11 @@ const DEFAULTS = {
   domainId: '',
   baseDomain: '',
   httpEnabled: true,
-  tcpEnabled: false,
-  udpEnabled: false,
+  tcpEnabled: true,
+  udpEnabled: true,
   allowedHttpPorts: '80,443,3000-9999',
-  allowedTcpPorts: '',
-  allowedUdpPorts: '',
+  allowedTcpPorts: RAW_PORT_POLICY,
+  allowedUdpPorts: RAW_PORT_POLICY,
   defaultTargetMethod: 'http',
   reservedSubdomains: 'www,api,admin,pangolin,pangolin-api,portal'
 };
@@ -49,12 +53,13 @@ const TEXT = {
     reservedHint: 'Comma-separated. Users cannot create these names.',
     httpTitle: 'HTTP / HTTPS',
     httpDescription: 'Public web address with automatic TLS. The policy applies to the internal target port.',
-    tcpTitle: 'TCP (prepared)',
-    tcpDescription: 'Raw TCP publishing. The selected port is currently used externally and internally.',
-    udpTitle: 'UDP (prepared)',
-    udpDescription: 'Raw UDP publishing. Enable deliberately and restrict it to small port ranges.',
+    tcpTitle: 'TCP',
+    tcpDescription: 'Raw TCP publishing through the dedicated public port pool. The selected port is used externally and internally.',
+    udpTitle: 'UDP',
+    udpDescription: 'Raw UDP publishing through the dedicated public port pool. The selected port is used externally and internally.',
     allowedPorts: 'Allowed ports / ranges',
     example: 'Example: 80,443,8000-8999',
+    rawPoolHint: 'Only ports and ranges within 20000-26000 can be published.',
     managed: 'managed publication(s)',
     test: 'Test connection',
     testing: 'Testing...',
@@ -109,12 +114,13 @@ const TEXT = {
     reservedHint: 'Kommagetrennt. Diese Namen können Benutzer nicht anlegen.',
     httpTitle: 'HTTP / HTTPS',
     httpDescription: 'Öffentliche Webadresse mit automatischem TLS-Zertifikat. Der Bereich gilt für den internen Zielport.',
-    tcpTitle: 'TCP (vorbereitet)',
-    tcpDescription: 'Rohe TCP-Freigaben. Der gewählte Port wird derzeit öffentlich und intern verwendet.',
-    udpTitle: 'UDP (vorbereitet)',
-    udpDescription: 'Rohe UDP-Freigaben. Nur bewusst aktivieren und auf kleine Portbereiche begrenzen.',
+    tcpTitle: 'TCP',
+    tcpDescription: 'Rohe TCP-Freigaben über den festgelegten öffentlichen Portpool. Der gewählte Port wird extern und intern verwendet.',
+    udpTitle: 'UDP',
+    udpDescription: 'Rohe UDP-Freigaben über den festgelegten öffentlichen Portpool. Der gewählte Port wird extern und intern verwendet.',
     allowedPorts: 'Erlaubte Ports / Bereiche',
     example: 'Beispiel: 80,443,8000-8999',
+    rawPoolHint: 'Es können ausschließlich Ports und Bereiche innerhalb von 20000-26000 veröffentlicht werden.',
     managed: 'verwaltete Veröffentlichung(en)',
     test: 'Verbindung testen',
     testing: 'Test läuft...',
@@ -412,7 +418,8 @@ export default function PangolinSettingsPanel({ onSuccess, onError, language: la
             onEnabled={(value) => update('tcpEnabled', value)}
             ports={form.allowedTcpPorts}
             onPorts={(value) => update('allowedTcpPorts', value)}
-            placeholder="25565,30000-30100"
+            placeholder={RAW_PORT_POLICY}
+            helperText={text.rawPoolHint}
             text={text}
           />
           <ProtocolPolicy
@@ -422,7 +429,8 @@ export default function PangolinSettingsPanel({ onSuccess, onError, language: la
             onEnabled={(value) => update('udpEnabled', value)}
             ports={form.allowedUdpPorts}
             onPorts={(value) => update('allowedUdpPorts', value)}
-            placeholder="19132,30000-30100"
+            placeholder={RAW_PORT_POLICY}
+            helperText={text.rawPoolHint}
             text={text}
           />
         </div>
@@ -480,7 +488,7 @@ export default function PangolinSettingsPanel({ onSuccess, onError, language: la
   );
 }
 
-function ProtocolPolicy({ title, description, enabled, onEnabled, ports, onPorts, placeholder, text }) {
+function ProtocolPolicy({ title, description, enabled, onEnabled, ports, onPorts, placeholder, helperText, text }) {
   return (
     <article className={`pangolin-protocol-card ${enabled ? 'enabled' : ''}`}>
       <label className="pangolin-protocol-toggle">
@@ -493,7 +501,7 @@ function ProtocolPolicy({ title, description, enabled, onEnabled, ports, onPorts
       <label className="form-group">
         <span>{text.allowedPorts}</span>
         <input type="text" value={ports} onChange={(event) => onPorts(event.target.value)} placeholder={placeholder} disabled={!enabled} />
-        <small>{text.example}</small>
+        <small>{helperText || text.example}</small>
       </label>
     </article>
   );
