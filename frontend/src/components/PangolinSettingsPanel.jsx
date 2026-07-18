@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { adminApi, getErrorMessage } from '../services/api';
+import { readStoredLanguage } from './LanguageSwitch';
 
 const DEFAULTS = {
   enabled: false,
@@ -20,7 +21,141 @@ const DEFAULTS = {
   reservedSubdomains: 'www,api,admin,pangolin,pangolin-api,portal'
 };
 
-export default function PangolinSettingsPanel({ onSuccess, onError }) {
+const TEXT = {
+  en: {
+    eyebrow: 'PUBLIC ACCESS',
+    title: 'Pangolin publishing',
+    description: 'Publishes user services through the Pangolin Integration API. The API key stays encrypted in the backend.',
+    active: 'Enabled',
+    inactive: 'Disabled',
+    enableTitle: 'Enable publishing in the user portal',
+    enableText: 'Users can only publish the automatically detected IP address of their own service.',
+    apiUrl: 'Integration API URL',
+    apiKey: 'Organization API key',
+    apiKeyStored: 'Stored — leave blank to keep it',
+    apiKeyEnter: 'Paste API key',
+    orgId: 'Organization ID',
+    discovery: 'Sites and domains',
+    discover: 'Load from Pangolin',
+    discovering: 'Loading...',
+    site: 'Pangolin site',
+    siteSelect: 'Select site',
+    siteHint: 'The portal needs the numeric Pangolin site ID, not the Newt connector ID. Use “Load from Pangolin” to select it safely.',
+    domain: 'Pangolin domain',
+    domainSelect: 'Select domain',
+    baseDomain: 'Base domain for users',
+    selected: 'Selected',
+    backendProtocol: 'Default backend protocol',
+    reserved: 'Reserved subdomains',
+    reservedHint: 'Comma-separated. Users cannot create these names.',
+    httpTitle: 'HTTP / HTTPS',
+    httpDescription: 'Public web address with automatic TLS. The policy applies to the internal target port.',
+    tcpTitle: 'TCP (prepared)',
+    tcpDescription: 'Raw TCP publishing. The selected port is currently used externally and internally.',
+    udpTitle: 'UDP (prepared)',
+    udpDescription: 'Raw UDP publishing. Enable deliberately and restrict it to small port ranges.',
+    allowedPorts: 'Allowed ports / ranges',
+    example: 'Example: 80,443,8000-8999',
+    managed: 'managed publication(s)',
+    test: 'Test connection',
+    testing: 'Testing...',
+    save: 'Save Pangolin',
+    saving: 'Saving...',
+    loadSettings: 'Loading Pangolin settings...',
+    settingsLoadFailed: 'Pangolin settings could not be loaded.',
+    dataLoaded: (sites, domains) => `${sites} site(s) and ${domains} domain(s) loaded.`,
+    dataLoadFailed: 'Pangolin data could not be loaded.',
+    connectionSuccess: 'Pangolin connection successful.',
+    connectionFailed: 'Pangolin connection failed.',
+    settingsSaved: 'Pangolin settings saved.',
+    settingsSaveFailed: 'Pangolin settings could not be saved.',
+    publicationsTitle: 'Managed publications',
+    publicationsText: 'Administrators can review existing publications and remove them completely from Pangolin when necessary.',
+    noPublications: 'No services published yet.',
+    user: 'User',
+    target: 'Target',
+    public: 'Public',
+    open: 'Open',
+    remove: 'Remove publication',
+    removing: 'Removing...',
+    removeConfirm: (name) => `Remove the publication for ${name}?`,
+    removed: 'Publication removed.',
+    removeFailed: 'Publication could not be removed.',
+    proxy502: 'The portal proxy could not reach the backend. Rebuild both portal containers or restart the frontend after the backend was recreated.'
+  },
+  de: {
+    eyebrow: 'ÖFFENTLICHER ZUGRIFF',
+    title: 'Pangolin-Veröffentlichung',
+    description: 'Veröffentlicht Benutzer-Dienste über die Pangolin Integration API. Der API-Schlüssel bleibt verschlüsselt im Backend.',
+    active: 'Aktiv',
+    inactive: 'Deaktiviert',
+    enableTitle: 'Veröffentlichung im Benutzerportal aktivieren',
+    enableText: 'Benutzer können ausschließlich die automatisch ermittelte IP ihres eigenen Dienstes veröffentlichen.',
+    apiUrl: 'Integration API URL',
+    apiKey: 'Organization API Key',
+    apiKeyStored: 'Gespeichert – leer lassen zum Beibehalten',
+    apiKeyEnter: 'API-Schlüssel einfügen',
+    orgId: 'Organization ID',
+    discovery: 'Standorte und Domains',
+    discover: 'Aus Pangolin laden',
+    discovering: 'Wird geladen...',
+    site: 'Pangolin-Standort',
+    siteSelect: 'Standort wählen',
+    siteHint: 'Benötigt wird die numerische Pangolin Site ID, nicht die Newt-Connector-ID. Mit „Aus Pangolin laden“ kannst du den Standort sicher auswählen.',
+    domain: 'Pangolin-Domain',
+    domainSelect: 'Domain wählen',
+    baseDomain: 'Basisdomain für Benutzer',
+    selected: 'Ausgewählt',
+    backendProtocol: 'Standard-Backendprotokoll',
+    reserved: 'Reservierte Subdomains',
+    reservedHint: 'Kommagetrennt. Diese Namen können Benutzer nicht anlegen.',
+    httpTitle: 'HTTP / HTTPS',
+    httpDescription: 'Öffentliche Webadresse mit automatischem TLS-Zertifikat. Der Bereich gilt für den internen Zielport.',
+    tcpTitle: 'TCP (vorbereitet)',
+    tcpDescription: 'Rohe TCP-Freigaben. Der gewählte Port wird derzeit öffentlich und intern verwendet.',
+    udpTitle: 'UDP (vorbereitet)',
+    udpDescription: 'Rohe UDP-Freigaben. Nur bewusst aktivieren und auf kleine Portbereiche begrenzen.',
+    allowedPorts: 'Erlaubte Ports / Bereiche',
+    example: 'Beispiel: 80,443,8000-8999',
+    managed: 'verwaltete Veröffentlichung(en)',
+    test: 'Verbindung testen',
+    testing: 'Test läuft...',
+    save: 'Pangolin speichern',
+    saving: 'Speichert...',
+    loadSettings: 'Pangolin-Einstellungen werden geladen...',
+    settingsLoadFailed: 'Pangolin-Einstellungen konnten nicht geladen werden.',
+    dataLoaded: (sites, domains) => `${sites} Standort(e) und ${domains} Domain(s) geladen.`,
+    dataLoadFailed: 'Pangolin-Daten konnten nicht geladen werden.',
+    connectionSuccess: 'Pangolin-Verbindung erfolgreich.',
+    connectionFailed: 'Pangolin-Verbindung fehlgeschlagen.',
+    settingsSaved: 'Pangolin-Einstellungen wurden gespeichert.',
+    settingsSaveFailed: 'Pangolin-Einstellungen konnten nicht gespeichert werden.',
+    publicationsTitle: 'Verwaltete Veröffentlichungen',
+    publicationsText: 'Administratoren können bestehende Freigaben prüfen und bei Bedarf vollständig aus Pangolin entfernen.',
+    noPublications: 'Noch keine Dienste veröffentlicht.',
+    user: 'Benutzer',
+    target: 'Ziel',
+    public: 'Öffentlich',
+    open: 'Öffnen',
+    remove: 'Freigabe entfernen',
+    removing: 'Entfernt...',
+    removeConfirm: (name) => `Veröffentlichung für ${name} wirklich entfernen?`,
+    removed: 'Veröffentlichung wurde entfernt.',
+    removeFailed: 'Veröffentlichung konnte nicht entfernt werden.',
+    proxy502: 'Der Portal-Proxy konnte das Backend nicht erreichen. Erstelle beide Portal-Container neu oder starte das Frontend nach einem Backend-Neustart ebenfalls neu.'
+  }
+};
+
+function errorText(err, fallback, text) {
+  if (err?.response?.status === 502 && !err?.response?.data?.message) return text.proxy502;
+  return getErrorMessage(err, fallback);
+}
+
+export default function PangolinSettingsPanel({ onSuccess, onError, language: languageProp }) {
+  const language = languageProp === 'de' || languageProp === 'en'
+    ? languageProp
+    : (readStoredLanguage() === 'de' ? 'de' : 'en');
+  const text = TEXT[language];
   const [form, setForm] = useState(DEFAULTS);
   const [sites, setSites] = useState([]);
   const [domains, setDomains] = useState([]);
@@ -49,10 +184,10 @@ export default function PangolinSettingsPanel({ onSuccess, onError }) {
         setPublicationCount(Number(settingsResponse.data.publicationCount || loadedPublications.length || 0));
         setPublications(loadedPublications);
       })
-      .catch((err) => onErrorRef.current?.(getErrorMessage(err, 'Pangolin-Einstellungen konnten nicht geladen werden.')))
+      .catch((err) => onErrorRef.current?.(errorText(err, text.settingsLoadFailed, text)))
       .finally(() => active && setLoading(false));
     return () => { active = false; };
-  }, []);
+  }, [text]);
 
   const update = (name, value) => setForm((current) => ({ ...current, [name]: value }));
 
@@ -74,6 +209,23 @@ export default function PangolinSettingsPanel({ onSuccess, onError }) {
     reservedSubdomains: form.reservedSubdomains
   });
 
+  const applyDiscovery = (nextSites, nextDomains) => {
+    setSites(nextSites);
+    setDomains(nextDomains);
+    setForm((current) => {
+      const next = { ...current };
+      if (!nextSites.some((item) => String(item.id) === String(next.siteId))) {
+        next.siteId = nextSites.length === 1 ? String(nextSites[0].id) : '';
+      }
+      if (!nextDomains.some((item) => String(item.id) === String(next.domainId))) {
+        next.domainId = nextDomains.length === 1 ? String(nextDomains[0].id) : '';
+      }
+      const chosenDomain = nextDomains.find((item) => String(item.id) === String(next.domainId));
+      if (chosenDomain?.name) next.baseDomain = chosenDomain.name;
+      return next;
+    });
+  };
+
   const discover = async () => {
     try {
       setBusy('discover');
@@ -81,20 +233,10 @@ export default function PangolinSettingsPanel({ onSuccess, onError }) {
       const response = await adminApi.discoverPangolin(connectionPayload());
       const nextSites = response.data.sites || [];
       const nextDomains = response.data.domains || [];
-      setSites(nextSites);
-      setDomains(nextDomains);
-      setForm((current) => {
-        const next = { ...current };
-        if (!next.siteId && nextSites.length === 1) next.siteId = String(nextSites[0].id);
-        if (!next.domainId && nextDomains.length === 1) {
-          next.domainId = String(nextDomains[0].id);
-          next.baseDomain = nextDomains[0].name || next.baseDomain;
-        }
-        return next;
-      });
-      setResult({ success: true, message: `${nextSites.length} Standort(e) und ${nextDomains.length} Domain(s) geladen.` });
+      applyDiscovery(nextSites, nextDomains);
+      setResult({ success: true, message: text.dataLoaded(nextSites.length, nextDomains.length) });
     } catch (err) {
-      setResult({ success: false, message: getErrorMessage(err, 'Pangolin-Daten konnten nicht geladen werden.') });
+      setResult({ success: false, message: errorText(err, text.dataLoadFailed, text) });
     } finally {
       setBusy('');
     }
@@ -105,11 +247,10 @@ export default function PangolinSettingsPanel({ onSuccess, onError }) {
       setBusy('test');
       setResult(null);
       const response = await adminApi.testPangolin(connectionPayload());
-      setSites(response.data.sites || sites);
-      setDomains(response.data.domains || domains);
-      setResult({ success: true, message: response.data.message || 'Pangolin-Verbindung erfolgreich.' });
+      applyDiscovery(response.data.sites || sites, response.data.domains || domains);
+      setResult({ success: true, message: text.connectionSuccess });
     } catch (err) {
-      setResult({ success: false, message: getErrorMessage(err, 'Pangolin-Verbindung fehlgeschlagen.') });
+      setResult({ success: false, message: errorText(err, text.connectionFailed, text) });
     } finally {
       setBusy('');
     }
@@ -128,10 +269,10 @@ export default function PangolinSettingsPanel({ onSuccess, onError }) {
         apiKey: '',
         apiKeyConfigured: saved.apiKeyConfigured ?? current.apiKeyConfigured
       }));
-      setResult({ success: true, message: 'Pangolin-Einstellungen wurden gespeichert.' });
-      onSuccess?.('Pangolin-Einstellungen wurden gespeichert.');
+      setResult({ success: true, message: text.settingsSaved });
+      onSuccess?.(text.settingsSaved);
     } catch (err) {
-      const message = getErrorMessage(err, 'Pangolin-Einstellungen konnten nicht gespeichert werden.');
+      const message = errorText(err, text.settingsSaveFailed, text);
       setResult({ success: false, message });
       onError?.(message);
     } finally {
@@ -140,16 +281,16 @@ export default function PangolinSettingsPanel({ onSuccess, onError }) {
   };
 
   const removePublication = async (publication) => {
-    if (!window.confirm(`Veröffentlichung für ${publication.resourceName} wirklich entfernen?`)) return;
+    if (!window.confirm(text.removeConfirm(publication.resourceName))) return;
     try {
       setBusy(`remove-${publication.resourceId}`);
       setResult(null);
       await adminApi.deletePangolinPublication(publication.resourceId);
       setPublications((items) => items.filter((item) => item.resourceId !== publication.resourceId));
       setPublicationCount((count) => Math.max(0, count - 1));
-      setResult({ success: true, message: 'Veröffentlichung wurde entfernt.' });
+      setResult({ success: true, message: text.removed });
     } catch (err) {
-      setResult({ success: false, message: getErrorMessage(err, 'Veröffentlichung konnte nicht entfernt werden.') });
+      setResult({ success: false, message: errorText(err, text.removeFailed, text) });
     } finally {
       setBusy('');
     }
@@ -165,70 +306,71 @@ export default function PangolinSettingsPanel({ onSuccess, onError }) {
   };
 
   if (loading) {
-    return <section className="panel-card pangolin-settings-panel"><p className="loading">Pangolin-Einstellungen werden geladen...</p></section>;
+    return <section className="panel-card pangolin-settings-panel"><p className="loading">{text.loadSettings}</p></section>;
   }
 
   return (
     <section className="panel-card pangolin-settings-panel">
       <div className="panel-header pangolin-panel-header">
         <div>
-          <p className="section-eyebrow">PUBLIC ACCESS</p>
-          <h2>Pangolin-Veröffentlichung</h2>
-          <p>Veröffentlicht Benutzer-Dienste serverseitig über die Pangolin Integration API. Der API-Schlüssel bleibt verschlüsselt im Backend.</p>
+          <p className="section-eyebrow">{text.eyebrow}</p>
+          <h2>{text.title}</h2>
+          <p>{text.description}</p>
         </div>
-        <span className={`status-badge ${form.enabled ? 'status-running' : 'status-stopped'}`}>{form.enabled ? 'Aktiv' : 'Deaktiviert'}</span>
+        <span className={`status-badge ${form.enabled ? 'status-running' : 'status-stopped'}`}>{form.enabled ? text.active : text.inactive}</span>
       </div>
 
       <form className="pangolin-settings-form" onSubmit={save}>
         <label className="settings-toggle-card full-width">
           <span>
-            <strong>Veröffentlichung im Benutzerportal aktivieren</strong>
-            <small>Benutzer können ausschließlich die automatisch ermittelte IP ihres eigenen Dienstes veröffentlichen.</small>
+            <strong>{text.enableTitle}</strong>
+            <small>{text.enableText}</small>
           </span>
           <input type="checkbox" checked={!!form.enabled} onChange={(event) => update('enabled', event.target.checked)} />
         </label>
 
         <div className="pangolin-settings-grid">
           <label className="form-group">
-            <span>Integration API URL</span>
+            <span>{text.apiUrl}</span>
             <input type="url" value={form.apiUrl} onChange={(event) => update('apiUrl', event.target.value)} placeholder="https://pangolin-api.example.com/v1" />
           </label>
           <label className="form-group">
-            <span>Organization API Key</span>
+            <span>{text.apiKey}</span>
             <input
               type="password"
               value={form.apiKey}
               onChange={(event) => update('apiKey', event.target.value)}
-              placeholder={form.apiKeyConfigured ? 'Gespeichert – leer lassen zum Beibehalten' : 'API-Schlüssel einfügen'}
+              placeholder={form.apiKeyConfigured ? text.apiKeyStored : text.apiKeyEnter}
               autoComplete="new-password"
             />
           </label>
           <label className="form-group">
-            <span>Organization ID</span>
+            <span>{text.orgId}</span>
             <input type="text" value={form.orgId} onChange={(event) => update('orgId', event.target.value)} placeholder="org-id" />
           </label>
           <div className="form-group pangolin-discovery-action">
-            <span>Standorte und Domains</span>
+            <span>{text.discovery}</span>
             <button type="button" className="btn-secondary" onClick={discover} disabled={!!busy}>
-              {busy === 'discover' ? 'Wird geladen...' : 'Aus Pangolin laden'}
+              {busy === 'discover' ? text.discovering : text.discover}
             </button>
           </div>
           <label className="form-group">
-            <span>Newt-Standort</span>
+            <span>{text.site}</span>
             {sites.length ? (
               <select value={form.siteId} onChange={(event) => update('siteId', event.target.value)}>
-                <option value="">Standort wählen</option>
-                {sites.map((site) => <option key={site.id} value={site.id}>{site.name}{site.type ? ` (${site.type})` : ''}</option>)}
+                <option value="">{text.siteSelect}</option>
+                {sites.map((site) => <option key={site.id} value={site.id}>{site.name}{site.type ? ` (${site.type})` : ''} · ID ${site.id}</option>)}
               </select>
             ) : (
               <input type="number" min="1" value={form.siteId} onChange={(event) => update('siteId', event.target.value)} placeholder="Site ID" />
             )}
+            <small>{text.siteHint}</small>
           </label>
           <label className="form-group">
-            <span>Pangolin-Domain</span>
+            <span>{text.domain}</span>
             {domains.length ? (
               <select value={form.domainId} onChange={(event) => chooseDomain(event.target.value)}>
-                <option value="">Domain wählen</option>
+                <option value="">{text.domainSelect}</option>
                 {domains.map((domain) => <option key={domain.id} value={domain.id}>{domain.name}</option>)}
               </select>
             ) : (
@@ -236,12 +378,12 @@ export default function PangolinSettingsPanel({ onSuccess, onError }) {
             )}
           </label>
           <label className="form-group">
-            <span>Basisdomain für Benutzer</span>
+            <span>{text.baseDomain}</span>
             <input type="text" value={form.baseDomain} onChange={(event) => update('baseDomain', event.target.value)} placeholder="apps.example.com" />
-            {selectedDomain?.name && <small>Ausgewählt: {selectedDomain.name}</small>}
+            {selectedDomain?.name && <small>{text.selected}: {selectedDomain.name}</small>}
           </label>
           <label className="form-group">
-            <span>Standard-Backendprotokoll</span>
+            <span>{text.backendProtocol}</span>
             <select value={form.defaultTargetMethod} onChange={(event) => update('defaultTargetMethod', event.target.value)}>
               <option value="http">HTTP</option>
               <option value="https">HTTPS</option>
@@ -249,61 +391,64 @@ export default function PangolinSettingsPanel({ onSuccess, onError }) {
             </select>
           </label>
           <label className="form-group full-width">
-            <span>Reservierte Subdomains</span>
+            <span>{text.reserved}</span>
             <input type="text" value={form.reservedSubdomains} onChange={(event) => update('reservedSubdomains', event.target.value)} placeholder="www,api,admin,portal" />
-            <small>Kommagetrennt. Diese Namen können Benutzer nicht anlegen.</small>
+            <small>{text.reservedHint}</small>
           </label>
         </div>
 
         <div className="pangolin-protocol-grid">
           <ProtocolPolicy
-            title="HTTP / HTTPS"
-            description="Öffentliche Webadresse mit automatischem TLS-Zertifikat. Der Bereich gilt für den internen Zielport."
+            title={text.httpTitle}
+            description={text.httpDescription}
             enabled={form.httpEnabled}
             onEnabled={(value) => update('httpEnabled', value)}
             ports={form.allowedHttpPorts}
             onPorts={(value) => update('allowedHttpPorts', value)}
             placeholder="80,443,3000-9999"
+            text={text}
           />
           <ProtocolPolicy
-            title="TCP (vorbereitet)"
-            description="Rohe TCP-Freigaben. Der gewählte Port wird als öffentlicher und interner Port verwendet."
+            title={text.tcpTitle}
+            description={text.tcpDescription}
             enabled={form.tcpEnabled}
             onEnabled={(value) => update('tcpEnabled', value)}
             ports={form.allowedTcpPorts}
             onPorts={(value) => update('allowedTcpPorts', value)}
             placeholder="25565,30000-30100"
+            text={text}
           />
           <ProtocolPolicy
-            title="UDP (vorbereitet)"
-            description="Rohe UDP-Freigaben. Nur bewusst freigeben und auf kleine Portbereiche begrenzen."
+            title={text.udpTitle}
+            description={text.udpDescription}
             enabled={form.udpEnabled}
             onEnabled={(value) => update('udpEnabled', value)}
             ports={form.allowedUdpPorts}
             onPorts={(value) => update('allowedUdpPorts', value)}
             placeholder="19132,30000-30100"
+            text={text}
           />
         </div>
 
         <div className="pangolin-settings-footer">
           <div className="pangolin-settings-meta">
             <strong>{publicationCount}</strong>
-            <span>verwaltete Veröffentlichung(en)</span>
+            <span>{text.managed}</span>
           </div>
           <div className="form-actions">
-            <button type="button" className="btn-secondary" onClick={test} disabled={!!busy}>{busy === 'test' ? 'Test läuft...' : 'Verbindung testen'}</button>
-            <button type="submit" className="btn-primary" disabled={!!busy}>{busy === 'save' ? 'Speichert...' : 'Pangolin speichern'}</button>
+            <button type="button" className="btn-secondary" onClick={test} disabled={!!busy}>{busy === 'test' ? text.testing : text.test}</button>
+            <button type="submit" className="btn-primary" disabled={!!busy}>{busy === 'save' ? text.saving : text.save}</button>
           </div>
         </div>
       </form>
 
       <div className="pangolin-publication-admin-list">
         <div className="settings-section-header">
-          <h3>Verwaltete Veröffentlichungen</h3>
-          <p>Administratoren können bestehende Freigaben prüfen und im Notfall vollständig aus Pangolin entfernen.</p>
+          <h3>{text.publicationsTitle}</h3>
+          <p>{text.publicationsText}</p>
         </div>
         {publications.length === 0 ? (
-          <p className="hint-text">Noch keine Dienste veröffentlicht.</p>
+          <p className="hint-text">{text.noPublications}</p>
         ) : (
           <div className="pangolin-publication-grid">
             {publications.map((publication) => (
@@ -316,15 +461,15 @@ export default function PangolinSettingsPanel({ onSuccess, onError }) {
                   <span className={`status-badge ${publication.status === 'active' ? 'status-running' : 'status-stopped'}`}>{publication.status}</span>
                 </div>
                 <dl>
-                  <div><dt>Benutzer</dt><dd>{publication.userName} · {publication.userEmail}</dd></div>
-                  <div><dt>Ziel</dt><dd>Port {publication.targetPort}{publication.targetMethod ? ` · ${publication.targetMethod}` : ''}</dd></div>
-                  <div><dt>Öffentlich</dt><dd>{publication.publicUrl || `Port ${publication.publicPort}`}</dd></div>
+                  <div><dt>{text.user}</dt><dd>{publication.userName} · {publication.userEmail}</dd></div>
+                  <div><dt>{text.target}</dt><dd>Port {publication.targetPort}{publication.targetMethod ? ` · ${publication.targetMethod}` : ''}</dd></div>
+                  <div><dt>{text.public}</dt><dd>{publication.publicUrl || `Port ${publication.publicPort}`}</dd></div>
                 </dl>
                 {publication.lastError && <small className="power-error">{publication.lastError}</small>}
                 <div className="form-actions">
-                  {publication.publicUrl?.startsWith('http') && <a className="btn-secondary" href={publication.publicUrl} target="_blank" rel="noreferrer">Öffnen</a>}
+                  {publication.publicUrl?.startsWith('http') && <a className="btn-secondary" href={publication.publicUrl} target="_blank" rel="noreferrer">{text.open}</a>}
                   <button type="button" className="btn-danger" onClick={() => removePublication(publication)} disabled={!!busy}>
-                    {busy === `remove-${publication.resourceId}` ? 'Entfernt...' : 'Freigabe entfernen'}
+                    {busy === `remove-${publication.resourceId}` ? text.removing : text.remove}
                   </button>
                 </div>
               </article>
@@ -338,7 +483,7 @@ export default function PangolinSettingsPanel({ onSuccess, onError }) {
   );
 }
 
-function ProtocolPolicy({ title, description, enabled, onEnabled, ports, onPorts, placeholder }) {
+function ProtocolPolicy({ title, description, enabled, onEnabled, ports, onPorts, placeholder, text }) {
   return (
     <article className={`pangolin-protocol-card ${enabled ? 'enabled' : ''}`}>
       <label className="pangolin-protocol-toggle">
@@ -349,9 +494,9 @@ function ProtocolPolicy({ title, description, enabled, onEnabled, ports, onPorts
         <input type="checkbox" checked={!!enabled} onChange={(event) => onEnabled(event.target.checked)} />
       </label>
       <label className="form-group">
-        <span>Erlaubte Ports / Bereiche</span>
+        <span>{text.allowedPorts}</span>
         <input type="text" value={ports} onChange={(event) => onPorts(event.target.value)} placeholder={placeholder} disabled={!enabled} />
-        <small>Beispiel: 80,443,8000-8999</small>
+        <small>{text.example}</small>
       </label>
     </article>
   );

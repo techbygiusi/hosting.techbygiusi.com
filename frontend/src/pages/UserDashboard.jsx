@@ -371,6 +371,7 @@ export default function UserDashboard() {
       {publicPageResource && (
         <PublicPageModal
           resource={publicPageResource}
+          language={language}
           labels={labels}
           onClose={() => setPublicPageResource(null)}
           onSaved={() => fetchResources(false)}

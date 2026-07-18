@@ -5917,3 +5917,83 @@ body.theme-dark .cluster-map-canvas .leaflet-container {
     gap: 0.75rem;
   }
 }
+
+/* v3.1.44 - stable publishing dialog and responsive localized settings */
+.publishing-modal-card {
+  width: min(760px, calc(100vw - 32px));
+  height: min(760px, calc(100dvh - 32px));
+  max-height: calc(100dvh - 32px);
+  overflow: hidden;
+}
+
+.publishing-modal-card > .modal-header {
+  flex: 0 0 auto;
+  min-width: 0;
+}
+
+.publishing-modal-card .publishing-form {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 2px 6px 2px 2px;
+  scrollbar-gutter: stable;
+}
+
+.publishing-modal-card .publishing-actions {
+  position: sticky;
+  bottom: -2px;
+  z-index: 2;
+  padding-top: 12px;
+  padding-bottom: 2px;
+  background: linear-gradient(to bottom, transparent, var(--color-surface) 18px);
+}
+
+.publishing-modal-card .publishing-protocol-selector button,
+.publishing-modal-card input,
+.publishing-modal-card select,
+.publishing-modal-card button {
+  min-width: 0;
+}
+
+.publishing-modal-card .alert,
+.publishing-modal-card .publishing-security-note,
+.publishing-modal-card .publishing-preview,
+.publishing-modal-card .publishing-raw-hint {
+  overflow-wrap: anywhere;
+}
+
+.pangolin-settings-panel .test-result {
+  overflow-wrap: anywhere;
+}
+
+.pangolin-settings-panel .form-group small {
+  line-height: 1.45;
+}
+
+@media (max-width: 767px) {
+  .publishing-modal-card {
+    width: 100dvw !important;
+    height: min(94dvh, calc(100dvh - env(safe-area-inset-top, 0px)));
+    max-height: calc(100dvh - env(safe-area-inset-top, 0px));
+    overflow: hidden !important;
+  }
+
+  .publishing-modal-card .publishing-form {
+    padding-right: 2px;
+    scrollbar-gutter: auto;
+  }
+
+  .publishing-modal-card .publishing-actions {
+    bottom: 0;
+    padding-bottom: max(2px, env(safe-area-inset-bottom, 0px));
+    background: linear-gradient(to bottom, transparent, var(--color-bg) 18px);
+  }
+
+  .publishing-security-note,
+  .publishing-preview,
+  .publishing-raw-hint {
+    padding: 12px;
+  }
+}

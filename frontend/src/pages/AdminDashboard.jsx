@@ -1386,6 +1386,7 @@ export default function AdminDashboard() {
 
         {!loading && activeTab === 'settings' && (
           <PangolinSettingsPanel
+            language={mobileMenuLanguage}
             onSuccess={showSuccess}
             onError={(msg) => setError(msg)}
           />

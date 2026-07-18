@@ -2,6 +2,11 @@ import { useEffect } from 'react';
 import { readStoredLanguage } from './components/LanguageSwitch';
 
 export const DE_EN_PHRASES = {
+  "Pangolin-Veröffentlichung für diesen Cluster erlauben": "Allow Pangolin publishing for this cluster",
+  "Beim Abschalten bleiben bestehende Veröffentlichungen erreichbar. Benutzer können sie nur noch entfernen; neue oder geänderte Freigaben werden serverseitig blockiert.": "When disabled, existing publications remain reachable. Users can only remove them; new or changed publications are blocked by the backend.",
+  "Veröffentlichung: aktiviert": "Publishing: enabled",
+  "Veröffentlichung: deaktiviert": "Publishing: disabled",
+  "Öffentliche Seiten werden vom zugewiesenen Benutzer über Pangolin veröffentlicht. Ziel-IP und erlaubte Ports werden serverseitig geprüft.": "Public pages are published by the assigned user through Pangolin. The target IP and allowed ports are validated by the backend.",
   "Wähle mindestens ein CT-Template für den Self-Service aus.": "Select at least one CT template for self-service.",
   "Dem API-Token fehlt Sys.Audit. Der Status der Proxmox-Datacenter-Firewall kann deshalb nicht sicher geprüft werden.": "The API token is missing Sys.Audit, so the Proxmox datacenter firewall status cannot be verified safely.",
   "Firewall-Prüfung": "Firewall check",

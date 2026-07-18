@@ -6,8 +6,16 @@ The frontend is built with React and the backend with Express + SQLite. Proxmox 
 
 ## Version
 
-Current version: **v3.1.43**
+Current version: **v3.1.44**
 
+
+## What's new in v3.1.44
+
+- Fixed intermittent portal `502 Bad Gateway` responses after recreating only the backend container. Nginx now resolves the Docker backend hostname dynamically instead of retaining an obsolete container IP.
+- Reworked the user publishing dialog so its header stays visible and only the dialog content scrolls on desktop and mobile.
+- Localized all Pangolin publishing settings and status messages in German and English.
+- Renamed the misleading **Newt site** field to **Pangolin site**, shows the numeric Site ID in the selector and explains that the Newt connector ID is not used.
+- Improved Pangolin connectivity diagnostics for DNS, timeout, refused connection and TLS verification failures.
 
 ## What's new in v3.1.43
 
@@ -135,7 +143,7 @@ Do not use a root key. Open **Admin Console → Settings → Pangolin publishing
 - Integration API URL, including `/v1`, for example `https://pangolin-api.example.com/v1`.
 - Organization API key. It is encrypted at rest with the portal encryption key and never returned to the browser again.
 - Organization ID.
-- Newt site and Pangolin domain, selected after using **Load from Pangolin**.
+- Pangolin site and Pangolin domain, selected after using **Load from Pangolin**. The site selector uses the numeric Pangolin `siteId`; the alphanumeric Newt connector ID is not used.
 - Base domain used for generated user addresses, for example `apps.example.com`.
 - Allowed HTTP target ports and optional TCP/UDP port ranges.
 
@@ -252,6 +260,16 @@ docker image prune -f
 The database migrates itself on startup. Keep the backend data volume before updating.
 
 ## Changelog
+
+### v3.1.44 - 2026-07-16
+
+**Commit:** `fix: stabilize Pangolin settings and publishing dialogs`
+
+- resolve the backend service dynamically in Nginx so frontend requests survive backend container recreation without stale-upstream 502 errors
+- keep the publishing modal header visible and constrain scrolling to the modal body on desktop and mobile
+- localize all new Pangolin administration settings and publication controls in German and English
+- clarify and display the numeric Pangolin Site ID instead of referring to the Newt connector ID
+- return more useful Pangolin connection diagnostics and use IPv4-aware keep-alive agents for outbound API calls
 
 ### v3.1.43 - 2026-07-16
 

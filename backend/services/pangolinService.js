@@ -1,4 +1,6 @@
 const axios = require('axios');
+const http = require('http');
+const https = require('https');
 const { all, run } = require('../config/database');
 const { encrypt, decrypt } = require('./cryptoService');
 const { AppError } = require('../middleware/errorHandler');
@@ -254,7 +256,10 @@ function createClient(config) {
   validateConfig(config, { requireSelection: false });
   return axios.create({
     baseURL: config.apiUrl,
-    timeout: 15000,
+    timeout: 20000,
+    maxRedirects: 5,
+    httpAgent: new http.Agent({ keepAlive: true, family: 4 }),
+    httpsAgent: new https.Agent({ keepAlive: true, family: 4 }),
     headers: {
       Authorization: `Bearer ${config.apiKey}`,
       'Content-Type': 'application/json',
@@ -265,9 +270,22 @@ function createClient(config) {
 
 function pangolinError(err, fallback = 'Pangolin request failed') {
   const responseData = err?.response?.data;
-  const message = responseData?.message || responseData?.error?.message || err?.message || fallback;
+  const responseMessage = typeof responseData === 'string'
+    ? responseData.trim().slice(0, 500)
+    : responseData?.message || responseData?.error?.message || responseData?.error;
   const status = err?.response?.status;
-  return new AppError(status ? `${message} (HTTP ${status})` : message, HTTP_STATUS.BAD_GATEWAY);
+  const code = err?.code;
+  let message = responseMessage || err?.message || fallback;
+
+  if (!status && code === 'ENOTFOUND') message = 'Pangolin API hostname could not be resolved';
+  if (!status && code === 'ECONNREFUSED') message = 'Pangolin API refused the connection';
+  if (!status && ['ETIMEDOUT', 'ECONNABORTED'].includes(code)) message = 'Pangolin API connection timed out';
+  if (!status && ['SELF_SIGNED_CERT_IN_CHAIN', 'DEPTH_ZERO_SELF_SIGNED_CERT', 'UNABLE_TO_VERIFY_LEAF_SIGNATURE'].includes(code)) {
+    message = 'Pangolin API TLS certificate could not be verified';
+  }
+
+  const details = [status ? `HTTP ${status}` : '', code || ''].filter(Boolean).join(', ');
+  return new AppError(details ? `${message} (${details})` : message, HTTP_STATUS.BAD_GATEWAY);
 }
 
 async function request(config, method, url, data) {
@@ -289,8 +307,8 @@ async function discoverPangolin(input = {}) {
   validateConfig(config, { requireSelection: false });
   const [organization, domainsPayload, sitesPayload] = await Promise.all([
     request(config, 'get', `/org/${encodeURIComponent(config.orgId)}`),
-    request(config, 'get', `/org/${encodeURIComponent(config.orgId)}/domains`),
-    request(config, 'get', `/org/${encodeURIComponent(config.orgId)}/sites`)
+    request(config, 'get', `/org/${encodeURIComponent(config.orgId)}/domains?limit=1000&offset=0`),
+    request(config, 'get', `/org/${encodeURIComponent(config.orgId)}/sites?pageSize=100&page=1`)
   ]);
   const domains = extractCollection(domainsPayload, ['domains', 'orgDomains']).map((domain) => ({
     id: String(domain.domainId ?? domain.id ?? domain.niceId ?? ''),

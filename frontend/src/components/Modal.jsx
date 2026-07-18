@@ -5,7 +5,7 @@ import React, { useEffect } from 'react';
  * Mobile (<768px): full-width bottom sheet sliding up, with grab handle.
  * Closes on ESC and on backdrop click (unless disableBackdropClose).
  */
-export default function Modal({ title, children, onClose, className = '', disableBackdropClose = false }) {
+export default function Modal({ title, children, onClose, className = '', disableBackdropClose = false, closeLabel = 'Close' }) {
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
@@ -34,7 +34,7 @@ export default function Modal({ title, children, onClose, className = '', disabl
         <div className="sheet-handle" aria-hidden="true"></div>
         <div className="modal-header">
           <h2>{title}</h2>
-          <button type="button" className="icon-button" onClick={onClose} aria-label="Schließen">×</button>
+          <button type="button" className="icon-button" onClick={onClose} aria-label={closeLabel}>×</button>
         </div>
         {children}
       </div>

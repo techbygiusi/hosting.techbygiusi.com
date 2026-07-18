@@ -11,7 +11,7 @@ const TEXT = {
     noIp: 'This service has no reachable IPv4 address yet.', protocol: 'Protocol', subdomain: 'Subdomain',
     targetPort: 'Service port', publicPort: 'Public port', backendProtocol: 'Backend protocol',
     preview: 'Public address', autoIp: 'Target IP is selected automatically from your own service:',
-    ranges: 'Allowed ports', save: 'Publish', update: 'Save changes', saving: 'Saving...', cancel: 'Cancel',
+    ranges: 'Allowed ports', save: 'Publish', update: 'Save changes', saving: 'Saving...', cancel: 'Cancel', close: 'Close',
     remove: 'Remove public access', removeConfirm: 'Remove public access for this service?',
     saveFailed: 'Public access could not be saved.', removeFailed: 'Public access could not be removed.',
     subdomainHint: 'Lowercase letters, numbers and hyphens only.', rawHint: 'For TCP/UDP the selected port is used externally and internally.',
@@ -24,7 +24,7 @@ const TEXT = {
     noIp: 'Für diesen Dienst ist noch keine erreichbare IPv4-Adresse bekannt.', protocol: 'Protokoll', subdomain: 'Subdomain',
     targetPort: 'Dienst-Port', publicPort: 'Öffentlicher Port', backendProtocol: 'Backend-Protokoll',
     preview: 'Öffentliche Adresse', autoIp: 'Die Ziel-IP wird automatisch von deinem eigenen Dienst übernommen:',
-    ranges: 'Erlaubte Ports', save: 'Veröffentlichen', update: 'Änderungen speichern', saving: 'Speichert...', cancel: 'Abbrechen',
+    ranges: 'Erlaubte Ports', save: 'Veröffentlichen', update: 'Änderungen speichern', saving: 'Speichert...', cancel: 'Abbrechen', close: 'Schließen',
     remove: 'Öffentlichen Zugriff entfernen', removeConfirm: 'Öffentlichen Zugriff für diesen Dienst entfernen?',
     saveFailed: 'Der öffentliche Zugriff konnte nicht gespeichert werden.', removeFailed: 'Der öffentliche Zugriff konnte nicht entfernt werden.',
     subdomainHint: 'Nur Kleinbuchstaben, Zahlen und Bindestriche.', rawHint: 'Bei TCP/UDP wird der gewählte Port extern und intern verwendet.',
@@ -32,8 +32,10 @@ const TEXT = {
   }
 };
 
-export default function PublicPageModal({ resource, onClose, onSaved }) {
-  const language = readStoredLanguage() === 'de' ? 'de' : 'en';
+export default function PublicPageModal({ resource, onClose, onSaved, language: languageProp }) {
+  const language = languageProp === 'de' || languageProp === 'en'
+    ? languageProp
+    : (readStoredLanguage() === 'de' ? 'de' : 'en');
   const text = TEXT[language];
   const existing = resource?.publication || null;
   const [options, setOptions] = useState(null);
@@ -125,6 +127,7 @@ export default function PublicPageModal({ resource, onClose, onSaved }) {
       onClose={onClose}
       className="public-page-modal-card publishing-modal-card"
       disableBackdropClose={busy}
+      closeLabel={text.close}
     >
       {loading ? <p className="loading">{text.loading}</p> : (
         <form className="publishing-form" onSubmit={save} noValidate>
