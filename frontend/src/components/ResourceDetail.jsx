@@ -45,10 +45,10 @@ export function PowerControls({ resource, onChanged, compact = false, onOpenCons
   const [busyAction, setBusyAction] = useState('');
   const [error, setError] = useState('');
   const running = resource.status === 'running';
-  // Console availability is based on assigned resource access plus the cluster token's
-  // VM.Console permission. It is intentionally not tied to self-service ownership or
-  // delete rights, so admin-created services shared with users can open a desktop
-  // console too. The full console page still handles stopped/unknown machines safely.
+  // A manually configured service IP enables the SSH console independently of the
+  // Proxmox VM.Console permission. Without a manual IP, the traditional Proxmox
+  // serial console remains capability-driven. The full console page still handles
+  // stopped or unknown machines safely.
   const canOpenConsole = !!onOpenConsole && !!caps.canConsole;
 
   if (!caps.canPower && !caps.canConsole) return null;
@@ -104,6 +104,10 @@ function OverviewTab({ resource, onChanged, onOpenConsole, onClose, onManagePubl
   const primaryIp = getPrimaryIp(resource);
   const publicUrl = resource.publicUrl || resource.webUrl || '';
   const adminUrl = resource.adminUrl || '';
+  const language = readStoredLanguage();
+  const managePublicPageLabel = resource.publicAccessMode === 'manual'
+    ? translatePortalText(resource.manualPublicUrl ? 'Öffentliche Seite bearbeiten' : 'Öffentliche Seite hinterlegen', language)
+    : `${translatePortalText('Öffentliche Zugriffe verwalten', language)}${Number(resource.publicationCount || 0) > 0 ? ` (${resource.publicationCount})` : ''}`;
 
   return (
     <div className="resource-details detail-modal-content">
@@ -116,9 +120,10 @@ function OverviewTab({ resource, onChanged, onOpenConsole, onClose, onManagePubl
       )}
       {resource.canManagePublicPage && onManagePublicPage && (
         <button type="button" className="btn-secondary full-button" onClick={onManagePublicPage}>
-          {translatePortalText('Öffentliche Zugriffe verwalten', readStoredLanguage())}{Number(resource.publicationCount || 0) > 0 ? ` (${resource.publicationCount})` : ''}
+          {managePublicPageLabel}
         </button>
       )}
+      {resource.canManageServiceIp && <ServiceIpControl resource={resource} onChanged={onChanged} />}
       <div className="resource-meta">
         {resource.groupName && (<><span>Gruppe</span><span>{resource.groupName}</span></>)}
         <span>Cluster</span><span>{resource.clusterName || 'Unbekannt'}</span>
@@ -130,6 +135,7 @@ function OverviewTab({ resource, onChanged, onOpenConsole, onClose, onManagePubl
         {resource.sourceTemplate && (<><span>Template</span><span title={resource.sourceTemplate}>{resource.sourceTemplateName || resource.sourceTemplate}</span></>)}
         <span>ID</span><span>{resource.containerId || 'Unbekannt'}</span>
         <span>IP-Adresse</span><span>{primaryIp || 'Nicht bekannt'}</span>
+        {resource.manualIp && (<><span>IP-Quelle</span><span>Manuell hinterlegt</span></>)}
         <span>Status</span><span>{renderStatus(resource.status)}</span>
         {resource.uptime > 0 && (<><span>Laufzeit</span><span>{formatUptime(resource.uptime)}</span></>)}
       </div>
@@ -137,6 +143,90 @@ function OverviewTab({ resource, onChanged, onOpenConsole, onClose, onManagePubl
       <DeleteMachineControl resource={resource} onChanged={onChanged} onClose={onClose} />
       {resource.monitorError && <p className="hint-text">Monitoring ist gerade nicht erreichbar.</p>}
     </div>
+  );
+}
+
+function ServiceIpControl({ resource, onChanged }) {
+  const language = readStoredLanguage();
+  const text = (value) => translatePortalText(value, language);
+  const [ip, setIp] = useState(resource.manualIp || '');
+  const [sshPort, setSshPort] = useState(String(resource.sshPort || 22));
+  const [savedIp, setSavedIp] = useState(resource.manualIp || '');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+
+  useEffect(() => {
+    setIp(resource.manualIp || '');
+    setSavedIp(resource.manualIp || '');
+    setSshPort(String(resource.sshPort || 22));
+  }, [resource.manualIp, resource.sshPort]);
+
+  const save = async (event) => {
+    event.preventDefault();
+    try {
+      setBusy(true);
+      setError('');
+      setNotice('');
+      const response = await userApi.saveServiceIp(resource.id, ip.trim(), Number(sshPort || 22));
+      setIp(response.data.manualIp || '');
+      setSavedIp(response.data.manualIp || '');
+      setSshPort(String(response.data.sshPort || 22));
+      setNotice(text(response.data.manualIp ? 'Dienst-IP wurde gespeichert.' : 'Dienst-IP wurde entfernt.'));
+      await onChanged?.();
+    } catch (err) {
+      setError(getErrorMessage(err, text('Dienst-IP konnte nicht gespeichert werden.')));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const clear = async () => {
+    try {
+      setBusy(true);
+      setError('');
+      setNotice('');
+      const response = await userApi.saveServiceIp(resource.id, '', Number(sshPort || 22));
+      setIp('');
+      setSavedIp('');
+      setSshPort(String(response.data.sshPort || 22));
+      setNotice(text('Dienst-IP wurde entfernt.'));
+      await onChanged?.();
+    } catch (err) {
+      setError(getErrorMessage(err, text('Dienst-IP konnte nicht entfernt werden.')));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <form className="service-ip-control" onSubmit={save}>
+      <div className="service-ip-heading">
+        <div>
+          <h3>{text('Dienst-IP und SSH-Konsole')}</h3>
+          <p>{text('Für VMs ohne erkannte Gast-IP kann hier eine feste IPv4-Adresse hinterlegt werden.')}</p>
+        </div>
+        {resource.consoleMode === 'ssh' && <span className="credential-badge">SSH</span>}
+      </div>
+      <div className="service-ip-fields">
+        <label className="form-group">
+          <span>{text('Manuelle IPv4-Adresse')}</span>
+          <input type="text" inputMode="decimal" value={ip} onChange={(event) => setIp(event.target.value)} placeholder="10.10.20.16" disabled={busy} />
+        </label>
+        <label className="form-group service-ip-port">
+          <span>{text('SSH-Port')}</span>
+          <input type="number" min="1" max="65535" value={sshPort} onChange={(event) => setSshPort(event.target.value)} disabled={busy} />
+        </label>
+      </div>
+      {resource.detectedIp && <small>{text('Automatisch erkannte IP')}: {resource.detectedIp}</small>}
+      <small>{text('Ist eine manuelle IP gesetzt, verwendet die Konsole SSH zu dieser Adresse. Hinterlege dafür im Tab Zugangsdaten einen Eintrag mit Benutzername und Passwort, idealerweise mit „SSH“ in der Bezeichnung.')}</small>
+      {error && <div className="alert alert-danger">{error}</div>}
+      {notice && <div className="alert alert-success">{notice}</div>}
+      <div className="form-actions service-ip-actions">
+        {savedIp && <button type="button" className="btn-secondary btn-small" onClick={clear} disabled={busy}>{text('IP entfernen')}</button>}
+        <button type="submit" className="btn-primary btn-small" disabled={busy}>{busy ? text('Wird gespeichert...') : text('IP speichern')}</button>
+      </div>
+    </form>
   );
 }
 

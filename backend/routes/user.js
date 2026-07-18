@@ -1,4 +1,5 @@
 const express = require('express');
+const net = require('net');
 const bcryptjs = require('bcryptjs');
 const router = express.Router();
 
@@ -46,6 +47,23 @@ const ACCESS_FILTER = `(
   r.user_id = ?
   OR (r.group_id IS NOT NULL AND r.group_id IN (SELECT group_id FROM user_groups WHERE user_id = ?))
 )`;
+
+function normalizeManualIpv4(value) {
+  const normalized = String(value || '').trim();
+  if (!normalized) return '';
+  if (net.isIP(normalized) !== 4) {
+    throw new AppError('The service IP must be a valid IPv4 address', HTTP_STATUS.BAD_REQUEST);
+  }
+  return normalized;
+}
+
+function normalizeSshPort(value) {
+  const port = value === '' || value === null || value === undefined ? 22 : Number(value);
+  if (!Number.isInteger(port) || port < 1 || port > 65535) {
+    throw new AppError('The SSH port must be between 1 and 65535', HTTP_STATUS.BAD_REQUEST);
+  }
+  return port;
+}
 
 
 async function getResourceRowsForUser(userId, resourceId = null) {
@@ -261,13 +279,17 @@ async function attachPublications(resources) {
   return resources.map(resource => {
     const publications = byResource[String(resource.id)] || [];
     const primaryHttpPublication = publications.find(item => item.protocol === 'http' && item.publicUrl) || null;
+    const pangolinPublicUrl = primaryHttpPublication?.publicUrl || '';
+    const manualPublicUrl = resource.manualPublicUrl || '';
     return {
       ...resource,
       publications,
       publication: publications[0] || null,
       publicationCount: publications.length,
-      publicUrl: primaryHttpPublication?.publicUrl || '',
-      webUrl: primaryHttpPublication?.publicUrl || ''
+      pangolinPublicUrl,
+      manualPublicUrl,
+      publicUrl: pangolinPublicUrl || manualPublicUrl,
+      webUrl: pangolinPublicUrl || manualPublicUrl
     };
   });
 }
@@ -421,18 +443,31 @@ router.get('/resources', async (req, res, next) => {
       resources: resources.map(resource => {
         const ownsResource = String(resource.userId) === String(req.user.id);
         const clusterPublishingEnabled = resource.clusterPublishingEnabled !== false;
-        const canPublish = ownsResource && !!resource.primaryIp && !!publishingConfig.enabled && clusterPublishingEnabled;
+        const pangolinAvailable = !!publishingConfig.enabled && clusterPublishingEnabled;
+        const canPublish = ownsResource && !!resource.primaryIp && pangolinAvailable;
+        const canManageManualPublicPage = ownsResource && !pangolinAvailable;
+        const effectivePublicUrl = pangolinAvailable
+          ? (resource.pangolinPublicUrl || '')
+          : (resource.manualPublicUrl || resource.pangolinPublicUrl || '');
         return {
           ...resource,
-          canManagePublicPage: ownsResource && (canPublish || Number(resource.publicationCount || 0) > 0),
+          publicUrl: effectivePublicUrl,
+          webUrl: effectivePublicUrl,
+          publicAccessMode: pangolinAvailable ? 'pangolin' : 'manual',
+          canManageManualPublicPage,
+          canManageServiceIp: ownsResource,
+          canManagePublicPage: ownsResource && (canPublish || canManageManualPublicPage || Number(resource.publicationCount || 0) > 0),
           canPublish,
           publishingClusterEnabled: clusterPublishingEnabled,
           canDelete: !!resource.canDelete && ownsResource && !!capsByCluster[resource.clusterId]?.canProvision,
-          // Power and console capabilities are cluster-token based for every
-          // accessible resource. They are not limited to self-provisioned machines,
-          // so admin-created services assigned directly or through a group can use
-          // the desktop console when the token has VM.Console.
-          capabilities: capsByCluster[resource.clusterId] || { readOnly: true }
+          // Power remains cluster-token based. Console access uses VM.Console
+          // for the traditional Proxmox serial console, while a manually configured
+          // service IP enables the backend SSH relay independently of that permission.
+          consoleMode: resource.manualIp ? 'ssh' : 'proxmox',
+          capabilities: {
+            ...(capsByCluster[resource.clusterId] || { readOnly: true }),
+            canConsole: !!resource.manualIp || !!capsByCluster[resource.clusterId]?.canConsole
+          }
         };
       })
     });
@@ -451,15 +486,26 @@ router.get('/resources/:id', async (req, res, next) => {
     const publishingConfig = await getPangolinConfig();
     const ownsResource = String(resources[0].userId) === String(req.user.id);
     const clusterPublishingEnabled = resources[0].clusterPublishingEnabled !== false;
-    const canPublish = ownsResource && !!resources[0].primaryIp && !!publishingConfig.enabled && clusterPublishingEnabled;
+    const pangolinAvailable = !!publishingConfig.enabled && clusterPublishingEnabled;
+    const canPublish = ownsResource && !!resources[0].primaryIp && pangolinAvailable;
+    const canManageManualPublicPage = ownsResource && !pangolinAvailable;
+    const effectivePublicUrl = pangolinAvailable
+      ? (resources[0].pangolinPublicUrl || '')
+      : (resources[0].manualPublicUrl || resources[0].pangolinPublicUrl || '');
     res.json({
       resource: {
         ...resources[0],
-        canManagePublicPage: ownsResource && (canPublish || Number(resources[0].publicationCount || 0) > 0),
+        publicUrl: effectivePublicUrl,
+        webUrl: effectivePublicUrl,
+        publicAccessMode: pangolinAvailable ? 'pangolin' : 'manual',
+        canManageManualPublicPage,
+        canManageServiceIp: ownsResource,
+        canManagePublicPage: ownsResource && (canPublish || canManageManualPublicPage || Number(resources[0].publicationCount || 0) > 0),
         canPublish,
         publishingClusterEnabled: clusterPublishingEnabled,
         canDelete: !!resources[0].canDelete && ownsResource && !!caps.canProvision,
-        capabilities: caps
+        consoleMode: resources[0].manualIp ? 'ssh' : 'proxmox',
+        capabilities: { ...caps, canConsole: !!resources[0].manualIp || !!caps.canConsole }
       }
     });
   } catch (err) {
@@ -487,6 +533,7 @@ router.get('/publishing/options', async (req, res, next) => {
         enabled: visible.enabled && clusterEnabled,
         globalEnabled: visible.enabled,
         clusterEnabled,
+        manualLinkEnabled: !visible.enabled || !clusterEnabled,
         baseDomain: visible.baseDomain,
         defaultTargetMethod: visible.defaultTargetMethod,
         protocols: {
@@ -657,7 +704,7 @@ async function getOwnedResourceWithoutIpRequirement(userId, resourceId) {
 router.get('/resources/:id/publications', async (req, res, next) => {
   try {
     const resource = await getOwnedResourceWithoutIpRequirement(req.user.id, req.params.id);
-    res.json({ publications: resource.publications || [], primaryIp: resource.primaryIp || '' });
+    res.json({ publications: resource.publications || [], primaryIp: resource.primaryIp || '', manualPublicUrl: resource.manualPublicUrl || '' });
   } catch (err) {
     next(err);
   }
@@ -719,7 +766,7 @@ router.delete('/resources/:id/publications/:publicationId', async (req, res, nex
 router.get('/resources/:id/publication', async (req, res, next) => {
   try {
     const resource = await getOwnedResourceWithoutIpRequirement(req.user.id, req.params.id);
-    res.json({ publication: resource.publications?.[0] || null, publications: resource.publications || [], primaryIp: resource.primaryIp || '' });
+    res.json({ publication: resource.publications?.[0] || null, publications: resource.publications || [], primaryIp: resource.primaryIp || '', manualPublicUrl: resource.manualPublicUrl || '' });
   } catch (err) {
     next(err);
   }
@@ -756,9 +803,66 @@ router.delete('/resources/:id/publication', async (req, res, next) => {
   }
 });
 
-// Legacy manual URL storage was replaced by server-side Pangolin publishing.
+function normalizeManualPublicUrl(value) {
+  const raw = String(value || '').trim();
+  if (!raw) throw new AppError('Public page URL is required', HTTP_STATUS.BAD_REQUEST);
+
+  let parsed;
+  try {
+    parsed = new URL(raw);
+  } catch (_) {
+    throw new AppError('Public page URL must be a valid http:// or https:// URL', HTTP_STATUS.BAD_REQUEST);
+  }
+
+  if (!['http:', 'https:'].includes(parsed.protocol) || !parsed.hostname) {
+    throw new AppError('Public page URL must be a valid http:// or https:// URL', HTTP_STATUS.BAD_REQUEST);
+  }
+  if (parsed.username || parsed.password) {
+    throw new AppError('Public page URL must not contain login credentials', HTTP_STATUS.BAD_REQUEST);
+  }
+  return parsed.toString();
+}
+
+async function getOwnedManualPublicPageResource(userId, resourceId) {
+  const rows = await getResourceRowsForUser(userId, resourceId);
+  if (rows.length === 0 || String(rows[0].user_id) !== String(userId)) {
+    throw new AppError('Only the assigned user can manage the public page for this service', HTTP_STATUS.FORBIDDEN);
+  }
+  const publishingConfig = await getPangolinConfig();
+  const clusterPublishingEnabled = Number(rows[0].allow_publishing ?? 1) === 1;
+  if (publishingConfig.enabled && clusterPublishingEnabled) {
+    throw new AppError('Manual public page links are only available when Pangolin publishing is disabled', HTTP_STATUS.FORBIDDEN);
+  }
+  return rows[0];
+}
+
 router.put('/resources/:id/public-page', async (req, res, next) => {
-  next(new AppError('Manual public URLs are no longer supported. Use the publishing dialog.', HTTP_STATUS.GONE));
+  try {
+    const resource = await getOwnedManualPublicPageResource(req.user.id, req.params.id);
+    const publicUrl = normalizeManualPublicUrl(req.body?.url);
+    await run(
+      'UPDATE resources SET manual_public_url = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+      [publicUrl, resource.id]
+    );
+    await logAudit(req, 'resource.public-page.save', `resource:${resource.id}`, publicUrl);
+    res.json({ message: 'Public page saved', publicUrl });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.delete('/resources/:id/public-page', async (req, res, next) => {
+  try {
+    const resource = await getOwnedManualPublicPageResource(req.user.id, req.params.id);
+    await run(
+      "UPDATE resources SET manual_public_url = '', updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+      [resource.id]
+    );
+    await logAudit(req, 'resource.public-page.remove', `resource:${resource.id}`);
+    res.json({ message: 'Public page removed' });
+  } catch (err) {
+    next(err);
+  }
 });
 
 
@@ -878,10 +982,93 @@ router.get('/resources/:id/tasks/:upid/log', async (req, res, next) => {
   }
 });
 
+/* ------------------------------------------------------ SERVICE IP ---- */
+router.put('/resources/:id/service-ip', async (req, res, next) => {
+  try {
+    const rows = await getResourceRowsForUser(req.user.id, req.params.id);
+    if (rows.length === 0) throw new AppError('Resource not accessible', HTTP_STATUS.FORBIDDEN);
+    if (String(rows[0].user_id) !== String(req.user.id)) {
+      throw new AppError('Only the assigned user can manage the service IP', HTTP_STATUS.FORBIDDEN);
+    }
+
+    const manualIp = normalizeManualIpv4(req.body?.ip);
+    const sshPort = normalizeSshPort(req.body?.sshPort);
+    await run(
+      'UPDATE resources SET manual_ip = ?, ssh_port = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+      [manualIp || null, sshPort, req.params.id]
+    );
+
+    await logAudit(
+      req,
+      manualIp ? 'resource.service_ip.update' : 'resource.service_ip.clear',
+      `resource:${req.params.id}`,
+      manualIp ? `${manualIp}:${sshPort}` : rows[0].name || `VMID ${rows[0].container_id}`
+    );
+
+    res.json({ manualIp, sshPort, message: manualIp ? 'Service IP saved' : 'Service IP removed' });
+  } catch (err) {
+    next(err);
+  }
+});
+
+async function getSshConsoleCredential(resourceId) {
+  const credential = await get(
+    `SELECT id, label, username, secret_encrypted
+     FROM resource_credentials
+     WHERE resource_id = ?
+       AND COALESCE(purpose, 'general') != 'management'
+       AND TRIM(COALESCE(username, '')) != ''
+       AND secret_encrypted IS NOT NULL
+     ORDER BY
+       CASE WHEN LOWER(COALESCE(label, '')) LIKE '%ssh%' OR LOWER(COALESCE(label, '')) LIKE '%console%' THEN 0 ELSE 1 END,
+       CASE WHEN LOWER(TRIM(COALESCE(username, ''))) = 'root' THEN 0 ELSE 1 END,
+       id DESC
+     LIMIT 1`,
+    [resourceId]
+  );
+
+  if (!credential) return null;
+  const password = decrypt(credential.secret_encrypted);
+  if (!password) return null;
+  return { username: String(credential.username || '').trim(), password };
+}
+
 /* ----------------------------------------------------------- CONSOLE ---- */
 router.post('/resources/:id/console', async (req, res, next) => {
   try {
     const target = await getAccessibleResource(req.user.id, req.params.id);
+    const languageRow = await get('SELECT preferred_language FROM users WHERE id = ?', [req.user.id]);
+    const language = languageRow?.preferred_language === 'de' ? 'de' : 'en';
+    const manualIp = normalizeManualIpv4(target.row.manual_ip || '');
+
+    if (manualIp) {
+      const sshCredential = await getSshConsoleCredential(req.params.id);
+      if (!sshCredential) {
+        throw new AppError(
+          'Add SSH credentials with a username and password in the Credentials tab before opening the IP console',
+          HTTP_STATUS.BAD_REQUEST
+        );
+      }
+
+      const sshPort = normalizeSshPort(target.row.ssh_port);
+      const sessionToken = createConsoleSession({
+        mode: 'ssh',
+        host: manualIp,
+        sshPort,
+        username: sshCredential.username,
+        password: sshCredential.password,
+        language
+      });
+
+      await logAudit(req, 'console.open.ssh', `resource:${req.params.id}`, `${target.name} (${manualIp}:${sshPort})`);
+      return res.json({
+        mode: 'ssh',
+        sessionToken,
+        wsPath: `/api/console/ws?token=${sessionToken}`,
+        target: `${manualIp}:${sshPort}`
+      });
+    }
+
     const caps = await getClusterCapabilities(target.row.cluster_id, target.clusterUrl, target.apiToken);
     if (!caps.canConsole) {
       throw new AppError('Console access is not permitted for this cluster token', HTTP_STATUS.FORBIDDEN);
@@ -890,18 +1077,21 @@ router.post('/resources/:id/console', async (req, res, next) => {
     const term = await createTermProxy(target.clusterUrl, target.apiToken, target.node, target.type, target.vmid);
     const autoLogin = target.type === 'lxc' ? await getRootConsoleCredential(req.params.id) : null;
     const sessionToken = createConsoleSession({
+      mode: 'proxmox',
       clusterUrl: target.clusterUrl,
       apiToken: target.apiToken,
       node: target.node,
       type: target.type,
       vmid: target.vmid,
       port: term.port,
-      ticket: term.ticket
+      ticket: term.ticket,
+      language
     });
 
     await logAudit(req, 'console.open', `resource:${req.params.id}`, `${target.name} (VMID ${target.vmid})`);
 
     res.json({
+      mode: 'proxmox',
       sessionToken,
       user: term.user,
       ticket: term.ticket,

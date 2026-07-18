@@ -6,7 +6,27 @@ The frontend is built with React and the backend with Express + SQLite. Proxmox 
 
 ## Version
 
-Current version: **v3.1.60**
+Current version: **v3.1.62**
+
+## What's new in v3.1.62
+
+- Added an optional manual service IPv4 address and SSH port that administrators and the directly assigned user can maintain for each assigned VM or container.
+- A configured service IP becomes the preferred guest address for details, Pangolin targets and the browser console when Proxmox cannot detect the guest address reliably.
+- The full-page browser console now uses an SSH relay to the configured service IP and keeps the saved username and password exclusively on the backend. Add a normal credential in the **Credentials** tab, preferably with `SSH` in its label.
+- Services without a manual IP continue to use the traditional Proxmox serial console. This explains why the old console connected through the Proxmox node address and why QEMU guests without a serial device returned `unable to find a serial interface`.
+- The console header now distinguishes **SSH console** from **Proxmox console** and shows the effective SSH target instead of the cluster-node address.
+- Rechecked and completed German and English localization for the manual website fallback introduced in v3.1.61 and for the new service-IP workflow.
+- Reduced service-card action typography and allowed safe two-line wrapping so website, access and administration actions never escape their buttons.
+
+
+## What's new in v3.1.61
+
+- Added a manual public website fallback for services on clusters where Pangolin publishing is disabled or globally unavailable.
+- Assigned users can save, edit, open and remove one validated `http://` or `https://` website link without requiring a guest IP address.
+- Service cards and detail views now show **Add link / Link hinzufügen** or **Edit link / Link bearbeiten** instead of the Pangolin access action while fallback mode is active.
+- Existing Pangolin publications remain visible and removable after cluster publishing is disabled, while the manually stored website becomes the primary website button.
+- Added a dedicated database column and automatic migration so manual links are not overwritten by Pangolin synchronization.
+
 
 ## What's new in v3.1.60
 
@@ -373,6 +393,27 @@ docker image prune -f
 The database migrates itself on startup. Keep the backend data volume before updating.
 
 ## Changelog
+
+### v3.1.62 - 2026-07-18
+
+**Commit:** `feat: add manual guest IP SSH console fallback`
+
+- Let administrators and the directly assigned user store a manual guest IPv4 address and SSH port for each service.
+- Prefer the manual address for service details and Pangolin target resolution when automatic guest discovery is unavailable or unsuitable.
+- Add a backend-only SSH WebSocket relay that reuses a saved service credential without exposing passwords to the browser.
+- Keep the existing Proxmox serial-console path for resources without a manual guest address.
+- Label SSH and Proxmox console modes clearly, show the effective target, and provide localized validation and setup guidance.
+- Complete the German and English manual-website fallback text and make resource-card actions smaller and overflow-safe.
+
+### v3.1.61 - 2026-07-18
+
+**Commit:** `feat: add manual website fallback for disabled Pangolin clusters`
+
+- Allow the assigned user to store one existing public website URL when Pangolin is disabled for the cluster or unavailable globally.
+- Validate fallback links server-side and accept only credential-free HTTP or HTTPS URLs.
+- Keep manual website links separate from Pangolin-managed URLs so publication synchronization cannot overwrite them.
+- Show localized add/edit website actions on service cards and in service details.
+- Preserve and expose existing Pangolin publications for removal while a cluster uses manual fallback mode.
 
 ### v3.1.60 - 2026-07-18
 

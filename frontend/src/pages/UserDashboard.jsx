@@ -42,6 +42,10 @@ const USER_TRANSLATIONS = {
     editPublicPage: 'Edit public access',
     managePublicAccess: 'Access',
     managePublicAccessTitle: 'Manage public access',
+    addWebsite: 'Add link',
+    addWebsiteTitle: 'Add a public website link',
+    editWebsite: 'Edit link',
+    editWebsiteTitle: 'Edit the public website link',
     publicPageUrl: 'Public page URL',
     publicPageHelp: 'Publish this service securely through Pangolin.',
     publicPageRequired: 'Enter a public page URL.',
@@ -100,6 +104,10 @@ const USER_TRANSLATIONS = {
     editPublicPage: 'Öffentlichen Zugriff bearbeiten',
     managePublicAccess: 'Freigaben',
     managePublicAccessTitle: 'Öffentliche Zugriffe verwalten',
+    addWebsite: 'Link hinzufügen',
+    addWebsiteTitle: 'Link zu einer öffentlichen Webseite hinterlegen',
+    editWebsite: 'Link bearbeiten',
+    editWebsiteTitle: 'Link zur öffentlichen Webseite bearbeiten',
     publicPageUrl: 'URL der öffentlichen Seite',
     publicPageHelp: 'Veröffentliche diesen Dienst sicher über Pangolin.',
     publicPageRequired: 'Bitte eine URL für die öffentliche Seite eingeben.',
@@ -402,6 +410,13 @@ function ResourceCard({ resource, onOpenDetails, onManagePublicPage, labels }) {
   const memPercent = getPercent(resource.mem, resource.maxmem);
   const publicUrl = resource.publicUrl || resource.webUrl;
   const adminUrl = resource.adminUrl || '';
+  const manualPublicPageMode = resource.publicAccessMode === 'manual';
+  const managePublicPageLabel = manualPublicPageMode
+    ? (resource.manualPublicUrl ? labels.editWebsite : labels.addWebsite)
+    : `${labels.managePublicAccess}${Number(resource.publicationCount || 0) > 0 ? ` (${resource.publicationCount})` : ''}`;
+  const managePublicPageTitle = manualPublicPageMode
+    ? (resource.manualPublicUrl ? labels.editWebsiteTitle : labels.addWebsiteTitle)
+    : labels.managePublicAccessTitle;
 
   return (
     <article className="resource-card compact-resource-card">
@@ -443,10 +458,10 @@ function ResourceCard({ resource, onOpenDetails, onManagePublicPage, labels }) {
               type="button"
               className={publicUrl ? 'btn-secondary full-button' : 'btn-primary full-button'}
               onClick={onManagePublicPage}
-              title={labels.managePublicAccessTitle}
-              aria-label={labels.managePublicAccessTitle}
+              title={managePublicPageTitle}
+              aria-label={managePublicPageTitle}
             >
-              {labels.managePublicAccess}{Number(resource.publicationCount || 0) > 0 ? ` (${resource.publicationCount})` : ''}
+              {managePublicPageLabel}
             </button>
           )}
           {adminUrl && (

@@ -8,7 +8,7 @@ import { translatePortalText } from '../i18n';
 
 /**
  * In-browser console for an assigned resource. The backend relays the
- * websocket to Proxmox, so the API token never reaches the browser.
+ * websocket to Proxmox or SSH, so API tokens and SSH credentials never reach the browser.
  */
 function terminalText(value) {
   return translatePortalText(value, readStoredLanguage());
@@ -95,7 +95,7 @@ export default function TerminalView({ resourceId, resourceName, fullscreen = fa
         const res = await userApi.openConsole(resourceId);
         if (disposed) return;
 
-        const { wsPath, user, ticket, autoLogin } = res.data;
+        const { wsPath, user, ticket, autoLogin, mode = 'proxmox' } = res.data;
         const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
         ws = new WebSocket(`${protocol}://${window.location.host}${wsPath}`);
         ws.binaryType = 'arraybuffer';
@@ -108,13 +108,13 @@ export default function TerminalView({ resourceId, resourceName, fullscreen = fa
         };
 
         const autoLoginState = {
-          enabled: !!(autoLogin?.username && autoLogin?.secret),
+          enabled: mode !== 'ssh' && !!(autoLogin?.username && autoLogin?.secret),
           username: autoLogin?.username || 'root',
           secret: autoLogin?.secret || '',
           buffer: '',
           sentUsername: false,
           sentSecret: false,
-          suppressTerminalReplies: !!(autoLogin?.username && autoLogin?.secret)
+          suppressTerminalReplies: mode !== 'ssh' && !!(autoLogin?.username && autoLogin?.secret)
         };
         const stripAnsi = (value) => String(value || '')
           .replace(/\x1b\][^\x07]*(?:\x07|\x1b\\)/g, '')
@@ -228,7 +228,7 @@ export default function TerminalView({ resourceId, resourceName, fullscreen = fa
 
         ws.onopen = () => {
           setStatus('open');
-          ws.send(`${user}:${ticket}\n`);
+          if (mode !== 'ssh') ws.send(`${user}:${ticket}\n`);
           fitAndResize();
           setTimeout(fitAndResize, 150);
           setTimeout(fitAndResize, 700);
@@ -368,10 +368,10 @@ export default function TerminalView({ resourceId, resourceName, fullscreen = fa
     <div className={fullscreen ? 'terminal-wrapper terminal-wrapper-fullscreen' : 'terminal-wrapper'}>
       <div className="terminal-toolbar">
         <span className={`terminal-status terminal-status-${status}`}>
-          {status === 'connecting' && 'Verbinden...'}
-          {status === 'open' && `Verbunden · ${resourceName}`}
-          {status === 'closed' && 'Getrennt'}
-          {status === 'error' && (message || 'Fehler')}
+          {status === 'connecting' && terminalText('Verbinden...')}
+          {status === 'open' && `${terminalText('Verbunden')} · ${resourceName}`}
+          {status === 'closed' && terminalText('Getrennt')}
+          {status === 'error' && (message || terminalText('Fehler'))}
         </span>
         <div className="terminal-toolbar-actions">
           {status === 'open' && (
@@ -381,7 +381,7 @@ export default function TerminalView({ resourceId, resourceName, fullscreen = fa
           )}
           {(status === 'closed' || status === 'error') && (
             <button type="button" className="btn-secondary btn-small" onClick={() => { setStatus('connecting'); setMessage(''); setReconnectKey(key => key + 1); }}>
-              Neu verbinden
+              {terminalText('Neu verbinden')}
             </button>
           )}
         </div>

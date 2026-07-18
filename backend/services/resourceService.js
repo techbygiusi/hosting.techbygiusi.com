@@ -65,15 +65,20 @@ function normalizeResourceRow(row, liveResource = null, error = null, diskInfo =
   const disks = Array.isArray(diskInfo?.disks) ? diskInfo.disks : [];
   const filesystems = Array.isArray(diskInfo?.filesystems) ? diskInfo.filesystems : [];
   const ips = normalizeIpEntries(ipEntries);
+  const manualIp = stripCidr(row.manual_ip || '');
   const provisionedIp = stripCidr(row.provisioned_ip || '');
   const livePrimaryIp = ips.find(item => item.ipv4)?.ipv4 || '';
-  const primaryIp = provisionedIp || livePrimaryIp;
+  const detectedIp = provisionedIp || livePrimaryIp;
+  const primaryIp = isUsableIpv4(manualIp) ? manualIp : detectedIp;
   const isSelfService = !!row.provisioned_id && String(row.provisioned_user_id || '') === String(row.user_id || '');
   const sourceTemplate = String(row.provisioned_template || systemInfo?.sourceTemplate || '').trim();
   const operatingSystem = String(systemInfo?.operatingSystem || inferOperatingSystemFromTemplate(sourceTemplate) || '').trim();
 
   if (provisionedIp && !ips.some(item => item.ipv4 === provisionedIp)) {
     ips.unshift({ interface: 'reserved', ipv4: provisionedIp, ipv6: '' });
+  }
+  if (isUsableIpv4(manualIp) && !ips.some(item => item.ipv4 === manualIp)) {
+    ips.unshift({ interface: 'manual', ipv4: manualIp, ipv6: '' });
   }
 
   return {
@@ -95,6 +100,9 @@ function normalizeResourceRow(row, liveResource = null, error = null, diskInfo =
     uptime: Number(liveResource?.uptime || 0),
     ips,
     primaryIp,
+    detectedIp,
+    manualIp: isUsableIpv4(manualIp) ? manualIp : '',
+    sshPort: Number(row.ssh_port || 22),
     clusterId: row.cluster_id,
     clusterName: row.cluster_name || '',
     clusterPublishingEnabled: Number(row.allow_publishing ?? 1) === 1,
@@ -107,6 +115,7 @@ function normalizeResourceRow(row, liveResource = null, error = null, diskInfo =
     operatingSystemCode: String(systemInfo?.operatingSystemCode || '').trim(),
     sourceTemplate,
     sourceTemplateName: templateDisplayName(sourceTemplate),
+    manualPublicUrl: row.manual_public_url || '',
     webUrl: row.public_url || row.web_url || '',
     publicUrl: row.public_url || row.web_url || '',
     adminUrl: row.admin_url || '',

@@ -119,6 +119,12 @@ async function initDatabase() {
 
       database.run(`ALTER TABLE resources ADD COLUMN public_url TEXT`, () => {});
       database.run(`ALTER TABLE resources ADD COLUMN admin_url TEXT`, () => {});
+      // v3.1.61: user-managed fallback website link when Pangolin publishing is unavailable.
+      database.run(`ALTER TABLE resources ADD COLUMN manual_public_url TEXT`, () => {});
+      // v3.1.62: manually configured service IP and SSH port for guests whose
+      // address cannot be discovered through the Proxmox guest agent.
+      database.run(`ALTER TABLE resources ADD COLUMN manual_ip TEXT`, () => {});
+      database.run(`ALTER TABLE resources ADD COLUMN ssh_port INTEGER DEFAULT 22`, () => {});
 
       // v2.0: shared access via groups (owner stays user_id, group_id grants shared access)
       database.run(`ALTER TABLE resources ADD COLUMN group_id INTEGER REFERENCES customer_groups(id) ON DELETE SET NULL`, () => {});
@@ -320,21 +326,41 @@ async function initDatabase() {
                 return;
               }
 
-              // Settings (key-value store)
+              // Preserve legacy manual links only for resources that do not already
+              // have a Pangolin publication. New fallback links use their own column so
+              // Pangolin synchronization cannot overwrite them.
               database.run(`
-                CREATE TABLE IF NOT EXISTS settings (
-                  key TEXT PRIMARY KEY,
-                  value TEXT,
-                  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                UPDATE resources
+                SET manual_public_url = COALESCE(
+                  NULLIF(manual_public_url, ''),
+                  NULLIF(public_url, ''),
+                  NULLIF(web_url, '')
                 )
-              `, (settingsError) => {
-                if (settingsError) {
-                  reject(settingsError);
-                } else {
-                  console.log('✓ All tables initialized');
-                  resolve();
+                WHERE NOT EXISTS (
+                  SELECT 1 FROM resource_publications rp WHERE rp.resource_id = resources.id
+                )
+              `, (manualUrlMigrationError) => {
+                if (manualUrlMigrationError) {
+                  reject(manualUrlMigrationError);
+                  return;
                 }
+
+                // Settings (key-value store)
+                database.run(`
+                  CREATE TABLE IF NOT EXISTS settings (
+                    key TEXT PRIMARY KEY,
+                    value TEXT,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                  )
+                `, (settingsError) => {
+                  if (settingsError) {
+                    reject(settingsError);
+                  } else {
+                    console.log('✓ All tables initialized');
+                    resolve();
+                  }
+                });
               });
             });
           };

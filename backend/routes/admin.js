@@ -1,4 +1,5 @@
 const express = require('express');
+const net = require('net');
 const bcryptjs = require('bcryptjs');
 const router = express.Router();
 
@@ -86,6 +87,23 @@ function validateWebUrl(webUrl, label = 'Link') {
     throw new AppError(`${label} must start with http:// or https://`, HTTP_STATUS.BAD_REQUEST);
   }
   return normalized;
+}
+
+function normalizeManualIpv4(value) {
+  const normalized = String(value || '').trim();
+  if (!normalized) return '';
+  if (net.isIP(normalized) !== 4) {
+    throw new AppError('The service IP must be a valid IPv4 address', HTTP_STATUS.BAD_REQUEST);
+  }
+  return normalized;
+}
+
+function normalizeSshPort(value) {
+  const port = value === '' || value === null || value === undefined ? 22 : Number(value);
+  if (!Number.isInteger(port) || port < 1 || port > 65535) {
+    throw new AppError('The SSH port must be between 1 and 65535', HTTP_STATUS.BAD_REQUEST);
+  }
+  return port;
 }
 
 function normalizeClusterLocation(input = {}) {
@@ -1164,7 +1182,16 @@ router.get('/resources', async (req, res, next) => {
   try {
     const rows = await getResourceRows();
     const resources = await enrichResources(rows);
-    res.json({ resources });
+    const publishingConfig = await getPangolinConfig();
+    res.json({
+      resources: resources.map((resource) => {
+        const pangolinAvailable = !!publishingConfig.enabled && resource.clusterPublishingEnabled !== false;
+        const effectivePublicUrl = pangolinAvailable
+          ? (resource.publicUrl || resource.webUrl || '')
+          : (resource.manualPublicUrl || resource.publicUrl || resource.webUrl || '');
+        return { ...resource, publicUrl: effectivePublicUrl, webUrl: effectivePublicUrl };
+      })
+    });
   } catch (err) {
     next(err);
   }
@@ -1172,7 +1199,7 @@ router.get('/resources', async (req, res, next) => {
 
 router.post('/resources', async (req, res, next) => {
   try {
-    const { name, containerId, clusterId, userId, groupId, adminUrl } = req.body;
+    const { name, containerId, clusterId, userId, groupId, adminUrl, manualIp, sshPort } = req.body;
 
     if (!containerId || !clusterId || !userId) {
       throw new AppError('Resource, cluster, and user are required', HTTP_STATUS.BAD_REQUEST);
@@ -1210,10 +1237,12 @@ router.post('/resources', async (req, res, next) => {
 
     const cleanPublicUrl = '';
     const cleanAdminUrl = validateWebUrl(adminUrl, 'Admin link');
+    const cleanManualIp = normalizeManualIpv4(manualIp);
+    const cleanSshPort = normalizeSshPort(sshPort);
 
     const result = await run(
-      'INSERT INTO resources (name, container_id, cluster_id, user_id, group_id, web_url, public_url, admin_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-      [resourceName, String(containerId), clusterId, userId, cleanGroupId, cleanPublicUrl, cleanPublicUrl, cleanAdminUrl]
+      'INSERT INTO resources (name, container_id, cluster_id, user_id, group_id, web_url, public_url, admin_url, manual_ip, ssh_port) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [resourceName, String(containerId), clusterId, userId, cleanGroupId, cleanPublicUrl, cleanPublicUrl, cleanAdminUrl, cleanManualIp || null, cleanSshPort]
     );
 
     await logAudit(req, 'resource.create', `resource:${result.lastID}`, resourceName);
@@ -1229,7 +1258,7 @@ router.post('/resources', async (req, res, next) => {
 router.put('/resources/:id', async (req, res, next) => {
   try {
     const resourceId = req.params.id;
-    const { name, containerId, clusterId, userId, groupId, adminUrl } = req.body;
+    const { name, containerId, clusterId, userId, groupId, adminUrl, manualIp, sshPort } = req.body;
     const resource = await get('SELECT * FROM resources WHERE id = ?', [resourceId]);
 
     if (!resource) {
@@ -1264,10 +1293,12 @@ router.put('/resources/:id', async (req, res, next) => {
 
     const cleanPublicUrl = resource.public_url || resource.web_url || '';
     const cleanAdminUrl = validateWebUrl(adminUrl ?? resource.admin_url, 'Admin link');
+    const cleanManualIp = normalizeManualIpv4(manualIp ?? resource.manual_ip);
+    const cleanSshPort = normalizeSshPort(sshPort ?? resource.ssh_port);
 
     await run(
-      'UPDATE resources SET name = ?, container_id = ?, cluster_id = ?, user_id = ?, group_id = ?, web_url = ?, public_url = ?, admin_url = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-      [nextName, nextContainerId, nextClusterId, nextUserId, nextGroupId, cleanPublicUrl, cleanPublicUrl, cleanAdminUrl, resourceId]
+      'UPDATE resources SET name = ?, container_id = ?, cluster_id = ?, user_id = ?, group_id = ?, web_url = ?, public_url = ?, admin_url = ?, manual_ip = ?, ssh_port = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+      [nextName, nextContainerId, nextClusterId, nextUserId, nextGroupId, cleanPublicUrl, cleanPublicUrl, cleanAdminUrl, cleanManualIp || null, cleanSshPort, resourceId]
     );
 
     await logAudit(req, 'resource.update', `resource:${resourceId}`, nextName);

@@ -5,9 +5,8 @@ import { readStoredLanguage } from './LanguageSwitch';
 
 const TEXT = {
   en: {
-    title: 'Manage public access', loading: 'Loading publishing settings...',
+    title: 'Manage public access', loading: 'Loading public access settings...',
     unavailable: 'Public publishing is not available. Ask an administrator to configure Pangolin.',
-    clusterDisabled: 'Publishing is disabled for this cluster. Existing access remains online and can still be removed.',
     noIp: 'This service has no reachable IPv4 address yet.', protocol: 'Protocol', subdomain: 'Subdomain',
     targetPort: 'Service port', publicPort: 'Public port', backendProtocol: 'Backend protocol',
     backendProtocolHint: 'Protocol Pangolin uses to connect to the service.',
@@ -22,12 +21,26 @@ const TEXT = {
     addTitle: 'Add public access', editTitle: 'Edit public access', target: 'Target',
     saved: 'Public access was saved.', removed: 'Public access was removed.',
     multipleHint: 'You can add several HTTP, TCP and UDP publications for this service and use them in parallel.',
-    protocolLocked: 'The protocol stays fixed while editing. Create another publication to use a different protocol.'
+    protocolLocked: 'The protocol stays fixed while editing. Create another publication to use a different protocol.',
+    manualTitle: 'Public website link',
+    manualDescription: 'Pangolin publishing is not available for this service. Save the existing public website URL instead.',
+    manualUrl: 'Public page URL',
+    manualUrlHint: 'Enter the complete address starting with http:// or https://.',
+    manualSave: 'Save website',
+    manualSaved: 'The public website link was saved.',
+    manualRemoved: 'The public website link was removed.',
+    manualRemove: 'Remove website',
+    manualRemoveConfirm: 'Remove the public website link from this service?',
+    manualRequired: 'Enter a public page URL.',
+    manualInvalid: 'The public page must be a valid URL starting with http:// or https://.',
+    manualSaveFailed: 'The public website link could not be saved.',
+    manualRemoveFailed: 'The public website link could not be removed.',
+    previousPangolinTitle: 'Existing Pangolin access',
+    previousPangolinHint: 'These existing publications remain online while Pangolin is disabled and can still be removed.'
   },
   de: {
-    title: 'Öffentliche Zugriffe verwalten', loading: 'Veröffentlichungseinstellungen werden geladen...',
+    title: 'Öffentliche Zugriffe verwalten', loading: 'Einstellungen für öffentliche Zugriffe werden geladen...',
     unavailable: 'Die Veröffentlichung ist nicht verfügbar. Ein Administrator muss Pangolin konfigurieren.',
-    clusterDisabled: 'Die Veröffentlichung ist für diesen Cluster deaktiviert. Bestehende Zugriffe bleiben online und können weiterhin entfernt werden.',
     noIp: 'Für diesen Dienst ist noch keine erreichbare IPv4-Adresse bekannt.', protocol: 'Protokoll', subdomain: 'Subdomain',
     targetPort: 'Dienst-Port', publicPort: 'Öffentlicher Port', backendProtocol: 'Backend-Protokoll',
     backendProtocolHint: 'Protokoll, mit dem Pangolin den Dienst erreicht.',
@@ -42,7 +55,22 @@ const TEXT = {
     addTitle: 'Öffentlichen Zugriff hinzufügen', editTitle: 'Öffentlichen Zugriff bearbeiten', target: 'Ziel',
     saved: 'Der öffentliche Zugriff wurde gespeichert.', removed: 'Der öffentliche Zugriff wurde entfernt.',
     multipleHint: 'Du kannst für diesen Dienst mehrere HTTP-, TCP- und UDP-Freigaben anlegen und parallel verwenden.',
-    protocolLocked: 'Das Protokoll bleibt beim Bearbeiten unverändert. Lege für ein anderes Protokoll eine weitere Freigabe an.'
+    protocolLocked: 'Das Protokoll bleibt beim Bearbeiten unverändert. Lege für ein anderes Protokoll eine weitere Freigabe an.',
+    manualTitle: 'Link zur öffentlichen Webseite',
+    manualDescription: 'Die Pangolin-Veröffentlichung ist für diesen Dienst nicht verfügbar. Hinterlege stattdessen die bereits vorhandene öffentliche URL.',
+    manualUrl: 'URL der öffentlichen Seite',
+    manualUrlHint: 'Gib die vollständige Adresse mit http:// oder https:// ein.',
+    manualSave: 'Webseite speichern',
+    manualSaved: 'Der Link zur öffentlichen Webseite wurde gespeichert.',
+    manualRemoved: 'Der Link zur öffentlichen Webseite wurde entfernt.',
+    manualRemove: 'Webseite entfernen',
+    manualRemoveConfirm: 'Den Link zur öffentlichen Webseite von diesem Dienst entfernen?',
+    manualRequired: 'Bitte gib eine URL für die öffentliche Seite ein.',
+    manualInvalid: 'Die öffentliche Seite muss eine gültige URL mit http:// oder https:// sein.',
+    manualSaveFailed: 'Der Link zur öffentlichen Webseite konnte nicht gespeichert werden.',
+    manualRemoveFailed: 'Der Link zur öffentlichen Webseite konnte nicht entfernt werden.',
+    previousPangolinTitle: 'Bestehende Pangolin-Zugriffe',
+    previousPangolinHint: 'Diese bestehenden Freigaben bleiben trotz deaktiviertem Pangolin online und können weiterhin entfernt werden.'
   }
 };
 
@@ -57,7 +85,10 @@ export default function PublicPageModal({ resource, onClose, onSaved, language: 
 
   const [options, setOptions] = useState(null);
   const [primaryIp, setPrimaryIp] = useState(resource?.primaryIp || '');
+  const initialManualUrl = resource?.manualPublicUrl || (resource?.publicAccessMode === 'manual' ? resource?.publicUrl || '' : '');
   const [publications, setPublications] = useState(initialPublications);
+  const [manualUrl, setManualUrl] = useState(initialManualUrl);
+  const [savedManualUrl, setSavedManualUrl] = useState(initialManualUrl);
   const [editingId, setEditingId] = useState(null);
   const [protocol, setProtocol] = useState('http');
   const [subdomain, setSubdomain] = useState(slugify(resource?.name || 'service'));
@@ -82,6 +113,8 @@ export default function PublicPageModal({ resource, onClose, onSaved, language: 
         setOptions(publishing);
         setPrimaryIp(publicationsResponse.data.primaryIp || resource?.primaryIp || '');
         setPublications(currentPublications);
+        setManualUrl(publicationsResponse.data.manualPublicUrl || '');
+        setSavedManualUrl(publicationsResponse.data.manualPublicUrl || '');
         const firstProtocol = getFirstEnabledProtocol(publishing);
         setProtocol(firstProtocol);
         setSubdomain(getSuggestedSubdomain(resource?.name, firstProtocol, currentPublications));
@@ -93,6 +126,7 @@ export default function PublicPageModal({ resource, onClose, onSaved, language: 
     return () => { active = false; };
   }, [resource?.id, resource?.name, resource?.primaryIp, text.unavailable]);
 
+  const manualMode = options?.manualLinkEnabled === true;
   const protocolOptions = useMemo(() => ['http', 'tcp', 'udp'].map((key) => ({
     key,
     enabled: !!options?.protocols?.[key]?.enabled,
@@ -117,6 +151,7 @@ export default function PublicPageModal({ resource, onClose, onSaved, language: 
   };
 
   const beginEdit = (publication) => {
+    if (manualMode) return;
     setEditingId(publication.id);
     setProtocol(publication.protocol || 'http');
     setSubdomain(publication.subdomain || slugify(resource?.name || 'service'));
@@ -142,6 +177,8 @@ export default function PublicPageModal({ resource, onClose, onSaved, language: 
     const response = await userApi.getPublications(resource.id);
     const currentPublications = response.data.publications || [];
     setPublications(currentPublications);
+    setManualUrl(response.data.manualPublicUrl || '');
+    setSavedManualUrl(response.data.manualPublicUrl || '');
     return currentPublications;
   };
 
@@ -181,6 +218,48 @@ export default function PublicPageModal({ resource, onClose, onSaved, language: 
     }
   };
 
+  const saveManualPage = async (event) => {
+    event.preventDefault();
+    const normalized = normalizeManualUrl(manualUrl);
+    if (!normalized) {
+      setError(manualUrl.trim() ? text.manualInvalid : text.manualRequired);
+      return;
+    }
+
+    try {
+      setBusy('manual-save');
+      setError('');
+      setNotice('');
+      const response = await userApi.saveManualPublicPage(resource.id, normalized);
+      setManualUrl(response.data.publicUrl || normalized);
+      setSavedManualUrl(response.data.publicUrl || normalized);
+      await onSaved?.();
+      setNotice(text.manualSaved);
+    } catch (err) {
+      setError(getErrorMessage(err, text.manualSaveFailed));
+    } finally {
+      setBusy('');
+    }
+  };
+
+  const removeManualPage = async () => {
+    if (!window.confirm(text.manualRemoveConfirm)) return;
+    try {
+      setBusy('manual-remove');
+      setError('');
+      setNotice('');
+      await userApi.removeManualPublicPage(resource.id);
+      setManualUrl('');
+      setSavedManualUrl('');
+      await onSaved?.();
+      setNotice(text.manualRemoved);
+    } catch (err) {
+      setError(getErrorMessage(err, text.manualRemoveFailed));
+    } finally {
+      setBusy('');
+    }
+  };
+
   const remove = async (publication) => {
     if (!window.confirm(text.removeConfirm(publication.publicUrl))) return;
     try {
@@ -200,6 +279,31 @@ export default function PublicPageModal({ resource, onClose, onSaved, language: 
     }
   };
 
+  const renderPublicationList = ({ allowEdit = true } = {}) => (
+    <div className="publishing-existing-list">
+      {publications.map((publication) => (
+        <article key={publication.id} className={`publishing-existing-card ${editingId === publication.id ? 'editing' : ''}`}>
+          <div className="publishing-existing-card-main">
+            <span className="publishing-protocol-badge">{String(publication.protocol || '').toUpperCase()}</span>
+            <div>
+              <strong>{publication.publicUrl || '—'}</strong>
+              <small>{text.target}: {formatTarget(publication, primaryIp)}</small>
+            </div>
+          </div>
+          <div className="publishing-existing-card-actions">
+            {publication.protocol === 'http' && publication.publicUrl && (
+              <a className="btn-secondary btn-small" href={publication.publicUrl} target="_blank" rel="noreferrer">{text.open}</a>
+            )}
+            {allowEdit && <button type="button" className="btn-secondary btn-small" onClick={() => beginEdit(publication)} disabled={!!busy}>{text.edit}</button>}
+            <button type="button" className="btn-danger btn-small" onClick={() => remove(publication)} disabled={!!busy}>
+              {busy === `remove-${publication.id}` ? text.removing : text.remove}
+            </button>
+          </div>
+        </article>
+      ))}
+    </div>
+  );
+
   return (
     <Modal
       title={text.title}
@@ -212,145 +316,199 @@ export default function PublicPageModal({ resource, onClose, onSaved, language: 
         <div className="publishing-manager-content">
           {error && <div className="alert alert-danger">{error}</div>}
           {notice && <div className="alert alert-success">{notice}</div>}
-          {!options?.enabled && <div className="alert alert-warning">{options?.clusterEnabled === false ? text.clusterDisabled : text.unavailable}</div>}
-          {!primaryIp && <div className="alert alert-warning">{text.noIp}</div>}
 
-          <div className="publishing-security-note">
-            <strong>{text.autoIp}</strong>
-            <code>{primaryIp || '—'}</code>
-            <small>{text.security}</small>
-          </div>
+          {manualMode ? (
+            <>
+              <section className="publishing-existing-section manual-public-page-section">
+                <div className="publishing-section-heading">
+                  <div>
+                    <h3>{text.manualTitle}</h3>
+                    <p>{text.manualDescription}</p>
+                  </div>
+                </div>
 
-          <section className="publishing-existing-section">
-            <div className="publishing-section-heading">
-              <div>
-                <h3>{text.existingTitle}</h3>
-                <p>{text.multipleHint}</p>
-              </div>
-              <span className="publishing-count-badge">{publications.length}</span>
-            </div>
-
-            {publications.length === 0 ? (
-              <p className="hint-text publishing-empty-state">{text.noPublications}</p>
-            ) : (
-              <div className="publishing-existing-list">
-                {publications.map((publication) => (
-                  <article key={publication.id} className={`publishing-existing-card ${editingId === publication.id ? 'editing' : ''}`}>
+                {savedManualUrl && (
+                  <article className="publishing-existing-card manual-public-page-card">
                     <div className="publishing-existing-card-main">
-                      <span className="publishing-protocol-badge">{String(publication.protocol || '').toUpperCase()}</span>
-                      <div>
-                        <strong>{publication.publicUrl || '—'}</strong>
-                        <small>{text.target}: {formatTarget(publication, primaryIp)}</small>
-                      </div>
+                      <span className="publishing-protocol-badge">WEB</span>
+                      <div><strong>{savedManualUrl}</strong></div>
                     </div>
                     <div className="publishing-existing-card-actions">
-                      {publication.protocol === 'http' && publication.publicUrl && (
-                        <a className="btn-secondary btn-small" href={publication.publicUrl} target="_blank" rel="noreferrer">{text.open}</a>
-                      )}
-                      <button type="button" className="btn-secondary btn-small" onClick={() => beginEdit(publication)} disabled={!!busy}>{text.edit}</button>
-                      <button type="button" className="btn-danger btn-small" onClick={() => remove(publication)} disabled={!!busy}>
-                        {busy === `remove-${publication.id}` ? text.removing : text.remove}
+                      <a className="btn-secondary btn-small" href={savedManualUrl} target="_blank" rel="noreferrer">{text.open}</a>
+                      <button type="button" className="btn-danger btn-small" onClick={removeManualPage} disabled={!!busy}>
+                        {busy === 'manual-remove' ? text.removing : text.manualRemove}
                       </button>
                     </div>
                   </article>
-                ))}
-              </div>
-            )}
-          </section>
+                )}
 
-          <form className="publishing-form publishing-manager-form" onSubmit={save} noValidate>
-            <div className="publishing-section-heading publishing-form-heading">
-              <div>
-                <h3>{editingId ? text.editTitle : text.addTitle}</h3>
-                {editingId && <p>{text.protocolLocked}</p>}
-              </div>
-            </div>
-
-            <fieldset className="publishing-protocol-fieldset" disabled={!!busy || !options?.enabled}>
-              <legend>{text.protocol}</legend>
-              <div className="publishing-protocol-selector">
-                {protocolOptions.map((entry) => {
-                  const locked = !!editingId && protocol !== entry.key;
-                  return (
-                    <button
-                      key={entry.key}
-                      type="button"
-                      className={`${protocol === entry.key ? 'active' : ''} ${entry.enabled && !locked ? '' : 'disabled'}`}
-                      onClick={() => switchProtocol(entry.key)}
-                      disabled={!entry.enabled || locked}
-                    >
-                      <strong>{entry.key.toUpperCase()}</strong>
-                      <small>{entry.enabled ? `${text.ranges}: ${entry.ports || '—'}` : text.disabled}</small>
+                <form className="publishing-form manual-public-page-form" onSubmit={saveManualPage} noValidate>
+                  <label className="form-group">
+                    <span>{text.manualUrl}</span>
+                    <input
+                      type="url"
+                      value={manualUrl}
+                      onChange={(event) => setManualUrl(event.target.value)}
+                      placeholder="https://service.example.com"
+                      required
+                      disabled={!!busy}
+                    />
+                    <small>{text.manualUrlHint}</small>
+                  </label>
+                  <div className="form-actions public-page-form-actions publishing-actions">
+                    <button type="button" className="btn-secondary" onClick={onClose} disabled={!!busy}>{text.close}</button>
+                    <button type="submit" className="btn-primary" disabled={!!busy}>
+                      {busy === 'manual-save' ? text.saving : text.manualSave}
                     </button>
-                  );
-                })}
-              </div>
-            </fieldset>
+                  </div>
+                </form>
+              </section>
 
-            <div className="publishing-fields-grid publishing-subdomain-fields-grid">
-              <label className="form-group publishing-subdomain-field">
-                <span>{text.subdomain}</span>
-                <div className="subdomain-input-row">
-                  <input
-                    type="text"
-                    value={subdomain}
-                    onChange={(event) => setSubdomain(event.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
-                    maxLength="63"
-                    required
-                    disabled={!!busy || !options?.enabled}
-                  />
-                  <span>.{options?.baseDomain || 'example.com'}</span>
+              {publications.length > 0 && (
+                <section className="publishing-existing-section">
+                  <div className="publishing-section-heading">
+                    <div>
+                      <h3>{text.previousPangolinTitle}</h3>
+                      <p>{text.previousPangolinHint}</p>
+                    </div>
+                    <span className="publishing-count-badge">{publications.length}</span>
+                  </div>
+                  {renderPublicationList({ allowEdit: false })}
+                </section>
+              )}
+            </>
+          ) : (
+            <>
+              {!options?.enabled && <div className="alert alert-warning">{text.unavailable}</div>}
+              {!primaryIp && <div className="alert alert-warning">{text.noIp}</div>}
+
+              <div className="publishing-security-note">
+                <strong>{text.autoIp}</strong>
+                <code>{primaryIp || '—'}</code>
+                <small>{text.security}</small>
+              </div>
+
+              <section className="publishing-existing-section">
+                <div className="publishing-section-heading">
+                  <div>
+                    <h3>{text.existingTitle}</h3>
+                    <p>{text.multipleHint}</p>
+                  </div>
+                  <span className="publishing-count-badge">{publications.length}</span>
                 </div>
-                <small>{text.subdomainHint}</small>
-              </label>
-            </div>
 
-            {protocol === 'http' ? (
-              <div className="publishing-fields-grid publishing-http-fields-grid">
-                <label className="form-group publishing-control-field">
-                  <span>{text.targetPort}</span>
-                  <input type="number" min="1" max="65535" value={targetPort} onChange={(event) => setTargetPort(event.target.value)} disabled={!!busy || !options?.enabled} />
-                  <small>{text.ranges}: {options?.protocols?.http?.allowedPorts || '—'}</small>
-                </label>
-                <label className="form-group publishing-control-field">
-                  <span>{text.backendProtocol}</span>
-                  <select value={targetMethod} onChange={(event) => setTargetMethod(event.target.value)} disabled={!!busy || !options?.enabled}>
-                    <option value="http">HTTP</option>
-                    <option value="https">HTTPS</option>
-                    <option value="h2c">h2c</option>
-                  </select>
-                  <small>{text.backendProtocolHint}</small>
-                </label>
-              </div>
-            ) : (
-              <div className="publishing-fields-grid publishing-raw-fields-grid">
-                <label className="form-group">
-                  <span>{text.publicPort}</span>
-                  <input
-                    type="number"
-                    min={rawPortBounds.min}
-                    max={rawPortBounds.max}
-                    value={publicPort}
-                    onChange={(event) => { setPublicPort(event.target.value); setTargetPort(event.target.value); }}
-                    disabled={!!busy || !options?.enabled}
-                  />
-                  <small>{text.ranges}: {options?.protocols?.[protocol]?.allowedPorts || '—'}</small>
-                </label>
-              </div>
-            )}
+                {publications.length === 0
+                  ? <p className="hint-text publishing-empty-state">{text.noPublications}</p>
+                  : renderPublicationList()}
+              </section>
 
-            <div className="form-actions public-page-form-actions publishing-actions">
-              {editingId && <button type="button" className="btn-secondary" onClick={() => resetForm(publications, protocol)} disabled={!!busy}>{text.cancelEdit}</button>}
-              <button type="button" className="btn-secondary" onClick={onClose} disabled={!!busy}>{text.close}</button>
-              <button type="submit" className="btn-primary" disabled={!!busy || !options?.enabled || !primaryIp}>
-                {busy === 'save' ? text.saving : editingId ? text.update : text.add}
-              </button>
-            </div>
-          </form>
+              <form className="publishing-form publishing-manager-form" onSubmit={save} noValidate>
+                <div className="publishing-section-heading publishing-form-heading">
+                  <div>
+                    <h3>{editingId ? text.editTitle : text.addTitle}</h3>
+                    {editingId && <p>{text.protocolLocked}</p>}
+                  </div>
+                </div>
+
+                <fieldset className="publishing-protocol-fieldset" disabled={!!busy || !options?.enabled}>
+                  <legend>{text.protocol}</legend>
+                  <div className="publishing-protocol-selector">
+                    {protocolOptions.map((entry) => {
+                      const locked = !!editingId && protocol !== entry.key;
+                      return (
+                        <button
+                          key={entry.key}
+                          type="button"
+                          className={`${protocol === entry.key ? 'active' : ''} ${entry.enabled && !locked ? '' : 'disabled'}`}
+                          onClick={() => switchProtocol(entry.key)}
+                          disabled={!entry.enabled || locked}
+                        >
+                          <strong>{entry.key.toUpperCase()}</strong>
+                          <small>{entry.enabled ? `${text.ranges}: ${entry.ports || '—'}` : text.disabled}</small>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </fieldset>
+
+                <div className="publishing-fields-grid publishing-subdomain-fields-grid">
+                  <label className="form-group publishing-subdomain-field">
+                    <span>{text.subdomain}</span>
+                    <div className="subdomain-input-row">
+                      <input
+                        type="text"
+                        value={subdomain}
+                        onChange={(event) => setSubdomain(event.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
+                        maxLength="63"
+                        required
+                        disabled={!!busy || !options?.enabled}
+                      />
+                      <span>.{options?.baseDomain || 'example.com'}</span>
+                    </div>
+                    <small>{text.subdomainHint}</small>
+                  </label>
+                </div>
+
+                {protocol === 'http' ? (
+                  <div className="publishing-fields-grid publishing-http-fields-grid">
+                    <label className="form-group publishing-control-field">
+                      <span>{text.targetPort}</span>
+                      <input type="number" min="1" max="65535" value={targetPort} onChange={(event) => setTargetPort(event.target.value)} disabled={!!busy || !options?.enabled} />
+                      <small>{text.ranges}: {options?.protocols?.http?.allowedPorts || '—'}</small>
+                    </label>
+                    <label className="form-group publishing-control-field">
+                      <span>{text.backendProtocol}</span>
+                      <select value={targetMethod} onChange={(event) => setTargetMethod(event.target.value)} disabled={!!busy || !options?.enabled}>
+                        <option value="http">HTTP</option>
+                        <option value="https">HTTPS</option>
+                        <option value="h2c">h2c</option>
+                      </select>
+                      <small>{text.backendProtocolHint}</small>
+                    </label>
+                  </div>
+                ) : (
+                  <div className="publishing-fields-grid publishing-raw-fields-grid">
+                    <label className="form-group">
+                      <span>{text.publicPort}</span>
+                      <input
+                        type="number"
+                        min={rawPortBounds.min}
+                        max={rawPortBounds.max}
+                        value={publicPort}
+                        onChange={(event) => { setPublicPort(event.target.value); setTargetPort(event.target.value); }}
+                        disabled={!!busy || !options?.enabled}
+                      />
+                      <small>{text.ranges}: {options?.protocols?.[protocol]?.allowedPorts || '—'}</small>
+                    </label>
+                  </div>
+                )}
+
+                <div className="form-actions public-page-form-actions publishing-actions">
+                  {editingId && <button type="button" className="btn-secondary" onClick={() => resetForm(publications, protocol)} disabled={!!busy}>{text.cancelEdit}</button>}
+                  <button type="button" className="btn-secondary" onClick={onClose} disabled={!!busy}>{text.close}</button>
+                  <button type="submit" className="btn-primary" disabled={!!busy || !options?.enabled || !primaryIp}>
+                    {busy === 'save' ? text.saving : editingId ? text.update : text.add}
+                  </button>
+                </div>
+              </form>
+            </>
+          )}
         </div>
       )}
     </Modal>
   );
+}
+
+function normalizeManualUrl(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  try {
+    const parsed = new URL(raw);
+    if (!['http:', 'https:'].includes(parsed.protocol) || !parsed.hostname || parsed.username || parsed.password) return '';
+    return parsed.toString();
+  } catch (_) {
+    return '';
+  }
 }
 
 function formatTarget(publication, ip) {

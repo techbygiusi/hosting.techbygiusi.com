@@ -6404,3 +6404,113 @@ body.theme-dark .settings-section-card {
     grid-template-columns: repeat(auto-fit, minmax(105px, 1fr));
   }
 }
+
+/* v3.1.61 - manual website fallback when Pangolin is unavailable */
+.manual-public-page-section {
+  gap: 18px;
+}
+
+.manual-public-page-form {
+  display: grid;
+  gap: 16px;
+  min-height: 0;
+  overflow: visible;
+  padding-top: 4px;
+}
+
+.manual-public-page-form .form-group {
+  margin: 0;
+}
+
+.manual-public-page-card .publishing-existing-card-main strong {
+  word-break: break-word;
+}
+
+/* v3.1.62 - manual guest IP, SSH console and compact service actions */
+.service-ip-control {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg-alt);
+}
+
+.service-ip-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.service-ip-heading h3,
+.service-ip-heading p {
+  margin: 0;
+}
+
+.service-ip-heading p,
+.service-ip-control > small {
+  color: var(--color-text-light);
+}
+
+.service-ip-heading p {
+  margin-top: 5px;
+  font-size: var(--font-size-sm);
+}
+
+.service-ip-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(110px, 150px);
+  gap: 12px;
+  align-items: end;
+}
+
+.service-ip-fields .form-group {
+  margin: 0;
+}
+
+.service-ip-actions {
+  margin-top: 0;
+}
+
+.admin-service-ip-fields {
+  align-items: stretch;
+}
+
+.compact-resource-card .publishing-service-links {
+  grid-template-columns: repeat(auto-fit, minmax(86px, 1fr));
+  gap: 8px;
+}
+
+.compact-resource-card .publishing-service-links > * {
+  min-height: 42px;
+  padding: 7px 6px;
+  font-size: 10px;
+  line-height: 1.1;
+  letter-spacing: -0.015em;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+}
+
+@media (max-width: 767px) {
+  .service-ip-heading,
+  .service-ip-fields {
+    grid-template-columns: 1fr;
+    flex-direction: column;
+  }
+
+  .service-ip-fields {
+    display: grid;
+  }
+
+  .service-ip-port {
+    max-width: none;
+  }
+
+  .compact-resource-card .publishing-service-links > * {
+    min-height: 40px;
+    padding: 6px 5px;
+    font-size: 9.5px;
+  }
+}

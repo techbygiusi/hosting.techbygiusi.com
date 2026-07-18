@@ -1,26 +1,22 @@
 const crypto = require('crypto');
 const WebSocket = require('ws');
+const { Client: SshClient } = require('ssh2');
 
 /**
  * Console flow:
  * 1. Client POSTs /api/user/resources/:id/console (JWT-protected).
- *    Backend verifies access, calls Proxmox termproxy, stores a one-time
- *    session and returns a random session token (NOT the Proxmox ticket).
+ *    The backend verifies access and creates either a Proxmox termproxy
+ *    session or an SSH session for a manually configured guest IP.
  * 2. Client opens ws(s)://<portal>/api/console/ws?token=<sessionToken>.
- *    Backend validates the token, opens a WSS connection to Proxmox
- *    (Authorization header with the API token stays server-side) and pipes
- *    both directions transparently. The frontend speaks the termproxy
- *    protocol (auth line, resize messages) directly through the pipe.
+ *    The one-time token keeps Proxmox and SSH credentials server-side.
  */
 
-const SESSION_TTL_MS = 30 * 1000; // one-time token must be used within 30s
+const SESSION_TTL_MS = 30 * 1000;
 const sessions = new Map();
 
 function createConsoleSession(data) {
   const token = crypto.randomBytes(32).toString('hex');
   sessions.set(token, { ...data, createdAt: Date.now() });
-
-  // Garbage-collect expired sessions
   setTimeout(() => sessions.delete(token), SESSION_TTL_MS + 1000).unref?.();
   return token;
 }
@@ -28,14 +24,11 @@ function createConsoleSession(data) {
 function consumeConsoleSession(token) {
   const session = sessions.get(token);
   if (!session) return null;
-  sessions.delete(token); // one-time use
+  sessions.delete(token);
   if (Date.now() - session.createdAt > SESSION_TTL_MS) return null;
   return session;
 }
 
-/**
- * Attach the WebSocket upgrade handler to the HTTP server.
- */
 function attachConsoleProxy(server) {
   const wss = new WebSocket.Server({ noServer: true });
 
@@ -64,7 +57,8 @@ function attachConsoleProxy(server) {
     }
 
     wss.handleUpgrade(request, socket, head, (clientWs) => {
-      bridgeToProxmox(clientWs, session);
+      if (session.mode === 'ssh') bridgeToSsh(clientWs, session);
+      else bridgeToProxmox(clientWs, session);
     });
   });
 
@@ -90,11 +84,6 @@ function bridgeToProxmox(clientWs, session) {
 
   const pendingClientMessages = [];
 
-  // Register the client message handler immediately. The browser can send the
-  // termproxy auth line as soon as the portal WebSocket opens, while the
-  // upstream Proxmox WebSocket may still be connecting. Queueing prevents the
-  // ticket from being dropped, which otherwise makes Proxmox log
-  // "failed reading ticket: timed out".
   clientWs.on('message', (data) => {
     if (upstream.readyState === WebSocket.OPEN) {
       upstream.send(data);
@@ -116,13 +105,103 @@ function bridgeToProxmox(clientWs, session) {
   upstream.on('close', closeBoth);
   upstream.on('error', () => {
     if (clientWs.readyState === WebSocket.OPEN) {
-      clientWs.send('\r\n[Portal] Verbindung zu Proxmox fehlgeschlagen.\r\n');
+      clientWs.send(localized(session, '\r\n[Portal] Verbindung zu Proxmox fehlgeschlagen.\r\n', '\r\n[Portal] Connection to Proxmox failed.\r\n'));
     }
     closeBoth();
   });
 
   clientWs.on('close', closeBoth);
   clientWs.on('error', closeBoth);
+}
+
+function bridgeToSsh(clientWs, session) {
+  const ssh = new SshClient();
+  let stream = null;
+  let closed = false;
+  const pendingInput = [];
+  let pendingWindow = { cols: 120, rows: 34 };
+
+  const sendClient = (data) => {
+    if (clientWs.readyState === WebSocket.OPEN) clientWs.send(data);
+  };
+
+  const closeAll = () => {
+    if (closed) return;
+    closed = true;
+    try { stream?.end(); } catch (_) { /* noop */ }
+    try { ssh.end(); } catch (_) { /* noop */ }
+    try { clientWs.close(); } catch (_) { /* noop */ }
+  };
+  const closeSoon = () => setTimeout(closeAll, 120);
+
+  const handleClientFrame = (frame) => {
+    const text = Buffer.isBuffer(frame) ? frame.toString('utf8') : String(frame || '');
+    if (text === '2') return;
+
+    const resize = text.match(/^1:(\d+):(\d+):$/);
+    if (resize) {
+      pendingWindow = { cols: Number(resize[1]) || 120, rows: Number(resize[2]) || 34 };
+      try { stream?.setWindow(pendingWindow.rows, pendingWindow.cols, 0, 0); } catch (_) { /* noop */ }
+      return;
+    }
+
+    if (text.startsWith('0:')) {
+      const payloadStart = text.indexOf(':', 2);
+      if (payloadStart === -1) return;
+      const payload = text.slice(payloadStart + 1);
+      if (stream) stream.write(payload);
+      else pendingInput.push(payload);
+    }
+  };
+
+  clientWs.on('message', handleClientFrame);
+  clientWs.on('close', closeAll);
+  clientWs.on('error', closeAll);
+
+  ssh.on('ready', () => {
+    ssh.shell({
+      term: 'xterm-256color',
+      cols: pendingWindow.cols,
+      rows: pendingWindow.rows
+    }, (err, shell) => {
+      if (err) {
+        sendClient(localized(session, '\r\n[Portal] SSH-Shell konnte nicht geöffnet werden.\r\n', '\r\n[Portal] The SSH shell could not be opened.\r\n'));
+        closeSoon();
+        return;
+      }
+
+      stream = shell;
+      while (pendingInput.length > 0) stream.write(pendingInput.shift());
+      stream.on('data', sendClient);
+      stream.stderr?.on('data', sendClient);
+      stream.on('close', closeSoon);
+      stream.on('error', (streamError) => {
+        sendClient(`\r\n[Portal] ${streamError.message || 'SSH stream error'}\r\n`);
+        closeSoon();
+      });
+    });
+  });
+
+  ssh.on('error', (err) => {
+    const prefix = localized(session, '[Portal] SSH-Verbindung fehlgeschlagen', '[Portal] SSH connection failed');
+    sendClient(`\r\n${prefix}: ${err.message || 'unknown error'}\r\n`);
+    closeSoon();
+  });
+
+  ssh.on('close', closeSoon);
+  ssh.connect({
+    host: session.host,
+    port: Number(session.sshPort || 22),
+    username: session.username,
+    password: session.password,
+    readyTimeout: 15000,
+    keepaliveInterval: 15000,
+    keepaliveCountMax: 3
+  });
+}
+
+function localized(session, de, en) {
+  return String(session?.language || '').toLowerCase() === 'de' ? de : en;
 }
 
 module.exports = { createConsoleSession, attachConsoleProxy };
