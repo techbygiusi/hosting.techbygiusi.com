@@ -161,7 +161,7 @@ export default function CreateMachineModal({ options, onClose, onCreated }) {
                     </label>
                     <label className="form-group">
                       <span>Festplatte · {form.diskGb} GB</span>
-                      <input className="resource-range" type="range" min="4" max={Math.min(cluster.maxDiskGb || 32, 32)} value={Math.min(form.diskGb, Math.min(cluster.maxDiskGb || 32, 32))} style={rangeStyle(Math.min(form.diskGb, Math.min(cluster.maxDiskGb || 32, 32)), 4, Math.min(cluster.maxDiskGb || 32, 32))} onChange={event => setField('diskGb', Number(event.target.value))} />
+                      <input className="resource-range" type="range" min="4" max={Math.min(cluster.maxDiskGb || 64, 64)} value={Math.min(form.diskGb, Math.min(cluster.maxDiskGb || 64, 64))} style={rangeStyle(Math.min(form.diskGb, Math.min(cluster.maxDiskGb || 64, 64)), 4, Math.min(cluster.maxDiskGb || 64, 64))} onChange={event => setField('diskGb', Number(event.target.value))} />
                     </label>
                   </div>
 

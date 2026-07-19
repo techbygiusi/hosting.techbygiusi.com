@@ -2,6 +2,10 @@ import { useEffect } from 'react';
 import { readStoredLanguage } from './components/LanguageSwitch';
 
 export const DE_EN_PHRASES = {
+  "Hinterlege vor dem Öffnen der Konsole im Tab Zugangsdaten einen SSH-Zugang mit Benutzername und Passwort.": "Add SSH credentials with a username and password in the Credentials tab before opening the IP console",
+  "Für diese VM ist keine SSH-Ziel-IP hinterlegt.": "No SSH target IP is configured for this VM",
+  "Diese Ressource unterstützt keinen SSH-Konsolenzugriff.": "This resource does not support SSH console access",
+  "Für diesen Container konnte keine SSH-Ziel-IP erkannt werden.": "No SSH target IP could be detected for this container",
   "SMTP-Einstellungen": "SMTP settings",
   "Konfiguriere den Mailversand für Tests, Benachrichtigungen und Passwort-Zurücksetzungen.": "Configure email delivery for tests, notifications and password resets.",
   "Prüfe Administrator, Proxmox und SMTP direkt in den Einstellungen.": "Check the administrator, Proxmox and SMTP directly in Settings.",

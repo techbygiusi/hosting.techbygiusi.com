@@ -1,12 +1,31 @@
 # Hosting Portal
 
-A lightweight self-hosted customer portal for Proxmox-based hosting. The portal gives administrators a clean web interface for users, groups, Proxmox clusters, services, credentials, SMTP settings and audit logs. Users can view their assigned services, open service details for power and delete actions when the token allows it, open a full-page desktop console, read task logs, manage service credentials, publish their own services securely through Pangolin, and create/delete their own LXC containers through self-service.
+A lightweight self-hosted customer portal for Proxmox-based hosting. The portal gives administrators a clean web interface for users, groups, Proxmox clusters, services, credentials, SMTP settings and audit logs. Users can view their assigned services, open service details for power and delete actions when the token allows it, open a full-page desktop SSH console, read task logs, manage service credentials, publish their own services securely through Pangolin, and create/delete their own LXC containers through self-service.
 
 The frontend is built with React and the backend with Express + SQLite. Proxmox API tokens and stored secrets are encrypted at rest.
 
 ## Version
 
-Current version: **v3.1.65**
+Current version: **v3.1.67**
+
+## What's new in v3.1.67
+
+- Routed every user browser-console session through the backend SSH relay instead of Proxmox termproxy or the shared LXC console device.
+- Kept the existing console pages and controls unchanged while selecting the LXC address from the self-service reservation or the Proxmox network configuration, and the QEMU address from the existing manual service-IP setting.
+- Reused stored service credentials entirely on the backend so SSH usernames and passwords are not returned to the browser.
+- Removed the runtime dependency on the Proxmox `VM.Console` privilege for user console sessions.
+- Disabled `/dev/console` and guest TTY devices (`console=0`, `tty=0`) for newly created self-service LXC containers before their first start.
+- Preserved automatic VMID allocation, automatic IPv4 allocation, firewall isolation and the current German/English interface without adding new visible controls or help text.
+
+
+## What's new in v3.1.66
+
+- Added a localized password-change section to the user **Settings** page with current-password verification, an 8-character minimum and confirmation of the new password.
+- Reused the existing authenticated password-change endpoint and audit logging without exposing password values outside the form submission.
+- Increased the administrator-configurable and user-selectable self-service LXC disk limit from **32 GB to 64 GB**.
+- Updated both frontend input limits and backend validation so values such as 50 GB are accepted consistently.
+- Preserved German and English labels, validation messages and success feedback.
+
 
 ## What's new in v3.1.65
 
@@ -243,7 +262,7 @@ Current version: **v3.1.65**
 - View assigned services with live status, CPU, RAM and disk information.
 - See the reachable container IP address in the detail view. Static LXC IPs are read from the Proxmox network config and loopback addresses are ignored.
 - Start, stop, reboot, shut down or delete services from the detail view when the Proxmox token permits it.
-- Open a viewport-fitted full-page console in a separate browser tab on desktop when the Proxmox token permits it. Only terminal scrollback moves; selecting text copies automatically, while right-click or Ctrl/Cmd+V pastes into the session. LXC consoles can automatically sign in with an attached root credential without forwarding terminal status replies into the login field.
+- Open a viewport-fitted full-page SSH console in a separate browser tab on desktop. The backend connects directly to the guest IP with a stored service credential, while terminal scrollback, selection copy, right-click paste and Ctrl/Cmd+V keep the existing browser behavior.
 - Read Proxmox tasks and logs for the current service lifecycle only. Reused VMIDs do not expose the previous machine history.
 - Manage service credentials. The exact root password used during self-service provisioning, including a configured cluster default, is saved automatically on the created service.
 - Publish, edit or remove directly assigned services through Pangolin. Every HTTP, TCP and UDP publication requires its own validated subdomain; the backend fixes the target to the service IP, validates the administrator-defined port policy and displays the generated public address on the service card.
@@ -262,7 +281,7 @@ The backend automatically allocates:
 
 The IP allocator checks the portal reservation table, static LXC network config and live LXC interface addresses from Proxmox, so containers created outside the portal are respected as well.
 
-Before the first start, the backend enables the Proxmox guest firewall and adds outbound drop rules for the container subnet, RFC1918 networks, CGNAT, IPv4 link-local ranges and all IPv6 traffic. DNS is limited to configured public IPv4 resolvers. The portal verifies that the Proxmox Datacenter firewall is enabled before presenting a cluster as available to users, rechecks it during creation and deletes a newly created LXC if the isolation rules cannot be installed. If automatic cleanup fails, the orphaned LXC remains stopped and the portal reports that it must be checked in Proxmox.
+Before the first start, the backend disables the Proxmox LXC console and guest TTY devices, enables the Proxmox guest firewall and adds outbound drop rules for the container subnet, RFC1918 networks, CGNAT, IPv4 link-local ranges and all IPv6 traffic. DNS is limited to configured public IPv4 resolvers. The portal verifies that the Proxmox Datacenter firewall is enabled before presenting a cluster as available to users, rechecks it during creation and deletes a newly created LXC if the isolation rules cannot be installed. If automatic cleanup fails, the orphaned LXC remains stopped and the portal reports that it must be checked in Proxmox.
 
 Admins configure per cluster:
 
@@ -284,13 +303,12 @@ Recommended role for full portal functionality:
 
 - `VM.Audit`
 - `VM.PowerMgmt`
-- `VM.Console`
 - `VM.Allocate`
 - `VM.Config.Network` on the Proxmox VM path used for self-service containers so the portal can create guest firewall rules
 - `Sys.Audit` on `/` so the portal can verify that the Datacenter firewall is enabled
 - `Datastore.AllocateSpace` on the storage used for LXC disks/templates
 
-The portal hides unavailable actions when the token does not provide the matching capability. The Proxmox Datacenter firewall must remain enabled before and during self-service. The portal never disables or globally changes it; isolation is applied only to each newly created container.
+The portal hides unavailable power or provisioning actions when the token does not provide the matching capability. User console sessions use guest SSH and do not require `VM.Console`. The Proxmox Datacenter firewall must remain enabled before and during self-service. The portal never disables or globally changes it; isolation is applied only to each newly created container.
 
 ## Pangolin Integration API setup
 
@@ -424,6 +442,24 @@ docker image prune -f
 The database migrates itself on startup. Keep the backend data volume before updating.
 
 ## Changelog
+
+### v3.1.67 - 2026-07-19
+
+**Commit:** `security: route user consoles through guest SSH`
+
+- Replace the Proxmox termproxy path with backend-only SSH sessions for assigned LXC containers and QEMU VMs.
+- Resolve LXC targets from the reserved or Proxmox-configured guest address while retaining the existing manual QEMU service-IP workflow.
+- Keep the current console interface unchanged and keep service credentials server-side.
+- Create new self-service LXC containers with `console=0` and `tty=0` before the first start.
+- Remove `VM.Console` from the documented portal token requirements.
+
+### v3.1.66 - 2026-07-19
+
+**Commit:** `feat: add account password settings and raise disk limit`
+
+- Add a secure, localized password-change form to the user Settings page.
+- Verify the current password, enforce the existing eight-character minimum and require new-password confirmation.
+- Raise the complete self-service disk-size limit from 32 GB to 64 GB in administrator settings, user options and backend enforcement.
 
 ### v3.1.65 - 2026-07-18
 

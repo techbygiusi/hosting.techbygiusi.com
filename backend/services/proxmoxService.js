@@ -1144,6 +1144,8 @@ async function createLxcContainer(clusterUrl, apiToken, node, options) {
     swap: 0,
     password: options.password,
     unprivileged: 1,
+    console: 0,
+    tty: 0,
     features: 'nesting=1',
     nameserver: dnsServers.join(' '),
     net0: `name=eth0,bridge=${options.bridge},ip=${options.ip}/${options.ipPrefix},gw=${options.gateway},firewall=1`,

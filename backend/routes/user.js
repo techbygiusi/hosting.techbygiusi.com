@@ -16,7 +16,6 @@ const {
   getCapabilities,
   getClusterFirewallStatus,
   getClusterNodeAddresses,
-  createTermProxy,
   getOnlineNodes,
   getNodeTemplates,
   getNodeStorages,
@@ -63,6 +62,46 @@ function normalizeSshPort(value) {
     throw new AppError('The SSH port must be between 1 and 65535', HTTP_STATUS.BAD_REQUEST);
   }
   return port;
+}
+
+function normalizeDetectedIpv4(value) {
+  const normalized = String(value || '').split('/')[0].trim();
+  return net.isIP(normalized) === 4 ? normalized : '';
+}
+
+async function resolveSshConsoleTarget(target) {
+  const type = String(target.type || '').toLowerCase();
+  const sshPort = normalizeSshPort(target.row.ssh_port);
+
+  if (type === 'qemu') {
+    const manualIpEligible = !target.row.provisioned_id;
+    const host = manualIpEligible ? normalizeDetectedIpv4(target.row.manual_ip) : '';
+    if (!host) {
+      throw new AppError('No SSH target IP is configured for this VM', HTTP_STATUS.BAD_REQUEST);
+    }
+    return { host, sshPort };
+  }
+
+  if (type !== 'lxc') {
+    throw new AppError('This resource does not support SSH console access', HTTP_STATUS.BAD_REQUEST);
+  }
+
+  const provisionedIp = normalizeDetectedIpv4(target.row.provisioned_ip);
+  if (provisionedIp) return { host: provisionedIp, sshPort };
+
+  const entries = await getContainerIps(
+    target.clusterUrl,
+    target.apiToken,
+    target.node,
+    'lxc',
+    target.vmid
+  );
+  const host = entries.map(entry => normalizeDetectedIpv4(entry.ipv4 || entry.ip)).find(Boolean) || '';
+  if (!host) {
+    throw new AppError('No SSH target IP could be detected for this container', HTTP_STATUS.BAD_REQUEST);
+  }
+
+  return { host, sshPort };
 }
 
 
@@ -460,13 +499,10 @@ router.get('/resources', async (req, res, next) => {
           canPublish,
           publishingClusterEnabled: clusterPublishingEnabled,
           canDelete: !!resource.canDelete && ownsResource && !!capsByCluster[resource.clusterId]?.canProvision,
-          // Power remains cluster-token based. Console access uses VM.Console
-          // for the traditional Proxmox serial console, while a manually configured
-          // service IP enables the backend SSH relay independently of that permission.
           consoleMode: resource.canConfigureManualIp && resource.manualIp ? 'ssh' : 'proxmox',
           capabilities: {
             ...(capsByCluster[resource.clusterId] || { readOnly: true }),
-            canConsole: !!(resource.canConfigureManualIp && resource.manualIp) || !!capsByCluster[resource.clusterId]?.canConsole
+            canConsole: !!resource.primaryIp
           }
         };
       })
@@ -505,7 +541,7 @@ router.get('/resources/:id', async (req, res, next) => {
         publishingClusterEnabled: clusterPublishingEnabled,
         canDelete: !!resources[0].canDelete && ownsResource && !!caps.canProvision,
         consoleMode: resources[0].canConfigureManualIp && resources[0].manualIp ? 'ssh' : 'proxmox',
-        capabilities: { ...caps, canConsole: !!(resources[0].canConfigureManualIp && resources[0].manualIp) || !!caps.canConsole }
+        capabilities: { ...caps, canConsole: !!resources[0].primaryIp }
       }
     });
   } catch (err) {
@@ -1040,7 +1076,10 @@ async function getSshConsoleCredential(resourceId) {
      FROM resource_credentials
      WHERE resource_id = ?
        AND COALESCE(purpose, 'general') != 'management'
-       AND TRIM(COALESCE(username, '')) != ''
+       AND (
+         TRIM(COALESCE(username, '')) != ''
+         OR LOWER(COALESCE(label, '')) LIKE '%root%'
+       )
        AND secret_encrypted IS NOT NULL
      ORDER BY
        CASE WHEN LOWER(COALESCE(label, '')) LIKE '%ssh%' OR LOWER(COALESCE(label, '')) LIKE '%console%' THEN 0 ELSE 1 END,
@@ -1053,7 +1092,7 @@ async function getSshConsoleCredential(resourceId) {
   if (!credential) return null;
   const password = decrypt(credential.secret_encrypted);
   if (!password) return null;
-  return { username: String(credential.username || '').trim(), password };
+  return { username: String(credential.username || '').trim() || 'root', password };
 }
 
 /* ----------------------------------------------------------- CONSOLE ---- */
@@ -1062,65 +1101,29 @@ router.post('/resources/:id/console', async (req, res, next) => {
     const target = await getAccessibleResource(req.user.id, req.params.id);
     const languageRow = await get('SELECT preferred_language FROM users WHERE id = ?', [req.user.id]);
     const language = languageRow?.preferred_language === 'de' ? 'de' : 'en';
-    const manualIpEligible = !target.row.provisioned_id && String(target.type || '').toLowerCase() === 'qemu';
-    const manualIp = manualIpEligible ? normalizeManualIpv4(target.row.manual_ip || '') : '';
-
-    if (manualIp) {
-      const sshCredential = await getSshConsoleCredential(req.params.id);
-      if (!sshCredential) {
-        throw new AppError(
-          'Add SSH credentials with a username and password in the Credentials tab before opening the IP console',
-          HTTP_STATUS.BAD_REQUEST
-        );
-      }
-
-      const sshPort = normalizeSshPort(target.row.ssh_port);
-      const sessionToken = createConsoleSession({
-        mode: 'ssh',
-        host: manualIp,
-        sshPort,
-        username: sshCredential.username,
-        password: sshCredential.password,
-        language
-      });
-
-      await logAudit(req, 'console.open.ssh', `resource:${req.params.id}`, `${target.name} (${manualIp}:${sshPort})`);
-      return res.json({
-        mode: 'ssh',
-        sessionToken,
-        wsPath: `/api/console/ws?token=${sessionToken}`,
-        target: `${manualIp}:${sshPort}`
-      });
+    const sshCredential = await getSshConsoleCredential(req.params.id);
+    if (!sshCredential) {
+      throw new AppError(
+        'Add SSH credentials with a username and password in the Credentials tab before opening the IP console',
+        HTTP_STATUS.BAD_REQUEST
+      );
     }
 
-    const caps = await getClusterCapabilities(target.row.cluster_id, target.clusterUrl, target.apiToken);
-    if (!caps.canConsole) {
-      throw new AppError('Console access is not permitted for this cluster token', HTTP_STATUS.FORBIDDEN);
-    }
-
-    const term = await createTermProxy(target.clusterUrl, target.apiToken, target.node, target.type, target.vmid);
-    const autoLogin = target.type === 'lxc' ? await getRootConsoleCredential(req.params.id) : null;
+    const { host, sshPort } = await resolveSshConsoleTarget(target);
     const sessionToken = createConsoleSession({
-      mode: 'proxmox',
-      clusterUrl: target.clusterUrl,
-      apiToken: target.apiToken,
-      node: target.node,
-      type: target.type,
-      vmid: target.vmid,
-      port: term.port,
-      ticket: term.ticket,
+      mode: 'ssh',
+      host,
+      sshPort,
+      username: sshCredential.username,
+      password: sshCredential.password,
       language
     });
-
-    await logAudit(req, 'console.open', `resource:${req.params.id}`, `${target.name} (VMID ${target.vmid})`);
-
+    await logAudit(req, 'console.open.ssh', `resource:${req.params.id}`, `${target.name} (${host}:${sshPort})`);
     res.json({
-      mode: 'proxmox',
+      mode: 'ssh',
       sessionToken,
-      user: term.user,
-      ticket: term.ticket,
       wsPath: `/api/console/ws?token=${sessionToken}`,
-      autoLogin
+      target: `${host}:${sshPort}`
     });
   } catch (err) {
     next(err);
@@ -1224,28 +1227,6 @@ router.delete('/resources/:id/management-page', async (req, res, next) => {
   }
 });
 
-
-async function getRootConsoleCredential(resourceId) {
-  const rows = await all(
-    `SELECT id, label, username, secret_encrypted
-     FROM resource_credentials
-     WHERE resource_id = ?
-       AND COALESCE(purpose, 'general') != 'management'
-       AND secret_encrypted IS NOT NULL
-       AND (
-         LOWER(TRIM(COALESCE(username, ''))) = 'root'
-         OR LOWER(COALESCE(label, '')) LIKE '%root%'
-       )
-     ORDER BY CASE WHEN LOWER(TRIM(COALESCE(username, ''))) = 'root' THEN 0 ELSE 1 END, id DESC
-     LIMIT 1`,
-    [resourceId]
-  );
-  const cred = rows[0];
-  if (!cred) return null;
-  const secret = decrypt(cred.secret_encrypted);
-  if (!secret) return null;
-  return { username: cred.username || 'root', secret };
-}
 
 router.get('/resources/:id/credentials', async (req, res, next) => {
   try {
@@ -1442,7 +1423,7 @@ router.get('/provisioning/options', async (req, res, next) => {
         hasDefaultPassword: !!cluster.default_password_encrypted,
         maxCores: cluster.max_cores || 2,
         maxMemoryMb: cluster.max_memory_mb || 2048,
-        maxDiskGb: Math.min(cluster.max_disk_gb || 20, 32),
+        maxDiskGb: Math.min(cluster.max_disk_gb || 20, 64),
         templates
       });
     }
@@ -1494,7 +1475,7 @@ router.post('/provisioning/create', async (req, res, next) => {
 
     const safeCores = Math.min(Math.max(parseInt(cores, 10) || 1, 1), cluster.max_cores || 2);
     const safeMemory = Math.min(Math.max(parseInt(memoryMb, 10) || 512, 256), cluster.max_memory_mb || 2048);
-    const safeDisk = Math.min(Math.max(parseInt(diskGb, 10) || 8, 4), Math.min(cluster.max_disk_gb || 20, 32));
+    const safeDisk = Math.min(Math.max(parseInt(diskGb, 10) || 8, 4), Math.min(cluster.max_disk_gb || 20, 64));
 
     const apiToken = decrypt(cluster.api_token);
     const caps = await getClusterCapabilities(cluster.id, cluster.url, apiToken);

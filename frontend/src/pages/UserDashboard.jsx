@@ -29,6 +29,18 @@ const USER_TRANSLATIONS = {
     languageText: 'Choose the language used by the portal, menus, placeholders and maintenance banners.',
     notificationsText: 'Manage e-mail notifications for outages, recoveries and maintenance.',
     notificationSettings: 'Notification settings',
+    password: 'Password',
+    passwordText: 'Change the password used to sign in to your portal account.',
+    currentPassword: 'Current password',
+    newPassword: 'New password',
+    confirmPassword: 'Confirm new password',
+    changePassword: 'Change password',
+    changingPassword: 'Changing password...',
+    passwordChanged: 'Your password was changed successfully.',
+    passwordRequired: 'Enter your current password and a new password.',
+    passwordTooShort: 'The new password must be at least 8 characters long.',
+    passwordMismatch: 'The new passwords do not match.',
+    passwordChangeFailed: 'The password could not be changed.',
     logout: 'Log out',
     createContainer: 'Create new container',
     firstContainer: 'Create first container',
@@ -91,6 +103,18 @@ const USER_TRANSLATIONS = {
     languageText: 'Wähle die Sprache für Portal, Menüs, Platzhalter und Wartungsbanner.',
     notificationsText: 'Verwalte E-Mail-Benachrichtigungen für Ausfälle, Wiederherstellungen und Wartungen.',
     notificationSettings: 'Benachrichtigungseinstellungen',
+    password: 'Passwort',
+    passwordText: 'Ändere das Passwort, mit dem du dich an deinem Portal-Konto anmeldest.',
+    currentPassword: 'Aktuelles Passwort',
+    newPassword: 'Neues Passwort',
+    confirmPassword: 'Neues Passwort bestätigen',
+    changePassword: 'Passwort ändern',
+    changingPassword: 'Passwort wird geändert...',
+    passwordChanged: 'Dein Passwort wurde erfolgreich geändert.',
+    passwordRequired: 'Bitte das aktuelle und ein neues Passwort eingeben.',
+    passwordTooShort: 'Das neue Passwort muss mindestens 8 Zeichen lang sein.',
+    passwordMismatch: 'Die neuen Passwörter stimmen nicht überein.',
+    passwordChangeFailed: 'Das Passwort konnte nicht geändert werden.',
     logout: 'Abmelden',
     createContainer: 'Neuen Container erstellen',
     firstContainer: 'Ersten Container erstellen',
@@ -167,7 +191,7 @@ function LogoutIcon() {
 }
 
 export default function UserDashboard() {
-  const { user, logout } = useAuth();
+  const { user, logout, changePassword } = useAuth();
   const [resources, setResources] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -360,6 +384,7 @@ export default function UserDashboard() {
                   ))}
                 </div>
               </div>
+              <PasswordSettingsPanel labels={labels} onChangePassword={changePassword} />
               <div className="settings-notification-card">
                 <div className="settings-section-header">
                   <h3>{labels.notifications}</h3>
@@ -401,6 +426,104 @@ export default function UserDashboard() {
           onCreated={() => fetchResources(false)}
         />
       )}
+    </div>
+  );
+}
+
+
+function PasswordSettingsPanel({ labels, onChangePassword }) {
+  const [form, setForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+
+  const updateField = (field, value) => {
+    setForm(prev => ({ ...prev, [field]: value }));
+    if (error) setError('');
+    if (success) setSuccess('');
+  };
+
+  const submit = async (event) => {
+    event.preventDefault();
+    setError('');
+    setSuccess('');
+
+    if (!form.currentPassword || !form.newPassword || !form.confirmPassword) {
+      setError(labels.passwordRequired);
+      return;
+    }
+    if (form.newPassword.length < 8) {
+      setError(labels.passwordTooShort);
+      return;
+    }
+    if (form.newPassword !== form.confirmPassword) {
+      setError(labels.passwordMismatch);
+      return;
+    }
+
+    try {
+      setBusy(true);
+      await onChangePassword(form.currentPassword, form.newPassword);
+      setForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+      setSuccess(labels.passwordChanged);
+    } catch (changeError) {
+      setError(changeError?.message || labels.passwordChangeFailed);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="settings-password-card">
+      <div className="settings-section-header">
+        <div>
+          <h3>{labels.password}</h3>
+          <p>{labels.passwordText}</p>
+        </div>
+      </div>
+      <form className="settings-password-form" onSubmit={submit}>
+        <div className="settings-password-grid">
+          <label className="form-group">
+            <span>{labels.currentPassword}</span>
+            <input
+              type="password"
+              value={form.currentPassword}
+              onChange={event => updateField('currentPassword', event.target.value)}
+              autoComplete="current-password"
+              disabled={busy}
+            />
+          </label>
+          <label className="form-group">
+            <span>{labels.newPassword}</span>
+            <input
+              type="password"
+              value={form.newPassword}
+              onChange={event => updateField('newPassword', event.target.value)}
+              autoComplete="new-password"
+              minLength="8"
+              disabled={busy}
+            />
+          </label>
+          <label className="form-group">
+            <span>{labels.confirmPassword}</span>
+            <input
+              type="password"
+              value={form.confirmPassword}
+              onChange={event => updateField('confirmPassword', event.target.value)}
+              autoComplete="new-password"
+              minLength="8"
+              disabled={busy}
+            />
+          </label>
+        </div>
+        {error && <div className="alert alert-danger settings-password-message">{error}</div>}
+        {success && <div className="alert alert-success settings-password-message">{success}</div>}
+        <div className="settings-password-actions">
+          <button type="submit" className="btn-primary" disabled={busy}>
+            {busy ? labels.changingPassword : labels.changePassword}
+          </button>
+        </div>
+      </form>
     </div>
   );
 }

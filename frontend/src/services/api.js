@@ -240,9 +240,10 @@ apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
     const isSetupRoute = window.location.pathname.startsWith('/setup');
+    const isPasswordChangeRequest = String(error.config?.url || '').includes('/auth/change-password');
     const serverMessage = error.response?.data?.message;
 
-    if (error.response?.status === 401 && !isSetupRoute) {
+    if (error.response?.status === 401 && !isSetupRoute && !isPasswordChangeRequest) {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       window.location.href = '/login';

@@ -6541,3 +6541,60 @@ body.theme-dark .settings-section-card {
     grid-template-columns: 1fr;
   }
 }
+
+
+/* v3.1.66 - account password settings and 64 GB self-service disk limit */
+.settings-password-card {
+  display: grid;
+  gap: 16px;
+  padding: 16px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg-alt);
+}
+
+.settings-password-card .settings-section-header h3,
+.settings-password-card .settings-section-header p {
+  margin: 0;
+}
+
+.settings-password-card .settings-section-header p {
+  margin-top: 6px;
+  color: var(--color-text-light);
+}
+
+.settings-password-form,
+.settings-password-grid {
+  display: grid;
+  gap: 14px;
+}
+
+.settings-password-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.settings-password-message {
+  margin: 0;
+}
+
+.settings-password-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.settings-password-actions .btn-primary {
+  min-width: 160px;
+}
+
+@media (max-width: 900px) {
+  .settings-password-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 767px) {
+  .settings-password-actions,
+  .settings-password-actions .btn-primary {
+    width: 100%;
+  }
+}

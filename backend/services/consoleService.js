@@ -2,15 +2,6 @@ const crypto = require('crypto');
 const WebSocket = require('ws');
 const { Client: SshClient } = require('ssh2');
 
-/**
- * Console flow:
- * 1. Client POSTs /api/user/resources/:id/console (JWT-protected).
- *    The backend verifies access and creates either a Proxmox termproxy
- *    session or an SSH session for a manually configured guest IP.
- * 2. Client opens ws(s)://<portal>/api/console/ws?token=<sessionToken>.
- *    The one-time token keeps Proxmox and SSH credentials server-side.
- */
-
 const SESSION_TTL_MS = 30 * 1000;
 const sessions = new Map();
 
@@ -57,61 +48,11 @@ function attachConsoleProxy(server) {
     }
 
     wss.handleUpgrade(request, socket, head, (clientWs) => {
-      if (session.mode === 'ssh') bridgeToSsh(clientWs, session);
-      else bridgeToProxmox(clientWs, session);
+      bridgeToSsh(clientWs, session);
     });
   });
 
   console.log('✓ Console WebSocket proxy attached at /api/console/ws');
-}
-
-function bridgeToProxmox(clientWs, session) {
-  const { clusterUrl, apiToken, node, type, vmid, port, ticket } = session;
-  const kind = type === 'lxc' ? 'lxc' : 'qemu';
-  const base = clusterUrl.replace(/^http/i, 'ws');
-  const endpoint = `/api2/json/nodes/${node}/${kind}/${vmid}/vncwebsocket`;
-  const target = `${base}${endpoint}?port=${encodeURIComponent(port)}&vncticket=${encodeURIComponent(ticket)}`;
-
-  const upstream = new WebSocket(target, ['binary'], {
-    rejectUnauthorized: false,
-    headers: { Authorization: `PVEAPIToken=${apiToken}` }
-  });
-
-  const closeBoth = () => {
-    try { clientWs.close(); } catch (_) { /* noop */ }
-    try { upstream.close(); } catch (_) { /* noop */ }
-  };
-
-  const pendingClientMessages = [];
-
-  clientWs.on('message', (data) => {
-    if (upstream.readyState === WebSocket.OPEN) {
-      upstream.send(data);
-      return;
-    }
-    pendingClientMessages.push(data);
-  });
-
-  upstream.on('open', () => {
-    while (pendingClientMessages.length > 0 && upstream.readyState === WebSocket.OPEN) {
-      upstream.send(pendingClientMessages.shift());
-    }
-  });
-
-  upstream.on('message', (data) => {
-    if (clientWs.readyState === WebSocket.OPEN) clientWs.send(data);
-  });
-
-  upstream.on('close', closeBoth);
-  upstream.on('error', () => {
-    if (clientWs.readyState === WebSocket.OPEN) {
-      clientWs.send(localized(session, '\r\n[Portal] Verbindung zu Proxmox fehlgeschlagen.\r\n', '\r\n[Portal] Connection to Proxmox failed.\r\n'));
-    }
-    closeBoth();
-  });
-
-  clientWs.on('close', closeBoth);
-  clientWs.on('error', closeBoth);
 }
 
 function bridgeToSsh(clientWs, session) {
