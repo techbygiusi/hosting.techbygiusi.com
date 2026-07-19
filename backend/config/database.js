@@ -235,6 +235,8 @@ async function initDatabase() {
       `);
       // v3.1.55: remember the exact LXC template used by self-service provisioning
       database.run(`ALTER TABLE provisioned_machines ADD COLUMN source_template TEXT`, () => {});
+      // v3.1.69: encrypted per-container SSH key used only by the backend console.
+      database.run(`ALTER TABLE provisioned_machines ADD COLUMN ssh_private_key_encrypted TEXT`, () => {});
 
       // v3.0: per-user notification preferences
       database.run(`ALTER TABLE users ADD COLUMN notify_resource_down INTEGER DEFAULT 0`, () => {});

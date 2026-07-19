@@ -6,7 +6,19 @@ The frontend is built with React and the backend with Express + SQLite. Proxmox 
 
 ## Version
 
-Current version: **v3.1.68**
+Current version: **v3.1.69**
+
+## What's new in v3.1.69
+
+- Added a unique backend-only Ed25519 SSH key to every newly provisioned self-service LXC container through the native Proxmox SSH-public-key option.
+- Kept the temporary Proxmox console available only during provisioning, verified authenticated SSH access from the portal backend and disabled `console` and `tty` only after SSH was confirmed.
+- Restarted and rechecked the container after console hardening so inaccessible templates are rejected before a portal service is registered.
+- Removed containers automatically when their selected template does not provide a working SSH service or when SSH verification fails.
+- Stored the private SSH key encrypted in the backend database and used it for the unchanged browser-console workflow without exposing it in the user interface or credentials list.
+- Kept password-based SSH support for existing manually assigned services and older self-service containers.
+- Existing containers are not re-keyed automatically; an inaccessible container created before v3.1.69 must be repaired once through the Proxmox host or recreated.
+- Preserved the existing interface, automatic VMID and IPv4 allocation, `client-lxc` tag, firewall isolation and host-timezone inheritance.
+
 
 ## What's new in v3.1.68
 
@@ -451,6 +463,18 @@ docker image prune -f
 The database migrates itself on startup. Keep the backend data volume before updating.
 
 ## Changelog
+
+### v3.1.69 - 2026-07-19
+
+**Commit:** `fix: verify SSH access before hardening client containers`
+
+- Inject a unique Ed25519 public key while creating each self-service LXC container.
+- Verify authenticated SSH access from the backend before disabling the Proxmox console and guest TTY devices.
+- Restart and verify SSH again after applying `console=0` and `tty=0`.
+- Persist the matching private key encrypted for backend-only console sessions.
+- Remove inaccessible containers instead of registering a service that the customer cannot open.
+- Leave existing containers unchanged and document that pre-v3.1.69 containers may need a one-time SSH repair or recreation.
+- Keep the portal interface and all existing allocation, tagging, isolation and timezone behavior unchanged.
 
 ### v3.1.68 - 2026-07-19
 

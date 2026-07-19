@@ -1071,6 +1071,24 @@ router.put('/resources/:id/service-ip', async (req, res, next) => {
 });
 
 async function getSshConsoleCredential(resourceId) {
+  const provisionedKey = await get(
+    `SELECT pm.ssh_private_key_encrypted
+     FROM resources r
+     JOIN provisioned_machines pm
+       ON pm.cluster_id = r.cluster_id
+      AND CAST(pm.vmid AS TEXT) = CAST(r.container_id AS TEXT)
+     WHERE r.id = ?
+       AND pm.ssh_private_key_encrypted IS NOT NULL
+       AND TRIM(pm.ssh_private_key_encrypted) != ''
+     LIMIT 1`,
+    [resourceId]
+  );
+
+  if (provisionedKey?.ssh_private_key_encrypted) {
+    const privateKey = decrypt(provisionedKey.ssh_private_key_encrypted);
+    if (privateKey) return { username: 'root', privateKey };
+  }
+
   const credential = await get(
     `SELECT id, label, username, secret_encrypted
      FROM resource_credentials
@@ -1116,6 +1134,7 @@ router.post('/resources/:id/console', async (req, res, next) => {
       sshPort,
       username: sshCredential.username,
       password: sshCredential.password,
+      privateKey: sshCredential.privateKey,
       language
     });
     await logAudit(req, 'console.open.ssh', `resource:${req.params.id}`, `${target.name} (${host}:${sshPort})`);
@@ -1567,8 +1586,10 @@ router.post('/provisioning/create', async (req, res, next) => {
     });
 
     await run(
-      'INSERT INTO provisioned_machines (cluster_id, vmid, ip, hostname, source_template, user_id) VALUES (?, ?, ?, ?, ?, ?)',
-      [cluster.id, vmid, ip, cleanHostname, template, req.user.id]
+      `INSERT INTO provisioned_machines
+        (cluster_id, vmid, ip, hostname, source_template, user_id, ssh_private_key_encrypted)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [cluster.id, vmid, ip, cleanHostname, template, req.user.id, encrypt(createResult.sshPrivateKey)]
     );
 
     // Register as portal resource owned by the requesting user

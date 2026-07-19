@@ -130,15 +130,17 @@ function bridgeToSsh(clientWs, session) {
   });
 
   ssh.on('close', closeSoon);
-  ssh.connect({
+  const connectionOptions = {
     host: session.host,
     port: Number(session.sshPort || 22),
     username: session.username,
-    password: session.password,
-    readyTimeout: 15000,
+    readyTimeout: 30000,
     keepaliveInterval: 15000,
     keepaliveCountMax: 3
-  });
+  };
+  if (session.privateKey) connectionOptions.privateKey = session.privateKey;
+  else connectionOptions.password = session.password;
+  ssh.connect(connectionOptions);
 }
 
 function localized(session, de, en) {

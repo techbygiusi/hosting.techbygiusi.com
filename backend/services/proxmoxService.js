@@ -1,5 +1,7 @@
 const axios = require('axios');
 const https = require('https');
+const crypto = require('crypto');
+const { Client: SshClient } = require('ssh2');
 
 const httpsAgent = new https.Agent({
   rejectUnauthorized: false
@@ -24,6 +26,85 @@ function createProxmoxClient(baseURL, token) {
 function ensureSuccess(response, fallbackMessage) {
   if (response.status >= 200 && response.status < 300) return;
   throw new Error(`${fallbackMessage} HTTP ${response.status}${response.statusText ? ` ${response.statusText}` : ''}`);
+}
+
+
+function sshLength(value) {
+  const buffer = Buffer.isBuffer(value) ? value : Buffer.from(String(value));
+  const length = Buffer.alloc(4);
+  length.writeUInt32BE(buffer.length, 0);
+  return Buffer.concat([length, buffer]);
+}
+
+function generateContainerSshKeyPair() {
+  const { publicKey, privateKey } = crypto.generateKeyPairSync('ed25519');
+  const publicDer = publicKey.export({ format: 'der', type: 'spki' });
+  const rawPublicKey = publicDer.subarray(publicDer.length - 32);
+  const publicBlob = Buffer.concat([
+    sshLength('ssh-ed25519'),
+    sshLength(rawPublicKey)
+  ]);
+
+  return {
+    publicKey: `ssh-ed25519 ${publicBlob.toString('base64')} hosting-portal`,
+    privateKey: String(privateKey.export({ format: 'pem', type: 'pkcs8' }))
+  };
+}
+
+function verifySshKeyLogin(host, privateKey, port = 22, readyTimeout = 8000) {
+  return new Promise((resolve, reject) => {
+    const ssh = new SshClient();
+    let settled = false;
+
+    const finish = (error) => {
+      if (settled) return;
+      settled = true;
+      try { ssh.end(); } catch (_) { /* noop */ }
+      if (error) reject(error);
+      else resolve();
+    };
+
+    ssh.once('ready', () => finish());
+    ssh.once('error', finish);
+    ssh.once('close', () => {
+      if (!settled) finish(new Error('SSH connection closed before authentication completed'));
+    });
+
+    try {
+      ssh.connect({
+        host,
+        port,
+        username: 'root',
+        privateKey,
+        readyTimeout,
+        keepaliveInterval: 5000,
+        keepaliveCountMax: 2
+      });
+    } catch (error) {
+      finish(error);
+    }
+  });
+}
+
+async function waitForSshKeyLogin(host, privateKey, options = {}) {
+  const timeoutMs = Number(options.timeoutMs || 120000);
+  const retryDelayMs = Number(options.retryDelayMs || 4000);
+  const deadline = Date.now() + timeoutMs;
+  let lastError = null;
+
+  while (Date.now() < deadline) {
+    try {
+      await verifySshKeyLogin(host, privateKey, Number(options.port || 22));
+      return;
+    } catch (error) {
+      lastError = error;
+      if (Date.now() + retryDelayMs >= deadline) break;
+      await delay(retryDelayMs);
+    }
+  }
+
+  const detail = lastError?.message ? `: ${lastError.message}` : '';
+  throw new Error(`SSH bootstrap verification failed${detail}`);
 }
 
 
@@ -1133,6 +1214,7 @@ async function createLxcContainer(clusterUrl, apiToken, node, options) {
   }
 
   const dnsServers = normalizeDnsServers(options.dnsServers);
+  const sshKeyPair = generateContainerSshKeyPair();
   const payload = {
     vmid: options.vmid,
     hostname: options.hostname,
@@ -1144,11 +1226,12 @@ async function createLxcContainer(clusterUrl, apiToken, node, options) {
     swap: 0,
     password: options.password,
     unprivileged: 1,
-    console: 0,
-    tty: 0,
+    console: 1,
+    tty: 2,
     tags: 'client-lxc',
     features: 'nesting=1',
     nameserver: dnsServers.join(' '),
+    'ssh-public-keys': sshKeyPair.publicKey,
     net0: `name=eth0,bridge=${options.bridge},ip=${options.ip}/${options.ipPrefix},gw=${options.gateway},firewall=1`,
     start: 0
   };
@@ -1160,15 +1243,40 @@ async function createLxcContainer(clusterUrl, apiToken, node, options) {
   try {
     await waitForProxmoxTask(client, node, createUpid);
     const isolation = await applyInternetOnlyIsolation(client, node, options.vmid, { ...options, dnsServers });
-    const startResponse = await client.post(`/api2/json/nodes/${node}/lxc/${options.vmid}/status/start`, {});
-    ensureSuccess(startResponse, 'Container konnte nach der Absicherung nicht gestartet werden:');
+
+    const initialStart = await client.post(`/api2/json/nodes/${node}/lxc/${options.vmid}/status/start`, {});
+    ensureSuccess(initialStart, 'Container konnte nach der Absicherung nicht gestartet werden:');
+    await waitForProxmoxTask(client, node, initialStart.data?.data || '');
+
+    // Verify that the selected template actually provides a working SSH server
+    // and that the injected per-container key is usable before disabling the
+    // Proxmox console. An inaccessible container is removed instead of being
+    // exposed as a successfully provisioned customer service.
+    await waitForSshKeyLogin(options.ip, sshKeyPair.privateKey);
+
+    const stopResponse = await client.post(`/api2/json/nodes/${node}/lxc/${options.vmid}/status/stop`, {});
+    ensureSuccess(stopResponse, 'Container konnte für die Konsolenabsicherung nicht gestoppt werden:');
+    await waitForProxmoxTask(client, node, stopResponse.data?.data || '');
+
+    const hardeningResponse = await client.put(`/api2/json/nodes/${node}/lxc/${options.vmid}/config`, {
+      console: 0,
+      tty: 0
+    });
+    ensureSuccess(hardeningResponse, 'Proxmox-Konsole konnte nicht deaktiviert werden:');
+
+    const finalStart = await client.post(`/api2/json/nodes/${node}/lxc/${options.vmid}/status/start`, {});
+    ensureSuccess(finalStart, 'Container konnte nach der Konsolenabsicherung nicht gestartet werden:');
+    await waitForProxmoxTask(client, node, finalStart.data?.data || '');
+    await waitForSshKeyLogin(options.ip, sshKeyPair.privateKey, { timeoutMs: 60000 });
+
     return {
-      upid: startResponse.data?.data || createUpid,
+      upid: finalStart.data?.data || createUpid,
       createUpid,
       node,
       isolation: 'internet-only',
       dnsServers: isolation.dnsServers,
-      blockedDestinations: isolation.blockedDestinations
+      blockedDestinations: isolation.blockedDestinations,
+      sshPrivateKey: sshKeyPair.privateKey
     };
   } catch (error) {
     let cleanupSucceeded = true;
@@ -1176,17 +1284,17 @@ async function createLxcContainer(clusterUrl, apiToken, node, options) {
       const deleteResponse = await client.delete(`/api2/json/nodes/${node}/lxc/${options.vmid}`, {
         params: { purge: 1, force: 1 }
       });
-      ensureSuccess(deleteResponse, 'Ungeschützter Container konnte nicht entfernt werden:');
+      ensureSuccess(deleteResponse, 'Ungeschützter oder nicht erreichbarer Container konnte nicht entfernt werden:');
       await waitForProxmoxTask(client, node, deleteResponse.data?.data || '');
     } catch (cleanupError) {
       cleanupSucceeded = false;
-      console.error(`Failed to remove stopped LXC ${options.vmid} after isolation error:`, cleanupError.message);
+      console.error(`Failed to remove inaccessible LXC ${options.vmid} after provisioning error:`, cleanupError.message);
     }
-    const isolationError = new Error(cleanupSucceeded
-      ? 'Container network isolation failed'
-      : 'Container network isolation failed and cleanup was unsuccessful');
-    isolationError.cause = error;
-    throw isolationError;
+    const provisioningError = new Error(cleanupSucceeded
+      ? 'Container SSH provisioning or network isolation failed'
+      : 'Container SSH provisioning or network isolation failed and cleanup was unsuccessful');
+    provisioningError.cause = error;
+    throw provisioningError;
   }
 }
 
