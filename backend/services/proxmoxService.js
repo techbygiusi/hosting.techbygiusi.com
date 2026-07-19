@@ -1,5 +1,7 @@
 const axios = require('axios');
+const crypto = require('crypto');
 const https = require('https');
+const WebSocket = require('ws');
 
 const httpsAgent = new https.Agent({
   rejectUnauthorized: false
@@ -21,9 +23,26 @@ function createProxmoxClient(baseURL, token) {
   });
 }
 
+function proxmoxErrorDetails(response) {
+  const data = response?.data;
+  const details = [];
+
+  if (typeof data?.message === 'string' && data.message.trim()) details.push(data.message.trim());
+  if (data?.errors && typeof data.errors === 'object') {
+    for (const [field, value] of Object.entries(data.errors)) {
+      const message = typeof value === 'string' ? value : JSON.stringify(value);
+      if (message) details.push(`${field}: ${message}`);
+    }
+  }
+  if (typeof data?.data === 'string' && data.data.trim()) details.push(data.data.trim());
+
+  return Array.from(new Set(details)).join('; ').slice(0, 900);
+}
+
 function ensureSuccess(response, fallbackMessage) {
   if (response.status >= 200 && response.status < 300) return;
-  throw new Error(`${fallbackMessage} HTTP ${response.status}${response.statusText ? ` ${response.statusText}` : ''}`);
+  const details = proxmoxErrorDetails(response);
+  throw new Error(`${fallbackMessage} HTTP ${response.status}${response.statusText ? ` ${response.statusText}` : ''}${details ? ` - ${details}` : ''}`);
 }
 
 
@@ -1245,6 +1264,99 @@ function normalizeLxcTags(...values) {
   return Array.from(new Set(['client-lxc', ...tags])).join(';');
 }
 
+function buildProxmoxWebSocketUrl(clusterUrl, path, query) {
+  const url = new URL(clusterUrl);
+  url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
+  url.pathname = path;
+  url.search = new URLSearchParams(query).toString();
+  url.hash = '';
+  return url.toString();
+}
+
+function sendTermProxyInput(socket, value) {
+  const input = String(value || '');
+  socket.send(`0:${Buffer.byteLength(input, 'utf8')}:${input}`);
+}
+
+/**
+ * A cloned LXC already contains an /etc/shadow file. Proxmox only accepts the
+ * password option while creating/restoring a container, not while updating an
+ * existing LXC config. Temporarily use Proxmox cmode=shell and the authenticated
+ * termproxy to run chpasswd inside the new clone without requiring node SSH.
+ */
+async function setClonedLxcRootPassword(client, clusterUrl, apiToken, node, vmid, password) {
+  const proxyResponse = await client.post(`/api2/json/nodes/${node}/lxc/${vmid}/termproxy`, {});
+  ensureSuccess(proxyResponse, 'Temporary LXC shell could not be opened:');
+  const proxy = proxyResponse.data?.data || {};
+  if (!proxy.ticket || !proxy.port || !proxy.user) {
+    throw new Error('Temporary LXC shell did not return a complete Proxmox ticket');
+  }
+
+  const successToken = crypto.randomBytes(12).toString('hex');
+  const failureToken = crypto.randomBytes(12).toString('hex');
+  const successMarker = `__HOSTING_PORTAL_PASSWORD_OK_${successToken}__`;
+  const failureMarker = `__HOSTING_PORTAL_PASSWORD_FAILED_${failureToken}__`;
+  const passwordPayload = Buffer.from(`root:${String(password)}\n`, 'utf8').toString('base64');
+  // Build each marker from two shell variables so the complete marker never
+  // occurs in the echoed command line, even if PTY echo disables slowly.
+  const command = `ok_a='__HOSTING_PORTAL_PASSWORD_OK_'; ok_b='${successToken}__'; fail_a='__HOSTING_PORTAL_PASSWORD_FAILED_'; fail_b='${failureToken}__'; printf '%s' '${passwordPayload}' | base64 -d | chpasswd && printf '\n%s%s\n' "$ok_a" "$ok_b" || printf '\n%s%s\n' "$fail_a" "$fail_b"`;
+  const target = buildProxmoxWebSocketUrl(
+    clusterUrl,
+    `/api2/json/nodes/${node}/lxc/${vmid}/vncwebsocket`,
+    { port: proxy.port, vncticket: proxy.ticket }
+  );
+
+  await new Promise((resolve, reject) => {
+    const socket = new WebSocket(target, ['binary'], {
+      rejectUnauthorized: false,
+      headers: { Authorization: `PVEAPIToken=${apiToken}` }
+    });
+    let settled = false;
+    let output = '';
+    let commandTimer = null;
+    let passwordCommandTimer = null;
+    const timeout = setTimeout(() => finish(new Error('Timed out while setting the cloned LXC root password')), 30000);
+
+    function finish(error = null) {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
+      if (commandTimer) clearTimeout(commandTimer);
+      if (passwordCommandTimer) clearTimeout(passwordCommandTimer);
+      try { socket.close(); } catch (_) { /* noop */ }
+      if (error) reject(error); else resolve();
+    }
+
+    socket.on('open', () => {
+      socket.send(`${proxy.user}:${proxy.ticket}\n`);
+      socket.send('1:120:34:');
+      commandTimer = setTimeout(() => {
+        // Disable PTY echo before sending the base64-encoded password payload,
+        // so it never appears in Proxmox task or portal logs.
+        if (socket.readyState !== WebSocket.OPEN) return;
+        sendTermProxyInput(socket, 'stty -echo\r');
+        passwordCommandTimer = setTimeout(() => {
+          if (socket.readyState === WebSocket.OPEN) sendTermProxyInput(socket, `${command}\r`);
+        }, 180);
+      }, 500);
+    });
+
+    socket.on('message', data => {
+      output = (output + (Buffer.isBuffer(data) ? data.toString('utf8') : String(data || ''))).slice(-12000);
+      if (output.includes(successMarker)) {
+        try { sendTermProxyInput(socket, 'exit\r'); } catch (_) { /* noop */ }
+        finish();
+      } else if (output.includes(failureMarker)) {
+        finish(new Error('The cloned LXC root password could not be written inside the container'));
+      }
+    });
+    socket.on('error', error => finish(new Error(`Temporary LXC shell connection failed: ${error.message || 'unknown error'}`)));
+    socket.on('close', () => {
+      if (!settled) finish(new Error('Temporary LXC shell closed before the root password was applied'));
+    });
+  });
+}
+
 async function clearContainerFirewallRules(client, node, vmid) {
   const response = await client.get(`/api2/json/nodes/${node}/lxc/${vmid}/firewall/rules`);
   ensureSuccess(response, 'Existing container firewall rules could not be read:');
@@ -1294,20 +1406,39 @@ async function clonePreparedLxcTemplate(clusterUrl, apiToken, sourceNode, source
     ensureSuccess(clonedResponse, 'Cloned LXC configuration could not be read:');
     const clonedConfig = clonedResponse.data?.data || {};
     const extraNetworks = Object.keys(clonedConfig).filter(key => /^net\d+$/.test(key) && key !== 'net0');
-    const configPayload = {
+
+    // Apply cloned-container settings after the full clone has completed. Keep
+    // the requests separate so Proxmox can report the exact rejected setting
+    // and so deleting inherited interfaces cannot invalidate the main update.
+    if (extraNetworks.length) {
+      const deleteNetworksResponse = await client.put(`/api2/json/nodes/${targetNode}/lxc/${options.vmid}/config`, {
+        delete: extraNetworks.join(',')
+      });
+      ensureSuccess(deleteNetworksResponse, 'Inherited LXC network interfaces could not be removed:');
+    }
+
+    const identityResponse = await client.put(`/api2/json/nodes/${targetNode}/lxc/${options.vmid}/config`, {
       hostname: options.hostname,
       cores: options.cores,
       memory: options.memoryMb,
       swap: 0,
-      password: options.password,
       tags: normalizeLxcTags(sourceConfig.tags, options.tags),
-      nameserver: dnsServers.join(' '),
-      net0: `name=eth0,bridge=${options.bridge},ip=${options.ip}/${options.ipPrefix},gw=${options.gateway},firewall=1`,
-      onboot: 0
+      onboot: 0,
+      console: 1,
+      tty: 2,
+      // Proxmox has no password field on the existing-LXC config endpoint.
+      // Shell mode is used only for the backend-only password initialization
+      // after startup and is changed back to tty before provisioning completes.
+      cmode: 'shell'
+    });
+    ensureSuccess(identityResponse, 'Cloned LXC identity and resource settings could not be applied:');
+
+    const networkPayload = {
+      net0: `name=eth0,bridge=${options.bridge},ip=${options.ip}/${options.ipPrefix},gw=${options.gateway},firewall=1`
     };
-    if (extraNetworks.length) configPayload.delete = extraNetworks.join(',');
-    const configResponse = await client.put(`/api2/json/nodes/${targetNode}/lxc/${options.vmid}/config`, configPayload);
-    ensureSuccess(configResponse, 'Cloned LXC settings could not be applied:');
+    if (dnsServers.length) networkPayload.nameserver = dnsServers.join(' ');
+    const networkResponse = await client.put(`/api2/json/nodes/${targetNode}/lxc/${options.vmid}/config`, networkPayload);
+    ensureSuccess(networkResponse, 'Cloned LXC network settings could not be applied:');
 
     if (typeof options.onProgress === 'function') await options.onProgress('filesystem');
     const rootfs = parseDiskDefinition('rootfs', clonedConfig.rootfs);
@@ -1331,6 +1462,19 @@ async function clonePreparedLxcTemplate(clusterUrl, apiToken, sourceNode, source
     const startResponse = await client.post(`/api2/json/nodes/${targetNode}/lxc/${options.vmid}/status/start`, {});
     ensureSuccess(startResponse, 'Cloned LXC could not be started after reconfiguration:');
     await waitForProxmoxTask(client, targetNode, startResponse.data?.data || '');
+
+    if (typeof options.onProgress === 'function') await options.onProgress('password');
+    await setClonedLxcRootPassword(client, clusterUrl, apiToken, targetNode, options.vmid, options.password);
+
+    // Never leave a self-service container in no-login shell console mode.
+    // tty gives the user the normal password-protected LXC console afterwards.
+    const consoleResponse = await client.put(`/api2/json/nodes/${targetNode}/lxc/${options.vmid}/config`, {
+      cmode: 'tty',
+      console: 1,
+      tty: 2
+    });
+    ensureSuccess(consoleResponse, 'The cloned LXC console mode could not be secured:');
+
     return {
       upid: startResponse.data?.data || cloneUpid,
       cloneUpid,

@@ -125,6 +125,7 @@ async function executeJob(jobId) {
   const caps = await getCapabilities(job.url, apiToken);
   if (!caps.canProvision || !caps.canManageFirewall || !caps.canVerifyFirewall) throw new Error('Required Proxmox permissions are missing');
   if (sourceType === 'lxc-template' && !caps.canClone) throw new Error('Prepared LXC templates require the Proxmox VM.Clone privilege');
+  if (sourceType === 'lxc-template' && !caps.canConsole) throw new Error('Prepared LXC templates require the Proxmox VM.Console privilege to initialize the new root password');
   const firewall = await getClusterFirewallStatus(job.url, apiToken);
   if (!firewall.enabled) throw new Error('Proxmox datacenter firewall is disabled');
 
@@ -174,10 +175,11 @@ async function executeJob(jobId) {
   const progressMap = {
     create: [42, 'Creating the LXC container from the CT archive…', 'LXC-Container wird aus dem CT-Archiv erstellt…', `template=${job.volid}`],
     clone: [42, 'Creating a full clone of the prepared LXC template…', 'Vorbereitetes LXC-Template wird als Full Clone erstellt…', `source=${job.template_source_node}/${job.template_source_vmid}`],
-    configure: [52, 'Applying hostname, password, CPU, RAM and network settings…', 'Hostname, Passwort, CPU, RAM und Netzwerk werden neu gesetzt…', `hostname=${job.hostname}`],
+    configure: [52, 'Applying hostname, CPU, RAM and network settings…', 'Hostname, CPU, RAM und Netzwerk werden neu gesetzt…', `hostname=${job.hostname}`],
     filesystem: [62, 'Applying the requested container disk size…', 'Gewünschte Container-Speichergröße wird gesetzt…', `storage=${selectedStorage} disk=${job.requested_disk_gb}G`],
     firewall: [72, 'Rebuilding firewall isolation…', 'Firewall-Isolation wird neu eingerichtet…', `blocked_destinations=${lateralDestinations.size}`],
-    start: [82, 'Starting the container…', 'Container wird gestartet…', `node=${node} vmid=${vmid}`]
+    start: [80, 'Starting the container…', 'Container wird gestartet…', `node=${node} vmid=${vmid}`],
+    password: [88, 'Setting the new root password inside the cloned container…', 'Neues Root-Passwort wird im geklonten Container gesetzt…', `node=${node} vmid=${vmid}`]
   };
   const provisionOptions = {
     vmid, node, hostname: job.hostname, storage: selectedStorage,
@@ -197,7 +199,7 @@ async function executeJob(jobId) {
   }
 
   const templateLabel = job.display_name || 'LXC';
-  await addEvent(jobId, 'verify', `Verifying ${templateLabel} container state…`, `${templateLabel}-Containerstatus wird geprüft…`, '', 'info', 88);
+  await addEvent(jobId, 'verify', `Verifying ${templateLabel} container state…`, `${templateLabel}-Containerstatus wird geprüft…`, '', 'info', 94);
   await run('INSERT INTO provisioned_machines (cluster_id, vmid, ip, hostname, source_template, user_id) VALUES (?, ?, ?, ?, ?, ?)', [job.cluster_id, vmid, ip, job.hostname, job.volid, job.user_id]);
   const resourceResult = await run(`INSERT INTO resources (name, container_id, cluster_id, user_id, web_url, public_url, admin_url, resource_type)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, [job.hostname, String(vmid), job.cluster_id, job.user_id, '', '', '', 'lxc']);

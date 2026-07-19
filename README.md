@@ -14,11 +14,12 @@ Current version: **v3.1.73**
 - Removed the editable template profile selector from the administrator template catalog.
 - Added one catalog for both normal Proxmox CT archives and prepared Proxmox LXC templates.
 - Prepared LXC templates are always provisioned as full clones with a new VMID and the next free IPv4 address from the configured portal pools.
-- Full clones receive a newly configured hostname, root password, CPU count, RAM allocation, disk size, bridge, IPv4 address, gateway and guest firewall policy before their first start.
+- Full clones receive a newly configured hostname, CPU count, RAM allocation, disk size, bridge, IPv4 address, gateway and guest firewall policy after the clone task finishes and before startup.
+- The root password is initialized after the first start through a temporary backend-only Proxmox shell session, then the container console is returned to password-protected `tty` mode.
 - Existing clone firewall rules and additional network interfaces are removed before the portal rebuilds its internet-only isolation rules.
 - Preserved the `client-lxc` tag and any template/admin tags on newly provisioned containers.
 - Imported prepared-template descriptions from Proxmox and displayed the saved template description in the user's German/English creation dialog.
-- Added the required `VM.Clone` capability check and automatic database migrations for the new template source metadata.
+- Added the required `VM.Clone` and `VM.Console` capability checks, detailed Proxmox validation errors and automatic database migrations for the new template source metadata.
 
 
 ## What's new in v3.1.72
@@ -316,7 +317,9 @@ The backend automatically allocates:
 
 The IP allocator checks the portal reservation table, static LXC network config and live LXC interface addresses from Proxmox, so containers created outside the portal are respected as well. A prepared template never reuses its source VMID or source IP.
 
-For a prepared LXC template, the backend creates a full clone on the template node and then overwrites the hostname, root password, CPU, RAM, target storage, disk size and network configuration. Additional inherited network interfaces and inherited guest-firewall rules are removed. The `client-lxc` tag is always present, while existing template tags and administrator-defined tags are retained.
+For a prepared LXC template, the backend first waits for the full-clone task to finish. It then overwrites the hostname, CPU, RAM, target storage, disk size and network configuration through separate Proxmox configuration requests. Additional inherited network interfaces and inherited guest-firewall rules are removed. The `client-lxc` tag is always present, while existing template tags and administrator-defined tags are retained.
+
+Proxmox accepts a root password while creating or restoring an LXC but not through the configuration update endpoint of an existing clone. The portal therefore starts the isolated clone in temporary `cmode=shell`, sets the requested root password inside the container through an authenticated backend-only Proxmox termproxy session, and immediately restores password-protected `tty` console mode. The clone is deleted if this initialization cannot be completed. No Proxmox-node SSH credential is required.
 
 Before the first start, the backend enables the Proxmox guest firewall and adds outbound drop rules for the container subnet, RFC1918 networks, CGNAT, IPv4 link-local ranges and all IPv6 traffic. DNS is limited to configured public IPv4 resolvers. The portal verifies that the Proxmox Datacenter firewall is enabled before presenting a cluster as available to users, rechecks it during creation and deletes a newly created or cloned LXC if the isolation rules cannot be installed. If automatic cleanup fails, the orphaned LXC remains stopped and the portal reports that it must be checked in Proxmox.
 
@@ -340,7 +343,7 @@ Recommended role for full portal functionality:
 
 - `VM.Audit`
 - `VM.PowerMgmt`
-- `VM.Console`
+- `VM.Console` (also required to initialize the root password inside a prepared full clone)
 - `VM.Allocate`
 - `VM.Clone` on prepared source templates
 - `VM.Config.CPU`, `VM.Config.Memory`, `VM.Config.Disk` and `VM.Config.Options` for cloned-container customization
@@ -491,7 +494,7 @@ The database migrates itself on startup. Keep the backend data volume before upd
 - Remove administrator template profile selection.
 - Discover both CT archives and prepared Proxmox LXC templates in the template catalog.
 - Always provision prepared templates as full clones with portal-pool VMIDs and IPv4 addresses.
-- Reapply hostname, root password, CPU, RAM, disk, network and firewall settings before first start.
+- Reapply hostname, CPU, RAM, disk, network and firewall settings after cloning, then initialize the new root password through a temporary backend-only Proxmox shell session.
 - Preserve `client-lxc`, template descriptions and German/English user guidance.
 
 ### v3.1.70 - 2026-07-19
