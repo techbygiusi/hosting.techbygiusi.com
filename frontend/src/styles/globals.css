@@ -6598,3 +6598,32 @@ body.theme-dark .settings-section-card {
     width: 100%;
   }
 }
+
+/* v3.1.70 - clean dark-mode resource sliders */
+body.theme-dark .modal-card input.resource-range,
+body.theme-dark .modal-card .slider-grid input[type="range"] {
+  min-height: 24px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+body.theme-dark .modal-card input.resource-range:hover,
+body.theme-dark .modal-card input.resource-range:focus,
+body.theme-dark .modal-card input.resource-range:focus-visible,
+body.theme-dark .modal-card .slider-grid input[type="range"]:hover,
+body.theme-dark .modal-card .slider-grid input[type="range"]:focus,
+body.theme-dark .modal-card .slider-grid input[type="range"]:focus-visible {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  outline: none;
+}
+
+body.theme-dark .resource-range::-webkit-slider-thumb,
+body.theme-dark .slider-grid input[type="range"]::-webkit-slider-thumb,
+body.theme-dark .resource-range::-moz-range-thumb,
+body.theme-dark .slider-grid input[type="range"]::-moz-range-thumb {
+  box-shadow: none;
+}

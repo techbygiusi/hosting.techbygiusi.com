@@ -1,42 +1,22 @@
 # Hosting Portal
 
-A lightweight self-hosted customer portal for Proxmox-based hosting. The portal gives administrators a clean web interface for users, groups, Proxmox clusters, services, credentials, SMTP settings and audit logs. Users can view their assigned services, open service details for power and delete actions when the token allows it, open a full-page desktop SSH console, read task logs, manage service credentials, publish their own services securely through Pangolin, and create/delete their own LXC containers through self-service.
+A lightweight self-hosted customer portal for Proxmox-based hosting. The portal gives administrators a clean web interface for users, groups, Proxmox clusters, services, credentials, SMTP settings and audit logs. Users can view their assigned services, open service details for power and delete actions when the token allows it, open a full-page desktop console, read task logs, manage service credentials, publish their own services securely through Pangolin, and create/delete their own LXC containers through self-service.
 
 The frontend is built with React and the backend with Express + SQLite. Proxmox API tokens and stored secrets are encrypted at rest.
 
 ## Version
 
-Current version: **v3.1.69**
+Current version: **v3.1.70**
 
-## What's new in v3.1.69
+## What's new in v3.1.70
 
-- Added a unique backend-only Ed25519 SSH key to every newly provisioned self-service LXC container through the native Proxmox SSH-public-key option.
-- Kept the temporary Proxmox console available only during provisioning, verified authenticated SSH access from the portal backend and disabled `console` and `tty` only after SSH was confirmed.
-- Restarted and rechecked the container after console hardening so inaccessible templates are rejected before a portal service is registered.
-- Removed containers automatically when their selected template does not provide a working SSH service or when SSH verification fails.
-- Stored the private SSH key encrypted in the backend database and used it for the unchanged browser-console workflow without exposing it in the user interface or credentials list.
-- Kept password-based SSH support for existing manually assigned services and older self-service containers.
-- Existing containers are not re-keyed automatically; an inaccessible container created before v3.1.69 must be repaired once through the Proxmox host or recreated.
-- Preserved the existing interface, automatic VMID and IPv4 allocation, `client-lxc` tag, firewall isolation and host-timezone inheritance.
-
-
-## What's new in v3.1.68
-
-- Added the Proxmox tag `client-lxc` automatically to every new user-created self-service LXC container.
-- Kept automatic VMID allocation, IPv4 allocation, firewall isolation, SSH-only console access, `console=0` and `tty=0` unchanged.
-- Removed the fixed `Europe/Berlin` container timezone and bound `/etc/localtime` from the hosting VM into both portal containers.
-- Made backend-generated date formatting use the inherited container system timezone instead of a fixed timezone.
-- Kept the portal interface unchanged.
-
-
-## What's new in v3.1.67
-
-- Routed every user browser-console session through the backend SSH relay instead of Proxmox termproxy or the shared LXC console device.
-- Kept the existing console pages and controls unchanged while selecting the LXC address from the self-service reservation or the Proxmox network configuration, and the QEMU address from the existing manual service-IP setting.
-- Reused stored service credentials entirely on the backend so SSH usernames and passwords are not returned to the browser.
-- Removed the runtime dependency on the Proxmox `VM.Console` privilege for user console sessions.
-- Disabled `/dev/console` and guest TTY devices (`console=0`, `tty=0`) for newly created self-service LXC containers before their first start.
-- Preserved automatic VMID allocation, automatic IPv4 allocation, firewall isolation and the current German/English interface without adding new visible controls or help text.
+- Rebased the release on v3.1.66 so user-created LXC consoles use the reliable Proxmox live-console path again; the SSH-only console and automatic `console=0` / `tty=0` hardening from later experimental builds are not included.
+- Added the existing Proxmox tag `client-lxc` to every newly created user self-service LXC container.
+- Removed the fixed `Europe/Berlin` container timezone and mounted `/etc/localtime` from the hosting VM into both portal containers.
+- Removed the unintended light input background and focus halo around resource sliders in dark mode without changing the light theme.
+- Kept RAM selectable in 256 MB increments while adding stronger snapping at every 1 GB boundary.
+- Kept disk capacity selectable in 2 GB increments while adding stronger snapping at every 8 GB boundary.
+- Removed the automatic VMID, IP and firewall explanation below the root-password field in both German and English.
 
 
 ## What's new in v3.1.66
@@ -283,7 +263,7 @@ Current version: **v3.1.69**
 - View assigned services with live status, CPU, RAM and disk information.
 - See the reachable container IP address in the detail view. Static LXC IPs are read from the Proxmox network config and loopback addresses are ignored.
 - Start, stop, reboot, shut down or delete services from the detail view when the Proxmox token permits it.
-- Open a viewport-fitted full-page SSH console in a separate browser tab on desktop. The backend connects directly to the guest IP with a stored service credential, while terminal scrollback, selection copy, right-click paste and Ctrl/Cmd+V keep the existing browser behavior.
+- Open a viewport-fitted full-page console in a separate browser tab on desktop when the Proxmox token permits it. Only terminal scrollback moves; selecting text copies automatically, while right-click or Ctrl/Cmd+V pastes into the session. LXC consoles can automatically sign in with an attached root credential without forwarding terminal status replies into the login field.
 - Read Proxmox tasks and logs for the current service lifecycle only. Reused VMIDs do not expose the previous machine history.
 - Manage service credentials. The exact root password used during self-service provisioning, including a configured cluster default, is saved automatically on the created service.
 - Publish, edit or remove directly assigned services through Pangolin. Every HTTP, TCP and UDP publication requires its own validated subdomain; the backend fixes the target to the service IP, validates the administrator-defined port policy and displays the generated public address on the service card.
@@ -302,7 +282,7 @@ The backend automatically allocates:
 
 The IP allocator checks the portal reservation table, static LXC network config and live LXC interface addresses from Proxmox, so containers created outside the portal are respected as well.
 
-Before the first start, the backend disables the Proxmox LXC console and guest TTY devices, enables the Proxmox guest firewall and adds outbound drop rules for the container subnet, RFC1918 networks, CGNAT, IPv4 link-local ranges and all IPv6 traffic. DNS is limited to configured public IPv4 resolvers. The portal verifies that the Proxmox Datacenter firewall is enabled before presenting a cluster as available to users, rechecks it during creation and deletes a newly created LXC if the isolation rules cannot be installed. If automatic cleanup fails, the orphaned LXC remains stopped and the portal reports that it must be checked in Proxmox.
+Before the first start, the backend enables the Proxmox guest firewall and adds outbound drop rules for the container subnet, RFC1918 networks, CGNAT, IPv4 link-local ranges and all IPv6 traffic. DNS is limited to configured public IPv4 resolvers. The portal verifies that the Proxmox Datacenter firewall is enabled before presenting a cluster as available to users, rechecks it during creation and deletes a newly created LXC if the isolation rules cannot be installed. If automatic cleanup fails, the orphaned LXC remains stopped and the portal reports that it must be checked in Proxmox.
 
 Admins configure per cluster:
 
@@ -324,12 +304,13 @@ Recommended role for full portal functionality:
 
 - `VM.Audit`
 - `VM.PowerMgmt`
+- `VM.Console`
 - `VM.Allocate`
 - `VM.Config.Network` on the Proxmox VM path used for self-service containers so the portal can create guest firewall rules
 - `Sys.Audit` on `/` so the portal can verify that the Datacenter firewall is enabled
 - `Datastore.AllocateSpace` on the storage used for LXC disks/templates
 
-The portal hides unavailable power or provisioning actions when the token does not provide the matching capability. User console sessions use guest SSH and do not require `VM.Console`. The Proxmox Datacenter firewall must remain enabled before and during self-service. The portal never disables or globally changes it; isolation is applied only to each newly created container.
+The portal hides unavailable actions when the token does not provide the matching capability. The Proxmox Datacenter firewall must remain enabled before and during self-service. The portal never disables or globally changes it; isolation is applied only to each newly created container.
 
 ## Pangolin Integration API setup
 
@@ -464,35 +445,16 @@ The database migrates itself on startup. Keep the backend data volume before upd
 
 ## Changelog
 
-### v3.1.69 - 2026-07-19
+### v3.1.70 - 2026-07-19
 
-**Commit:** `fix: verify SSH access before hardening client containers`
+**Commit:** `fix: restore Proxmox consoles and refine provisioning`
 
-- Inject a unique Ed25519 public key while creating each self-service LXC container.
-- Verify authenticated SSH access from the backend before disabling the Proxmox console and guest TTY devices.
-- Restart and verify SSH again after applying `console=0` and `tty=0`.
-- Persist the matching private key encrypted for backend-only console sessions.
-- Remove inaccessible containers instead of registering a service that the customer cannot open.
-- Leave existing containers unchanged and document that pre-v3.1.69 containers may need a one-time SSH repair or recreation.
-- Keep the portal interface and all existing allocation, tagging, isolation and timezone behavior unchanged.
-
-### v3.1.68 - 2026-07-19
-
-**Commit:** `feat: tag client containers and inherit host timezone`
-
-- Apply the existing `client-lxc` Proxmox tag to every newly created self-service LXC container.
-- Inherit the hosting VM timezone through `/etc/localtime` for the backend and frontend containers instead of forcing `Europe/Berlin`.
-- Format backend-generated dates in the inherited system timezone instead of a fixed timezone.
-
-### v3.1.67 - 2026-07-19
-
-**Commit:** `security: route user consoles through guest SSH`
-
-- Replace the Proxmox termproxy path with backend-only SSH sessions for assigned LXC containers and QEMU VMs.
-- Resolve LXC targets from the reserved or Proxmox-configured guest address while retaining the existing manual QEMU service-IP workflow.
-- Keep the current console interface unchanged and keep service credentials server-side.
-- Create new self-service LXC containers with `console=0` and `tty=0` before the first start.
-- Remove `VM.Console` from the documented portal token requirements.
+- Restore the v3.1.66 Proxmox live-console implementation and omit the later SSH-only console changes.
+- Apply the existing `client-lxc` tag to every newly created self-service LXC container.
+- Inherit the hosting VM timezone through read-only `/etc/localtime` mounts for backend and frontend.
+- Remove the dark-mode range-input halo while preserving the light-mode appearance.
+- Keep three intermediate RAM choices between full-gigabyte boundaries and three intermediate disk choices between 8 GB boundaries, with stronger snapping at the major allocations.
+- Remove the automatic-allocation and firewall explanation from the creation form in both languages.
 
 ### v3.1.66 - 2026-07-19
 

@@ -17,6 +17,19 @@ function rangeStyle(value, min, max) {
   return { '--range-progress': rangeProgress(value, min, max) };
 }
 
+function clampRangeValue(value, min, max) {
+  return Math.min(Math.max(Number(value), Number(min)), Number(max));
+}
+
+function snapWeightedRange(rawValue, { min, max, minorStep, majorStep }) {
+  const raw = clampRangeValue(rawValue, min, max);
+  const minor = clampRangeValue(Math.round(raw / minorStep) * minorStep, min, max);
+  const major = Math.round(raw / majorStep) * majorStep;
+  const majorIsAvailable = major >= min && major <= max;
+  const majorSnapRadius = minorStep * 0.8;
+  return majorIsAvailable && Math.abs(raw - major) <= majorSnapRadius ? major : minor;
+}
+
 /**
  * Template-only self-service LXC creation. Clusters, approved templates and
  * resource limits are loaded from /user/provisioning/options. VMID, IP and
@@ -40,6 +53,28 @@ export default function CreateMachineModal({ options, onClose, onCreated }) {
   const setField = (field, value) => {
     setForm(prev => ({ ...prev, [field]: value }));
     setError('');
+  };
+
+  const setSnappedField = (field, rawValue, config) => {
+    setField(field, snapWeightedRange(rawValue, config));
+  };
+
+  const handleRangeKeyDown = (event, field, currentValue, { min, max, minorStep, majorStep }) => {
+    const keySteps = {
+      ArrowLeft: -minorStep,
+      ArrowDown: -minorStep,
+      ArrowRight: minorStep,
+      ArrowUp: minorStep,
+      PageDown: -majorStep,
+      PageUp: majorStep
+    };
+    let nextValue;
+    if (event.key === 'Home') nextValue = min;
+    else if (event.key === 'End') nextValue = max;
+    else if (Object.prototype.hasOwnProperty.call(keySteps, event.key)) nextValue = Number(currentValue) + keySteps[event.key];
+    else return;
+    event.preventDefault();
+    setField(field, clampRangeValue(nextValue, min, max));
   };
 
   const handleClusterChange = (value) => {
@@ -157,11 +192,31 @@ export default function CreateMachineModal({ options, onClose, onCreated }) {
                     </label>
                     <label className="form-group">
                       <span>RAM · {form.memoryMb} MB</span>
-                      <input className="resource-range" type="range" min="256" max={cluster.maxMemoryMb} step="256" value={form.memoryMb} style={rangeStyle(form.memoryMb, 256, cluster.maxMemoryMb)} onChange={event => setField('memoryMb', Number(event.target.value))} />
+                      <input
+                        className="resource-range"
+                        type="range"
+                        min="256"
+                        max={cluster.maxMemoryMb}
+                        step="1"
+                        value={form.memoryMb}
+                        style={rangeStyle(form.memoryMb, 256, cluster.maxMemoryMb)}
+                        onChange={event => setSnappedField('memoryMb', event.target.value, { min: 256, max: cluster.maxMemoryMb, minorStep: 256, majorStep: 1024 })}
+                        onKeyDown={event => handleRangeKeyDown(event, 'memoryMb', form.memoryMb, { min: 256, max: cluster.maxMemoryMb, minorStep: 256, majorStep: 1024 })}
+                      />
                     </label>
                     <label className="form-group">
                       <span>Festplatte · {form.diskGb} GB</span>
-                      <input className="resource-range" type="range" min="4" max={Math.min(cluster.maxDiskGb || 64, 64)} value={Math.min(form.diskGb, Math.min(cluster.maxDiskGb || 64, 64))} style={rangeStyle(Math.min(form.diskGb, Math.min(cluster.maxDiskGb || 64, 64)), 4, Math.min(cluster.maxDiskGb || 64, 64))} onChange={event => setField('diskGb', Number(event.target.value))} />
+                      <input
+                        className="resource-range"
+                        type="range"
+                        min="4"
+                        max={Math.min(cluster.maxDiskGb || 64, 64)}
+                        step="1"
+                        value={Math.min(form.diskGb, Math.min(cluster.maxDiskGb || 64, 64))}
+                        style={rangeStyle(Math.min(form.diskGb, Math.min(cluster.maxDiskGb || 64, 64)), 4, Math.min(cluster.maxDiskGb || 64, 64))}
+                        onChange={event => setSnappedField('diskGb', event.target.value, { min: 4, max: Math.min(cluster.maxDiskGb || 64, 64), minorStep: 2, majorStep: 8 })}
+                        onKeyDown={event => handleRangeKeyDown(event, 'diskGb', form.diskGb, { min: 4, max: Math.min(cluster.maxDiskGb || 64, 64), minorStep: 2, majorStep: 8 })}
+                      />
                     </label>
                   </div>
 
@@ -169,7 +224,6 @@ export default function CreateMachineModal({ options, onClose, onCreated }) {
                     <span>Root-Passwort</span>
                     <input type="password" value={form.rootPassword} onChange={event => setField('rootPassword', event.target.value)} placeholder={cluster.hasDefaultPassword ? 'Leer lassen für Cluster-Standard' : 'Mindestens 8 Zeichen'} autoComplete="new-password" />
                   </label>
-                  <p className="hint-text">VMID und IP-Adresse werden automatisch vergeben. Die Proxmox-Datacenter-Firewall bleibt aktiv; der Container erhält vor dem ersten Start eigene Regeln, die Zugriffe auf Hosts, andere Gäste sowie private und lokale Netze sperren.</p>
                 </>
               )}
             </div>

@@ -2,10 +2,6 @@ import { useEffect } from 'react';
 import { readStoredLanguage } from './components/LanguageSwitch';
 
 export const DE_EN_PHRASES = {
-  "Hinterlege vor dem Öffnen der Konsole im Tab Zugangsdaten einen SSH-Zugang mit Benutzername und Passwort.": "Add SSH credentials with a username and password in the Credentials tab before opening the IP console",
-  "Für diese VM ist keine SSH-Ziel-IP hinterlegt.": "No SSH target IP is configured for this VM",
-  "Diese Ressource unterstützt keinen SSH-Konsolenzugriff.": "This resource does not support SSH console access",
-  "Für diesen Container konnte keine SSH-Ziel-IP erkannt werden.": "No SSH target IP could be detected for this container",
   "SMTP-Einstellungen": "SMTP settings",
   "Konfiguriere den Mailversand für Tests, Benachrichtigungen und Passwort-Zurücksetzungen.": "Configure email delivery for tests, notifications and password resets.",
   "Prüfe Administrator, Proxmox und SMTP direkt in den Einstellungen.": "Check the administrator, Proxmox and SMTP directly in Settings.",
@@ -23,7 +19,6 @@ export const DE_EN_PHRASES = {
   "Der Status der Proxmox-Datacenter-Firewall konnte nicht geprüft werden.": "The Proxmox datacenter firewall status could not be verified.",
   "Die Proxmox-Datacenter-Firewall ist deaktiviert. Sie muss für den Self-Service aktiviert bleiben; das Portal schaltet sie nicht ab.": "The Proxmox datacenter firewall is disabled. It must remain enabled for self-service; the portal does not turn it off.",
   "Für diesen Cluster wurden keine verwendbaren CT-Templates gefunden.": "No usable CT templates were found for this cluster.",
-  "VMID und IP-Adresse werden automatisch vergeben. Die Proxmox-Datacenter-Firewall bleibt aktiv; der Container erhält vor dem ersten Start eigene Regeln, die Zugriffe auf Hosts, andere Gäste sowie private und lokale Netze sperren.": "VMID and IP address are assigned automatically. The Proxmox datacenter firewall remains enabled; before its first start, the container receives its own rules blocking access to hosts, other guests, and private or local networks.",
   "Wird abgesichert...": "Applying isolation...",
   "wird gerade erstellt, abgesichert und gestartet.": "is being created, isolated and started.",
   "Netzwerk": "Network",

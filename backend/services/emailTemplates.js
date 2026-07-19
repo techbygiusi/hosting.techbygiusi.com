@@ -24,13 +24,10 @@ function escapeHtml(value) {
 function formatDateTime(value, language = 'en') {
   const lang = normalizeLanguage(language);
   try {
-    const options = {
+    const formatted = new Date(value).toLocaleString(lang === 'de' ? 'de-DE' : 'en-GB', {
       weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric',
-      hour: '2-digit', minute: '2-digit'
-    };
-    const configuredTimeZone = String(process.env.TZ || '').trim();
-    if (configuredTimeZone) options.timeZone = configuredTimeZone;
-    const formatted = new Date(value).toLocaleString(lang === 'de' ? 'de-DE' : 'en-GB', options);
+      hour: '2-digit', minute: '2-digit', timeZone: process.env.TZ || 'Europe/Berlin'
+    });
     return lang === 'de' ? `${formatted} Uhr` : formatted;
   } catch (_) {
     return String(value);
