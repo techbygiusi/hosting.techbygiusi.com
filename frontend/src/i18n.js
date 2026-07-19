@@ -266,7 +266,6 @@ export const DE_EN_PHRASES = {
   "E-Mail-Adresse und Name sind erforderlich.": "Email address and name are required.",
   "Name, URL und API-Token sind erforderlich.": "Name, URL and API token are required.",
   "Self-Service für diesen Cluster aktivieren": "Enable self-service for this cluster",
-  "Templates, IP-Bereich und Limits können auch bei deaktiviertem Self-Service vorbereitet und gespeichert werden. Die Proxmox-Datacenter-Firewall muss für die Erstellung aktiv bleiben und wird vom Portal weder deaktiviert noch global verändert; jeder neue Container erhält eigene Isolationsregeln.": "Templates, the IP range and limits can be prepared and saved while self-service is disabled. The Proxmox datacenter firewall must remain enabled for provisioning and is never disabled or changed globally by the portal; every new container receives its own isolation rules.",
   "Konfiguration gespeichert. Self-Service bleibt deaktiviert:": "Configuration saved. Self-service remains disabled:",
   "Test-E-Mail konnte nicht versendet werden.": "Test email could not be sent.",
   "Zugangsdaten konnten nicht geladen werden.": "Credentials could not be loaded.",

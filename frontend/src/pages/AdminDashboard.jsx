@@ -1983,7 +1983,6 @@ function ProvisioningSettings({ clusters, onSaved, onError, onSuccess }) {
               <span className="toggle-track"><span className="toggle-thumb"></span></span>
             </span>
           </label>
-          <small className="hint-text">Templates, IP-Bereich und Limits können auch bei deaktiviertem Self-Service vorbereitet und gespeichert werden. Die Proxmox-Datacenter-Firewall muss für die Erstellung aktiv bleiben und wird vom Portal weder deaktiviert noch global verändert; jeder neue Container erhält eigene Isolationsregeln.</small>
 
           <>
               <div className="form-row-2">
