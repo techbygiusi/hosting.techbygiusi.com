@@ -62,7 +62,14 @@ async function getJob(jobId, userId = null) {
 }
 
 async function listJobsForUser(userId, limit = 20) {
-  const rows = await all(`SELECT id FROM provisioning_jobs WHERE user_id = ? ORDER BY id DESC LIMIT ?`, [userId, limit]);
+  const rows = await all(`
+    SELECT id
+    FROM provisioning_jobs
+    WHERE user_id = ?
+      AND (status != 'success' OR progress < 100 OR finished_at IS NULL OR finished_at > datetime('now', '-30 seconds'))
+    ORDER BY id DESC
+    LIMIT ?
+  `, [userId, limit]);
   return Promise.all(rows.map(row => getJob(row.id, userId)));
 }
 

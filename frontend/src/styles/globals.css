@@ -6644,7 +6644,6 @@ body.theme-dark .slider-grid input[type="range"]::-moz-range-thumb {
 .template-profile-card { padding: 20px; border: 1px solid var(--color-border); border-radius: var(--radius-lg); background: var(--color-bg-alt); }
 .template-profile-card.template-missing { opacity: .72; }
 .template-profile-head { align-items: flex-start; margin-bottom: 16px; }
-.compact-toggle { min-width: 230px; }
 .provisioning-live-view { display: grid; gap: 18px; }
 .provisioning-progress { height: 10px; }
 .provisioning-summary-chips { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -6664,12 +6663,55 @@ body.theme-dark .resource-range:focus,
 body.theme-dark .resource-range:focus-visible { outline: none !important; box-shadow: none !important; }
 @media (max-width: 760px) {
   .template-profile-head, .provisioning-job-card { align-items: stretch; flex-direction: column; }
-  .compact-toggle, .provisioning-job-progress { min-width: 0; width: 100%; }
+  .provisioning-job-progress { min-width: 0; width: 100%; }
 }
 
 .provisioning-job-button { width: 100%; text-align: left; color: var(--color-text); cursor: pointer; }
 .provisioning-job-button:hover { border-color: var(--color-primary); }
 
-.template-job-admin-list { margin-top: 28px; display: grid; gap: 14px; }
-.provisioning-job-admin-card { display: grid; gap: 8px; }
-.admin-provisioning-log { max-height: 220px; overflow: auto; }
+
+/* v3.1.72 compact template controls and user template descriptions */
+.template-self-service-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+}
+.template-self-service-toggle.is-disabled {
+  opacity: .6;
+  pointer-events: none;
+}
+.template-self-service-toggle > span:first-child {
+  max-width: 180px;
+  line-height: 1.3;
+}
+.template-save-actions {
+  margin-top: 18px;
+  padding-top: 2px;
+}
+.template-selection-description {
+  margin-top: -4px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-alt);
+  color: var(--color-text-light);
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+@media (max-width: 760px) {
+  .template-self-service-toggle {
+    width: 100%;
+    justify-content: space-between;
+  }
+  .template-self-service-toggle > span:first-child { max-width: none; }
+}

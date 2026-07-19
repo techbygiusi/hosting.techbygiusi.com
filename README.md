@@ -6,19 +6,38 @@ The frontend is built with React and the backend with Express + SQLite. Proxmox 
 
 ## Version
 
-Current version: **v3.1.71**
+Current version: **v3.1.72**
+
+## What's new in v3.1.72
+
+- Removed provisioning-job logs from the administrator template catalog so that area only manages cluster templates.
+- Replaced the oversized self-service checkbox with the portal's compact toggle control.
+- Improved spacing between template fields and each template's save action.
+- Displayed an administrator-provided template description below the user's selected template in the container creation dialog.
+- Kept running and failed provisioning jobs visible to users, while successful 100% jobs now disappear from the Dashboard automatically 30 seconds after completion.
+- Kept completed job details available while the provisioning modal is still open.
+- Preserved German and English labels and the v3.1.70 Proxmox live-console workflow.
+
 
 ## What's new in v3.1.71
 
-- Added a new cluster-specific **Templates** administration menu.
-- Proxmox LXC template files can be assigned a user-facing name, operating system, version, profile type, description, optional tags and self-service availability.
-- New template files are not exposed automatically; missing files remain visible to administrators but disappear from user selection.
-- Users retain the existing CPU, RAM, disk and root-password controls for every enabled template.
-- Added persistent background provisioning jobs with localized progress phases and sanitized user logs.
-- Users can close the creation dialog and reopen the current or completed job from the Dashboard.
-- Administrators can review recent provisioning jobs and technical details from the Templates menu.
-- Docker profiles use `nesting=1,keyctl=1`; other profiles keep the existing `nesting=1` setting.
-- Preserved the v3.1.70 Proxmox live console, `client-lxc` tag, host-timezone inheritance and resource-slider behavior.
+- Added an administrator-managed template catalog for every Proxmox cluster.
+- Added display names, operating-system metadata, profile types, descriptions, additional tags and self-service approval per template.
+- Added persistent background provisioning jobs with live, user-safe progress events.
+- Kept CPU, RAM, disk and root-password selection available for every approved template.
+- Added automatic Docker LXC features for Docker profiles while retaining the standard LXC workflow for base and Nginx profiles.
+- Kept the existing automatic VMID/IP assignment, firewall isolation, `client-lxc` tag and Proxmox live console.
+
+
+## What's new in v3.1.70
+
+- Rebased the release on v3.1.66 so user-created LXC consoles use the reliable Proxmox live-console path again; the SSH-only console and automatic `console=0` / `tty=0` hardening from later experimental builds are not included.
+- Added the existing Proxmox tag `client-lxc` to every newly created user self-service LXC container.
+- Removed the fixed `Europe/Berlin` container timezone and mounted `/etc/localtime` from the hosting VM into both portal containers.
+- Removed the unintended light input background and focus halo around resource sliders in dark mode without changing the light theme.
+- Kept RAM selectable in 256 MB increments while adding stronger snapping at every 1 GB boundary.
+- Kept disk capacity selectable in 2 GB increments while adding stronger snapping at every 8 GB boundary.
+- Removed the automatic VMID, IP and firewall explanation below the root-password field in both German and English.
 
 
 ## What's new in v3.1.66
@@ -433,17 +452,6 @@ The included `frontend/nginx.conf` already contains the required upgrade headers
 
 The portal firewall rules provide a host-side safety layer that a compromised container cannot change. For the strongest traditional network boundary, place the self-service IP pool on a dedicated VLAN/bridge and enforce an upstream firewall policy from that VLAN to **WAN only**. Block access to management, server, client, storage, VPN and other internal VLANs at the router/firewall as well. This protects the environment even if the Proxmox guest firewall is accidentally changed later.
 
-
-## Template catalog and provisioning jobs
-
-Administrators manage self-service LXC templates from the cluster-specific **Templates** menu. The portal discovers the templates available on the configured Proxmox template storage, suggests an operating system and profile, and lets the administrator define a user-facing name, description, profile type, optional tags and whether the template is available for self-service.
-
-Docker and Nginx profiles describe prebuilt Proxmox LXC templates. The selected source template must already contain the advertised software; the portal does not run arbitrary administrator shell scripts inside customer containers. Docker profiles automatically request the Proxmox LXC features `nesting=1,keyctl=1`; other profiles retain the normal `nesting=1` behavior.
-
-Template mappings are stored per Proxmox cluster and exact volume ID. New Proxmox files are not exposed automatically. Missing files stay visible to administrators but are removed from user selection until they return.
-
-Users keep full control of the allowed CPU, memory, disk and root-password values for every template. Provisioning runs as a persistent backend job. The creation dialog and Dashboard show the current phase and a sanitized live log without exposing API tokens, passwords or internal commands. Closing the browser does not cancel the job.
-
 ## Update notes
 
 For normal updates:
@@ -457,17 +465,6 @@ docker image prune -f
 The database migrates itself on startup. Keep the backend data volume before updating.
 
 ## Changelog
-
-### v3.1.71 - 2026-07-19
-
-**Commit:** `feat: add cluster template profiles and provisioning logs`
-
-- Add a dedicated Templates menu with per-cluster Proxmox template mappings.
-- Keep CPU, RAM, disk and root-password selection available for every self-service template.
-- Add persistent provisioning jobs, localized progress steps and user-safe live logs.
-- Let users reopen provisioning progress from the Dashboard after closing the creation dialog.
-- Add administrator job visibility with technical diagnostics.
-- Apply profile-specific Proxmox settings while preserving the `client-lxc` tag and live console.
 
 ### v3.1.70 - 2026-07-19
 

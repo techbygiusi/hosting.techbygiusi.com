@@ -15,6 +15,20 @@ const USER_LANGUAGE_OPTIONS = [
   { code: 'de', label: 'Deutsch' }
 ];
 
+const PROVISIONING_SUCCESS_VISIBILITY_MS = 30 * 1000;
+
+function parseServerTimestamp(value) {
+  if (!value) return null;
+  const parsed = Date.parse(`${String(value).replace(' ', 'T')}Z`);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function isProvisioningJobVisible(job, now = Date.now()) {
+  if (job.status !== 'success' || Number(job.progress) < 100) return true;
+  const finishedAt = parseServerTimestamp(job.finishedAt);
+  return finishedAt === null || now - finishedAt < PROVISIONING_SUCCESS_VISIBILITY_MS;
+}
+
 const USER_TRANSLATIONS = {
   en: {
     userConsole: 'User Portal',
@@ -263,6 +277,28 @@ export default function UserDashboard() {
     }, 2000);
     return () => clearInterval(timer);
   }, [provisioningJobs, fetchProvisioningJobs, fetchResources]);
+
+
+  useEffect(() => {
+    const now = Date.now();
+    const expired = provisioningJobs.some(job => !isProvisioningJobVisible(job, now));
+    if (expired) {
+      setProvisioningJobs(current => current.filter(job => isProvisioningJobVisible(job)));
+      return undefined;
+    }
+    const remaining = provisioningJobs
+      .filter(job => job.status === 'success' && Number(job.progress) >= 100)
+      .map(job => {
+        const finishedAt = parseServerTimestamp(job.finishedAt);
+        return finishedAt === null ? null : Math.max((finishedAt + PROVISIONING_SUCCESS_VISIBILITY_MS) - now, 0);
+      })
+      .filter(value => value !== null);
+    if (!remaining.length) return undefined;
+    const timer = setTimeout(() => {
+      setProvisioningJobs(current => current.filter(job => isProvisioningJobVisible(job)));
+    }, Math.min(...remaining) + 50);
+    return () => clearTimeout(timer);
+  }, [provisioningJobs]);
 
   const detailResource = resources.find(item => item.id === detailId) || null;
   const labels = USER_TRANSLATIONS[language] || USER_TRANSLATIONS.en;
