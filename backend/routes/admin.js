@@ -22,6 +22,7 @@ const {
   discoverPangolin,
   deletePublication
 } = require('../services/pangolinService');
+const { syncClusterTemplates, ensureClusterTemplates, listClusterTemplates } = require('../services/templateService');
 
 router.use(adminMiddleware);
 
@@ -1783,6 +1784,56 @@ router.post('/settings/send-test-mail', async (req, res, next) => {
   } catch (err) {
     next(err);
   }
+});
+
+
+/* --------------------------------------------------------- TEMPLATES ---- */
+router.get('/templates', async (req, res, next) => {
+  try {
+    const clusterId = Number(req.query.clusterId);
+    if (!clusterId) throw new AppError('Cluster is required', HTTP_STATUS.BAD_REQUEST);
+    const cluster = await get('SELECT id FROM proxmox_clusters WHERE id = ?', [clusterId]);
+    if (!cluster) throw new AppError('Cluster not found', HTTP_STATUS.NOT_FOUND);
+    const templates = await ensureClusterTemplates(clusterId);
+    res.json({ templates });
+  } catch (err) { next(err); }
+});
+
+router.post('/templates/sync', async (req, res, next) => {
+  try {
+    const clusterId = Number(req.body.clusterId);
+    if (!clusterId) throw new AppError('Cluster is required', HTTP_STATUS.BAD_REQUEST);
+    const templates = await syncClusterTemplates(clusterId);
+    await logAudit(req, 'template.sync', `cluster:${clusterId}`, `${templates.length} templates`);
+    res.json({ templates });
+  } catch (err) { next(err); }
+});
+
+router.put('/templates/:id', async (req, res, next) => {
+  try {
+    const current = await get('SELECT * FROM template_profiles WHERE id = ?', [req.params.id]);
+    if (!current) throw new AppError('Template not found', HTTP_STATUS.NOT_FOUND);
+    const displayName = String(req.body.displayName || '').trim();
+    const profileType = ['base', 'docker', 'nginx', 'custom'].includes(req.body.profileType) ? req.body.profileType : 'base';
+    if (!displayName) throw new AppError('Display name is required', HTTP_STATUS.BAD_REQUEST);
+    await run(`UPDATE template_profiles SET display_name = ?, os_family = ?, os_version = ?, profile_type = ?, description = ?, tags = ?, enabled = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`, [
+      displayName, String(req.body.osFamily || '').trim(), String(req.body.osVersion || '').trim(), profileType,
+      String(req.body.description || '').trim(), String(req.body.tags || '').trim(), req.body.enabled ? 1 : 0, req.params.id
+    ]);
+    const updated = await get(`SELECT id, cluster_id AS clusterId, volid, storage, display_name AS displayName, os_family AS osFamily, os_version AS osVersion, profile_type AS profileType, description, tags, enabled, present FROM template_profiles WHERE id = ?`, [req.params.id]);
+    await logAudit(req, 'template.update', `template:${req.params.id}`, displayName);
+    res.json({ template: updated });
+  } catch (err) { next(err); }
+});
+
+router.get('/provisioning-jobs', async (req, res, next) => {
+  try {
+    const rows = await all(`SELECT j.id, j.status, j.phase, j.progress, j.hostname, j.vmid, j.ip, j.node, j.error_message AS error, j.created_at AS createdAt, j.finished_at AS finishedAt, u.name AS userName, u.email AS userEmail, c.name AS clusterName, tp.display_name AS templateName FROM provisioning_jobs j JOIN users u ON u.id = j.user_id JOIN proxmox_clusters c ON c.id = j.cluster_id LEFT JOIN template_profiles tp ON tp.id = j.template_profile_id ORDER BY j.id DESC LIMIT 100`);
+    for (const job of rows) {
+      job.events = await all(`SELECT id, level, phase, message_en AS messageEn, message_de AS messageDe, technical_message AS technicalMessage, created_at AS createdAt FROM provisioning_job_events WHERE job_id = ? ORDER BY id ASC`, [job.id]);
+    }
+    res.json({ jobs: rows });
+  } catch (err) { next(err); }
 });
 
 module.exports = router;

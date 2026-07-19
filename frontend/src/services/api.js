@@ -312,6 +312,10 @@ export const adminApi = {
   getClusterIsos: (clusterId, storage) => apiClient.get(`/admin/clusters/${clusterId}/isos${storage ? `?storage=${encodeURIComponent(storage)}` : ''}`),
   getClusterStorages: (clusterId, content) => apiClient.get(`/admin/clusters/${clusterId}/storages${content ? `?content=${encodeURIComponent(content)}` : ''}`),
   getClusterProvisioning: (clusterId) => apiClient.get(`/admin/clusters/${clusterId}/provisioning`),
+  getTemplates: (clusterId) => apiClient.get(`/admin/templates?clusterId=${encodeURIComponent(clusterId)}`),
+  syncTemplates: (clusterId) => apiClient.post('/admin/templates/sync', { clusterId }),
+  updateTemplate: (templateId, data) => apiClient.put(`/admin/templates/${templateId}`, data),
+  getProvisioningJobs: () => apiClient.get('/admin/provisioning-jobs'),
   updateClusterProvisioning: (clusterId, data) => apiClient.put(`/admin/clusters/${clusterId}/provisioning`, data),
   getAudit: ({ page = 1, search = '' } = {}) => apiClient.get(`/admin/audit?page=${page}&limit=50${search ? `&search=${encodeURIComponent(search)}` : ''}`),
   // Admin credential vault
@@ -370,6 +374,8 @@ export const userApi = {
   deleteCredential: (resourceId, credId) => apiClient.delete(`/user/resources/${resourceId}/credentials/${credId}`),
   getProvisioningOptions: () => apiClient.get('/user/provisioning/options'),
   createMachine: (data) => apiClient.post('/user/provisioning/create', data),
+  getProvisioningJobs: (limit = 20) => apiClient.get(`/user/provisioning/jobs?limit=${limit}`),
+  getProvisioningJob: (jobId) => apiClient.get(`/user/provisioning/jobs/${jobId}`),
   deleteMachine: (resourceId) => apiClient.delete(`/user/resources/${resourceId}`),
   // v3.0: notification preferences
   getNotificationPreferences: () => apiClient.get('/user/notifications'),

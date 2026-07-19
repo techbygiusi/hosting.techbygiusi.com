@@ -37,6 +37,8 @@ const {
   updatePublication,
   deletePublication
 } = require('../services/pangolinService');
+const { ensureClusterTemplates, syncClusterTemplates } = require('../services/templateService');
+const { createJob, getJob: getProvisioningJob, listJobsForUser } = require('../services/provisioningJobService');
 
 /* ------------------------------------------------------------ ACCESS ---- */
 /**
@@ -1393,236 +1395,69 @@ router.delete('/resources/:id/credentials/:credId', async (req, res, next) => {
  */
 router.get('/provisioning/options', async (req, res, next) => {
   try {
-    const clusters = await all(
-      "SELECT * FROM proxmox_clusters WHERE allow_provisioning = 1 AND vmid_min IS NOT NULL AND vmid_max IS NOT NULL"
-    );
-
+    const clusters = await all("SELECT * FROM proxmox_clusters WHERE allow_provisioning = 1 AND vmid_min IS NOT NULL AND vmid_max IS NOT NULL");
     const options = [];
     for (const cluster of clusters) {
       const apiToken = decrypt(cluster.api_token);
       const caps = await getClusterCapabilities(cluster.id, cluster.url, apiToken);
       if (!caps.canProvision || !caps.canManageFirewall || !caps.canVerifyFirewall) continue;
-
-      const allowTypes = 'ct';
-      let templates = [];
       let firewallEnabled = false;
       let unavailableReason = '';
-
-      try {
-        const firewallStatus = await getClusterFirewallStatus(cluster.url, apiToken);
-        firewallEnabled = !!firewallStatus.enabled;
-        if (!firewallEnabled) unavailableReason = 'Proxmox datacenter firewall is disabled';
-      } catch (_) {
-        unavailableReason = 'Proxmox datacenter firewall status could not be verified';
-      }
-
-      const parseList = (json) => { try { const p = JSON.parse(json || '[]'); return Array.isArray(p) ? p : []; } catch (_) { return []; } };
-      const allowedTemplates = parseList(cluster.allowed_templates);
-
-      try {
-        const nodes = await getOnlineNodes(cluster.url, apiToken);
-        if (nodes.length > 0) {
-          const node = nodes[0].node;
-          templates = await getNodeTemplates(cluster.url, apiToken, node, cluster.template_storage || 'local');
-          // Self-service only exposes templates explicitly approved by the admin.
-          templates = templates.filter(t => allowedTemplates.includes(t.volid));
-        }
-      } catch (_) { /* templates are optional while the cluster is unavailable */ }
-
-      if (!unavailableReason && templates.length === 0) {
-        unavailableReason = 'No approved container template is currently available';
-      }
-
+      try { firewallEnabled = !!(await getClusterFirewallStatus(cluster.url, apiToken)).enabled; if (!firewallEnabled) unavailableReason = 'Proxmox datacenter firewall is disabled'; }
+      catch (_) { unavailableReason = 'Proxmox datacenter firewall status could not be verified'; }
+      let profiles;
+      try { profiles = await syncClusterTemplates(cluster.id); }
+      catch (_) { profiles = await ensureClusterTemplates(cluster.id); }
+      const templates = profiles.filter(item => Number(item.enabled) === 1 && Number(item.present) === 1).map(item => ({
+        id: item.id, volid: item.volid, name: item.displayName, displayName: item.displayName,
+        osFamily: item.osFamily, osVersion: item.osVersion, profileType: item.profileType,
+        description: item.description || ''
+      }));
+      if (!unavailableReason && templates.length === 0) unavailableReason = 'No approved container template is currently available';
       options.push({
-        clusterId: cluster.id,
-        clusterName: cluster.name,
-        allowTypes,
-        available: firewallEnabled && templates.length > 0,
-        unavailableReason,
+        clusterId: cluster.id, clusterName: cluster.name, allowTypes: 'ct',
+        available: firewallEnabled && templates.length > 0, unavailableReason,
         hasDefaultPassword: !!cluster.default_password_encrypted,
-        maxCores: cluster.max_cores || 2,
-        maxMemoryMb: cluster.max_memory_mb || 2048,
-        maxDiskGb: Math.min(cluster.max_disk_gb || 20, 64),
-        templates
+        maxCores: cluster.max_cores || 2, maxMemoryMb: cluster.max_memory_mb || 2048,
+        maxDiskGb: Math.min(cluster.max_disk_gb || 20, 64), templates
       });
     }
-
     res.json({ clusters: options });
-  } catch (err) {
-    next(err);
-  }
+  } catch (err) { next(err); }
 });
 
+router.get('/provisioning/jobs', async (req, res, next) => {
+  try { res.json({ jobs: await listJobsForUser(req.user.id, Math.min(Number(req.query.limit) || 20, 50)) }); }
+  catch (err) { next(err); }
+});
 
+router.get('/provisioning/jobs/:id', async (req, res, next) => {
+  try {
+    const job = await getProvisioningJob(req.params.id, req.user.id);
+    if (!job) throw new AppError('Provisioning job not found', HTTP_STATUS.NOT_FOUND);
+    res.json({ job });
+  } catch (err) { next(err); }
+});
 
 router.post('/provisioning/create', async (req, res, next) => {
   try {
-    const { clusterId, type, hostname, template, cores, memoryMb, diskGb, rootPassword } = req.body;
-    if (type && type !== 'ct') {
-      throw new AppError('VMs are not allowed on this cluster', HTTP_STATUS.FORBIDDEN);
-    }
-    if (req.body.communityScript) {
-      throw new AppError('Community scripts are not available', HTTP_STATUS.BAD_REQUEST);
-    }
-    const kind = 'ct';
-
-    const cluster = await get(
-      'SELECT * FROM proxmox_clusters WHERE id = ? AND allow_provisioning = 1',
-      [clusterId]
-    );
+    const { clusterId, templateProfileId, hostname, cores, memoryMb, diskGb, rootPassword } = req.body;
+    const cluster = await get('SELECT * FROM proxmox_clusters WHERE id = ? AND allow_provisioning = 1', [clusterId]);
     if (!cluster) throw new AppError('Cluster not found', HTTP_STATUS.NOT_FOUND);
-    if (!cluster.vmid_min || !cluster.vmid_max || !cluster.ip_start || !cluster.ip_end || !cluster.gateway) {
-      throw new AppError('Provisioning is not fully configured for this cluster', HTTP_STATUS.BAD_REQUEST);
-    }
-
     const cleanHostname = String(hostname || '').trim().toLowerCase();
-    if (!/^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/.test(cleanHostname)) {
-      throw new AppError('Hostname is invalid', HTTP_STATUS.BAD_REQUEST);
-    }
-
-    if (!template || !String(template).includes('vztmpl')) {
-      throw new AppError('Template is invalid', HTTP_STATUS.BAD_REQUEST);
-    }
-
+    if (!/^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/.test(cleanHostname)) throw new AppError('Hostname is invalid', HTTP_STATUS.BAD_REQUEST);
+    const profile = await get('SELECT * FROM template_profiles WHERE id = ? AND cluster_id = ? AND enabled = 1 AND present = 1', [templateProfileId, cluster.id]);
+    if (!profile) throw new AppError('Template is not allowed', HTTP_STATUS.BAD_REQUEST);
     let password = rootPassword;
-    if (!password && cluster.default_password_encrypted) {
-      password = decrypt(cluster.default_password_encrypted);
-    }
-    if (!password || String(password).length < 8) {
-      throw new AppError('Root password must be at least 8 characters', HTTP_STATUS.BAD_REQUEST);
-    }
-
+    if (!password && cluster.default_password_encrypted) password = decrypt(cluster.default_password_encrypted);
+    if (!password || String(password).length < 8) throw new AppError('Root password must be at least 8 characters', HTTP_STATUS.BAD_REQUEST);
     const safeCores = Math.min(Math.max(parseInt(cores, 10) || 1, 1), cluster.max_cores || 2);
     const safeMemory = Math.min(Math.max(parseInt(memoryMb, 10) || 512, 256), cluster.max_memory_mb || 2048);
     const safeDisk = Math.min(Math.max(parseInt(diskGb, 10) || 8, 4), Math.min(cluster.max_disk_gb || 20, 64));
-
-    const apiToken = decrypt(cluster.api_token);
-    const caps = await getClusterCapabilities(cluster.id, cluster.url, apiToken);
-    if (!caps.canProvision) {
-      throw new AppError('Provisioning is not permitted for this cluster token', HTTP_STATUS.FORBIDDEN);
-    }
-    if (!caps.canManageFirewall) {
-      throw new AppError('Provisioning firewall permission is missing', HTTP_STATUS.FORBIDDEN);
-    }
-    if (!caps.canVerifyFirewall) {
-      throw new AppError('Provisioning firewall audit permission is missing', HTTP_STATUS.FORBIDDEN);
-    }
-
-    const allowedTemplates = (() => {
-      try {
-        const parsed = JSON.parse(cluster.allowed_templates || '[]');
-        return Array.isArray(parsed) ? parsed : [];
-      } catch (_) {
-        return [];
-      }
-    })();
-    if (!allowedTemplates.includes(template)) {
-      throw new AppError('Template is not allowed', HTTP_STATUS.BAD_REQUEST);
-    }
-
-    // Allocate VMID within the admin range and a free IP within the pool
-    const reserved = await all('SELECT vmid FROM provisioned_machines WHERE cluster_id = ?', [cluster.id]);
-    const vmid = await getNextVmidInRange(cluster.url, apiToken, cluster.vmid_min, cluster.vmid_max, reserved.map(row => row.vmid));
-
-    const usedIps = new Set(
-      (await all('SELECT ip FROM provisioned_machines WHERE cluster_id = ? AND ip IS NOT NULL', [cluster.id]))
-        .map(row => stripCidr(row.ip))
-        .filter(Boolean)
-    );
-    const lateralDestinations = new Set();
-
-    // Scan live guest interfaces so address allocation stays collision-free and
-    // public guest addresses outside the self-service subnet are blocked too.
-    const liveResources = await getAllContainers(cluster.url, apiToken).catch(() => []);
-    for (const item of liveResources) {
-      const ips = await getContainerIps(cluster.url, apiToken, item.node, item.type, item.vmid).catch(() => []);
-      ips.forEach(entry => {
-        const ipv4 = stripCidr(entry.ipv4 || entry.ip || '');
-        if (ipv4) {
-          usedIps.add(ipv4);
-          lateralDestinations.add(ipv4);
-        }
-      });
-    }
-
-    // Block cluster management addresses explicitly as well. Private management
-    // networks are already covered by the mandatory RFC1918 rules; this also
-    // protects hosts that use public or otherwise unusual IPv4 addresses.
-    const nodeAddresses = await getClusterNodeAddresses(cluster.url, apiToken).catch(() => []);
-    nodeAddresses.forEach(address => lateralDestinations.add(address));
-
-    const ip = allocateIp(cluster.ip_start, cluster.ip_end, usedIps);
-    if (!ip) throw new AppError('No free IP address available in the configured range', HTTP_STATUS.BAD_REQUEST);
-
-    const nodes = await getOnlineNodes(cluster.url, apiToken);
-    if (nodes.length === 0) throw new AppError('No online node available', HTTP_STATUS.BAD_REQUEST);
-    const node = nodes[0].node;
-
-    const liveTemplates = await getNodeTemplates(cluster.url, apiToken, node, cluster.template_storage || 'local');
-    if (!liveTemplates.some(item => item.volid === template)) {
-      throw new AppError('Template is not allowed', HTTP_STATUS.BAD_REQUEST);
-    }
-
-    const liveStorages = await getNodeStorages(cluster.url, apiToken, node);
-    const liveStorageNames = liveStorages.map(item => item.storage);
-    const configuredStorage = cluster.storage || 'local';
-    const selectedStorage = liveStorageNames.includes(configuredStorage) ? configuredStorage : liveStorageNames[0];
-    if (!selectedStorage) throw new AppError('No available Proxmox storage found on the selected node', HTTP_STATUS.BAD_REQUEST);
-
-    const createResult = await createLxcContainer(cluster.url, apiToken, node, {
-      vmid,
-      hostname: cleanHostname,
-      ostemplate: template,
-      storage: selectedStorage,
-      diskGb: safeDisk,
-      cores: safeCores,
-      memoryMb: safeMemory,
-      password,
-      bridge: cluster.bridge || 'vmbr0',
-      ip,
-      ipPrefix: cluster.ip_prefix || 24,
-      gateway: cluster.gateway,
-      blockedDestinations: Array.from(lateralDestinations)
-    });
-
-    await run(
-      'INSERT INTO provisioned_machines (cluster_id, vmid, ip, hostname, source_template, user_id) VALUES (?, ?, ?, ?, ?, ?)',
-      [cluster.id, vmid, ip, cleanHostname, template, req.user.id]
-    );
-
-    // Register as portal resource owned by the requesting user
-    const resourceResult = await run(
-      'INSERT INTO resources (name, container_id, cluster_id, user_id, web_url, public_url, admin_url, resource_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-      [cleanHostname, String(vmid), cluster.id, req.user.id, '', '', '', 'lxc']
-    );
-
-    // Persist the exact root password used for provisioning on the newly
-    // created resource. This also covers a cluster default password when the
-    // user leaves the password field empty.
-    await run(
-      `INSERT INTO resource_credentials
-        (resource_id, label, username, secret_encrypted, url, notes, created_by, created_by_role, purpose)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [resourceResult.lastID, 'Root-Passwort', 'root', encrypt(password), '', 'Automatisch beim Erstellen des Containers gespeichert.', req.user.id, 'user', 'general']
-    );
-
-    await logAudit(req, 'credential.create', `resource:${resourceResult.lastID}`, 'Root-Passwort');
-    await logAudit(req, 'machine.create', `resource:${resourceResult.lastID}`, `${kind.toUpperCase()} ${cleanHostname} (VMID ${vmid}, ${ip})`);
-
-    res.status(HTTP_STATUS.CREATED).json({
-      message: 'Machine creation started',
-      resourceId: resourceResult.lastID,
-      type: kind,
-      vmid,
-      ip,
-      node,
-      upid: createResult.upid,
-      isolation: createResult.isolation || 'internet-only',
-      credentialsStored: true
-    });
-  } catch (err) {
-    next(err);
-  }
+    const job = await createJob({ userId: req.user.id, clusterId: cluster.id, templateProfileId: profile.id, hostname: cleanHostname, cores: safeCores, memoryMb: safeMemory, diskGb: safeDisk, rootPassword: password });
+    await logAudit(req, 'provisioning.queue', `job:${job.id}`, `${cleanHostname} · ${profile.display_name}`);
+    res.status(HTTP_STATUS.ACCEPTED || 202).json({ message: 'Provisioning job queued', job });
+  } catch (err) { next(err); }
 });
 
 function stripCidr(ip) {

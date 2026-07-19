@@ -45,6 +45,11 @@ const USER_TRANSLATIONS = {
     createContainer: 'Create new container',
     firstContainer: 'Create first container',
     selfServiceUnavailable: 'Container self-service is temporarily unavailable.',
+    provisioningJobs: 'Provisioning jobs',
+    noProvisioningJobs: 'No recent provisioning jobs.',
+    provisioningRunning: 'Provisioning',
+    provisioningReady: 'Ready',
+    provisioningFailed: 'Failed',
     loadingServices: 'Loading services...',
     noServices: 'No services',
     noServicesText: 'No services have been assigned to you yet.',
@@ -119,6 +124,11 @@ const USER_TRANSLATIONS = {
     createContainer: 'Neuen Container erstellen',
     firstContainer: 'Ersten Container erstellen',
     selfServiceUnavailable: 'Der Container-Self-Service ist vorübergehend nicht verfügbar.',
+    provisioningJobs: 'Bereitstellungsaufträge',
+    noProvisioningJobs: 'Keine aktuellen Bereitstellungsaufträge.',
+    provisioningRunning: 'Wird bereitgestellt',
+    provisioningReady: 'Bereit',
+    provisioningFailed: 'Fehlgeschlagen',
     loadingServices: 'Dienste werden geladen...',
     noServices: 'Keine Dienste',
     noServicesText: 'Dir sind noch keine Dienste zugewiesen.',
@@ -198,6 +208,8 @@ export default function UserDashboard() {
   const [detailId, setDetailId] = useState(null);
   const [provisioningOptions, setProvisioningOptions] = useState([]);
   const [showCreate, setShowCreate] = useState(false);
+  const [provisioningJobs, setProvisioningJobs] = useState([]);
+  const [openProvisioningJob, setOpenProvisioningJob] = useState(null);
   const [publicPageResource, setPublicPageResource] = useState(null);
   const [language, setLanguage] = useState(readStoredLanguage);
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -216,12 +228,23 @@ export default function UserDashboard() {
     }
   }, []);
 
+
+  const fetchProvisioningJobs = useCallback(async () => {
+    try {
+      const response = await userApi.getProvisioningJobs(10);
+      setProvisioningJobs(response.data.jobs || []);
+    } catch (_) {
+      setProvisioningJobs([]);
+    }
+  }, []);
+
   useEffect(() => {
     fetchResources();
+    fetchProvisioningJobs();
     userApi.getProvisioningOptions()
       .then(res => setProvisioningOptions(res.data.clusters || []))
       .catch(() => setProvisioningOptions([]));
-  }, [fetchResources]);
+  }, [fetchResources, fetchProvisioningJobs]);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -229,6 +252,17 @@ export default function UserDashboard() {
     }, 30 * 1000);
     return () => clearInterval(timer);
   }, [fetchResources]);
+
+
+  useEffect(() => {
+    const active = provisioningJobs.some(job => ['queued', 'running'].includes(job.status));
+    if (!active) return undefined;
+    const timer = setInterval(() => {
+      fetchProvisioningJobs();
+      fetchResources(false);
+    }, 2000);
+    return () => clearInterval(timer);
+  }, [provisioningJobs, fetchProvisioningJobs, fetchResources]);
 
   const detailResource = resources.find(item => item.id === detailId) || null;
   const labels = USER_TRANSLATIONS[language] || USER_TRANSLATIONS.en;
@@ -337,6 +371,24 @@ export default function UserDashboard() {
                 </div>
               )}
 
+
+              {provisioningJobs.length > 0 && (
+                <section className="panel-card provisioning-jobs-panel">
+                  <h2>{labels.provisioningJobs}</h2>
+                  <div className="provisioning-job-list">
+                    {provisioningJobs.map(job => (
+                      <button type="button" key={job.id} className="provisioning-job-card provisioning-job-button" onClick={() => setOpenProvisioningJob(job)}>
+                        <div><strong>{job.hostname}</strong><small>{job.templateName || 'Template'} · {job.clusterName}</small></div>
+                        <div className="provisioning-job-progress">
+                          <div className="progress-bar"><span style={{ width: `${job.progress || 0}%` }} /></div>
+                          <small>{job.status === 'success' ? labels.provisioningReady : job.status === 'failed' ? labels.provisioningFailed : labels.provisioningRunning} · {job.progress || 0}%</small>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </section>
+              )}
+
               {loading ? (
                 <div className="loading"><span className="spinner"></span><span>{labels.loadingServices}</span></div>
               ) : resources.length === 0 ? (
@@ -419,11 +471,20 @@ export default function UserDashboard() {
         />
       )}
 
+      {openProvisioningJob && !showCreate && (
+        <CreateMachineModal
+          options={[]}
+          initialJob={openProvisioningJob}
+          onClose={() => setOpenProvisioningJob(null)}
+          onCreated={() => { fetchResources(false); fetchProvisioningJobs(); }}
+        />
+      )}
+
       {showCreate && (
         <CreateMachineModal
           options={availableProvisioningOptions}
           onClose={() => setShowCreate(false)}
-          onCreated={() => fetchResources(false)}
+          onCreated={() => { fetchResources(false); fetchProvisioningJobs(); }}
         />
       )}
     </div>

@@ -1144,22 +1144,27 @@ async function createLxcContainer(clusterUrl, apiToken, node, options) {
     swap: 0,
     password: options.password,
     unprivileged: 1,
-    tags: 'client-lxc',
-    features: 'nesting=1',
+    tags: Array.from(new Set(['client-lxc', ...String(options.tags || '').split(/[;,]/).map(tag => tag.trim().toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '')).filter(Boolean)])).join(';'),
+    features: options.profileType === 'docker' ? 'nesting=1,keyctl=1' : 'nesting=1',
     nameserver: dnsServers.join(' '),
     net0: `name=eth0,bridge=${options.bridge},ip=${options.ip}/${options.ipPrefix},gw=${options.gateway},firewall=1`,
     start: 0
   };
 
+  if (typeof options.onProgress === 'function') await options.onProgress('create');
   const response = await client.post(`/api2/json/nodes/${node}/lxc`, payload);
   ensureSuccess(response, 'Container konnte nicht erstellt werden:');
   const createUpid = response.data?.data || '';
 
   try {
+    if (typeof options.onProgress === 'function') await options.onProgress('filesystem');
     await waitForProxmoxTask(client, node, createUpid);
+    if (typeof options.onProgress === 'function') await options.onProgress('firewall');
     const isolation = await applyInternetOnlyIsolation(client, node, options.vmid, { ...options, dnsServers });
+    if (typeof options.onProgress === 'function') await options.onProgress('start');
     const startResponse = await client.post(`/api2/json/nodes/${node}/lxc/${options.vmid}/status/start`, {});
     ensureSuccess(startResponse, 'Container konnte nach der Absicherung nicht gestartet werden:');
+    await waitForProxmoxTask(client, node, startResponse.data?.data || '');
     return {
       upid: startResponse.data?.data || createUpid,
       createUpid,

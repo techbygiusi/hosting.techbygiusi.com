@@ -236,6 +236,76 @@ async function initDatabase() {
       // v3.1.55: remember the exact LXC template used by self-service provisioning
       database.run(`ALTER TABLE provisioned_machines ADD COLUMN source_template TEXT`, () => {});
 
+      // v3.1.71: administrator-managed template catalog per Proxmox cluster.
+      database.run(`
+        CREATE TABLE IF NOT EXISTS template_profiles (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          cluster_id INTEGER NOT NULL,
+          volid TEXT NOT NULL,
+          storage TEXT,
+          display_name TEXT NOT NULL,
+          os_family TEXT,
+          os_version TEXT,
+          profile_type TEXT NOT NULL DEFAULT 'base' CHECK(profile_type IN ('base', 'docker', 'nginx', 'custom')),
+          description TEXT,
+          tags TEXT,
+          enabled INTEGER NOT NULL DEFAULT 0,
+          present INTEGER NOT NULL DEFAULT 1,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE(cluster_id, volid),
+          FOREIGN KEY (cluster_id) REFERENCES proxmox_clusters(id) ON DELETE CASCADE
+        )
+      `);
+      database.run(`CREATE INDEX IF NOT EXISTS idx_template_profiles_cluster ON template_profiles(cluster_id, enabled, present)`, () => {});
+
+      // v3.1.71: persistent self-service provisioning jobs and user-safe logs.
+      database.run(`
+        CREATE TABLE IF NOT EXISTS provisioning_jobs (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id INTEGER NOT NULL,
+          cluster_id INTEGER NOT NULL,
+          template_profile_id INTEGER,
+          status TEXT NOT NULL DEFAULT 'queued' CHECK(status IN ('queued', 'running', 'success', 'failed')),
+          phase TEXT NOT NULL DEFAULT 'queued',
+          progress INTEGER NOT NULL DEFAULT 0,
+          hostname TEXT NOT NULL,
+          requested_cores INTEGER NOT NULL,
+          requested_memory_mb INTEGER NOT NULL,
+          requested_disk_gb INTEGER NOT NULL,
+          root_password_encrypted TEXT NOT NULL,
+          vmid INTEGER,
+          ip TEXT,
+          node TEXT,
+          resource_id INTEGER,
+          error_message TEXT,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          started_at DATETIME,
+          finished_at DATETIME,
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+          FOREIGN KEY (cluster_id) REFERENCES proxmox_clusters(id) ON DELETE CASCADE,
+          FOREIGN KEY (template_profile_id) REFERENCES template_profiles(id) ON DELETE SET NULL,
+          FOREIGN KEY (resource_id) REFERENCES resources(id) ON DELETE SET NULL
+        )
+      `);
+      database.run(`CREATE INDEX IF NOT EXISTS idx_provisioning_jobs_user ON provisioning_jobs(user_id, created_at DESC)`, () => {});
+      database.run(`CREATE INDEX IF NOT EXISTS idx_provisioning_jobs_status ON provisioning_jobs(status, created_at)`, () => {});
+      database.run(`
+        CREATE TABLE IF NOT EXISTS provisioning_job_events (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          job_id INTEGER NOT NULL,
+          level TEXT NOT NULL DEFAULT 'info',
+          phase TEXT NOT NULL,
+          message_en TEXT NOT NULL,
+          message_de TEXT NOT NULL,
+          technical_message TEXT,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (job_id) REFERENCES provisioning_jobs(id) ON DELETE CASCADE
+        )
+      `);
+      database.run(`CREATE INDEX IF NOT EXISTS idx_provisioning_job_events_job ON provisioning_job_events(job_id, id)`, () => {});
+
       // v3.0: per-user notification preferences
       database.run(`ALTER TABLE users ADD COLUMN notify_resource_down INTEGER DEFAULT 0`, () => {});
       database.run(`ALTER TABLE users ADD COLUMN notify_resource_recovered INTEGER DEFAULT 0`, () => {});

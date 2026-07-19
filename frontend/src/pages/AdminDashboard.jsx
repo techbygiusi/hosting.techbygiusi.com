@@ -170,6 +170,7 @@ const MOBILE_MENU_TRANSLATIONS = {
       users: 'Users',
       groups: 'Groups',
       clusters: 'Proxmox',
+      templates: 'Templates',
       resources: 'Services',
       maintenance: 'Maintenance',
       audit: 'Log',
@@ -224,6 +225,7 @@ const MOBILE_MENU_TRANSLATIONS = {
       users: 'Benutzer',
       groups: 'Gruppen',
       clusters: 'Proxmox',
+      templates: 'Templates',
       resources: 'Dienste',
       maintenance: 'Wartung',
       audit: 'Protokoll',
@@ -329,6 +331,7 @@ export default function AdminDashboard() {
     ['users', 'Benutzer'],
     ['groups', 'Gruppen'],
     ['clusters', 'Proxmox'],
+    ['templates', 'Templates'],
     ['resources', 'Dienste'],
     ['maintenance', 'Wartung'],
     ['audit', 'Protokoll'],
@@ -406,7 +409,7 @@ export default function AdminDashboard() {
 
       const requests = [];
       const needsUsers = ['overview', 'users', 'groups', 'resources'].includes(tab);
-      const needsClusters = ['overview', 'clusters', 'resources', 'settings'].includes(tab);
+      const needsClusters = ['overview', 'clusters', 'templates', 'resources', 'settings'].includes(tab);
       const needsResources = ['overview', 'resources'].includes(tab);
       const needsGroups = ['groups', 'resources', 'overview'].includes(tab);
       const needsSettings = tab === 'settings';
@@ -1337,6 +1340,11 @@ export default function AdminDashboard() {
           </section>
         )}
 
+
+        {!loading && activeTab === 'templates' && (
+          <TemplateAdminPanel clusters={clusters} language={mobileMenuLanguage} onError={setError} onSuccess={setSuccessMsg} />
+        )}
+
         {!loading && activeTab === 'resources' && (
           <section className="panel-card">
             <PanelHeader title="Dienste" action="Dienst anlegen" onAction={openCreateResource} />
@@ -1995,31 +2003,8 @@ function ProvisioningSettings({ clusters, onSaved, onError, onSuccess }) {
                 <label className="form-group"><span>Disk-Storage</span><select value={storageNames.includes(form.storage) ? form.storage : ''} onChange={e => setField('storage', e.target.value)} disabled={storages.length === 0}>{storages.length === 0 && <option value="">Keine Live-Storage gefunden</option>}{storages.length > 0 && !storageNames.includes(form.storage) && <option value="" disabled>Bitte auswählen</option>}{storages.map(s => <option key={s.storage} value={s.storage}>{s.storage}{s.type ? ` (${s.type})` : ''}</option>)}</select></label>
               </div>
 
-              <div className="provision-block">
-                  <div className="storage-row">
-                    <label className="form-group"><span>CT-Template-Storage</span><input type="text" value={form.templateStorage} onChange={e => setField('templateStorage', e.target.value)} placeholder="local" /></label>
-                    <button type="button" className="btn-secondary storage-fetch-btn" onClick={loadTemplates}>Templates abrufen</button>
-                  </div>
-                  {templates.length > 0 && (
-                    <div className="select-list">
-                      <div className="select-list-head">
-                        <span>{templates.length} Template(s) gefunden - wähle die freigegebenen</span>
-                        <div className="select-list-actions">
-                          <button type="button" onClick={() => setField('allowedTemplates', templates.map(t => t.volid))}>Alle</button>
-                          <button type="button" onClick={() => setField('allowedTemplates', [])}>Keine</button>
-                        </div>
-                      </div>
-                      {templates.map(t => (
-                        <label key={t.volid} className="select-list-item">
-                          <input type="checkbox" checked={form.allowedTemplates.includes(t.volid)} onChange={e => toggleAllowed('allowedTemplates', t.volid, e.target.checked)} />
-                          <span>{t.name}</span>
-                        </label>
-                      ))}
-                    </div>
-                  )}
-                  {form.allowedTemplates.length > 0 && templates.length === 0 && (
-                    <small className="hint-text">{form.allowedTemplates.length} Template(s) freigegeben. „Templates abrufen", um die Auswahl zu ändern.</small>
-                  )}
+              <div className="form-row-2">
+                <label className="form-group"><span>CT-Template-Storage</span><input type="text" value={form.templateStorage} onChange={e => setField('templateStorage', e.target.value)} placeholder="local" /></label>
               </div>
 
               <div className="form-row-3">
@@ -2038,6 +2023,79 @@ function ProvisioningSettings({ clusters, onSaved, onError, onSuccess }) {
       {clusterId && busy && !loaded && <div className="loading inline-loading"><span className="spinner"></span><span>Laden...</span></div>}
     </section>
   );
+}
+
+
+function TemplateAdminPanel({ clusters, language, onError, onSuccess }) {
+  const text = language === 'de' ? {
+    title: 'Templates', cluster: 'Cluster', select: 'Cluster auswählen', sync: 'Aus Proxmox laden', syncing: 'Wird geladen…',
+    empty: 'Für diesen Cluster wurden noch keine Templates gefunden.', display: 'Anzeigename', os: 'Betriebssystem', version: 'Version', profile: 'Profil',
+    description: 'Beschreibung', tags: 'Zusätzliche Tags', enabled: 'Für Self-Service freigeben', save: 'Speichern', saved: 'Template wurde gespeichert.',
+    missing: 'In Proxmox nicht gefunden', jobs: 'Bereitstellungsaufträge', noJobs: 'Keine Bereitstellungsaufträge vorhanden.', statuses: { queued: 'Wartet', running: 'Läuft', success: 'Erfolgreich', failed: 'Fehlgeschlagen' }, profiles: { base: 'Basissystem', docker: 'Docker', nginx: 'Nginx', custom: 'Benutzerdefiniert' }
+  } : {
+    title: 'Templates', cluster: 'Cluster', select: 'Select cluster', sync: 'Load from Proxmox', syncing: 'Loading…',
+    empty: 'No templates have been found for this cluster yet.', display: 'Display name', os: 'Operating system', version: 'Version', profile: 'Profile',
+    description: 'Description', tags: 'Additional tags', enabled: 'Available for self-service', save: 'Save', saved: 'Template saved.',
+    missing: 'Missing in Proxmox', jobs: 'Provisioning jobs', noJobs: 'No provisioning jobs available.', statuses: { queued: 'Queued', running: 'Running', success: 'Successful', failed: 'Failed' }, profiles: { base: 'Base system', docker: 'Docker', nginx: 'Nginx', custom: 'Custom' }
+  };
+  const [clusterId, setClusterId] = useState(clusters[0] ? String(clusters[0].id) : '');
+  const [templates, setTemplates] = useState([]);
+  const [busy, setBusy] = useState(false);
+  const [jobs, setJobs] = useState([]);
+  const loadJobs = async () => {
+    try {
+      const res = await adminApi.getProvisioningJobs();
+      setJobs(res.data.jobs || []);
+    } catch (_) { setJobs([]); }
+  };
+  const load = async (sync = false) => {
+    if (!clusterId) return;
+    try { setBusy(true); onError(''); const res = sync ? await adminApi.syncTemplates(clusterId) : await adminApi.getTemplates(clusterId); setTemplates(res.data.templates || []); }
+    catch (err) { onError(getErrorMessage(err, language === 'de' ? 'Templates konnten nicht geladen werden.' : 'Templates could not be loaded.')); }
+    finally { setBusy(false); }
+  };
+  useEffect(() => { if (clusterId) load(false); }, [clusterId]);
+  useEffect(() => {
+    loadJobs();
+    const timer = setInterval(loadJobs, 2500);
+    return () => clearInterval(timer);
+  }, []);
+  const updateField = (id, field, value) => setTemplates(prev => prev.map(item => item.id === id ? { ...item, [field]: value } : item));
+  const save = async item => {
+    try { setBusy(true); await adminApi.updateTemplate(item.id, item); onSuccess(text.saved); await load(false); }
+    catch (err) { onError(getErrorMessage(err, language === 'de' ? 'Template konnte nicht gespeichert werden.' : 'Template could not be saved.')); }
+    finally { setBusy(false); }
+  };
+  return <section className="panel-card template-admin-panel">
+    <div className="panel-header"><h2>{text.title}</h2><button type="button" className="btn-primary" onClick={() => load(true)} disabled={!clusterId || busy}>{busy ? text.syncing : text.sync}</button></div>
+    <label className="form-group template-cluster-select"><span>{text.cluster}</span><select value={clusterId} onChange={e => setClusterId(e.target.value)}><option value="">{text.select}</option>{clusters.map(cluster => <option key={cluster.id} value={cluster.id}>{cluster.name}</option>)}</select></label>
+    {!busy && templates.length === 0 && <div className="empty-state soft-box"><h2>{text.empty}</h2></div>}
+    <div className="template-profile-grid">
+      {templates.map(item => <article key={item.id} className={`template-profile-card ${!item.present ? 'template-missing' : ''}`}>
+        <div className="template-profile-head"><div><span className="resource-id">{item.storage || 'local'} · {item.volid}</span>{!item.present && <span className="status-badge status-stopped">{text.missing}</span>}</div><label className="toggle-row compact-toggle"><span>{text.enabled}</span><input type="checkbox" checked={!!item.enabled} disabled={!item.present} onChange={e => updateField(item.id, 'enabled', e.target.checked ? 1 : 0)} /></label></div>
+        <div className="form-row-2"><label className="form-group"><span>{text.display}</span><input value={item.displayName || ''} onChange={e => updateField(item.id, 'displayName', e.target.value)} /></label><label className="form-group"><span>{text.profile}</span><select value={item.profileType || 'base'} onChange={e => updateField(item.id, 'profileType', e.target.value)}>{Object.entries(text.profiles).map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select></label></div>
+        <div className="form-row-2"><label className="form-group"><span>{text.os}</span><input value={item.osFamily || ''} onChange={e => updateField(item.id, 'osFamily', e.target.value)} /></label><label className="form-group"><span>{text.version}</span><input value={item.osVersion || ''} onChange={e => updateField(item.id, 'osVersion', e.target.value)} /></label></div>
+        <label className="form-group"><span>{text.description}</span><textarea rows="2" value={item.description || ''} onChange={e => updateField(item.id, 'description', e.target.value)} /></label>
+        <label className="form-group"><span>{text.tags}</span><input value={item.tags || ''} onChange={e => updateField(item.id, 'tags', e.target.value)} placeholder="docker;customer" /></label>
+        <div className="form-actions"><button type="button" className="btn-primary" onClick={() => save(item)} disabled={busy}>{text.save}</button></div>
+      </article>)}
+    </div>
+    <div className="template-job-admin-list">
+      <h3>{text.jobs}</h3>
+      {jobs.length === 0 ? <p className="hint-text">{text.noJobs}</p> : jobs.slice(0, 20).map(job => (
+        <article key={job.id} className="provisioning-job-admin-card">
+          <div className="provisioning-job-card">
+            <div><strong>{job.hostname}</strong><small>{job.userName} · {job.clusterName} · {job.templateName || 'Template'}</small></div>
+            <div className="provisioning-job-progress"><div className="progress-bar"><span style={{ width: `${job.progress || 0}%` }} /></div><small>{text.statuses[job.status] || job.status} · {job.progress || 0}%</small></div>
+          </div>
+          <pre className="task-log admin-provisioning-log">{(job.events || []).map(event => {
+            const message = language === 'de' ? event.messageDe : event.messageEn;
+            return `${event.createdAt}  ${message}${event.technicalMessage ? `\n  ${event.technicalMessage}` : ''}`;
+          }).join('\n')}</pre>
+        </article>
+      ))}
+    </div>
+  </section>;
 }
 
 function CapabilityBadges({ caps, labels }) {

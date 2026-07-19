@@ -6627,3 +6627,49 @@ body.theme-dark .resource-range::-moz-range-thumb,
 body.theme-dark .slider-grid input[type="range"]::-moz-range-thumb {
   box-shadow: none;
 }
+
+
+/* v3.1.71 template catalog and persistent provisioning progress */
+.template-admin-panel .panel-header,
+.template-profile-head,
+.provisioning-progress-head,
+.provisioning-job-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.template-cluster-select { max-width: 420px; margin: 20px 0; }
+.template-profile-grid { display: grid; gap: 16px; }
+.template-profile-card { padding: 20px; border: 1px solid var(--color-border); border-radius: var(--radius-lg); background: var(--color-bg-alt); }
+.template-profile-card.template-missing { opacity: .72; }
+.template-profile-head { align-items: flex-start; margin-bottom: 16px; }
+.compact-toggle { min-width: 230px; }
+.provisioning-live-view { display: grid; gap: 18px; }
+.provisioning-progress { height: 10px; }
+.provisioning-summary-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.provisioning-summary-chips span { padding: 6px 10px; border: 1px solid var(--color-border); border-radius: 999px; color: var(--color-text-light); }
+.provisioning-event-list { display: grid; gap: 10px; max-height: 360px; overflow: auto; }
+.provisioning-event { display: grid; grid-template-columns: 14px 1fr; gap: 10px; padding: 12px; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-bg-alt); }
+.provisioning-event-dot { width: 10px; height: 10px; margin-top: 7px; border-radius: 50%; background: var(--color-primary); }
+.provisioning-event.event-error .provisioning-event-dot { background: var(--color-danger); }
+.provisioning-event small { display: block; color: var(--color-text-light); margin-top: 3px; }
+.provisioning-jobs-panel { margin-bottom: 20px; }
+.provisioning-job-list { display: grid; gap: 10px; margin-top: 14px; }
+.provisioning-job-card { padding: 14px; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-bg-alt); }
+.provisioning-job-card > div:first-child { display: grid; }
+.provisioning-job-card small { color: var(--color-text-light); }
+.provisioning-job-progress { min-width: 260px; display: grid; gap: 5px; }
+body.theme-dark .resource-range:focus,
+body.theme-dark .resource-range:focus-visible { outline: none !important; box-shadow: none !important; }
+@media (max-width: 760px) {
+  .template-profile-head, .provisioning-job-card { align-items: stretch; flex-direction: column; }
+  .compact-toggle, .provisioning-job-progress { min-width: 0; width: 100%; }
+}
+
+.provisioning-job-button { width: 100%; text-align: left; color: var(--color-text); cursor: pointer; }
+.provisioning-job-button:hover { border-color: var(--color-primary); }
+
+.template-job-admin-list { margin-top: 28px; display: grid; gap: 14px; }
+.provisioning-job-admin-card { display: grid; gap: 8px; }
+.admin-provisioning-log { max-height: 220px; overflow: auto; }

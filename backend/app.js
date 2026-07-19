@@ -15,6 +15,7 @@ const { authMiddleware } = require('./middleware/auth');
 const { errorHandler } = require('./middleware/errorHandler');
 const { attachConsoleProxy } = require('./services/consoleService');
 const { startMonitoring } = require('./services/monitoringService');
+const { resumeProvisioningJobs } = require('./services/provisioningJobService');
 
 const app = express();
 const PORT = process.env.BACKEND_PORT || 3001;
@@ -75,6 +76,7 @@ app.get('/api/health', (req, res) => {
 initDatabase().then(() => {
   console.log('✓ Database initialized');
   startMonitoring();
+  resumeProvisioningJobs();
 }).catch(err => {
   console.error('✗ Database initialization failed:', err);
   process.exit(1);
@@ -102,7 +104,7 @@ attachConsoleProxy(server);
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`
 ╔═══════════════════════════════════════════════╗
-║   🚀 Hosting Portal Backend v3.1.70 Started      ║
+║   🚀 Hosting Portal Backend v3.1.71 Started      ║
 ║   Port: ${PORT}                                 ║
 ║   Environment: ${process.env.NODE_ENV || 'development'}              ║
 ║   API: http://localhost:${PORT}/api           ║
