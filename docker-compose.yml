@@ -21,9 +21,9 @@ services:
       SELF_SERVICE_DNS_SERVERS: "${SELF_SERVICE_DNS_SERVERS:-1.1.1.1 1.0.0.1}"
       SELF_SERVICE_BLOCKED_NETWORKS: "${SELF_SERVICE_BLOCKED_NETWORKS:-}"
       BRAND_NAME: ${BRAND_NAME:-Hosting by TechByGiusi}
-      TZ: ${TZ:-Europe/Berlin}
     volumes:
       - ./backend/data:/app/data
+      - /etc/localtime:/etc/localtime:ro
     networks:
       - hosting-network
     restart: unless-stopped
@@ -44,6 +44,8 @@ services:
     container_name: hosting-portal-frontend
     ports:
       - "3000:80"
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
     networks:
       - hosting-network
     depends_on:

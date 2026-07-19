@@ -6,7 +6,16 @@ The frontend is built with React and the backend with Express + SQLite. Proxmox 
 
 ## Version
 
-Current version: **v3.1.67**
+Current version: **v3.1.68**
+
+## What's new in v3.1.68
+
+- Added the Proxmox tag `client-lxc` automatically to every new user-created self-service LXC container.
+- Kept automatic VMID allocation, IPv4 allocation, firewall isolation, SSH-only console access, `console=0` and `tty=0` unchanged.
+- Removed the fixed `Europe/Berlin` container timezone and bound `/etc/localtime` from the hosting VM into both portal containers.
+- Made backend-generated date formatting use the inherited container system timezone instead of a fixed timezone.
+- Kept the portal interface unchanged.
+
 
 ## What's new in v3.1.67
 
@@ -442,6 +451,14 @@ docker image prune -f
 The database migrates itself on startup. Keep the backend data volume before updating.
 
 ## Changelog
+
+### v3.1.68 - 2026-07-19
+
+**Commit:** `feat: tag client containers and inherit host timezone`
+
+- Apply the existing `client-lxc` Proxmox tag to every newly created self-service LXC container.
+- Inherit the hosting VM timezone through `/etc/localtime` for the backend and frontend containers instead of forcing `Europe/Berlin`.
+- Format backend-generated dates in the inherited system timezone instead of a fixed timezone.
 
 ### v3.1.67 - 2026-07-19
 
