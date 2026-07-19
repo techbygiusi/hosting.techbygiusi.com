@@ -6,7 +6,13 @@ The frontend is built with React and the backend with Express + SQLite. Proxmox 
 
 ## Version
 
-Current version: **v3.1.74**
+Current version: **v3.1.75**
+
+## What's new in v3.1.75
+
+- Fixed the template console opening at a bare `root@mc:/root#` shell: `cmode`/`console`/`tty` are pending LXC settings, so the container kept the no-login shell console used for password setup until it was restarted. Full clones are now stopped and started once after the console mode is switched to `tty`, so the user's console opens at a normal password-protected login shell (`root@mc:~#`).
+- Fixed the requested boot-disk size growing the volume but not the filesystem: the disk is now resized while the container is running, so Proxmox runs `resize2fs` and the root filesystem fills the new size instead of staying at the template size.
+- Reordered the provisioning progress steps accordingly (disk resize now runs after start) and added a "Restarting the container to secure the console" step.
 
 ## What's new in v3.1.74
 
@@ -490,6 +496,14 @@ docker image prune -f
 The database migrates itself on startup. Keep the backend data volume before updating.
 
 ## Changelog
+
+### v3.1.75 - 2026-07-19
+
+**Commit:** `fix: restart cloned LXC for tty console and resize disk online so the filesystem grows`
+
+- Stop and start a full-clone LXC once after switching it to `cmode: tty`, so the pending console mode applies and the console opens at a password-protected `root@host:~#` login shell instead of a no-login `/root` shell.
+- Resize the boot disk while the container is running so Proxmox runs `resize2fs` and the root filesystem fills the requested size (offline dir/raw resizes grew only the volume).
+- Reorder provisioning progress so the disk resize runs after start and add a container-restart progress step.
 
 ### v3.1.74 - 2026-07-19
 

@@ -182,10 +182,11 @@ async function executeJob(jobId) {
     create: [42, 'Creating the LXC container from the CT archive…', 'LXC-Container wird aus dem CT-Archiv erstellt…', `template=${job.volid}`],
     clone: [42, 'Creating a full clone of the prepared LXC template…', 'Vorbereitetes LXC-Template wird als Full Clone erstellt…', `source=${job.template_source_node}/${job.template_source_vmid}`],
     configure: [52, 'Applying hostname, CPU, RAM and network settings…', 'Hostname, CPU, RAM und Netzwerk werden neu gesetzt…', `hostname=${job.hostname}`],
-    filesystem: [62, 'Applying the requested container disk size…', 'Gewünschte Container-Speichergröße wird gesetzt…', `storage=${selectedStorage} disk=${job.requested_disk_gb}G`],
-    firewall: [72, 'Rebuilding firewall isolation…', 'Firewall-Isolation wird neu eingerichtet…', `blocked_destinations=${lateralDestinations.size}`],
-    start: [80, 'Starting the container…', 'Container wird gestartet…', `node=${node} vmid=${vmid}`],
-    password: [88, 'Setting the new root password inside the cloned container…', 'Neues Root-Passwort wird im geklonten Container gesetzt…', `node=${node} vmid=${vmid}`]
+    firewall: [64, 'Rebuilding firewall isolation…', 'Firewall-Isolation wird neu eingerichtet…', `blocked_destinations=${lateralDestinations.size}`],
+    start: [74, 'Starting the container…', 'Container wird gestartet…', `node=${node} vmid=${vmid}`],
+    filesystem: [82, 'Applying the requested container disk size…', 'Gewünschte Container-Speichergröße wird gesetzt…', `storage=${selectedStorage} disk=${job.requested_disk_gb}G`],
+    password: [88, 'Setting the new root password inside the cloned container…', 'Neues Root-Passwort wird im geklonten Container gesetzt…', `node=${node} vmid=${vmid}`],
+    restart: [93, 'Restarting the container to secure the console…', 'Container wird neu gestartet, um die Konsole abzusichern…', `node=${node} vmid=${vmid}`]
   };
   const provisionOptions = {
     vmid, node, hostname: job.hostname, storage: selectedStorage,

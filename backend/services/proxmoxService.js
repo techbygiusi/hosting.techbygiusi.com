@@ -1440,23 +1440,16 @@ async function clonePreparedLxcTemplate(clusterUrl, apiToken, sourceNode, source
     const networkResponse = await client.put(`/api2/json/nodes/${targetNode}/lxc/${options.vmid}/config`, networkPayload);
     ensureSuccess(networkResponse, 'Cloned LXC network settings could not be applied:');
 
-    if (typeof options.onProgress === 'function') await options.onProgress('filesystem');
+    // Validate the requested disk size against the template here, but perform the
+    // actual resize online after the container has started (further below) so
+    // Proxmox grows the ext4/xfs filesystem with resize2fs and not only the
+    // underlying volume. An offline resize on dir/raw storage can leave the
+    // filesystem at the template size even though the block device already
+    // reports the larger size.
     const rootfs = parseDiskDefinition('rootfs', clonedConfig.rootfs);
     const currentDiskGb = Math.ceil(Number(rootfs?.maxdisk || 0) / (1024 ** 3));
     if (currentDiskGb && Number(options.diskGb) < currentDiskGb) {
       throw new Error(`Prepared LXC template requires at least ${currentDiskGb} GB disk space`);
-    }
-    if (!currentDiskGb || Number(options.diskGb) > currentDiskGb) {
-      const resizeResponse = await client.put(`/api2/json/nodes/${targetNode}/lxc/${options.vmid}/resize`, {
-        disk: 'rootfs',
-        size: `${options.diskGb}G`
-      });
-      ensureSuccess(resizeResponse, 'Cloned LXC disk size could not be applied:');
-      // resize is an asynchronous Proxmox task that holds the container config
-      // lock (/run/lock/lxc/pve-config-<vmid>.lock) while it runs. Wait for it
-      // to finish, otherwise the following firewall/start steps hit the still
-      // locked config and fail with "can't lock file ... - got timeout".
-      await waitForProxmoxTask(client, targetNode, resizeResponse.data?.data || '');
     }
 
     if (typeof options.onProgress === 'function') await options.onProgress('firewall');
@@ -1467,6 +1460,19 @@ async function clonePreparedLxcTemplate(clusterUrl, apiToken, sourceNode, source
     const startResponse = await client.post(`/api2/json/nodes/${targetNode}/lxc/${options.vmid}/status/start`, {});
     ensureSuccess(startResponse, 'Cloned LXC could not be started after reconfiguration:');
     await waitForProxmoxTask(client, targetNode, startResponse.data?.data || '');
+
+    // Grow the disk while the container is running so Proxmox runs resize2fs and
+    // the root filesystem fills the requested size. Wait for the task so it
+    // releases the container config lock before the next steps run.
+    if (!currentDiskGb || Number(options.diskGb) > currentDiskGb) {
+      if (typeof options.onProgress === 'function') await options.onProgress('filesystem');
+      const resizeResponse = await client.put(`/api2/json/nodes/${targetNode}/lxc/${options.vmid}/resize`, {
+        disk: 'rootfs',
+        size: `${options.diskGb}G`
+      });
+      ensureSuccess(resizeResponse, 'Cloned LXC disk size could not be applied:');
+      await waitForProxmoxTask(client, targetNode, resizeResponse.data?.data || '');
+    }
 
     if (typeof options.onProgress === 'function') await options.onProgress('password');
     await setClonedLxcRootPassword(client, clusterUrl, apiToken, targetNode, options.vmid, options.password);
@@ -1479,6 +1485,19 @@ async function clonePreparedLxcTemplate(clusterUrl, apiToken, sourceNode, source
       tty: 2
     });
     ensureSuccess(consoleResponse, 'The cloned LXC console mode could not be secured:');
+
+    // cmode/console/tty are pending LXC settings: the running container keeps the
+    // no-login shell console used for password initialization until it is fully
+    // stopped and started again. Cycle it so the tty (login, password-protected)
+    // console becomes active and the user's console opens at a normal login shell
+    // (root@host:~#) instead of a raw /root shell with an unset HOME.
+    if (typeof options.onProgress === 'function') await options.onProgress('restart');
+    const stopResponse = await client.post(`/api2/json/nodes/${targetNode}/lxc/${options.vmid}/status/stop`, {});
+    ensureSuccess(stopResponse, 'Cloned LXC could not be stopped to apply the console mode:');
+    await waitForProxmoxTask(client, targetNode, stopResponse.data?.data || '', 120000);
+    const restartResponse = await client.post(`/api2/json/nodes/${targetNode}/lxc/${options.vmid}/status/start`, {});
+    ensureSuccess(restartResponse, 'Cloned LXC could not be started after applying the console mode:');
+    await waitForProxmoxTask(client, targetNode, restartResponse.data?.data || '');
 
     return {
       upid: startResponse.data?.data || cloneUpid,
