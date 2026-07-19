@@ -2029,14 +2029,14 @@ function ProvisioningSettings({ clusters, onSaved, onError, onSuccess }) {
 function TemplateAdminPanel({ clusters, language, onError, onSuccess }) {
   const text = language === 'de' ? {
     title: 'Templates', cluster: 'Cluster', select: 'Cluster auswählen', sync: 'Aus Proxmox laden', syncing: 'Wird geladen…',
-    empty: 'Für diesen Cluster wurden noch keine Templates gefunden.', display: 'Anzeigename', os: 'Betriebssystem', version: 'Version', profile: 'Profil',
+    empty: 'Für diesen Cluster wurden noch keine Templates gefunden.', display: 'Anzeigename', os: 'Betriebssystem', version: 'Version',
     description: 'Beschreibung', tags: 'Zusätzliche Tags', enabled: 'Für Self-Service freigeben', save: 'Speichern', saved: 'Template wurde gespeichert.',
-    missing: 'In Proxmox nicht gefunden', profiles: { base: 'Basissystem', docker: 'Docker', nginx: 'Nginx', custom: 'Benutzerdefiniert' }
+    missing: 'In Proxmox nicht gefunden', archive: 'CT-Archiv', prepared: 'Vorbereitetes LXC-Template', minimumDisk: 'Mindestgröße'
   } : {
     title: 'Templates', cluster: 'Cluster', select: 'Select cluster', sync: 'Load from Proxmox', syncing: 'Loading…',
-    empty: 'No templates have been found for this cluster yet.', display: 'Display name', os: 'Operating system', version: 'Version', profile: 'Profile',
+    empty: 'No templates have been found for this cluster yet.', display: 'Display name', os: 'Operating system', version: 'Version',
     description: 'Description', tags: 'Additional tags', enabled: 'Available for self-service', save: 'Save', saved: 'Template saved.',
-    missing: 'Missing in Proxmox', profiles: { base: 'Base system', docker: 'Docker', nginx: 'Nginx', custom: 'Custom' }
+    missing: 'Missing in Proxmox', archive: 'CT archive', prepared: 'Prepared LXC template', minimumDisk: 'Minimum size'
   };
   const [clusterId, setClusterId] = useState(clusters[0] ? String(clusters[0].id) : '');
   const [templates, setTemplates] = useState([]);
@@ -2075,7 +2075,7 @@ function TemplateAdminPanel({ clusters, language, onError, onSuccess }) {
     <div className="template-profile-grid">
       {templates.map(item => <article key={item.id} className={`template-profile-card ${!item.present ? 'template-missing' : ''}`}>
         <div className="template-profile-head">
-          <div><span className="resource-id">{item.storage || 'local'} · {item.volid}</span>{!item.present && <span className="status-badge status-stopped">{text.missing}</span>}</div>
+          <div className="template-source-details"><span className="resource-id">{item.storage || 'local'} · {item.volid}</span><div className="template-source-badges"><span className="status-badge status-running">{item.sourceType === 'lxc-template' ? text.prepared : text.archive}</span>{item.sourceType === 'lxc-template' && <span className="status-badge">{item.sourceNode} · VMID {item.sourceVmid} · {text.minimumDisk} {item.minDiskGb || 4} GB</span>}{!item.present && <span className="status-badge status-stopped">{text.missing}</span>}</div></div>
           <label className={`template-self-service-toggle ${!item.present ? 'is-disabled' : ''}`}>
             <span>{text.enabled}</span>
             <span className={`toggle-switch ${item.enabled ? 'is-on' : ''}`}>
@@ -2084,7 +2084,7 @@ function TemplateAdminPanel({ clusters, language, onError, onSuccess }) {
             </span>
           </label>
         </div>
-        <div className="form-row-2"><label className="form-group"><span>{text.display}</span><input value={item.displayName || ''} onChange={e => updateField(item.id, 'displayName', e.target.value)} /></label><label className="form-group"><span>{text.profile}</span><select value={item.profileType || 'base'} onChange={e => updateField(item.id, 'profileType', e.target.value)}>{Object.entries(text.profiles).map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select></label></div>
+        <label className="form-group"><span>{text.display}</span><input value={item.displayName || ''} onChange={e => updateField(item.id, 'displayName', e.target.value)} /></label>
         <div className="form-row-2"><label className="form-group"><span>{text.os}</span><input value={item.osFamily || ''} onChange={e => updateField(item.id, 'osFamily', e.target.value)} /></label><label className="form-group"><span>{text.version}</span><input value={item.osVersion || ''} onChange={e => updateField(item.id, 'osVersion', e.target.value)} /></label></div>
         <label className="form-group"><span>{text.description}</span><textarea rows="2" value={item.description || ''} onChange={e => updateField(item.id, 'description', e.target.value)} /></label>
         <label className="form-group"><span>{text.tags}</span><input value={item.tags || ''} onChange={e => updateField(item.id, 'tags', e.target.value)} placeholder="docker;customer" /></label>

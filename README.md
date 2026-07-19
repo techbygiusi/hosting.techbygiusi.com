@@ -6,7 +6,20 @@ The frontend is built with React and the backend with Express + SQLite. Proxmox 
 
 ## Version
 
-Current version: **v3.1.72**
+Current version: **v3.1.73**
+
+## What's new in v3.1.73
+
+- Replaced all Pangolin policy checkboxes with the portal's compact toggle controls and removed the two redundant Pangolin introduction texts.
+- Removed the editable template profile selector from the administrator template catalog.
+- Added one catalog for both normal Proxmox CT archives and prepared Proxmox LXC templates.
+- Prepared LXC templates are always provisioned as full clones with a new VMID and the next free IPv4 address from the configured portal pools.
+- Full clones receive a newly configured hostname, root password, CPU count, RAM allocation, disk size, bridge, IPv4 address, gateway and guest firewall policy before their first start.
+- Existing clone firewall rules and additional network interfaces are removed before the portal rebuilds its internet-only isolation rules.
+- Preserved the `client-lxc` tag and any template/admin tags on newly provisioned containers.
+- Imported prepared-template descriptions from Proxmox and displayed the saved template description in the user's German/English creation dialog.
+- Added the required `VM.Clone` capability check and automatic database migrations for the new template source metadata.
+
 
 ## What's new in v3.1.72
 
@@ -294,16 +307,18 @@ Current version: **v3.1.72**
 
 ### Self-service provisioning
 
-Self-service is intentionally limited to LXC containers created from administrator-approved CT templates. VM creation remains an administrator task in Proxmox, and Community Scripts have been removed from the portal.
+Self-service is intentionally limited to LXC containers created from administrator-approved sources. The catalog supports normal CT archive files (`vztmpl`) and prepared Proxmox LXC templates. Archive sources create a new container in the traditional way; prepared LXC templates are always provisioned as full clones. VM creation remains an administrator task in Proxmox, and Community Scripts have been removed from the portal.
 
 The backend automatically allocates:
 
 - The next free VMID from the configured VMID range.
 - The next free IPv4 address from the configured IP pool.
 
-The IP allocator checks the portal reservation table, static LXC network config and live LXC interface addresses from Proxmox, so containers created outside the portal are respected as well.
+The IP allocator checks the portal reservation table, static LXC network config and live LXC interface addresses from Proxmox, so containers created outside the portal are respected as well. A prepared template never reuses its source VMID or source IP.
 
-Before the first start, the backend enables the Proxmox guest firewall and adds outbound drop rules for the container subnet, RFC1918 networks, CGNAT, IPv4 link-local ranges and all IPv6 traffic. DNS is limited to configured public IPv4 resolvers. The portal verifies that the Proxmox Datacenter firewall is enabled before presenting a cluster as available to users, rechecks it during creation and deletes a newly created LXC if the isolation rules cannot be installed. If automatic cleanup fails, the orphaned LXC remains stopped and the portal reports that it must be checked in Proxmox.
+For a prepared LXC template, the backend creates a full clone on the template node and then overwrites the hostname, root password, CPU, RAM, target storage, disk size and network configuration. Additional inherited network interfaces and inherited guest-firewall rules are removed. The `client-lxc` tag is always present, while existing template tags and administrator-defined tags are retained.
+
+Before the first start, the backend enables the Proxmox guest firewall and adds outbound drop rules for the container subnet, RFC1918 networks, CGNAT, IPv4 link-local ranges and all IPv6 traffic. DNS is limited to configured public IPv4 resolvers. The portal verifies that the Proxmox Datacenter firewall is enabled before presenting a cluster as available to users, rechecks it during creation and deletes a newly created or cloned LXC if the isolation rules cannot be installed. If automatic cleanup fails, the orphaned LXC remains stopped and the portal reports that it must be checked in Proxmox.
 
 Admins configure per cluster:
 
@@ -314,7 +329,7 @@ Admins configure per cluster:
 - Bridge.
 - Disk storage, selected from live storages reported by the selected Proxmox node.
 - CT template storage.
-- Allowed CT templates. Submitted template IDs are validated again by the backend.
+- Approved CT archives and prepared LXC templates. Submitted catalog IDs are validated again by the backend.
 - CPU, RAM and disk limits.
 
 ## Recommended Proxmox token rights
@@ -327,6 +342,8 @@ Recommended role for full portal functionality:
 - `VM.PowerMgmt`
 - `VM.Console`
 - `VM.Allocate`
+- `VM.Clone` on prepared source templates
+- `VM.Config.CPU`, `VM.Config.Memory`, `VM.Config.Disk` and `VM.Config.Options` for cloned-container customization
 - `VM.Config.Network` on the Proxmox VM path used for self-service containers so the portal can create guest firewall rules
 - `Sys.Audit` on `/` so the portal can verify that the Datacenter firewall is enabled
 - `Datastore.AllocateSpace` on the storage used for LXC disks/templates
@@ -465,6 +482,17 @@ docker image prune -f
 The database migrates itself on startup. Keep the backend data volume before updating.
 
 ## Changelog
+
+### v3.1.73 - 2026-07-19
+
+**Commit:** `feat: support prepared LXC template full clones`
+
+- Replace Pangolin checkboxes with compact toggles and remove the two redundant introduction texts.
+- Remove administrator template profile selection.
+- Discover both CT archives and prepared Proxmox LXC templates in the template catalog.
+- Always provision prepared templates as full clones with portal-pool VMIDs and IPv4 addresses.
+- Reapply hostname, root password, CPU, RAM, disk, network and firewall settings before first start.
+- Preserve `client-lxc`, template descriptions and German/English user guidance.
 
 ### v3.1.70 - 2026-07-19
 

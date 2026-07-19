@@ -1814,13 +1814,15 @@ router.put('/templates/:id', async (req, res, next) => {
     const current = await get('SELECT * FROM template_profiles WHERE id = ?', [req.params.id]);
     if (!current) throw new AppError('Template not found', HTTP_STATUS.NOT_FOUND);
     const displayName = String(req.body.displayName || '').trim();
-    const profileType = ['base', 'docker', 'nginx', 'custom'].includes(req.body.profileType) ? req.body.profileType : 'base';
     if (!displayName) throw new AppError('Display name is required', HTTP_STATUS.BAD_REQUEST);
-    await run(`UPDATE template_profiles SET display_name = ?, os_family = ?, os_version = ?, profile_type = ?, description = ?, tags = ?, enabled = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`, [
-      displayName, String(req.body.osFamily || '').trim(), String(req.body.osVersion || '').trim(), profileType,
+    await run(`UPDATE template_profiles SET display_name = ?, os_family = ?, os_version = ?, description = ?, tags = ?, enabled = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`, [
+      displayName, String(req.body.osFamily || '').trim(), String(req.body.osVersion || '').trim(),
       String(req.body.description || '').trim(), String(req.body.tags || '').trim(), req.body.enabled ? 1 : 0, req.params.id
     ]);
-    const updated = await get(`SELECT id, cluster_id AS clusterId, volid, storage, display_name AS displayName, os_family AS osFamily, os_version AS osVersion, profile_type AS profileType, description, tags, enabled, present FROM template_profiles WHERE id = ?`, [req.params.id]);
+    const updated = await get(`SELECT id, cluster_id AS clusterId, volid, storage, display_name AS displayName,
+      os_family AS osFamily, os_version AS osVersion, description, tags, enabled, present,
+      source_type AS sourceType, source_node AS sourceNode, source_vmid AS sourceVmid, min_disk_gb AS minDiskGb
+      FROM template_profiles WHERE id = ?`, [req.params.id]);
     await logAudit(req, 'template.update', `template:${req.params.id}`, displayName);
     res.json({ template: updated });
   } catch (err) { next(err); }

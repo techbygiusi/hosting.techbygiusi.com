@@ -2,8 +2,8 @@ const { get, run, all } = require('../config/database');
 const { encrypt, decrypt } = require('./cryptoService');
 const {
   getAllContainers, getContainerIps, getCapabilities, getClusterFirewallStatus,
-  getClusterNodeAddresses, getOnlineNodes, getNodeTemplates, getNodeStorages,
-  getNextVmidInRange, createLxcContainer
+  getClusterNodeAddresses, getOnlineNodes, getNodeTemplates, getPreparedLxcTemplates, getNodeStorages,
+  getNextVmidInRange, createLxcContainer, clonePreparedLxcTemplate
 } = require('./proxmoxService');
 
 let workerRunning = false;
@@ -41,7 +41,7 @@ async function getJob(jobId, userId = null) {
   let filter = 'j.id = ?';
   if (userId !== null) { filter += ' AND j.user_id = ?'; params.push(userId); }
   const job = await get(`
-    SELECT j.*, c.name AS cluster_name, tp.display_name AS template_name, tp.profile_type
+    SELECT j.*, c.name AS cluster_name, tp.display_name AS template_name, tp.profile_type, tp.source_type AS template_source_type
     FROM provisioning_jobs j
     JOIN proxmox_clusters c ON c.id = j.cluster_id
     LEFT JOIN template_profiles tp ON tp.id = j.template_profile_id
@@ -55,7 +55,7 @@ async function getJob(jobId, userId = null) {
     hostname: job.hostname, cores: job.requested_cores, memoryMb: job.requested_memory_mb,
     diskGb: job.requested_disk_gb, vmid: job.vmid, ip: job.ip, node: job.node,
     resourceId: job.resource_id, error: job.error_message, clusterName: job.cluster_name,
-    templateName: job.template_name, profileType: job.profile_type,
+    templateName: job.template_name, profileType: job.profile_type, sourceType: job.template_source_type || 'archive',
     createdAt: job.created_at, startedAt: job.started_at, finishedAt: job.finished_at,
     events: events.map(e => ({ id: e.id, level: e.level, phase: e.phase, messageEn: e.message_en, messageDe: e.message_de, createdAt: e.created_at }))
   };
@@ -108,7 +108,9 @@ async function processQueue() {
 }
 
 async function executeJob(jobId) {
-  const job = await get(`SELECT j.*, u.email AS user_email, c.*, tp.volid, tp.display_name, tp.profile_type, tp.tags, tp.enabled, tp.present
+  const job = await get(`SELECT j.*, u.email AS user_email, c.*, tp.volid, tp.display_name, tp.profile_type, tp.tags,
+      tp.enabled, tp.present, tp.source_type AS template_source_type, tp.source_node AS template_source_node,
+      tp.source_vmid AS template_source_vmid, tp.min_disk_gb AS template_min_disk_gb
     FROM provisioning_jobs j
     JOIN users u ON u.id = j.user_id
     JOIN proxmox_clusters c ON c.id = j.cluster_id
@@ -118,13 +120,15 @@ async function executeJob(jobId) {
   const apiToken = decrypt(job.api_token);
   const password = decrypt(job.root_password_encrypted);
 
+  const sourceType = job.template_source_type || 'archive';
   await addEvent(jobId, 'validate', 'Checking limits and cluster permissions…', 'Limits und Cluster-Berechtigungen werden geprüft…', '', 'info', 8);
   const caps = await getCapabilities(job.url, apiToken);
   if (!caps.canProvision || !caps.canManageFirewall || !caps.canVerifyFirewall) throw new Error('Required Proxmox permissions are missing');
+  if (sourceType === 'lxc-template' && !caps.canClone) throw new Error('Prepared LXC templates require the Proxmox VM.Clone privilege');
   const firewall = await getClusterFirewallStatus(job.url, apiToken);
   if (!firewall.enabled) throw new Error('Proxmox datacenter firewall is disabled');
 
-  await addEvent(jobId, 'reserve', 'Reserving VMID and IP address…', 'VMID und IP-Adresse werden reserviert…', '', 'info', 18);
+  await addEvent(jobId, 'reserve', 'Reserving VMID and IP address from the portal pool…', 'VMID und IP-Adresse werden aus dem Portal-Pool reserviert…', '', 'info', 18);
   const reservedMachines = await all('SELECT vmid FROM provisioned_machines WHERE cluster_id = ?', [job.cluster_id]);
   const reservedJobs = await all(`SELECT vmid FROM provisioning_jobs WHERE cluster_id = ? AND id != ? AND status IN ('queued','running') AND vmid IS NOT NULL`, [job.cluster_id, jobId]);
   const vmid = await getNextVmidInRange(job.url, apiToken, job.vmid_min, job.vmid_max, [...reservedMachines, ...reservedJobs].map(r => r.vmid));
@@ -140,27 +144,43 @@ async function executeJob(jobId) {
   (await getClusterNodeAddresses(job.url, apiToken).catch(() => [])).forEach(address => lateralDestinations.add(address));
   const ip = allocateIp(job.ip_start, job.ip_end, usedIps);
   if (!ip) throw new Error('No free IP address available in the configured range');
+
   const nodes = await getOnlineNodes(job.url, apiToken);
   if (!nodes.length) throw new Error('No online node available');
-  const node = nodes[0].node;
-  await run('UPDATE provisioning_jobs SET vmid = ?, ip = ?, node = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [vmid, ip, node, jobId]);
-  await addEvent(jobId, 'reserve', `Reserved VMID ${vmid} and IP ${ip}.`, `VMID ${vmid} und IP ${ip} wurden reserviert.`, `node=${node} vmid=${vmid} ip=${ip}`, 'info', 28);
+  const onlineNodes = new Set(nodes.map(item => item.node));
+  let node = job.template_source_node && onlineNodes.has(job.template_source_node) ? job.template_source_node : nodes[0].node;
+  if (sourceType === 'lxc-template' && (!job.template_source_node || !onlineNodes.has(job.template_source_node))) {
+    throw new Error('The node containing the prepared LXC template is not online');
+  }
+  if (sourceType === 'lxc-template') node = job.template_source_node;
 
-  const templates = await getNodeTemplates(job.url, apiToken, node, job.template_storage || 'local');
-  if (!templates.some(item => item.volid === job.volid)) throw new Error('Template is no longer present on Proxmox');
-  const storages = await getNodeStorages(job.url, apiToken, node);
+  await run('UPDATE provisioning_jobs SET vmid = ?, ip = ?, node = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [vmid, ip, node, jobId]);
+  await addEvent(jobId, 'reserve', `Reserved VMID ${vmid} and IP ${ip} from the portal pool.`, `VMID ${vmid} und IP ${ip} wurden aus dem Portal-Pool reserviert.`, `node=${node} vmid=${vmid} ip=${ip}`, 'info', 28);
+
+  if (sourceType === 'lxc-template') {
+    const prepared = await getPreparedLxcTemplates(job.url, apiToken);
+    const exists = prepared.some(item => item.sourceNode === job.template_source_node && Number(item.sourceVmid) === Number(job.template_source_vmid));
+    if (!exists) throw new Error('Prepared LXC template is no longer present on Proxmox');
+  } else {
+    const templates = await getNodeTemplates(job.url, apiToken, node, job.template_storage || 'local');
+    if (!templates.some(item => item.volid === job.volid)) throw new Error('Template archive is no longer present on Proxmox');
+  }
+
+  const storages = await getNodeStorages(job.url, apiToken, node, 'rootdir');
   const storageNames = storages.map(item => item.storage);
   const selectedStorage = storageNames.includes(job.storage || 'local') ? (job.storage || 'local') : storageNames[0];
-  if (!selectedStorage) throw new Error('No usable storage found');
+  if (!selectedStorage) throw new Error('No usable LXC storage found');
 
   const progressMap = {
-    create: [42, 'Creating the LXC container…', 'LXC-Container wird erstellt…', `template=${job.volid}`],
-    filesystem: [55, 'Preparing the container filesystem…', 'Container-Dateisystem wird vorbereitet…', `storage=${selectedStorage} disk=${job.requested_disk_gb}G`],
-    firewall: [68, 'Applying firewall isolation…', 'Firewall-Isolation wird eingerichtet…', `blocked_destinations=${lateralDestinations.size}`],
-    start: [80, 'Starting the container…', 'Container wird gestartet…', `node=${node} vmid=${vmid}`]
+    create: [42, 'Creating the LXC container from the CT archive…', 'LXC-Container wird aus dem CT-Archiv erstellt…', `template=${job.volid}`],
+    clone: [42, 'Creating a full clone of the prepared LXC template…', 'Vorbereitetes LXC-Template wird als Full Clone erstellt…', `source=${job.template_source_node}/${job.template_source_vmid}`],
+    configure: [52, 'Applying hostname, password, CPU, RAM and network settings…', 'Hostname, Passwort, CPU, RAM und Netzwerk werden neu gesetzt…', `hostname=${job.hostname}`],
+    filesystem: [62, 'Applying the requested container disk size…', 'Gewünschte Container-Speichergröße wird gesetzt…', `storage=${selectedStorage} disk=${job.requested_disk_gb}G`],
+    firewall: [72, 'Rebuilding firewall isolation…', 'Firewall-Isolation wird neu eingerichtet…', `blocked_destinations=${lateralDestinations.size}`],
+    start: [82, 'Starting the container…', 'Container wird gestartet…', `node=${node} vmid=${vmid}`]
   };
-  await createLxcContainer(job.url, apiToken, node, {
-    vmid, hostname: job.hostname, ostemplate: job.volid, storage: selectedStorage,
+  const provisionOptions = {
+    vmid, node, hostname: job.hostname, storage: selectedStorage,
     diskGb: job.requested_disk_gb, cores: job.requested_cores, memoryMb: job.requested_memory_mb,
     password, bridge: job.bridge || 'vmbr0', ip, ipPrefix: job.ip_prefix || 24,
     gateway: job.gateway, tags: job.tags || '', profileType: job.profile_type || 'base', blockedDestinations: Array.from(lateralDestinations),
@@ -168,10 +188,16 @@ async function executeJob(jobId) {
       const item = progressMap[phase];
       if (item) await addEvent(jobId, phase, item[1], item[2], item[3] || '', 'info', item[0]);
     }
-  });
+  };
 
-  const profileLabel = job.profile_type === 'docker' ? 'Docker' : job.profile_type === 'nginx' ? 'Nginx' : job.display_name;
-  await addEvent(jobId, 'verify', `Verifying ${profileLabel} container state…`, `${profileLabel}-Containerstatus wird geprüft…`, '', 'info', 88);
+  if (sourceType === 'lxc-template') {
+    await clonePreparedLxcTemplate(job.url, apiToken, job.template_source_node, job.template_source_vmid, provisionOptions);
+  } else {
+    await createLxcContainer(job.url, apiToken, node, { ...provisionOptions, ostemplate: job.volid });
+  }
+
+  const templateLabel = job.display_name || 'LXC';
+  await addEvent(jobId, 'verify', `Verifying ${templateLabel} container state…`, `${templateLabel}-Containerstatus wird geprüft…`, '', 'info', 88);
   await run('INSERT INTO provisioned_machines (cluster_id, vmid, ip, hostname, source_template, user_id) VALUES (?, ?, ?, ?, ?, ?)', [job.cluster_id, vmid, ip, job.hostname, job.volid, job.user_id]);
   const resourceResult = await run(`INSERT INTO resources (name, container_id, cluster_id, user_id, web_url, public_url, admin_url, resource_type)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, [job.hostname, String(vmid), job.cluster_id, job.user_id, '', '', '', 'lxc']);

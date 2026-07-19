@@ -258,6 +258,11 @@ async function initDatabase() {
         )
       `);
       database.run(`CREATE INDEX IF NOT EXISTS idx_template_profiles_cluster ON template_profiles(cluster_id, enabled, present)`, () => {});
+      // v3.1.73: distinguish normal CT archives from prepared Proxmox LXC templates.
+      database.run(`ALTER TABLE template_profiles ADD COLUMN source_type TEXT NOT NULL DEFAULT 'archive'`, () => {});
+      database.run(`ALTER TABLE template_profiles ADD COLUMN source_node TEXT`, () => {});
+      database.run(`ALTER TABLE template_profiles ADD COLUMN source_vmid INTEGER`, () => {});
+      database.run(`ALTER TABLE template_profiles ADD COLUMN min_disk_gb INTEGER NOT NULL DEFAULT 4`, () => {});
 
       // v3.1.71: persistent self-service provisioning jobs and user-safe logs.
       database.run(`

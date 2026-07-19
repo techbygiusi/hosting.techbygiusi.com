@@ -5450,8 +5450,8 @@ body.theme-dark .cluster-map-canvas .leaflet-container {
   background: var(--color-bg-alt);
 }
 
-.settings-toggle-card > span,
-.pangolin-protocol-toggle > span {
+.settings-toggle-card > span:first-child,
+.pangolin-protocol-toggle > span:first-child {
   display: grid;
   gap: 5px;
 }
@@ -5462,8 +5462,8 @@ body.theme-dark .cluster-map-canvas .leaflet-container {
   line-height: 1.45;
 }
 
-.settings-toggle-card input,
-.pangolin-protocol-toggle input {
+.settings-toggle-card > input,
+.pangolin-protocol-toggle > input {
   width: 20px;
   height: 20px;
   flex: 0 0 auto;
@@ -6714,4 +6714,34 @@ body.theme-dark .resource-range:focus-visible { outline: none !important; box-sh
     justify-content: space-between;
   }
   .template-self-service-toggle > span:first-child { max-width: none; }
+}
+
+
+/* v3.1.73 prepared LXC templates and Pangolin toggles */
+.settings-toggle-card,
+.pangolin-protocol-toggle {
+  cursor: pointer;
+}
+.settings-toggle-card .toggle-switch,
+.pangolin-protocol-toggle .toggle-switch {
+  flex: 0 0 42px;
+}
+.template-source-details {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+.template-source-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.template-source-badges .status-badge {
+  width: fit-content;
+}
+
+.provisioning-failure-detail {
+  display: block;
+  margin-top: 6px;
+  font-weight: 500;
 }

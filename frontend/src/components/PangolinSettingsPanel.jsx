@@ -29,11 +29,9 @@ const TEXT = {
   en: {
     eyebrow: 'PUBLIC ACCESS',
     title: 'Pangolin publishing',
-    description: 'Publishes user services through the Pangolin Integration API. The API key stays encrypted in the backend.',
     active: 'Enabled',
     inactive: 'Disabled',
     enableTitle: 'Enable publishing in the user portal',
-    enableText: 'Users can only publish the automatically detected IP address of their own service.',
     apiUrl: 'Integration API URL',
     apiKey: 'Organization API key',
     apiKeyStored: 'Stored — leave blank to keep it',
@@ -87,11 +85,9 @@ const TEXT = {
   de: {
     eyebrow: 'ÖFFENTLICHER ZUGRIFF',
     title: 'Pangolin-Veröffentlichung',
-    description: 'Veröffentlicht Benutzer-Dienste über die Pangolin Integration API. Der API-Schlüssel bleibt verschlüsselt im Backend.',
     active: 'Aktiv',
     inactive: 'Deaktiviert',
     enableTitle: 'Veröffentlichung im Benutzerportal aktivieren',
-    enableText: 'Benutzer können ausschließlich die automatisch ermittelte IP ihres eigenen Dienstes veröffentlichen.',
     apiUrl: 'Integration API URL',
     apiKey: 'Organization API Key',
     apiKeyStored: 'Gespeichert – leer lassen zum Beibehalten',
@@ -312,18 +308,17 @@ export default function PangolinSettingsPanel({ onSuccess, onError, language: la
         <div>
           <p className="section-eyebrow">{text.eyebrow}</p>
           <h2>{text.title}</h2>
-          <p>{text.description}</p>
         </div>
         <span className={`status-badge ${form.enabled ? 'status-running' : 'status-stopped'}`}>{form.enabled ? text.active : text.inactive}</span>
       </div>
 
       <form className="pangolin-settings-form" onSubmit={save}>
         <label className="settings-toggle-card full-width">
-          <span>
-            <strong>{text.enableTitle}</strong>
-            <small>{text.enableText}</small>
+          <span><strong>{text.enableTitle}</strong></span>
+          <span className={`toggle-switch ${form.enabled ? 'is-on' : ''}`}>
+            <input type="checkbox" checked={!!form.enabled} onChange={(event) => update('enabled', event.target.checked)} aria-label={text.enableTitle} />
+            <span className="toggle-knob" aria-hidden="true" />
           </span>
-          <input type="checkbox" checked={!!form.enabled} onChange={(event) => update('enabled', event.target.checked)} />
         </label>
 
         <div className="pangolin-settings-grid">
@@ -486,7 +481,10 @@ function ProtocolPolicy({ title, description, enabled, onEnabled, ports, onPorts
           <strong>{title}</strong>
           <small>{description}</small>
         </span>
-        <input type="checkbox" checked={!!enabled} onChange={(event) => onEnabled(event.target.checked)} />
+        <span className={`toggle-switch ${enabled ? 'is-on' : ''}`}>
+          <input type="checkbox" checked={!!enabled} onChange={(event) => onEnabled(event.target.checked)} aria-label={title} />
+          <span className="toggle-knob" aria-hidden="true" />
+        </span>
       </label>
       <label className="form-group">
         <span>{text.allowedPorts}</span>

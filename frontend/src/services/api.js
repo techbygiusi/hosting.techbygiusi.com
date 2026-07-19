@@ -132,6 +132,12 @@ const MESSAGE_TRANSLATIONS = {
   'Hostname is invalid': 'Der Hostname ist ungültig (nur Kleinbuchstaben, Zahlen, Bindestriche).',
   'Template is invalid': 'Das Template ist ungültig.',
   'Template is not allowed': 'Dieses Template ist für den Self-Service nicht freigegeben.',
+  'Template disk size exceeds the portal limit': 'Die Mindestgröße dieses Templates überschreitet das Portal-Limit.',
+  'Prepared LXC templates require the Proxmox VM.Clone privilege': 'Für vorbereitete LXC-Templates benötigt der Proxmox-Token die Berechtigung VM.Clone.',
+  'The node containing the prepared LXC template is not online': 'Die Node mit dem vorbereiteten LXC-Template ist nicht online.',
+  'Prepared LXC template is no longer present on Proxmox': 'Das vorbereitete LXC-Template ist in Proxmox nicht mehr vorhanden.',
+  'Template archive is no longer present on Proxmox': 'Das CT-Archiv ist in Proxmox nicht mehr vorhanden.',
+  'No usable LXC storage found': 'Es wurde kein verwendbarer LXC-Speicher gefunden.',
   'At least one template must be allowed': 'Wähle mindestens ein CT-Template für den Self-Service aus.',
   'Community scripts are not available': 'Community Scripts sind nicht verfügbar. Verwende ein freigegebenes CT-Template.',
   'Provisioning firewall permission is missing': 'Dem Proxmox-Token fehlt VM.Config.Network für die verpflichtende Container-Isolation.',
@@ -213,6 +219,9 @@ export function translateMessage(message) {
   }
   if (message.startsWith('SMTP test failed:')) {
     return message.replace('SMTP test failed:', 'SMTP-Test fehlgeschlagen:');
+  }
+  if (message.startsWith('Prepared LXC template requires at least ')) {
+    return message.replace('Prepared LXC template requires at least ', 'Das vorbereitete LXC-Template benötigt mindestens ').replace(' GB disk space', ' GB Speicherplatz');
   }
 
   return translatePortalText(message, 'de');

@@ -474,7 +474,7 @@ async function getCapabilities(clusterUrl, apiToken) {
 
   if (response.status < 200 || response.status >= 300) {
     // Older Proxmox or restricted token: assume read-only, portal stays usable
-    return { readOnly: true, canPower: false, canConsole: false, canProvision: false, canManageFirewall: false, canVerifyFirewall: false, privileges: [] };
+    return { readOnly: true, canPower: false, canConsole: false, canProvision: false, canClone: false, canManageFirewall: false, canVerifyFirewall: false, privileges: [] };
   }
 
   const perms = response.data?.data || {};
@@ -488,14 +488,16 @@ async function getCapabilities(clusterUrl, apiToken) {
   const canPower = privileges.has('VM.PowerMgmt');
   const canConsole = privileges.has('VM.Console');
   const canProvision = privileges.has('VM.Allocate');
+  const canClone = privileges.has('VM.Clone');
   const canManageFirewall = privileges.has('VM.Config.Network');
   const canVerifyFirewall = privileges.has('Sys.Audit');
 
   return {
-    readOnly: !canPower && !canConsole && !canProvision && !canManageFirewall && !canVerifyFirewall,
+    readOnly: !canPower && !canConsole && !canProvision && !canClone && !canManageFirewall && !canVerifyFirewall,
     canPower,
     canConsole,
     canProvision,
+    canClone,
     canManageFirewall,
     canVerifyFirewall,
     privileges: Array.from(privileges).sort()
@@ -864,6 +866,48 @@ async function getNodeTemplates(clusterUrl, apiToken, node, storage) {
 }
 
 /**
+ * Prepared Proxmox LXC templates. These are existing CTs converted to a
+ * template and are provisioned exclusively through a full clone.
+ */
+async function getPreparedLxcTemplates(clusterUrl, apiToken) {
+  const client = createProxmoxClient(clusterUrl, apiToken);
+  const resources = await getClusterResources(clusterUrl, apiToken);
+  const templates = resources.filter(item => item.type === 'lxc' && Number(item.template) === 1);
+  const result = [];
+
+  for (const item of templates) {
+    try {
+      const configResponse = await client.get(`/api2/json/nodes/${item.node}/lxc/${item.vmid}/config`);
+      ensureSuccess(configResponse, 'LXC template configuration could not be read:');
+      const config = configResponse.data?.data || {};
+      const rootfs = parseDiskDefinition('rootfs', config.rootfs);
+      const rootBytes = Number(rootfs?.maxdisk || item.maxdisk || 0);
+      const minDiskGb = Math.max(4, Math.ceil(rootBytes / (1024 ** 3)) || 4);
+      const name = String(config.hostname || item.name || `LXC ${item.vmid}`).trim();
+      const rootStorage = rootfs?.storage || '';
+      result.push({
+        volid: `lxc-template:${item.node}:${item.vmid}`,
+        name,
+        displayName: name,
+        storage: rootStorage,
+        description: String(config.description || '').trim(),
+        tags: String(config.tags || '').trim(),
+        osFamily: formatConfiguredOs('lxc', config.ostype || 'l26'),
+        osVersion: '',
+        sourceType: 'lxc-template',
+        sourceNode: item.node,
+        sourceVmid: Number(item.vmid),
+        minDiskGb
+      });
+    } catch (_) {
+      // A single inaccessible template must not hide the remaining catalog.
+    }
+  }
+
+  return result.sort((a, b) => a.displayName.localeCompare(b.displayName));
+}
+
+/**
  * ISO images available on a storage of a node (for VM provisioning).
  */
 async function getNodeIsos(clusterUrl, apiToken, node, storage) {
@@ -1193,6 +1237,128 @@ async function createLxcContainer(clusterUrl, apiToken, node, options) {
   }
 }
 
+function normalizeLxcTags(...values) {
+  const tags = values
+    .flatMap(value => String(value || '').split(/[;,]/))
+    .map(tag => tag.trim().toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, ''))
+    .filter(Boolean);
+  return Array.from(new Set(['client-lxc', ...tags])).join(';');
+}
+
+async function clearContainerFirewallRules(client, node, vmid) {
+  const response = await client.get(`/api2/json/nodes/${node}/lxc/${vmid}/firewall/rules`);
+  ensureSuccess(response, 'Existing container firewall rules could not be read:');
+  const positions = (response.data?.data || [])
+    .map(rule => Number(rule.pos))
+    .filter(Number.isInteger)
+    .sort((a, b) => b - a);
+  for (const position of positions) {
+    const deleteResponse = await client.delete(`/api2/json/nodes/${node}/lxc/${vmid}/firewall/rules/${position}`);
+    ensureSuccess(deleteResponse, 'Existing container firewall rule could not be removed:');
+  }
+}
+
+/**
+ * Create a prepared Proxmox LXC template as a full clone, overwrite all
+ * customer-specific resources and network settings, then apply the portal
+ * firewall policy before the clone is started.
+ */
+async function clonePreparedLxcTemplate(clusterUrl, apiToken, sourceNode, sourceVmid, options) {
+  const client = createProxmoxClient(clusterUrl, apiToken);
+  const firewallStatus = await getClusterFirewallStatus(clusterUrl, apiToken);
+  if (!firewallStatus.enabled) throw new Error('Proxmox datacenter firewall is disabled');
+
+  const targetNode = options.node || sourceNode;
+  const sourceResponse = await client.get(`/api2/json/nodes/${sourceNode}/lxc/${sourceVmid}/config`);
+  ensureSuccess(sourceResponse, 'Prepared LXC template could not be read:');
+  const sourceConfig = sourceResponse.data?.data || {};
+  const dnsServers = normalizeDnsServers(options.dnsServers);
+  const clonePayload = {
+    newid: options.vmid,
+    full: 1,
+    hostname: options.hostname,
+    storage: options.storage
+  };
+  if (targetNode && targetNode !== sourceNode) clonePayload.target = targetNode;
+
+  if (typeof options.onProgress === 'function') await options.onProgress('clone');
+  const cloneResponse = await client.post(`/api2/json/nodes/${sourceNode}/lxc/${sourceVmid}/clone`, clonePayload);
+  ensureSuccess(cloneResponse, 'Prepared LXC template could not be cloned:');
+  const cloneUpid = cloneResponse.data?.data || '';
+
+  try {
+    await waitForProxmoxTask(client, sourceNode, cloneUpid, 600000);
+    if (typeof options.onProgress === 'function') await options.onProgress('configure');
+
+    const clonedResponse = await client.get(`/api2/json/nodes/${targetNode}/lxc/${options.vmid}/config`);
+    ensureSuccess(clonedResponse, 'Cloned LXC configuration could not be read:');
+    const clonedConfig = clonedResponse.data?.data || {};
+    const extraNetworks = Object.keys(clonedConfig).filter(key => /^net\d+$/.test(key) && key !== 'net0');
+    const configPayload = {
+      hostname: options.hostname,
+      cores: options.cores,
+      memory: options.memoryMb,
+      swap: 0,
+      password: options.password,
+      tags: normalizeLxcTags(sourceConfig.tags, options.tags),
+      nameserver: dnsServers.join(' '),
+      net0: `name=eth0,bridge=${options.bridge},ip=${options.ip}/${options.ipPrefix},gw=${options.gateway},firewall=1`,
+      onboot: 0
+    };
+    if (extraNetworks.length) configPayload.delete = extraNetworks.join(',');
+    const configResponse = await client.put(`/api2/json/nodes/${targetNode}/lxc/${options.vmid}/config`, configPayload);
+    ensureSuccess(configResponse, 'Cloned LXC settings could not be applied:');
+
+    if (typeof options.onProgress === 'function') await options.onProgress('filesystem');
+    const rootfs = parseDiskDefinition('rootfs', clonedConfig.rootfs);
+    const currentDiskGb = Math.ceil(Number(rootfs?.maxdisk || 0) / (1024 ** 3));
+    if (currentDiskGb && Number(options.diskGb) < currentDiskGb) {
+      throw new Error(`Prepared LXC template requires at least ${currentDiskGb} GB disk space`);
+    }
+    if (!currentDiskGb || Number(options.diskGb) > currentDiskGb) {
+      const resizeResponse = await client.put(`/api2/json/nodes/${targetNode}/lxc/${options.vmid}/resize`, {
+        disk: 'rootfs',
+        size: `${options.diskGb}G`
+      });
+      ensureSuccess(resizeResponse, 'Cloned LXC disk size could not be applied:');
+    }
+
+    if (typeof options.onProgress === 'function') await options.onProgress('firewall');
+    await clearContainerFirewallRules(client, targetNode, options.vmid);
+    const isolation = await applyInternetOnlyIsolation(client, targetNode, options.vmid, { ...options, dnsServers });
+
+    if (typeof options.onProgress === 'function') await options.onProgress('start');
+    const startResponse = await client.post(`/api2/json/nodes/${targetNode}/lxc/${options.vmid}/status/start`, {});
+    ensureSuccess(startResponse, 'Cloned LXC could not be started after reconfiguration:');
+    await waitForProxmoxTask(client, targetNode, startResponse.data?.data || '');
+    return {
+      upid: startResponse.data?.data || cloneUpid,
+      cloneUpid,
+      node: targetNode,
+      isolation: 'internet-only',
+      dnsServers: isolation.dnsServers,
+      blockedDestinations: isolation.blockedDestinations
+    };
+  } catch (error) {
+    let cleanupSucceeded = true;
+    try {
+      const deleteResponse = await client.delete(`/api2/json/nodes/${targetNode}/lxc/${options.vmid}`, {
+        params: { purge: 1, force: 1 }
+      });
+      ensureSuccess(deleteResponse, 'Failed clone could not be removed:');
+      await waitForProxmoxTask(client, targetNode, deleteResponse.data?.data || '');
+    } catch (cleanupError) {
+      cleanupSucceeded = false;
+      console.error(`Failed to remove cloned LXC ${options.vmid}:`, cleanupError.message);
+    }
+    const cloneError = new Error(cleanupSucceeded
+      ? String(error?.message || 'Prepared LXC template clone failed')
+      : `${String(error?.message || 'Prepared LXC template clone failed')} and cleanup was unsuccessful`);
+    cloneError.cause = error;
+    throw cloneError;
+  }
+}
+
 /**
  * Destroy a VM or LXC and return the task UPID. Used only for user-owned
  * self-service machines after the backend has verified ownership.
@@ -1254,10 +1420,12 @@ module.exports = {
   getOnlineNodes,
   getClusterDashboardStats,
   getNodeTemplates,
+  getPreparedLxcTemplates,
   getNodeIsos,
   getNodeStorages,
   getNextVmidInRange,
   createLxcContainer,
+  clonePreparedLxcTemplate,
   createQemuVm,
   destroyProxmoxResource,
   POWER_ACTIONS

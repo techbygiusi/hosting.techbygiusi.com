@@ -205,7 +205,7 @@ async function getClusterCapabilities(clusterId, clusterUrl, apiToken) {
   try {
     value = await getCapabilities(clusterUrl, apiToken);
   } catch (err) {
-    value = { readOnly: true, canPower: false, canConsole: false, canProvision: false, privileges: [] };
+    value = { readOnly: true, canPower: false, canConsole: false, canProvision: false, canClone: false, canManageFirewall: false, canVerifyFirewall: false, privileges: [] };
   }
   capabilityCache.set(clusterId, { time: Date.now(), value });
   return value;
@@ -1408,18 +1408,24 @@ router.get('/provisioning/options', async (req, res, next) => {
       let profiles;
       try { profiles = await syncClusterTemplates(cluster.id); }
       catch (_) { profiles = await ensureClusterTemplates(cluster.id); }
-      const templates = profiles.filter(item => Number(item.enabled) === 1 && Number(item.present) === 1).map(item => ({
-        id: item.id, volid: item.volid, name: item.displayName, displayName: item.displayName,
-        osFamily: item.osFamily, osVersion: item.osVersion, profileType: item.profileType,
-        description: item.description || ''
-      }));
+      const maxDiskGb = Math.min(cluster.max_disk_gb || 20, 64);
+      const templates = profiles
+        .filter(item => Number(item.enabled) === 1 && Number(item.present) === 1)
+        .filter(item => item.sourceType !== 'lxc-template' || caps.canClone)
+        .filter(item => Math.max(Number(item.minDiskGb) || 4, 4) <= maxDiskGb)
+        .map(item => ({
+          id: item.id, volid: item.volid, name: item.displayName, displayName: item.displayName,
+          osFamily: item.osFamily, osVersion: item.osVersion,
+          description: item.description || '', sourceType: item.sourceType || 'archive',
+          minDiskGb: Math.max(Number(item.minDiskGb) || 4, 4)
+        }));
       if (!unavailableReason && templates.length === 0) unavailableReason = 'No approved container template is currently available';
       options.push({
         clusterId: cluster.id, clusterName: cluster.name, allowTypes: 'ct',
         available: firewallEnabled && templates.length > 0, unavailableReason,
         hasDefaultPassword: !!cluster.default_password_encrypted,
         maxCores: cluster.max_cores || 2, maxMemoryMb: cluster.max_memory_mb || 2048,
-        maxDiskGb: Math.min(cluster.max_disk_gb || 20, 64), templates
+        maxDiskGb, templates
       });
     }
     res.json({ clusters: options });
@@ -1453,7 +1459,10 @@ router.post('/provisioning/create', async (req, res, next) => {
     if (!password || String(password).length < 8) throw new AppError('Root password must be at least 8 characters', HTTP_STATUS.BAD_REQUEST);
     const safeCores = Math.min(Math.max(parseInt(cores, 10) || 1, 1), cluster.max_cores || 2);
     const safeMemory = Math.min(Math.max(parseInt(memoryMb, 10) || 512, 256), cluster.max_memory_mb || 2048);
-    const safeDisk = Math.min(Math.max(parseInt(diskGb, 10) || 8, 4), Math.min(cluster.max_disk_gb || 20, 64));
+    const minTemplateDisk = Math.max(Number(profile.min_disk_gb) || 4, 4);
+    const maxClusterDisk = Math.min(cluster.max_disk_gb || 20, 64);
+    if (minTemplateDisk > maxClusterDisk) throw new AppError('Template disk size exceeds the portal limit', HTTP_STATUS.BAD_REQUEST);
+    const safeDisk = Math.min(Math.max(parseInt(diskGb, 10) || minTemplateDisk, minTemplateDisk), maxClusterDisk);
     const job = await createJob({ userId: req.user.id, clusterId: cluster.id, templateProfileId: profile.id, hostname: cleanHostname, cores: safeCores, memoryMb: safeMemory, diskGb: safeDisk, rootPassword: password });
     await logAudit(req, 'provisioning.queue', `job:${job.id}`, `${cleanHostname} · ${profile.display_name}`);
     res.status(HTTP_STATUS.ACCEPTED || 202).json({ message: 'Provisioning job queued', job });
