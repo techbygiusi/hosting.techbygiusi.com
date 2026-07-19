@@ -66,7 +66,13 @@ async function listJobsForUser(userId, limit = 20) {
     SELECT id
     FROM provisioning_jobs
     WHERE user_id = ?
-      AND (status != 'success' OR progress < 100 OR finished_at IS NULL OR finished_at > datetime('now', '-30 seconds'))
+      AND (
+        status IN ('queued','running')
+        OR progress < 100
+        OR finished_at IS NULL
+        OR (status = 'success' AND finished_at > datetime('now', '-30 seconds'))
+        OR (status = 'failed'  AND finished_at > datetime('now', '-300 seconds'))
+      )
     ORDER BY id DESC
     LIMIT ?
   `, [userId, limit]);

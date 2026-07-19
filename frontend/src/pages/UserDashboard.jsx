@@ -16,6 +16,7 @@ const USER_LANGUAGE_OPTIONS = [
 ];
 
 const PROVISIONING_SUCCESS_VISIBILITY_MS = 30 * 1000;
+const PROVISIONING_FAILED_VISIBILITY_MS = 5 * 60 * 1000;
 
 function parseServerTimestamp(value) {
   if (!value) return null;
@@ -23,10 +24,16 @@ function parseServerTimestamp(value) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+function provisioningJobVisibilityMs(job) {
+  if (job.status === 'failed') return PROVISIONING_FAILED_VISIBILITY_MS;
+  return PROVISIONING_SUCCESS_VISIBILITY_MS;
+}
+
 function isProvisioningJobVisible(job, now = Date.now()) {
-  if (job.status !== 'success' || Number(job.progress) < 100) return true;
+  if (Number(job.progress) < 100) return true;
+  if (job.status !== 'success' && job.status !== 'failed') return true;
   const finishedAt = parseServerTimestamp(job.finishedAt);
-  return finishedAt === null || now - finishedAt < PROVISIONING_SUCCESS_VISIBILITY_MS;
+  return finishedAt === null || now - finishedAt < provisioningJobVisibilityMs(job);
 }
 
 const USER_TRANSLATIONS = {
@@ -287,10 +294,10 @@ export default function UserDashboard() {
       return undefined;
     }
     const remaining = provisioningJobs
-      .filter(job => job.status === 'success' && Number(job.progress) >= 100)
+      .filter(job => (job.status === 'success' || job.status === 'failed') && Number(job.progress) >= 100)
       .map(job => {
         const finishedAt = parseServerTimestamp(job.finishedAt);
-        return finishedAt === null ? null : Math.max((finishedAt + PROVISIONING_SUCCESS_VISIBILITY_MS) - now, 0);
+        return finishedAt === null ? null : Math.max((finishedAt + provisioningJobVisibilityMs(job)) - now, 0);
       })
       .filter(value => value !== null);
     if (!remaining.length) return undefined;

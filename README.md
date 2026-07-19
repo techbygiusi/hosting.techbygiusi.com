@@ -6,7 +6,12 @@ The frontend is built with React and the backend with Express + SQLite. Proxmox 
 
 ## Version
 
-Current version: **v3.1.73**
+Current version: **v3.1.74**
+
+## What's new in v3.1.74
+
+- Fixed prepared-LXC full clones failing to start with a `can't lock file '/run/lock/lxc/pve-config-<vmid>.lock' - got timeout` error when a custom boot-disk size was requested: the asynchronous Proxmox disk resize is now awaited so it releases the container config lock before the firewall and start steps run.
+- Failed provisioning jobs now disappear from the dashboard 5 minutes after finishing instead of remaining forever; successful jobs continue to clear after 30 seconds.
 
 ## What's new in v3.1.73
 
@@ -485,6 +490,13 @@ docker image prune -f
 The database migrates itself on startup. Keep the backend data volume before updating.
 
 ## Changelog
+
+### v3.1.74 - 2026-07-19
+
+**Commit:** `fix: await LXC disk resize before start and auto-clear finished provisioning jobs`
+
+- Wait for the asynchronous Proxmox disk-resize task to finish before rebuilding the firewall and starting a full-clone LXC, fixing the `pve-config-<vmid>.lock` timeout when a custom boot-disk size is requested.
+- Retire failed provisioning jobs from the dashboard after 5 minutes (backend query and client-side timers), keeping the existing 30-second retention for successful jobs.
 
 ### v3.1.73 - 2026-07-19
 

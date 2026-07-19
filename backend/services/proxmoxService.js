@@ -1452,6 +1452,11 @@ async function clonePreparedLxcTemplate(clusterUrl, apiToken, sourceNode, source
         size: `${options.diskGb}G`
       });
       ensureSuccess(resizeResponse, 'Cloned LXC disk size could not be applied:');
+      // resize is an asynchronous Proxmox task that holds the container config
+      // lock (/run/lock/lxc/pve-config-<vmid>.lock) while it runs. Wait for it
+      // to finish, otherwise the following firewall/start steps hit the still
+      // locked config and fail with "can't lock file ... - got timeout".
+      await waitForProxmoxTask(client, targetNode, resizeResponse.data?.data || '');
     }
 
     if (typeof options.onProgress === 'function') await options.onProgress('firewall');
