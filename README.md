@@ -6,7 +6,11 @@ The frontend is built with React and the backend with Express + SQLite. Proxmox 
 
 ## Version
 
-Current version: **v3.1.75**
+Current version: **v3.1.76**
+
+## What's new in v3.1.76
+
+- Hardened self-service containers against IP spoofing: the portal now enables the Proxmox firewall IP filter (`ipfilter`) and MAC filter on every provisioned container. A container is pinned to the IP address the portal assigned it, so even a root user inside cannot change the IP, spoof it, or take over another container's address — packets with a different source IP are dropped at the bridge.
 
 ## What's new in v3.1.75
 
@@ -496,6 +500,12 @@ docker image prune -f
 The database migrates itself on startup. Keep the backend data volume before updating.
 
 ## Changelog
+
+### v3.1.76 - 2026-07-19
+
+**Commit:** `feat: enable Proxmox ipfilter and macfilter to pin containers to their assigned IP`
+
+- Enable the Proxmox firewall IP filter and MAC filter on every self-service container so it is locked to the portal-assigned IP/MAC; a root user inside can no longer spoof or change the effective IP because non-matching source packets are dropped at the bridge.
 
 ### v3.1.75 - 2026-07-19
 

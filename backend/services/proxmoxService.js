@@ -1140,7 +1140,14 @@ async function applyInternetOnlyIsolation(client, node, vmid, options) {
   const firewallOptions = await client.put(`/api2/json/nodes/${node}/lxc/${vmid}/firewall/options`, {
     enable: 1,
     policy_in: 'ACCEPT',
-    policy_out: 'DROP'
+    policy_out: 'DROP',
+    // ipfilter pins each interface to the IP(s) configured in the container's
+    // network config (Proxmox auto-populates ipfilter-net0). Even if a root user
+    // inside the container changes its IP, packets with a different source IP are
+    // dropped at the bridge, so the assigned IP cannot be spoofed or swapped for
+    // another container's address. macfilter (on by default) blocks MAC spoofing.
+    ipfilter: 1,
+    macfilter: 1
   });
   ensureSuccess(firewallOptions, 'Container-Firewall konnte nicht aktiviert werden:');
 
