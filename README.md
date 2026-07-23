@@ -6,7 +6,11 @@ The frontend is built with React and the backend with Express + SQLite. Proxmox 
 
 ## Version
 
-Current version: **v3.1.89**
+Current version: **v3.1.90**
+
+## What's new in v3.1.90
+
+- Fixed the Wiki tab title in the user portal being larger than every other tab. It used its own heading markup and fell back to the browser default heading size (24px) instead of the shared panel header size (20px) used by Dashboard and Settings. The wiki now uses the same `panel-header` as the other tabs, so all tab titles match.
 
 ## What's new in v3.1.89
 
@@ -580,6 +584,13 @@ docker image prune -f
 The database migrates itself on startup. Keep the backend data volume before updating.
 
 ## Changelog
+
+### v3.1.90 - 2026-07-23
+
+**Commit:** `fix: use the shared panel header for the wiki so its tab title matches the other tabs`
+
+- Replace the custom `.wiki-panel-heading` wrapper in `WikiBrowser` with the shared `panel-header`, so the title resolves to `.panel-header h2` (20px) instead of the unstyled browser default (24px).
+- Reduce `.wiki-panel-heading` to layout-only rules (wrapping and a capped search field width, unconstrained on narrow screens).
 
 ### v3.1.89 - 2026-07-23
 

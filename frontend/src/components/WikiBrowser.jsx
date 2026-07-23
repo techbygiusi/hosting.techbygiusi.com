@@ -145,10 +145,8 @@ export default function WikiBrowser({ language = 'en' }) {
 
   return (
     <section className="panel-card wiki-panel">
-      <div className="wiki-panel-heading">
-        <div>
-          <h2>{text.title}</h2>
-        </div>
+      <div className="panel-header wiki-panel-heading">
+        <h2>{text.title}</h2>
         {hasContent && (
           <input
             type="search"

@@ -6826,17 +6826,14 @@ body.theme-dark {
   --wiki-notice-text:      #ffd666;
 }
 
+/* Layout only - sizing comes from the shared .panel-header so the title
+   matches every other tab. */
 .wiki-panel-heading {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
   flex-wrap: wrap;
-  margin-bottom: 16px;
 }
 
-.wiki-panel-heading h2 {
-  margin: 0 0 4px;
+.wiki-panel-heading .wiki-search-input {
+  max-width: 320px;
 }
 
 .wiki-search-input {
@@ -7249,6 +7246,10 @@ body.theme-dark {
 
   .wiki-search-input {
     width: 100%;
+  }
+
+  .wiki-panel-heading .wiki-search-input {
+    max-width: none;
   }
 }
 
