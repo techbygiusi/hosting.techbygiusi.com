@@ -200,7 +200,7 @@ export default function WikiBrowser({ language = 'en' }) {
                     </small>
                   )}
                 </header>
-                <MarkdownView content={article.body} format={article.format} language={language} />
+                <MarkdownView content={article.body} language={language} />
               </>
             )}
             </div>

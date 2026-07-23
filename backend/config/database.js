@@ -149,7 +149,7 @@ async function initDatabase() {
           title TEXT NOT NULL,
           summary TEXT,
           body TEXT DEFAULT '',
-          format TEXT DEFAULT 'text' CHECK(format IN ('markdown', 'text')),
+          format TEXT DEFAULT 'markdown' CHECK(format IN ('markdown', 'text')),
           is_published INTEGER DEFAULT 0,
           updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
           UNIQUE (article_id, language),
@@ -176,6 +176,11 @@ async function initDatabase() {
       database.run(`CREATE INDEX IF NOT EXISTS idx_wiki_folders_parent ON wiki_folders(parent_id)`, () => {});
       database.run(`CREATE INDEX IF NOT EXISTS idx_wiki_articles_folder ON wiki_articles(folder_id)`, () => {});
       database.run(`CREATE INDEX IF NOT EXISTS idx_wiki_article_tr ON wiki_article_translations(article_id, language)`, () => {});
+
+      // v3.1.89: the wiki is Markdown-only. Convert translations still stored as
+      // plain text, otherwise they would keep rendering their Markdown literally
+      // with no way to change the format in the UI. Idempotent.
+      database.run(`UPDATE wiki_article_translations SET format = 'markdown' WHERE format != 'markdown'`, () => {});
 
       // Managed resources shown in the portal
       database.run(`

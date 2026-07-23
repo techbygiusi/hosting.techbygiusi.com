@@ -6,7 +6,13 @@ The frontend is built with React and the backend with Express + SQLite. Proxmox 
 
 ## Version
 
-Current version: **v3.1.88**
+Current version: **v3.1.89**
+
+## What's new in v3.1.89
+
+- **The wiki is Markdown-only.** The plain-text editor mode, its Markdown/Plain text switch and the "this article is set to plain text" warning are gone; every article is written and rendered as Markdown.
+- **Existing articles are migrated automatically** on startup: translations still stored as plain text are converted to Markdown, so articles that previously showed raw code such as `![image](...)` now render properly. The migration is idempotent and safe to run repeatedly.
+- Note: if an older plain-text article happens to contain Markdown special characters (`*`, `_`, `#`), it is now interpreted as Markdown. Worth a quick look over existing articles after updating.
 
 ## What's new in v3.1.88
 
@@ -574,6 +580,14 @@ docker image prune -f
 The database migrates itself on startup. Keep the backend data volume before updating.
 
 ## Changelog
+
+### v3.1.89 - 2026-07-23
+
+**Commit:** `refactor: make the wiki markdown-only and migrate existing plain-text articles`
+
+- Always store `markdown` in `wikiService`, restore the schema default and add an idempotent startup migration converting existing `text` translations to `markdown`.
+- Drop the plain-text branch from `MarkdownView` and the `format` prop from all callers.
+- Remove the editor's format toggle, the plain-text warning banner and every auto-switch path in the toolbar, image upload and image alignment actions, along with the labels and CSS they used.
 
 ### v3.1.88 - 2026-07-23
 

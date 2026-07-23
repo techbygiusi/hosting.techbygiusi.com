@@ -7089,28 +7089,6 @@ body.theme-dark {
   margin-bottom: 10px;
 }
 
-.wiki-format-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 0.85rem;
-}
-
-.wiki-format-toggle button {
-  padding: 4px 10px;
-  border: 1px solid var(--color-border);
-  border-radius: 6px;
-  background: none;
-  color: inherit;
-  font: inherit;
-  cursor: pointer;
-}
-
-.wiki-format-toggle button.active {
-  border-color: var(--color-primary);
-  font-weight: 600;
-}
-
 .wiki-editor-control-actions {
   display: inline-flex;
   align-items: center;
@@ -7253,23 +7231,6 @@ body.theme-dark {
   border: 1px solid var(--color-border);
   padding: 6px 10px;
   text-align: left;
-}
-
-/* Plain-text articles reuse <pre> for whitespace handling, so every code-block
-   style has to be reset here - otherwise the article is drawn inside a code
-   box with a border. */
-.markdown-body .markdown-plain {
-  margin: 0;
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: none;
-  color: inherit;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  font-family: inherit;
-  font-size: inherit;
-  line-height: 1.7;
 }
 
 @media (max-width: 900px) {
@@ -7895,20 +7856,6 @@ body.wiki-editor-route-active {
   }
 }
 
-/* Format mismatch warning in the wiki editor */
-.wiki-format-warning {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-  flex-wrap: wrap;
-  margin: 0;
-  padding: 10px 16px;
-  border-bottom: 1px solid var(--wiki-notice-border);
-  background: var(--wiki-notice-bg);
-  color: var(--wiki-notice-text);
-  font-size: 0.88rem;
-}
 
 /* ------------------------------------------------------------------ */
 /* v3.1.88 - Drag and drop for wiki articles                           */

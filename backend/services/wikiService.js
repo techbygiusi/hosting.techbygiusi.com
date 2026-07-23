@@ -227,8 +227,8 @@ async function saveArticleTranslations(articleId, translations = {}) {
       continue;
     }
 
-    // Plain text is the default; Markdown must be selected explicitly.
-    const format = entry.format === 'markdown' ? 'markdown' : 'text';
+    // The wiki is Markdown-only; the column is kept for existing rows.
+    const format = 'markdown';
     const isPublished = entry.isPublished ? 1 : 0;
     await run(
       `INSERT INTO wiki_article_translations (article_id, language, title, summary, body, format, is_published, updated_at)
@@ -351,7 +351,7 @@ async function getPublishedArticleBySlug(slug, language) {
     title: translation.title,
     summary: translation.summary || '',
     body: translation.body || '',
-    format: translation.format || 'text',
+    format: 'markdown',
     language: translation.language,
     requestedLanguage: lang,
     isTranslated: translation.language === lang,

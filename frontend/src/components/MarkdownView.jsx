@@ -204,16 +204,13 @@ const COPY_LABELS = {
   de: { copy: 'Kopieren', copied: 'Kopiert ✓' }
 };
 
-export default function MarkdownView({ content, format = 'text', className = '', language = 'en' }) {
+export default function MarkdownView({ content, className = '', language = 'en' }) {
   const labels = COPY_LABELS[language === 'de' ? 'de' : 'en'];
 
-  const html = useMemo(() => {
-    if (format === 'text') {
-      // Plain text mode: escape everything and keep the author's line breaks.
-      return `<pre class="markdown-plain">${escapeHtml(content)}</pre>`;
-    }
-    return markdownToHtml(content, { copyLabel: labels.copy });
-  }, [content, format, labels.copy]);
+  const html = useMemo(
+    () => markdownToHtml(content, { copyLabel: labels.copy }),
+    [content, labels.copy]
+  );
 
   /**
    * The body is injected as HTML, so the copy buttons cannot carry React
