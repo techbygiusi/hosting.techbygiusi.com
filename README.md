@@ -6,7 +6,13 @@ The frontend is built with React and the backend with Express + SQLite. Proxmox 
 
 ## Version
 
-Current version: **v3.1.87**
+Current version: **v3.1.88**
+
+## What's new in v3.1.88
+
+- **Articles can be moved by drag and drop.** Drag an article in the admin wiki structure onto any folder to move it there; while dragging, a drop zone appears at the top for moving it back to the top level. The target folder is highlighted, and only the innermost folder under the cursor receives the drop.
+- Only the folder changes on a move - title, translations and publish state stay untouched, and dropping an article into the folder it is already in does nothing.
+- Removed the "Articles open in the full-screen editor." note.
 
 ## What's new in v3.1.87
 
@@ -568,6 +574,15 @@ docker image prune -f
 The database migrates itself on startup. Keep the backend data volume before updating.
 
 ## Changelog
+
+### v3.1.88 - 2026-07-23
+
+**Commit:** `feat: move wiki articles between folders by drag and drop`
+
+- Make article rows draggable with a grip handle and turn folder nodes into drop targets, using `stopPropagation` so a drop lands in the innermost folder instead of bubbling to its parents.
+- Add a top-level drop zone that only appears while dragging, highlight the active target, and skip the request when an article is dropped into its current folder.
+- Moves send only `folderId`, so `updateArticle` leaves slug, translations and publish state unchanged.
+- Remove the "Articles open in the full-screen editor." hint from the structure card.
 
 ### v3.1.87 - 2026-07-23
 

@@ -7909,3 +7909,66 @@ body.wiki-editor-route-active {
   color: var(--wiki-notice-text);
   font-size: 0.88rem;
 }
+
+/* ------------------------------------------------------------------ */
+/* v3.1.88 - Drag and drop for wiki articles                           */
+/* ------------------------------------------------------------------ */
+
+.wiki-drag-handle {
+  flex: 0 0 auto;
+  color: var(--color-text-light);
+  font-size: 11px;
+  letter-spacing: -1px;
+  cursor: grab;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  user-select: none;
+}
+
+.wiki-admin-article-row:hover .wiki-drag-handle {
+  opacity: 0.7;
+}
+
+.wiki-admin-article-row {
+  cursor: default;
+}
+
+.wiki-admin-article-row.is-dragging {
+  opacity: 0.45;
+}
+
+.wiki-admin-article-row.is-dragging .wiki-drag-handle {
+  cursor: grabbing;
+}
+
+/* Highlight only the folder that would receive the drop. */
+.wiki-tree-folder.is-drop-target > .wiki-admin-folder-row {
+  background: var(--wiki-active);
+  outline: 2px dashed var(--color-primary);
+  outline-offset: -2px;
+}
+
+.wiki-root-dropzone {
+  margin-bottom: 10px;
+  padding: 10px 12px;
+  border: 1px dashed var(--color-border);
+  border-radius: 8px;
+  color: var(--color-text-light);
+  font-size: 13px;
+  text-align: center;
+}
+
+.wiki-root-dropzone.is-drop-target {
+  border-color: var(--color-primary);
+  border-style: solid;
+  background: var(--wiki-active);
+  color: var(--color-text);
+}
+
+@media (hover: none) {
+  /* Touch devices cannot drag; keep the handle visible as an affordance and
+     rely on the folder selector in the editor for moving. */
+  .wiki-drag-handle {
+    opacity: 0.5;
+  }
+}

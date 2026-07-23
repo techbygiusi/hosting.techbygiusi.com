@@ -62,7 +62,8 @@ const TEXT = {
     deleteFolderConfirm: 'Delete this folder? Articles inside it are moved to the top level.',
     deleteArticleConfirm: 'Delete this article including all translations?',
     noArticles: 'No articles yet. Create the first one.',
-    editorHint: 'Articles open in the full-screen editor.',
+    dragHint: 'Drag to move this article into another folder',
+    moveToTopLevel: 'Drop here to move to the top level',
     saved: 'Saved.',
     saveFailed: 'Could not be saved.',
     loadFailed: 'The wiki content could not be loaded.',
@@ -87,7 +88,8 @@ const TEXT = {
     deleteFolderConfirm: 'Diesen Ordner löschen? Enthaltene Artikel werden auf die oberste Ebene verschoben.',
     deleteArticleConfirm: 'Diesen Artikel inklusive aller Übersetzungen löschen?',
     noArticles: 'Noch keine Artikel. Lege den ersten an.',
-    editorHint: 'Artikel öffnen sich im Vollbild-Editor.',
+    dragHint: 'Ziehen, um diesen Artikel in einen anderen Ordner zu verschieben',
+    moveToTopLevel: 'Hierhin ziehen, um auf die oberste Ebene zu verschieben',
     saved: 'Gespeichert.',
     saveFailed: 'Konnte nicht gespeichert werden.',
     loadFailed: 'Die Wiki-Inhalte konnten nicht geladen werden.',
@@ -135,6 +137,8 @@ export default function WikiAdminPanel({ language = 'en' }) {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [folderForm, setFolderForm] = useState(null);
+  const [draggingId, setDraggingId] = useState(null);
+  const [dropTarget, setDropTarget] = useState(undefined);
 
   const load = useCallback(async () => {
     try {
@@ -240,6 +244,63 @@ export default function WikiAdminPanel({ language = 'en' }) {
 
 
 
+  /* ------------------------------------------------------- drag and drop */
+
+  /**
+   * Move an article into another folder. `folderId` is null for the top level.
+   * Only the folder changes; title, translations and publish state are untouched.
+   */
+  const moveArticle = async (articleId, folderId) => {
+    const article = articles.find(item => Number(item.id) === Number(articleId));
+    if (!article) return;
+    const current = article.folder_id === null || article.folder_id === undefined ? null : Number(article.folder_id);
+    const next = folderId === null ? null : Number(folderId);
+    if (current === next) return; // already there, nothing to do
+
+    setBusy(`move-${articleId}`);
+    try {
+      await wikiApi.updateArticle(articleId, { folderId: next });
+      await load();
+      setError('');
+    } catch (err) {
+      setError(getErrorMessage(err, text.saveFailed));
+    } finally {
+      setBusy('');
+    }
+  };
+
+  const handleDragStart = (event, articleId) => {
+    setDraggingId(articleId);
+    event.dataTransfer.effectAllowed = 'move';
+    // Some browsers refuse to start a drag without payload on the transfer.
+    event.dataTransfer.setData('text/plain', String(articleId));
+  };
+
+  const handleDragEnd = () => {
+    setDraggingId(null);
+    setDropTarget(undefined);
+  };
+
+  // stopPropagation keeps the innermost folder as the drop target instead of
+  // the drop bubbling up to its parents and finally to the top level.
+  const handleDragOver = (event, folderId) => {
+    if (draggingId === null) return;
+    event.preventDefault();
+    event.stopPropagation();
+    event.dataTransfer.dropEffect = 'move';
+    setDropTarget(folderId);
+  };
+
+  const handleDrop = (event, folderId) => {
+    if (draggingId === null) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const articleId = Number(event.dataTransfer.getData('text/plain')) || draggingId;
+    setDraggingId(null);
+    setDropTarget(undefined);
+    moveArticle(articleId, folderId);
+  };
+
   const rootArticles = articles.filter(article => !article.folder_id);
   const articlesIn = (folderId) => articles.filter(article => Number(article.folder_id) === Number(folderId));
   const childFolders = (parentId) => folders
@@ -248,7 +309,14 @@ export default function WikiAdminPanel({ language = 'en' }) {
 
   const articleRow = (article) => (
     <li key={`a-${article.id}`}>
-      <div className="wiki-admin-article-row">
+      <div
+        className={`wiki-admin-article-row ${draggingId === article.id ? 'is-dragging' : ''}`}
+        draggable
+        onDragStart={(event) => handleDragStart(event, article.id)}
+        onDragEnd={handleDragEnd}
+        title={text.dragHint}
+      >
+        <span className="wiki-drag-handle" aria-hidden="true">⋮⋮</span>
         <button type="button" className="wiki-tree-link" onClick={() => openEditor(article.id)}>
           <span className="wiki-row-icon"><Icon.article /></span>
           <span className="wiki-row-label">{titleOf(article)}</span>
@@ -289,7 +357,13 @@ export default function WikiAdminPanel({ language = 'en' }) {
           for (const item of folder.translations || []) titles[item.language] = item.title;
           const label = titles[uiLanguage] || titles.en || folder.slug;
           return (
-            <li key={`f-${folder.id}`} className="wiki-tree-folder" style={{ '--wiki-depth': depth }}>
+            <li
+              key={`f-${folder.id}`}
+              className={`wiki-tree-folder ${dropTarget === folder.id ? 'is-drop-target' : ''}`}
+              style={{ '--wiki-depth': depth }}
+              onDragOver={(event) => handleDragOver(event, folder.id)}
+              onDrop={(event) => handleDrop(event, folder.id)}
+            >
               <div className="wiki-admin-folder-row">
                 <span className="wiki-row-icon"><Icon.folder /></span>
                 <span className="wiki-tree-folder-title">{label}</span>
@@ -401,8 +475,17 @@ export default function WikiAdminPanel({ language = 'en' }) {
       <div className="wiki-structure-card">
         <div className="wiki-structure-head">
           <h3>{text.structure}</h3>
-          <span className="hint-text">{text.editorHint}</span>
         </div>
+        {draggingId !== null && (
+          <div
+            className={`wiki-root-dropzone ${dropTarget === null ? 'is-drop-target' : ''}`}
+            onDragOver={(event) => handleDragOver(event, null)}
+            onDrop={(event) => handleDrop(event, null)}
+          >
+            {text.moveToTopLevel}
+          </div>
+        )}
+
         {!articles.length && !folders.length
           ? <p className="hint-text">{text.noArticles}</p>
           : renderBranch(null, 0)}
