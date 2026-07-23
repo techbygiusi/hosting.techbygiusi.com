@@ -36,13 +36,20 @@ const TEXT = {
     uploading: 'Uploading...',
     imageHint: 'Tip: paste a screenshot straight into the editor.',
     formatSwitched: 'Switched to Markdown so formatting can be applied.',
+    noImageAtCaret: 'Place the cursor on an image first, then choose an alignment.',
+    plainTextWarning: 'This article is set to plain text, so the Markdown in it is shown to readers exactly as written.',
+    plainTextImageWarning: 'This article contains an image but is set to plain text, so readers see the image code instead of the image.',
+    switchToMarkdown: 'Switch to Markdown',
+    alignment: 'Image',
     leaveConfirm: 'You have unsaved changes. Leave anyway?',
     tools: {
       h1: 'Heading 1', h2: 'Heading 2', h3: 'Heading 3',
       bold: 'Bold', italic: 'Italic', strike: 'Strikethrough',
       code: 'Inline code', codeblock: 'Code block', quote: 'Quote',
       ul: 'Bullet list', ol: 'Numbered list', link: 'Link',
-      image: 'Insert image', table: 'Table', hr: 'Divider'
+      image: 'Insert image', table: 'Table', hr: 'Divider',
+      alignLeft: 'Align image left', alignCenter: 'Center image',
+      alignRight: 'Align image right', alignNone: 'Remove image alignment'
     }
   },
   de: {
@@ -73,13 +80,20 @@ const TEXT = {
     uploading: 'Lädt hoch...',
     imageHint: 'Tipp: Screenshot direkt in den Editor einfügen.',
     formatSwitched: 'Auf Markdown umgestellt, damit die Formatierung wirken kann.',
+    noImageAtCaret: 'Setze den Cursor zuerst auf ein Bild und wähle dann eine Ausrichtung.',
+    plainTextWarning: 'Dieser Artikel steht auf Nur Text, daher wird das Markdown den Lesern genau so angezeigt, wie es geschrieben ist.',
+    plainTextImageWarning: 'Dieser Artikel enthält ein Bild, steht aber auf Nur Text. Leser sehen deshalb den Bild-Code statt des Bildes.',
+    switchToMarkdown: 'Auf Markdown umstellen',
+    alignment: 'Bild',
     leaveConfirm: 'Es gibt ungespeicherte Änderungen. Trotzdem verlassen?',
     tools: {
       h1: 'Überschrift 1', h2: 'Überschrift 2', h3: 'Überschrift 3',
       bold: 'Fett', italic: 'Kursiv', strike: 'Durchgestrichen',
       code: 'Code inline', codeblock: 'Codeblock', quote: 'Zitat',
       ul: 'Aufzählung', ol: 'Nummerierte Liste', link: 'Link',
-      image: 'Bild einfügen', table: 'Tabelle', hr: 'Trennlinie'
+      image: 'Bild einfügen', table: 'Tabelle', hr: 'Trennlinie',
+      alignLeft: 'Bild linksbündig', alignCenter: 'Bild zentrieren',
+      alignRight: 'Bild rechtsbündig', alignNone: 'Ausrichtung entfernen'
     }
   }
 };
@@ -338,6 +352,47 @@ export default function WikiEditorPage() {
     });
   }, [translation, patchTranslation]);
 
+  /**
+   * Apply an alignment to the image markdown at (or nearest before) the caret.
+   * Alignment is encoded as a #left/#center/#right fragment on the image URL.
+   */
+  const alignImage = useCallback((align) => {
+    const field = bodyRef.current;
+    if (!field || !translation) return;
+    const value = translation.body || '';
+    const caret = field.selectionStart ?? value.length;
+
+    const pattern = /!\[([^\]]*)\]\(([^)\s]+)\)/g;
+    let target = null;
+    let match;
+    while ((match = pattern.exec(value)) !== null) {
+      const start = match.index;
+      const end = start + match[0].length;
+      // Prefer the image the caret sits in; otherwise remember the last one
+      // that starts before the caret so a click still has an obvious target.
+      if (caret >= start && caret <= end) { target = { start, end, alt: match[1], url: match[2] }; break; }
+      if (start < caret) target = { start, end, alt: match[1], url: match[2] };
+    }
+
+    if (!target) {
+      setError(text.noImageAtCaret);
+      return;
+    }
+
+    const baseUrl = target.url.replace(/#(left|center|right)$/i, '');
+    const nextUrl = align ? `${baseUrl}#${align}` : baseUrl;
+    const replacement = `![${target.alt}](${nextUrl})`;
+    const nextValue = value.slice(0, target.start) + replacement + value.slice(target.end);
+
+    const switching = translation.format !== 'markdown';
+    patchTranslation({ body: nextValue, ...(switching ? { format: 'markdown' } : {}) });
+    setError('');
+    requestAnimationFrame(() => {
+      field.focus();
+      field.setSelectionRange(target.start, target.start + replacement.length);
+    });
+  }, [translation, patchTranslation, text.noImageAtCaret]);
+
   const uploadImage = async (file) => {
     if (!file) return;
     setBusy('upload');
@@ -392,6 +447,19 @@ export default function WikiEditorPage() {
   }
 
   const isMarkdown = translation?.format === 'markdown';
+
+  // A plain-text article shows Markdown syntax literally, which is the usual
+  // reason an inserted image "does not load" in the user portal. Detect it and
+  // offer a one-click fix instead of leaving the author guessing.
+  const bodyText = translation?.body || '';
+  const looksLikeMarkdown = !isMarkdown && (
+    /!\[[^\]]*\]\([^)]+\)/.test(bodyText)
+    || /\[[^\]]+\]\([^)]+\)/.test(bodyText)
+    || /^#{1,6}\s/m.test(bodyText)
+    || /```/.test(bodyText)
+    || /\*\*[^*]+\*\*/.test(bodyText)
+  );
+  const hasImage = /!\[[^\]]*\]\([^)]+\)/.test(bodyText);
 
   return (
     <div className="wiki-editor-page">
@@ -498,6 +566,24 @@ export default function WikiEditorPage() {
                 hidden
               />
             </label>
+            {[
+              ['left', '⇤', text.tools.alignLeft],
+              ['center', '↔', text.tools.alignCenter],
+              ['right', '⇥', text.tools.alignRight],
+              ['', '⦸', text.tools.alignNone]
+            ].map(([align, glyph, label]) => (
+              <button
+                key={align || 'none'}
+                type="button"
+                className="wiki-toolbar-btn"
+                title={label}
+                aria-label={label}
+                onClick={() => alignImage(align)}
+                disabled={viewMode === 'preview'}
+              >
+                {glyph}
+              </button>
+            ))}
           </div>
         </div>
 
@@ -525,6 +611,15 @@ export default function WikiEditorPage() {
           </div>
         </div>
       </div>
+
+      {looksLikeMarkdown && (
+        <div className="wiki-format-warning" role="status">
+          <span>{hasImage ? text.plainTextImageWarning : text.plainTextWarning}</span>
+          <button type="button" className="btn-primary btn-small" onClick={() => patchTranslation({ format: 'markdown' })}>
+            {text.switchToMarkdown}
+          </button>
+        </div>
+      )}
 
       <div className={`wiki-editor-workspace mode-${viewMode}`}>
         {viewMode !== 'preview' && (

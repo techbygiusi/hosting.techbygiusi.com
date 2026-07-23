@@ -4,17 +4,52 @@ import { wikiApi, getErrorMessage } from '../services/api';
 
 const LANGUAGES = ['en', 'de'];
 
+/* Compact line icons for the structure actions. Text buttons stacked four wide
+   made the tree look cluttered, so the actions are icon-only with tooltips. */
+const Icon = {
+  folder: () => (
+    <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true">
+      <path d="M1.75 4.25c0-.55.45-1 1-1h3.1c.32 0 .62.15.8.41l.7.96h5.9c.55 0 1 .45 1 1v6.13c0 .55-.45 1-1 1H2.75c-.55 0-1-.45-1-1V4.25Z" />
+    </svg>
+  ),
+  article: () => (
+    <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true">
+      <path d="M4 1.75h5l3 3v9.5H4V1.75Z" />
+      <path d="M9 1.75v3h3M5.75 8h4.5M5.75 10.5h4.5" />
+    </svg>
+  ),
+  addFolder: () => (
+    <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true">
+      <path d="M1.75 4.25c0-.55.45-1 1-1h3.1c.32 0 .62.15.8.41l.7.96h5.9c.55 0 1 .45 1 1v6.13c0 .55-.45 1-1 1H2.75c-.55 0-1-.45-1-1V4.25Z" />
+      <path d="M8 7.4v4M6 9.4h4" />
+    </svg>
+  ),
+  addArticle: () => (
+    <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true">
+      <path d="M12 7V4.75l-3-3H4v12.5h4" />
+      <path d="M9 1.75v3h3M11.5 10v4.25M9.4 12.1h4.2" />
+    </svg>
+  ),
+  edit: () => (
+    <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true">
+      <path d="M11.4 2.35a1.2 1.2 0 0 1 1.7 1.7L5.9 11.25l-2.3.65.65-2.3 7.15-7.25Z" />
+    </svg>
+  ),
+  trash: () => (
+    <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true">
+      <path d="M2.75 4.25h10.5M6.25 4.25V2.9h3.5v1.35M4.4 4.25l.55 9h6.1l.55-9M6.6 6.6v4.4M9.4 6.6v4.4" />
+    </svg>
+  )
+};
+
 const TEXT = {
   en: {
     title: 'Wiki',
-    intro: 'Build the folder structure and write the articles your users can read.',
     structure: 'Structure',
     newFolder: 'New folder',
     newArticle: 'New article',
     newSubfolder: 'New folder inside this folder',
     newArticleHere: 'New article in this folder',
-    folderShort: 'Folder',
-    articleShort: 'Article',
     emptyFolder: 'This folder is still empty.',
     folderName: 'Folder name',
     rootLevel: 'Top level',
@@ -27,43 +62,19 @@ const TEXT = {
     deleteFolderConfirm: 'Delete this folder? Articles inside it are moved to the top level.',
     deleteArticleConfirm: 'Delete this article including all translations?',
     noArticles: 'No articles yet. Create the first one.',
-    selectArticle: 'Select an article on the left or create a new one.',
     editorHint: 'Articles open in the full-screen editor.',
-    articleTitle: 'Title',
-    summary: 'Short description',
-    body: 'Content',
-    format: 'Editor',
-    markdown: 'Markdown',
-    plainText: 'Plain text',
-    preview: 'Preview',
-    write: 'Write',
-    published: 'Published',
-    draft: 'Draft',
-    publishToggle: 'Publish this language',
-    translationEmpty: 'No content in this language yet. Add a title to create the translation.',
-    insertImage: 'Insert image',
-    uploading: 'Uploading...',
-    imageHint: 'You can also paste a screenshot directly into the editor.',
-    location: 'Location',
-    slug: 'URL name',
     saved: 'Saved.',
     saveFailed: 'Could not be saved.',
     loadFailed: 'The wiki content could not be loaded.',
-    uploadFailed: 'The image could not be uploaded.',
-    titleRequired: 'Enter a title in at least one language.',
-    unsaved: 'Unsaved changes',
-    languageStatus: (published) => (published ? 'Published' : 'Draft')
+    titleRequired: 'Enter a title in at least one language.'
   },
   de: {
     title: 'Wiki',
-    intro: 'Lege die Ordnerstruktur an und schreibe die Artikel, die deine Benutzer lesen können.',
     structure: 'Struktur',
     newFolder: 'Neuer Ordner',
     newArticle: 'Neuer Artikel',
     newSubfolder: 'Neuer Ordner in diesem Ordner',
     newArticleHere: 'Neuer Artikel in diesem Ordner',
-    folderShort: 'Ordner',
-    articleShort: 'Artikel',
     emptyFolder: 'Dieser Ordner ist noch leer.',
     folderName: 'Ordnername',
     rootLevel: 'Oberste Ebene',
@@ -76,32 +87,11 @@ const TEXT = {
     deleteFolderConfirm: 'Diesen Ordner löschen? Enthaltene Artikel werden auf die oberste Ebene verschoben.',
     deleteArticleConfirm: 'Diesen Artikel inklusive aller Übersetzungen löschen?',
     noArticles: 'Noch keine Artikel. Lege den ersten an.',
-    selectArticle: 'Wähle links einen Artikel aus oder lege einen neuen an.',
     editorHint: 'Artikel öffnen sich im Vollbild-Editor.',
-    articleTitle: 'Titel',
-    summary: 'Kurzbeschreibung',
-    body: 'Inhalt',
-    format: 'Editor',
-    markdown: 'Markdown',
-    plainText: 'Nur Text',
-    preview: 'Vorschau',
-    write: 'Schreiben',
-    published: 'Veröffentlicht',
-    draft: 'Entwurf',
-    publishToggle: 'Diese Sprache veröffentlichen',
-    translationEmpty: 'Noch kein Inhalt in dieser Sprache. Gib einen Titel ein, um die Übersetzung anzulegen.',
-    insertImage: 'Bild einfügen',
-    uploading: 'Lädt hoch...',
-    imageHint: 'Du kannst einen Screenshot auch direkt in den Editor einfügen.',
-    location: 'Ablage',
-    slug: 'URL-Name',
     saved: 'Gespeichert.',
     saveFailed: 'Konnte nicht gespeichert werden.',
     loadFailed: 'Die Wiki-Inhalte konnten nicht geladen werden.',
-    uploadFailed: 'Das Bild konnte nicht hochgeladen werden.',
-    titleRequired: 'Gib in mindestens einer Sprache einen Titel ein.',
-    unsaved: 'Ungespeicherte Änderungen',
-    languageStatus: (published) => (published ? 'Veröffentlicht' : 'Entwurf')
+    titleRequired: 'Gib in mindestens einer Sprache einen Titel ein.'
   }
 };
 
@@ -260,17 +250,21 @@ export default function WikiAdminPanel({ language = 'en' }) {
     <li key={`a-${article.id}`}>
       <div className="wiki-admin-article-row">
         <button type="button" className="wiki-tree-link" onClick={() => openEditor(article.id)}>
-          {titleOf(article)}
+          <span className="wiki-row-icon"><Icon.article /></span>
+          <span className="wiki-row-label">{titleOf(article)}</span>
         </button>
-        <button
-          type="button"
-          className="btn-danger btn-tiny"
-          onClick={() => removeArticle(article.id)}
-          disabled={busy === `article-${article.id}`}
-          title={text.remove}
-        >
-          {text.remove}
-        </button>
+        <span className="wiki-row-actions">
+          <button
+            type="button"
+            className="wiki-icon-btn danger"
+            onClick={() => removeArticle(article.id)}
+            disabled={busy === `article-${article.id}`}
+            title={text.remove}
+            aria-label={text.remove}
+          >
+            <Icon.trash />
+          </button>
+        </span>
       </div>
     </li>
   );
@@ -297,41 +291,46 @@ export default function WikiAdminPanel({ language = 'en' }) {
           return (
             <li key={`f-${folder.id}`} className="wiki-tree-folder" style={{ '--wiki-depth': depth }}>
               <div className="wiki-admin-folder-row">
+                <span className="wiki-row-icon"><Icon.folder /></span>
                 <span className="wiki-tree-folder-title">{label}</span>
-                <span className="wiki-admin-folder-actions">
+                <span className="wiki-row-actions">
                   <button
                     type="button"
-                    className="btn-secondary btn-tiny"
+                    className="wiki-icon-btn"
                     title={text.newSubfolder}
+                    aria-label={text.newSubfolder}
                     onClick={() => setFolderForm({ id: null, parentId: folder.id, titles: {} })}
                   >
-                    + {text.folderShort}
+                    <Icon.addFolder />
                   </button>
                   <button
                     type="button"
-                    className="btn-secondary btn-tiny"
+                    className="wiki-icon-btn"
                     title={text.newArticleHere}
+                    aria-label={text.newArticleHere}
                     onClick={() => createArticle(folder.id)}
                     disabled={busy === 'article'}
                   >
-                    + {text.articleShort}
+                    <Icon.addArticle />
                   </button>
                   <button
                     type="button"
-                    className="btn-secondary btn-tiny"
+                    className="wiki-icon-btn"
                     title={text.edit}
+                    aria-label={text.edit}
                     onClick={() => setFolderForm({ id: folder.id, parentId: folder.parent_id || null, titles })}
                   >
-                    {text.edit}
+                    <Icon.edit />
                   </button>
                   <button
                     type="button"
-                    className="btn-danger btn-tiny"
+                    className="wiki-icon-btn danger"
                     title={text.remove}
+                    aria-label={text.remove}
                     onClick={() => removeFolder(folder.id)}
                     disabled={busy === `folder-${folder.id}`}
                   >
-                    {text.remove}
+                    <Icon.trash />
                   </button>
                 </span>
               </div>
@@ -345,16 +344,13 @@ export default function WikiAdminPanel({ language = 'en' }) {
 
   return (
     <section className="panel-card wiki-admin-panel">
-      <div className="wiki-panel-heading">
-        <div>
-          <h2>{text.title}</h2>
-          <p className="hint-text">{text.intro}</p>
-        </div>
+      <div className="panel-header">
+        <h2>{text.title}</h2>
         <div className="wiki-admin-heading-actions">
-          <button type="button" className="btn-secondary btn-small" onClick={() => setFolderForm({ id: null, parentId: null, titles: {} })}>
+          <button type="button" className="btn-secondary" onClick={() => setFolderForm({ id: null, parentId: null, titles: {} })}>
             {text.newFolder}
           </button>
-          <button type="button" className="btn-primary btn-small" onClick={() => createArticle(null)} disabled={busy === 'article'}>
+          <button type="button" className="btn-primary" onClick={() => createArticle(null)} disabled={busy === 'article'}>
             {text.newArticle}
           </button>
         </div>
@@ -402,18 +398,14 @@ export default function WikiAdminPanel({ language = 'en' }) {
         </div>
       )}
 
-      <div className="wiki-admin-layout">
-        <aside className="wiki-admin-tree">
-          <h4>{text.structure}</h4>
-          {!articles.length && !folders.length && <p className="hint-text">{text.noArticles}</p>}
-
-          {renderBranch(null, 0)}
-        </aside>
-
-        <div className="wiki-admin-editor">
-          <p className="hint-text">{text.selectArticle}</p>
-          <p className="hint-text">{text.editorHint}</p>
+      <div className="wiki-structure-card">
+        <div className="wiki-structure-head">
+          <h3>{text.structure}</h3>
+          <span className="hint-text">{text.editorHint}</span>
         </div>
+        {!articles.length && !folders.length
+          ? <p className="hint-text">{text.noArticles}</p>
+          : renderBranch(null, 0)}
       </div>
     </section>
   );

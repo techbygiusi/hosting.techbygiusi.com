@@ -6,7 +6,27 @@ The frontend is built with React and the backend with Express + SQLite. Proxmox 
 
 ## Version
 
-Current version: **v3.1.84**
+Current version: **v3.1.87**
+
+## What's new in v3.1.87
+
+- **Fixed images appearing as raw code in the user portal.** The cause was the article format: an article set to plain text shows its Markdown literally, so `![image](...)` was printed instead of the picture. The editor now warns when a plain-text article contains Markdown (with a dedicated message when it contains an image) and offers a one-click "Switch to Markdown".
+- **Fixed plain-text articles being drawn inside a code box.** Plain text reuses `<pre>` for whitespace handling and inherited the code-block border and radius, which produced the framed box around the text.
+- Removed the "Guides and documentation provided by your administrators." subtitle in the user portal.
+- Reworked the reading view: larger article title with a separating rule, readable line length and line height, properly sized body and headings, and a sidebar that reads as a navigation column with uppercase folder labels.
+
+## What's new in v3.1.86
+
+- **Inserted images can now be aligned left, centered or right.** Place the cursor on an image in the editor and use the new alignment buttons in the toolbar; a fourth button removes the alignment again.
+- Alignment is stored as a `#left` / `#center` / `#right` fragment on the image URL (`![shot](/api/wiki/images/…#center)`), so articles stay valid Markdown and no raw HTML is needed.
+- Left and right aligned images float so text wraps around them and are limited to half the article width. On narrow screens they automatically fall back to full-width centered, because a floated half-width image next to text is unreadable on a phone.
+
+## What's new in v3.1.85
+
+- The admin wiki tab now uses the same layout and typography as the other admin tabs (Log, Maintenance): standard panel header, 15px section heading and 14px body text instead of its own sizes. The "Build the folder structure..." subtitle was removed.
+- Folder names are no longer rendered as tiny uppercase section labels; they read as normal folder rows with a folder icon.
+- The four text buttons per folder were replaced by compact icon buttons (new subfolder, new article, edit, delete) that appear on hover with tooltips, so the structure stays readable. Delete turns red on hover.
+- The structure now fills the full panel width in a single card instead of sitting in a narrow column next to an empty pane.
 
 ## What's new in v3.1.84
 
@@ -548,6 +568,30 @@ docker image prune -f
 The database migrates itself on startup. Keep the backend data volume before updating.
 
 ## Changelog
+
+### v3.1.87 - 2026-07-23
+
+**Commit:** `fix: stop plain-text wiki articles rendering markdown literally and polish the reading view`
+
+- Reset border and radius on `.markdown-plain`, which previously inherited the `<pre>` code-block styling and framed every plain-text article in a box.
+- Detect Markdown syntax inside a plain-text article in the editor and show a warning with a one-click switch to Markdown, using a specific message when an image is present (the reason inserted images appeared as raw code to readers).
+- Remove the user-portal wiki subtitle and restyle the reading view: 24px article title with a separating rule, 74ch measure, 15px/1.75 body text, scaled headings and a navigation-style sidebar.
+
+### v3.1.86 - 2026-07-23
+
+**Commit:** `feat: allow wiki images to be aligned left, center or right`
+
+- Parse an optional `#left`/`#center`/`#right` fragment on image URLs in `MarkdownView`, strip it from the emitted `src` and map it to an allowlisted `align-*` class, so no author-controlled value reaches the class attribute and unsafe URLs are still rejected.
+- Add four toolbar actions in the wiki editor that set or clear the alignment of the image at (or nearest before) the caret, replacing an existing fragment instead of appending a second one.
+- Style centered images as auto-margin blocks and left/right as floats limited to half the article width, with float clearing on headings, rules, code blocks and tables, plus a full-width centered fallback under 700px.
+
+### v3.1.85 - 2026-07-23
+
+**Commit:** `style: align the wiki admin tab with the other admin panels and use icon actions`
+
+- Use the standard `panel-header` markup and drop the intro paragraph so the Wiki tab matches Log and Maintenance; align tree typography to 14px body / 15px section headings.
+- Replace the uppercase micro-label folder titles with normal folder rows including a folder icon, and swap the four per-folder text buttons for compact icon buttons revealed on hover (always visible on touch devices).
+- Collapse the two-column layout into one full-width structure card now that editing happens on its own page, and remove 24 labels left unused after the editor moved out.
 
 ### v3.1.84 - 2026-07-23
 

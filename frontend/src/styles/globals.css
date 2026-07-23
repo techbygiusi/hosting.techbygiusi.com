@@ -6890,20 +6890,21 @@ body.theme-dark {
 }
 
 .wiki-tree-folder-title {
-  display: block;
-  font-size: 0.78rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--color-text-light);
-  margin-bottom: 4px;
+  flex: 1 1 auto;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text);
+  overflow-wrap: anywhere;
 }
 
 .wiki-tree-link {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   width: 100%;
   text-align: left;
-  padding: 6px 10px;
+  font-size: 14px;
+  padding: 6px 8px;
   border: 0;
   border-radius: 6px;
   background: none;
@@ -7254,13 +7255,21 @@ body.theme-dark {
   text-align: left;
 }
 
+/* Plain-text articles reuse <pre> for whitespace handling, so every code-block
+   style has to be reset here - otherwise the article is drawn inside a code
+   box with a border. */
 .markdown-body .markdown-plain {
   margin: 0;
   padding: 0;
+  border: 0;
+  border-radius: 0;
   background: none;
   color: inherit;
   white-space: pre-wrap;
+  overflow-wrap: anywhere;
   font-family: inherit;
+  font-size: inherit;
+  line-height: 1.7;
 }
 
 @media (max-width: 900px) {
@@ -7619,4 +7628,284 @@ body.wiki-editor-route-active {
   margin: 2px 0 6px 14px;
   font-size: 0.8rem;
   opacity: 0.75;
+}
+
+/* ------------------------------------------------------------------ */
+/* v3.1.85 - Wiki admin tab aligned with the other admin panels        */
+/* ------------------------------------------------------------------ */
+
+.wiki-admin-heading-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.wiki-structure-card {
+  padding: var(--layout-padding);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-alt);
+}
+
+.wiki-structure-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.wiki-structure-head h3 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.wiki-row-icon {
+  display: inline-flex;
+  flex: 0 0 auto;
+  color: var(--color-text-light);
+}
+
+.wiki-row-label {
+  overflow-wrap: anywhere;
+}
+
+.wiki-admin-folder-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 6px;
+}
+
+.wiki-admin-folder-row:hover {
+  background: var(--wiki-hover);
+}
+
+.wiki-row-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  flex: 0 0 auto;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.wiki-admin-folder-row:hover .wiki-row-actions,
+.wiki-admin-article-row:hover .wiki-row-actions,
+.wiki-row-actions:focus-within {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .wiki-row-actions {
+    opacity: 1;
+  }
+}
+
+.wiki-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: none;
+  color: var(--color-text-light);
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.wiki-icon-btn:hover:not(:disabled) {
+  border-color: var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.wiki-icon-btn.danger:hover:not(:disabled) {
+  color: var(--color-danger);
+  border-color: var(--color-danger);
+}
+
+.wiki-icon-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.wiki-admin-article-row {
+  border-radius: 6px;
+  padding-right: 4px;
+}
+
+.wiki-admin-article-row:hover {
+  background: var(--wiki-hover);
+}
+
+.wiki-admin-article-row .wiki-tree-link:hover {
+  background: none;
+}
+
+/* ------------------------------------------------------------------ */
+/* v3.1.86 - Wiki image alignment                                      */
+/* ------------------------------------------------------------------ */
+
+.markdown-body .markdown-img.align-center {
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.markdown-body .markdown-img.align-left {
+  float: left;
+  margin: 4px 16px 12px 0;
+  max-width: 50%;
+}
+
+.markdown-body .markdown-img.align-right {
+  float: right;
+  margin: 4px 0 12px 16px;
+  max-width: 50%;
+}
+
+/* Keep floated images from bleeding out of the article or over the next
+   heading, and stop them wrapping around block elements. */
+.markdown-body::after {
+  content: '';
+  display: block;
+  clear: both;
+}
+
+.markdown-body h1,
+.markdown-body h2,
+.markdown-body h3,
+.markdown-body hr,
+.markdown-body pre,
+.markdown-body .markdown-table-wrap {
+  clear: both;
+}
+
+@media (max-width: 700px) {
+  /* Floating a half-width image next to text is unreadable on a phone. */
+  .markdown-body .markdown-img.align-left,
+  .markdown-body .markdown-img.align-right {
+    float: none;
+    display: block;
+    margin: 0 auto 12px;
+    max-width: 100%;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* v3.1.87 - User-facing wiki reading experience                       */
+/* ------------------------------------------------------------------ */
+
+.wiki-panel .wiki-layout {
+  gap: 24px;
+}
+
+/* Sidebar reads as a navigation column, not a bare list. */
+.wiki-panel .wiki-sidebar {
+  padding: 4px 16px 4px 0;
+}
+
+.wiki-panel .wiki-tree-link {
+  font-size: 14px;
+  padding: 7px 10px;
+  border-radius: 7px;
+  color: var(--color-text-light);
+}
+
+.wiki-panel .wiki-tree-link:hover {
+  color: var(--color-text);
+}
+
+.wiki-panel .wiki-tree-link.active {
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+.wiki-panel .wiki-tree-folder-title {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-light);
+  padding: 0 10px;
+  margin: 12px 0 4px;
+  display: block;
+}
+
+/* Article column: cap the measure so long lines stay readable. */
+.wiki-article-inner {
+  max-width: 74ch;
+}
+
+.wiki-article-header {
+  padding-bottom: 14px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.wiki-article-header h3 {
+  margin: 0 0 8px;
+  font-size: 24px;
+  line-height: 1.25;
+  font-weight: 650;
+}
+
+.wiki-article-summary {
+  margin: 0 0 8px;
+  font-size: 15px;
+  color: var(--color-text-light);
+}
+
+.wiki-article-meta {
+  display: block;
+  font-size: 12px;
+  color: var(--color-text-light);
+}
+
+.wiki-article .markdown-body {
+  font-size: 15px;
+  line-height: 1.75;
+}
+
+.wiki-article .markdown-body h1 { font-size: 21px; }
+.wiki-article .markdown-body h2 { font-size: 18px; }
+.wiki-article .markdown-body h3 { font-size: 16px; }
+
+.wiki-article .markdown-body > *:last-child {
+  margin-bottom: 0;
+}
+
+.wiki-search-input {
+  border-radius: 8px;
+}
+
+@media (max-width: 900px) {
+  .wiki-panel .wiki-sidebar {
+    padding: 0 0 12px;
+  }
+
+  .wiki-article-header h3 {
+    font-size: 20px;
+  }
+}
+
+/* Format mismatch warning in the wiki editor */
+.wiki-format-warning {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin: 0;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--wiki-notice-border);
+  background: var(--wiki-notice-bg);
+  color: var(--wiki-notice-text);
+  font-size: 0.88rem;
 }

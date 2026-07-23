@@ -37,12 +37,19 @@ function renderInline(text) {
     return `\u0000CODE${codeSpans.length - 1}\u0000`;
   });
 
-  // Images: ![alt](url)
+  // Images: ![alt](url) with an optional #left / #center / #right alignment
+  // fragment. Markdown has no alignment syntax, so the fragment is used as a
+  // convention: it stays valid markdown and the class comes from a fixed
+  // allowlist, so nothing author-controlled reaches the class attribute.
   out = out.replace(/!\[([^\]]*)\]\(([^)\s]+)(?:\s+&quot;([^&]*)&quot;)?\)/g, (match, alt, url, title) => {
-    const src = safeUrl(url);
+    const alignMatch = String(url).match(/#(left|center|right)$/i);
+    const align = alignMatch ? alignMatch[1].toLowerCase() : '';
+    const cleanUrl = alignMatch ? String(url).slice(0, -alignMatch[0].length) : url;
+    const src = safeUrl(cleanUrl);
     if (!src) return match;
     const titleAttr = title ? ` title="${title}"` : '';
-    return `<img src="${src}" alt="${alt}"${titleAttr} loading="lazy" />`;
+    const classAttr = align ? ` class="markdown-img align-${align}"` : ' class="markdown-img"';
+    return `<img src="${src}" alt="${alt}"${titleAttr}${classAttr} loading="lazy" />`;
   });
 
   // Links: [label](url)

@@ -5,7 +5,6 @@ import MarkdownView from './MarkdownView';
 const TEXT = {
   en: {
     title: 'Wiki',
-    intro: 'Guides and documentation provided by your administrators.',
     empty: 'No wiki articles have been published yet.',
     search: 'Search articles',
     noMatches: 'No article matches your search.',
@@ -18,7 +17,6 @@ const TEXT = {
   },
   de: {
     title: 'Wiki',
-    intro: 'Anleitungen und Dokumentation von deinen Administratoren.',
     empty: 'Es wurden noch keine Wiki-Artikel veröffentlicht.',
     search: 'Artikel durchsuchen',
     noMatches: 'Kein Artikel passt zu deiner Suche.',
@@ -150,7 +148,6 @@ export default function WikiBrowser({ language = 'en' }) {
       <div className="wiki-panel-heading">
         <div>
           <h2>{text.title}</h2>
-          <p className="hint-text">{text.intro}</p>
         </div>
         {hasContent && (
           <input
@@ -184,6 +181,7 @@ export default function WikiBrowser({ language = 'en' }) {
           </nav>
 
           <article className="wiki-article">
+            <div className="wiki-article-inner">
             {!article && <p className="hint-text">{text.selectPrompt}</p>}
             {article && (
               <>
@@ -205,6 +203,7 @@ export default function WikiBrowser({ language = 'en' }) {
                 <MarkdownView content={article.body} format={article.format} language={language} />
               </>
             )}
+            </div>
           </article>
         </div>
       )}
