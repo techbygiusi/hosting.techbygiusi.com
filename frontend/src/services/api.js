@@ -391,6 +391,34 @@ export const userApi = {
   updateNotificationPreferences: (data) => apiClient.put('/user/notifications', data)
 };
 
+// v3.1.80: wiki - published articles for users, full management for admins
+export const wikiApi = {
+  // portal users
+  getTree: (language) => apiClient.get(`/wiki/tree?language=${encodeURIComponent(language || 'en')}`),
+  getArticle: (slug, language) => apiClient.get(`/wiki/articles/${encodeURIComponent(slug)}?language=${encodeURIComponent(language || 'en')}`),
+
+  // administrators
+  getAdminContent: () => apiClient.get('/wiki/admin/content'),
+  createFolder: (data) => apiClient.post('/wiki/admin/folders', data),
+  updateFolder: (folderId, data) => apiClient.put(`/wiki/admin/folders/${folderId}`, data),
+  deleteFolder: (folderId) => apiClient.delete(`/wiki/admin/folders/${folderId}`),
+  getArticleForEdit: (articleId) => apiClient.get(`/wiki/admin/articles/${articleId}`),
+  createArticle: (data) => apiClient.post('/wiki/admin/articles', data),
+  updateArticle: (articleId, data) => apiClient.put(`/wiki/admin/articles/${articleId}`, data),
+  deleteArticle: (articleId) => apiClient.delete(`/wiki/admin/articles/${articleId}`),
+
+  // Images are sent as a raw binary body: this keeps a multipart dependency out
+  // of the backend and lets a pasted clipboard blob be forwarded unchanged.
+  uploadImage: (file) => apiClient.post('/wiki/admin/images', file, {
+    headers: {
+      'Content-Type': file.type || 'application/octet-stream',
+      'X-Filename': encodeURIComponent(file.name || 'image')
+    }
+  }),
+  listImages: () => apiClient.get('/wiki/admin/images'),
+  deleteImage: (token) => apiClient.delete(`/wiki/admin/images/${token}`)
+};
+
 // v3.0: public - maintenance announcements for the banner (no auth required)
 export const publicApi = {
   getAnnouncements: () => apiClient.get('/announcements')

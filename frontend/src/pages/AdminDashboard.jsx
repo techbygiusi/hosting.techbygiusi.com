@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { authApi, adminApi, getErrorMessage, translateMessage } from '../services/api';
 import '../styles/globals.css';
 import ThemeButton from '../components/ThemeButton';
+import WikiAdminPanel from '../components/WikiAdminPanel';
 import Modal from '../components/Modal';
 import MaintenanceBanner from '../components/MaintenanceBanner';
 import ClusterMapSection from '../components/ClusterMapSection';
@@ -174,6 +175,7 @@ const MOBILE_MENU_TRANSLATIONS = {
       resources: 'Services',
       maintenance: 'Maintenance',
       audit: 'Log',
+      wiki: 'Wiki',
       settings: 'Settings'
     },
     dashboard: {
@@ -229,6 +231,7 @@ const MOBILE_MENU_TRANSLATIONS = {
       resources: 'Dienste',
       maintenance: 'Wartung',
       audit: 'Protokoll',
+      wiki: 'Wiki',
       settings: 'Einstellungen'
     },
     dashboard: {
@@ -335,6 +338,7 @@ export default function AdminDashboard() {
     ['resources', 'Dienste'],
     ['maintenance', 'Wartung'],
     ['audit', 'Protokoll'],
+    ['wiki', 'Wiki'],
     ['settings', 'Einstellungen']
   ];
 
@@ -1437,6 +1441,8 @@ export default function AdminDashboard() {
             )}
           </section>
         )}
+
+        {!loading && activeTab === 'wiki' && <WikiAdminPanel language={mobileMenuLanguage} />}
 
         {!loading && activeTab === 'settings' && (
           <section className="panel-card settings-card">

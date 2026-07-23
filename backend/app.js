@@ -11,6 +11,7 @@ const authRoutes = require('./routes/auth');
 const adminRoutes = require('./routes/admin');
 const userRoutes = require('./routes/user');
 const announcementRoutes = require('./routes/announcements');
+const wikiRoutes = require('./routes/wiki');
 const { authMiddleware } = require('./middleware/auth');
 const { errorHandler } = require('./middleware/errorHandler');
 const { attachConsoleProxy } = require('./services/consoleService');
@@ -87,6 +88,9 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/user', authMiddleware, userRoutes);
 // Public: maintenance announcements for the top banner (also on login screen)
 app.use('/api/announcements', announcementRoutes);
+// Wiki: admin-authored knowledge base. Auth is applied per route because the
+// image endpoint must stay reachable for <img> tags without an auth header.
+app.use('/api/wiki', wikiRoutes);
 
 app.use((req, res) => {
   res.status(404).json({

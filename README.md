@@ -6,7 +6,36 @@ The frontend is built with React and the backend with Express + SQLite. Proxmox 
 
 ## Version
 
-Current version: **v3.1.76**
+Current version: **v3.1.81**
+
+## What's new in v3.1.81
+
+- The language-fallback notice now sits at the very top of the article, above the title, and states plainly that the article is currently only available in English ("Dieser Artikel ist derzeit nur auf Englisch verfügbar.").
+- The wiki now fully follows the portal's light/dark switch. Code blocks, inline code, the article tree hover/active states, the fallback notice and the copy buttons all use dedicated theme tokens instead of hardcoded colours, so nothing stays dark-on-dark or light-on-light.
+- Code blocks got a copy button that appears on hover (and stays visible on keyboard focus, after copying, and on touch devices where there is no hover). It copies the raw code, confirms with "Copied ✓" / "Kopiert ✓" and works on portals served over plain HTTP.
+- The clipboard helper is now shared between the wiki and the published-access copy control instead of being duplicated.
+
+## What's new in v3.1.80
+
+- **New: Wiki.** Portal users get a "Wiki" entry between Dashboard and Settings that shows a searchable, admin-curated knowledge base. Only articles an administrator has published are visible.
+- **Admin authoring.** Administrators get their own "Wiki" tab to build a nested folder structure and write articles in a Markdown editor with a live preview, or in a plain-text editor per article and language.
+- **Multi-language articles.** Every article can be written and published per language (EN/DE) independently, so an English article can go live while its German translation is still a draft. Readers who request a language without a translation automatically get the English version with a notice.
+- **Screenshots and images.** Images can be uploaded from the file picker or pasted directly into the editor from the clipboard; the Markdown link is inserted at the caret. Uploads are stored in the persistent `backend/data` volume and served through an unguessable token URL.
+- Markdown is rendered by a small built-in renderer with no new npm dependencies, so the Docker build is unchanged. All author input is HTML-escaped before rendering and link/image URLs are restricted to safe schemes.
+
+## What's new in v3.1.79
+
+- Published access entries can now be copied by clicking the address. The address is shown and copied without its protocol prefix (`tcp://minecraft.apps.example.com:20001` is copied as `minecraft.apps.example.com:20001`), so it can be pasted directly into clients such as a game launcher. A short "Copied ✓" confirmation is shown, and the copy also works when the portal is reached over plain HTTP.
+- The "Open" button for HTTP publications keeps using the full URL including the protocol.
+
+## What's new in v3.1.78
+
+- Fixed German labels appearing in the "Tasks & logs" list while the portal language is English (for example a restart task showing as "Neustart"). Task types, task status and the service type label are now resolved per language directly in the component instead of relying on the runtime phrase dictionary, so a missing dictionary entry can no longer leak German text.
+- Added the missing English translations for the restart and busy-state action labels ("Neustart", "Startet…", "Stoppt…", "Neustart…").
+
+## What's new in v3.1.77
+
+- Made the Docker image builds resilient to transient npm registry drops: both Dockerfiles now configure npm fetch retries and longer timeouts before installing, so a `ECONNRESET`/`network aborted` error during `npm install` retries instead of failing the whole build. (This addresses build failures caused by flaky build-host networking, not the application itself.)
 
 ## What's new in v3.1.76
 
@@ -500,6 +529,45 @@ docker image prune -f
 The database migrates itself on startup. Keep the backend data volume before updating.
 
 ## Changelog
+
+### v3.1.81 - 2026-07-23
+
+**Commit:** `feat: theme the wiki for light and dark mode and add hover copy buttons to code blocks`
+
+- Move the translation-fallback notice above the article title and reword it to state that the article is currently only available in English.
+- Introduce wiki theme tokens for both `theme-light` and `theme-dark` and replace the hardcoded code-block colours and the undefined `--color-surface-muted` fallbacks, so tree hover states, inline code, code blocks and the notice render correctly in both themes.
+- Render fenced code blocks inside a wrapper with a copy button that reveals on hover, stays visible on focus/after copying/on touch devices, and copies the raw code text via click delegation (the body is injected HTML, so the handler is delegated from the container).
+- Extract `utils/clipboard.js` with the secure-context clipboard call plus `execCommand` fallback and reuse it in `MarkdownView` and `PublicPageModal`.
+
+### v3.1.80 - 2026-07-23
+
+**Commit:** `feat: add admin-managed multi-language wiki with markdown editor and image uploads`
+
+- Add wiki schema (`wiki_folders`, `wiki_folder_translations`, `wiki_articles`, `wiki_article_translations`, `wiki_images`) with per-language publishing and cascading folder deletes that preserve articles by moving them to the top level.
+- Add `services/wikiService.js` and `routes/wiki.js`: folder/article CRUD for admins, published-only tree and article reads for users, and raw-binary image upload without adding a multipart dependency.
+- Add a "Wiki" tab between Dashboard and Settings in the user portal (`WikiBrowser`) and a "Wiki" admin tab (`WikiAdminPanel`) with folder management, per-language tabs, Markdown/plain-text switch, live preview, publish toggle and clipboard image paste.
+- Add a dependency-free Markdown renderer (`MarkdownView`) that escapes all input before rendering and allows only `http(s)`, root-relative, `mailto:` and anchor URLs.
+- Wiki images are addressed by an unguessable token because rendered `<img>` tags cannot send the JWT auth header; upload directory is resolved absolutely so it works with the relative `DB_PATH` used in docker-compose.
+
+### v3.1.79 - 2026-07-23
+
+**Commit:** `feat: copy published access address without the protocol prefix on click`
+
+- Render the published access address as a click-to-copy control that shows and copies the address without its scheme (`tcp://`, `udp://`, `http(s)://`), with a temporary "Copied ✓" confirmation in both portal languages.
+- Fall back to the legacy `execCommand` copy path when the async clipboard API is unavailable, so copying also works on portals served over plain HTTP.
+
+### v3.1.78 - 2026-07-23
+
+**Commit:** `fix: localize Proxmox task labels so they follow the selected portal language`
+
+- Resolve task type, task status and the service type label per language in `ResourceDetail`, fixing German task labels such as "Neustart" showing in the English portal because the phrase dictionary had no matching entry.
+- Add the missing dictionary entries for "Neustart", "Startet...", "Stoppt..." and "Neustart..." without changing the German wording of the restart button.
+
+### v3.1.77 - 2026-07-19
+
+**Commit:** `build: add npm fetch retries and timeouts to Dockerfiles to survive transient registry resets`
+
+- Configure npm fetch-retries, retry timeouts and a longer fetch-timeout in the backend and frontend Dockerfiles before `npm install`, so a transient `ECONNRESET`/`network aborted` during dependency download retries instead of failing the image build.
 
 ### v3.1.76 - 2026-07-19
 

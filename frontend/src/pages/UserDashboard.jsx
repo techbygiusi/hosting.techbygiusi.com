@@ -8,6 +8,7 @@ import ResourceDetail, { getPercent, formatBytes, renderType } from '../componen
 import CreateMachineModal from '../components/CreateMachineModal';
 import MaintenanceBanner from '../components/MaintenanceBanner';
 import NotificationSettingsPanel from '../components/NotificationSettingsPanel';
+import WikiBrowser from '../components/WikiBrowser';
 import PublicPageModal from '../components/PublicPageModal';
 
 const USER_LANGUAGE_OPTIONS = [
@@ -41,6 +42,7 @@ const USER_TRANSLATIONS = {
     userConsole: 'User Portal',
     notifications: 'Notifications',
     dashboard: 'Dashboard',
+    wiki: 'Wiki',
     settings: 'Settings',
     menu: 'Menu',
     openMenu: 'Open menu',
@@ -120,6 +122,7 @@ const USER_TRANSLATIONS = {
     userConsole: 'Benutzer-Portal',
     notifications: 'Benachrichtigungen',
     dashboard: 'Dashboard',
+    wiki: 'Wiki',
     settings: 'Einstellungen',
     menu: 'Menü',
     openMenu: 'Menü öffnen',
@@ -369,6 +372,7 @@ export default function UserDashboard() {
           </div>
           <nav className="console-nav-tabs mobile-admin-menu-nav" aria-label={labels.menu}>
             <button type="button" className={activeTab === 'dashboard' ? 'active' : ''} onClick={() => selectTab('dashboard')}>{labels.dashboard}</button>
+            <button type="button" className={activeTab === 'wiki' ? 'active' : ''} onClick={() => selectTab('wiki')}>{labels.wiki}</button>
             <button type="button" className={activeTab === 'settings' ? 'active' : ''} onClick={() => selectTab('settings')}>{labels.settings}</button>
           </nav>
           <div className="mobile-admin-menu-footer">
@@ -386,6 +390,7 @@ export default function UserDashboard() {
           </div>
           <nav className="app-tabs console-nav-tabs" aria-label={labels.menu}>
             <button type="button" className={activeTab === 'dashboard' ? 'active' : ''} onClick={() => selectTab('dashboard')}>{labels.dashboard}</button>
+            <button type="button" className={activeTab === 'wiki' ? 'active' : ''} onClick={() => selectTab('wiki')}>{labels.wiki}</button>
             <button type="button" className={activeTab === 'settings' ? 'active' : ''} onClick={() => selectTab('settings')}>{labels.settings}</button>
           </nav>
         </aside>
@@ -457,6 +462,8 @@ export default function UserDashboard() {
               )}
             </>
           )}
+
+          {activeTab === 'wiki' && <WikiBrowser language={language} />}
 
           {activeTab === 'settings' && (
             <section className="panel-card user-settings-card">

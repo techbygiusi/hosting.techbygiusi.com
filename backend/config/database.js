@@ -99,6 +99,84 @@ async function initDatabase() {
 
 
 
+      // v3.1.80: Wiki - admin-curated folder structure with multi-language articles.
+      // Folders form a tree via parent_id; titles live in the translation tables so
+      // the same structure can be presented in every portal language.
+      database.run(`
+        CREATE TABLE IF NOT EXISTS wiki_folders (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          parent_id INTEGER,
+          slug TEXT NOT NULL,
+          position INTEGER DEFAULT 0,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (parent_id) REFERENCES wiki_folders(id) ON DELETE CASCADE
+        )
+      `);
+
+      database.run(`
+        CREATE TABLE IF NOT EXISTS wiki_folder_translations (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          folder_id INTEGER NOT NULL,
+          language TEXT NOT NULL,
+          title TEXT NOT NULL,
+          UNIQUE (folder_id, language),
+          FOREIGN KEY (folder_id) REFERENCES wiki_folders(id) ON DELETE CASCADE
+        )
+      `);
+
+      database.run(`
+        CREATE TABLE IF NOT EXISTS wiki_articles (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          folder_id INTEGER,
+          slug TEXT NOT NULL UNIQUE,
+          position INTEGER DEFAULT 0,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          updated_by INTEGER,
+          FOREIGN KEY (folder_id) REFERENCES wiki_folders(id) ON DELETE SET NULL,
+          FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE SET NULL
+        )
+      `);
+
+      // One row per language. is_published is per language so an article can go
+      // live in English while its German translation is still being written.
+      database.run(`
+        CREATE TABLE IF NOT EXISTS wiki_article_translations (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          article_id INTEGER NOT NULL,
+          language TEXT NOT NULL,
+          title TEXT NOT NULL,
+          summary TEXT,
+          body TEXT DEFAULT '',
+          format TEXT DEFAULT 'markdown' CHECK(format IN ('markdown', 'text')),
+          is_published INTEGER DEFAULT 0,
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE (article_id, language),
+          FOREIGN KEY (article_id) REFERENCES wiki_articles(id) ON DELETE CASCADE
+        )
+      `);
+
+      // Uploaded screenshots/images. token is an unguessable public identifier so
+      // <img> tags inside rendered articles can load without an auth header.
+      database.run(`
+        CREATE TABLE IF NOT EXISTS wiki_images (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          token TEXT NOT NULL UNIQUE,
+          filename TEXT NOT NULL,
+          original_name TEXT,
+          mime_type TEXT NOT NULL,
+          byte_size INTEGER DEFAULT 0,
+          uploaded_by INTEGER,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (uploaded_by) REFERENCES users(id) ON DELETE SET NULL
+        )
+      `);
+
+      database.run(`CREATE INDEX IF NOT EXISTS idx_wiki_folders_parent ON wiki_folders(parent_id)`, () => {});
+      database.run(`CREATE INDEX IF NOT EXISTS idx_wiki_articles_folder ON wiki_articles(folder_id)`, () => {});
+      database.run(`CREATE INDEX IF NOT EXISTS idx_wiki_article_tr ON wiki_article_translations(article_id, language)`, () => {});
+
       // Managed resources shown in the portal
       database.run(`
         CREATE TABLE IF NOT EXISTS resources (

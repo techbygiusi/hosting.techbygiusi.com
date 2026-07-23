@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import Modal from './Modal';
 import { userApi, getErrorMessage } from '../services/api';
 import { readStoredLanguage } from './LanguageSwitch';
+import { copyTextToClipboard } from '../utils/clipboard';
 
 const TEXT = {
   en: {
@@ -19,6 +20,8 @@ const TEXT = {
     security: 'You cannot enter another IP address. The portal always publishes this service only.',
     disabled: 'Disabled by administrator', existingTitle: 'Published access', noPublications: 'No public access has been configured yet.',
     addTitle: 'Add public access', editTitle: 'Edit public access', target: 'Target',
+    copyHint: 'Click to copy the address without the protocol', copied: 'Copied ✓',
+    copyFailed: 'The address could not be copied.',
     saved: 'Public access was saved.', removed: 'Public access was removed.',
     multipleHint: 'You can add several HTTP, TCP and UDP publications for this service and use them in parallel.',
     protocolLocked: 'The protocol stays fixed while editing. Create another publication to use a different protocol.',
@@ -72,6 +75,8 @@ const TEXT = {
     security: 'Du kannst keine andere IP-Adresse eintragen. Das Portal veröffentlicht immer nur diesen Dienst.',
     disabled: 'Vom Administrator deaktiviert', existingTitle: 'Veröffentlichte Zugriffe', noPublications: 'Es wurde noch kein öffentlicher Zugriff eingerichtet.',
     addTitle: 'Öffentlichen Zugriff hinzufügen', editTitle: 'Öffentlichen Zugriff bearbeiten', target: 'Ziel',
+    copyHint: 'Klicken, um die Adresse ohne Protokoll zu kopieren', copied: 'Kopiert ✓',
+    copyFailed: 'Die Adresse konnte nicht kopiert werden.',
     saved: 'Der öffentliche Zugriff wurde gespeichert.', removed: 'Der öffentliche Zugriff wurde entfernt.',
     multipleHint: 'Du kannst für diesen Dienst mehrere HTTP-, TCP- und UDP-Freigaben anlegen und parallel verwenden.',
     protocolLocked: 'Das Protokoll bleibt beim Bearbeiten unverändert. Lege für ein anderes Protokoll eine weitere Freigabe an.',
@@ -130,6 +135,7 @@ export default function PublicPageModal({ resource, onClose, onSaved, language: 
   const [managementPage, setManagementPage] = useState(null);
   const [managementForm, setManagementForm] = useState({ url: resource?.adminUrl || '', username: '', secret: '', notes: '' });
   const [editingId, setEditingId] = useState(null);
+  const [copiedId, setCopiedId] = useState(null);
   const [protocol, setProtocol] = useState('http');
   const [subdomain, setSubdomain] = useState(slugify(resource?.name || 'service'));
   const [targetPort, setTargetPort] = useState('80');
@@ -381,6 +387,18 @@ export default function PublicPageModal({ resource, onClose, onSaved, language: 
     }
   };
 
+  const copyPublicUrl = async (publication) => {
+    const value = stripUrlProtocol(publication.publicUrl);
+    if (!value) return;
+    const ok = await copyTextToClipboard(value);
+    if (!ok) {
+      setError(text.copyFailed);
+      return;
+    }
+    setCopiedId(publication.id);
+    setTimeout(() => setCopiedId((current) => (current === publication.id ? null : current)), 1800);
+  };
+
   const renderPublicationList = ({ allowEdit = true } = {}) => (
     <div className="publishing-existing-list">
       {publications.map((publication) => (
@@ -388,7 +406,16 @@ export default function PublicPageModal({ resource, onClose, onSaved, language: 
           <div className="publishing-existing-card-main">
             <span className="publishing-protocol-badge">{String(publication.protocol || '').toUpperCase()}</span>
             <div>
-              <strong>{publication.publicUrl || '—'}</strong>
+              <button
+                type="button"
+                className="publishing-copy-url"
+                onClick={() => copyPublicUrl(publication)}
+                disabled={!publication.publicUrl}
+                title={publication.publicUrl ? text.copyHint : undefined}
+              >
+                <strong>{publication.publicUrl ? stripUrlProtocol(publication.publicUrl) : '—'}</strong>
+                {copiedId === publication.id && <span className="publishing-copy-flag">{text.copied}</span>}
+              </button>
               <small>{text.target}: {formatTarget(publication, primaryIp)}</small>
             </div>
           </div>
@@ -698,6 +725,12 @@ function normalizeManualUrl(value) {
   } catch (_) {
     return '';
   }
+}
+
+function stripUrlProtocol(value) {
+  // Remove a leading scheme (http://, https://, tcp://, udp://, ...) so the copied
+  // value is the plain host:port users paste into clients such as a game launcher.
+  return String(value || '').trim().replace(/^[a-z][a-z0-9+.-]*:\/\//i, '');
 }
 
 function formatTarget(publication, ip) {

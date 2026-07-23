@@ -556,7 +556,7 @@ export function renderStatus(status) {
 export function renderType(type) {
   if (type === 'lxc') return 'LXC';
   if (type === 'qemu') return 'VM';
-  return 'Dienst';
+  return readStoredLanguage() === 'de' ? 'Dienst' : 'Service';
 }
 
 function formatUptime(seconds) {
@@ -575,12 +575,22 @@ function formatTimestamp(unix) {
 }
 
 function renderTaskType(type) {
-  const map = {
+  // Task labels are resolved per language here instead of relying on the runtime
+  // DOM phrase translation, so a missing dictionary entry can never leave a
+  // German task label (e.g. "Neustart") visible while the portal is in English.
+  const de = {
     vzstart: 'Start', vzstop: 'Stopp', vzshutdown: 'Herunterfahren', vzreboot: 'Neustart',
     qmstart: 'Start', qmstop: 'Stopp', qmshutdown: 'Herunterfahren', qmreboot: 'Neustart',
     vzcreate: 'Erstellen', qmcreate: 'Erstellen', vzdump: 'Backup',
     vncproxy: 'Konsole', vncshell: 'Konsole'
   };
+  const en = {
+    vzstart: 'Start', vzstop: 'Stop', vzshutdown: 'Shut down', vzreboot: 'Restart',
+    qmstart: 'Start', qmstop: 'Stop', qmshutdown: 'Shut down', qmreboot: 'Restart',
+    vzcreate: 'Create', qmcreate: 'Create', vzdump: 'Backup',
+    vncproxy: 'Console', vncshell: 'Console'
+  };
+  const map = readStoredLanguage() === 'de' ? de : en;
   return map[type] || type;
 }
 
@@ -592,6 +602,6 @@ function taskStatusKind(status) {
 
 function renderTaskStatus(status) {
   if (status === 'OK') return 'OK';
-  if (status === 'running' || !status) return 'Läuft';
+  if (status === 'running' || !status) return readStoredLanguage() === 'de' ? 'Läuft' : 'Running';
   return status;
 }
