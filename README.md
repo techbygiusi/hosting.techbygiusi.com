@@ -6,7 +6,26 @@ The frontend is built with React and the backend with Express + SQLite. Proxmox 
 
 ## Version
 
-Current version: **v3.1.81**
+Current version: **v3.1.84**
+
+## What's new in v3.1.84
+
+- **The wiki structure is now a real nested tree.** Subfolders were previously flattened into one list and only hinted at with dashes; they are now rendered inside their parent folder with indentation guides, at any depth.
+- **Create content where it belongs.** Every folder has its own "+ Folder" and "+ Article" actions, so a subfolder or an article is created directly inside that folder instead of always landing at the top level. The top-level buttons still create at the root.
+- Folders show a hint when they are still empty, and a folder's parent can be changed at any time in the folder form (the backend rejects moving a folder into its own subtree).
+
+## What's new in v3.1.83
+
+- **The wiki editor is now its own full-screen page** at `/admin/wiki/:articleId`. Selecting or creating an article in the admin wiki tab opens it there, so the editor uses the entire browser window instead of a column inside the dashboard. The admin tab keeps the folder structure and article list.
+- **Formatting toolbar.** H1/H2/H3, bold, italic, strikethrough, inline code, code block, quote, bullet and numbered lists, link, table, divider and image upload — applied to the current selection like in a normal editor. Headings and lists toggle off when pressed again and replace an existing heading level, and block elements such as tables always start on their own line.
+- **Write / Split / Preview modes**, so the rendered result can be watched side by side while typing.
+- **Keyboard shortcuts**: Ctrl/Cmd+B bold, Ctrl/Cmd+I italic, Ctrl/Cmd+K link, Ctrl/Cmd+S save.
+- Formatting a plain-text article automatically switches it to Markdown (with a short notice), because the syntax would otherwise be shown literally. Unsaved changes are protected by a confirmation when leaving the editor or closing the tab.
+
+## What's new in v3.1.82
+
+- Plain text is now the default editor for new wiki articles and new translations; Markdown has to be selected explicitly per language. Existing articles keep the format they were written in.
+- The "Publish this language" checkbox is now the same slider toggle used everywhere else in the portal instead of a native checkbox.
 
 ## What's new in v3.1.81
 
@@ -529,6 +548,30 @@ docker image prune -f
 The database migrates itself on startup. Keep the backend data volume before updating.
 
 ## Changelog
+
+### v3.1.84 - 2026-07-23
+
+**Commit:** `feat: render the wiki structure as a nested tree and create folders and articles in place`
+
+- Replace the flattened folder list in `WikiAdminPanel` with a recursive `renderBranch` that nests subfolders inside their parent at any depth, with indentation guides.
+- Add per-folder "+ Folder" and "+ Article" actions that pre-select the target parent; `createArticle` now takes a destination folder instead of always creating at the root.
+- Add an empty-folder hint and reveal the folder actions on hover, focus, and always on touch devices.
+
+### v3.1.83 - 2026-07-23
+
+**Commit:** `feat: move the wiki editor to a full-screen page with a formatting toolbar`
+
+- Add `pages/WikiEditorPage.jsx` and the admin-guarded route `/admin/wiki/:articleId`, following the existing full-page `/console/:resourceId` pattern; the admin wiki tab now navigates there instead of editing inline.
+- Add a formatting toolbar (headings, bold/italic/strikethrough, inline code, code block, quote, bullet/numbered lists, link, table, divider, image upload) operating on the textarea selection, with heading/list toggling, heading-level replacement and forced line breaks before block-level templates.
+- Add Write/Split/Preview view modes, Ctrl+B/I/K/S shortcuts, an unsaved-changes guard on navigation and `beforeunload`, and automatic switching to Markdown when a formatting action is used on a plain-text article.
+- Strip the now-duplicated inline editor and its dead state from `WikiAdminPanel`, keeping structure management plus per-article delete.
+
+### v3.1.82 - 2026-07-23
+
+**Commit:** `feat: default wiki articles to plain text and use the standard slider for the publish toggle`
+
+- Make `text` the default article format in the editor, in `wikiService` normalisation, in the `wiki_article_translations` schema default and in the `MarkdownView` fallback, so an unset format never renders as Markdown. Stored formats of existing translations are unchanged.
+- Replace the native publish checkbox with the shared `toggle-switch`/`toggle-knob` slider markup used by the Pangolin settings panel, and keep its label on one line.
 
 ### v3.1.81 - 2026-07-23
 

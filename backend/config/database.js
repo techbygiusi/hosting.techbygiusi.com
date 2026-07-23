@@ -149,7 +149,7 @@ async function initDatabase() {
           title TEXT NOT NULL,
           summary TEXT,
           body TEXT DEFAULT '',
-          format TEXT DEFAULT 'markdown' CHECK(format IN ('markdown', 'text')),
+          format TEXT DEFAULT 'text' CHECK(format IN ('markdown', 'text')),
           is_published INTEGER DEFAULT 0,
           updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
           UNIQUE (article_id, language),

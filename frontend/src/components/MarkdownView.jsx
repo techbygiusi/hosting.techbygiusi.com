@@ -197,7 +197,7 @@ const COPY_LABELS = {
   de: { copy: 'Kopieren', copied: 'Kopiert ✓' }
 };
 
-export default function MarkdownView({ content, format = 'markdown', className = '', language = 'en' }) {
+export default function MarkdownView({ content, format = 'text', className = '', language = 'en' }) {
   const labels = COPY_LABELS[language === 'de' ? 'de' : 'en'];
 
   const html = useMemo(() => {

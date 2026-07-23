@@ -7,6 +7,7 @@ import ResetPassword from './pages/ResetPassword';
 import UserDashboard from './pages/UserDashboard';
 import AdminDashboard from './pages/AdminDashboard';
 import ConsolePage from './pages/ConsolePage';
+import WikiEditorPage from './pages/WikiEditorPage';
 import { useDocumentTheme } from './components/ThemeButton';
 import { usePortalLanguageRuntime } from './i18n';
 
@@ -101,6 +102,15 @@ export default function App() {
           element={
             <PrivateRoute requiredRole="admin">
               <AdminDashboard />
+            </PrivateRoute>
+          }
+        />
+
+        <Route
+          path="/admin/wiki/:articleId"
+          element={
+            <PrivateRoute requiredRole="admin">
+              <WikiEditorPage />
             </PrivateRoute>
           }
         />

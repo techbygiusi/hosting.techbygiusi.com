@@ -1,6 +1,6 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { wikiApi, getErrorMessage } from '../services/api';
-import MarkdownView from './MarkdownView';
 
 const LANGUAGES = ['en', 'de'];
 
@@ -11,6 +11,11 @@ const TEXT = {
     structure: 'Structure',
     newFolder: 'New folder',
     newArticle: 'New article',
+    newSubfolder: 'New folder inside this folder',
+    newArticleHere: 'New article in this folder',
+    folderShort: 'Folder',
+    articleShort: 'Article',
+    emptyFolder: 'This folder is still empty.',
     folderName: 'Folder name',
     rootLevel: 'Top level',
     parentFolder: 'Parent folder',
@@ -23,6 +28,7 @@ const TEXT = {
     deleteArticleConfirm: 'Delete this article including all translations?',
     noArticles: 'No articles yet. Create the first one.',
     selectArticle: 'Select an article on the left or create a new one.',
+    editorHint: 'Articles open in the full-screen editor.',
     articleTitle: 'Title',
     summary: 'Short description',
     body: 'Content',
@@ -54,6 +60,11 @@ const TEXT = {
     structure: 'Struktur',
     newFolder: 'Neuer Ordner',
     newArticle: 'Neuer Artikel',
+    newSubfolder: 'Neuer Ordner in diesem Ordner',
+    newArticleHere: 'Neuer Artikel in diesem Ordner',
+    folderShort: 'Ordner',
+    articleShort: 'Artikel',
+    emptyFolder: 'Dieser Ordner ist noch leer.',
     folderName: 'Ordnername',
     rootLevel: 'Oberste Ebene',
     parentFolder: 'Übergeordneter Ordner',
@@ -66,6 +77,7 @@ const TEXT = {
     deleteArticleConfirm: 'Diesen Artikel inklusive aller Übersetzungen löschen?',
     noArticles: 'Noch keine Artikel. Lege den ersten an.',
     selectArticle: 'Wähle links einen Artikel aus oder lege einen neuen an.',
+    editorHint: 'Artikel öffnen sich im Vollbild-Editor.',
     articleTitle: 'Titel',
     summary: 'Kurzbeschreibung',
     body: 'Inhalt',
@@ -93,30 +105,7 @@ const TEXT = {
   }
 };
 
-const emptyTranslation = () => ({ title: '', summary: '', body: '', format: 'markdown', isPublished: false });
-
-function buildDraft(article) {
-  const translations = {};
-  for (const language of LANGUAGES) {
-    const existing = (article?.translations || []).find(item => item.language === language);
-    translations[language] = existing
-      ? {
-        title: existing.title || '',
-        summary: existing.summary || '',
-        body: existing.body || '',
-        format: existing.format === 'text' ? 'text' : 'markdown',
-        isPublished: Number(existing.is_published) === 1
-      }
-      : emptyTranslation();
-  }
-  return {
-    id: article?.id || null,
-    folderId: article?.folder_id || null,
-    slug: article?.slug || '',
-    translations
-  };
-}
-
+// Plain text is the default editor; Markdown is opt-in per language.
 /** Flatten the folder tree into indented options for the location selects. */
 function folderOptions(folders, language) {
   const byParent = new Map();
@@ -147,18 +136,15 @@ export default function WikiAdminPanel({ language = 'en' }) {
   const uiLanguage = language === 'de' ? 'de' : 'en';
   const text = TEXT[uiLanguage];
 
+  const navigate = useNavigate();
+  const openEditor = useCallback((id) => navigate(`/admin/wiki/${id}`), [navigate]);
+
   const [folders, setFolders] = useState([]);
   const [articles, setArticles] = useState([]);
-  const [selectedId, setSelectedId] = useState(null);
-  const [draft, setDraft] = useState(null);
-  const [dirty, setDirty] = useState(false);
-  const [editorLanguage, setEditorLanguage] = useState('en');
-  const [previewMode, setPreviewMode] = useState(false);
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [folderForm, setFolderForm] = useState(null);
-  const bodyRef = useRef(null);
 
   const load = useCallback(async () => {
     try {
@@ -172,12 +158,6 @@ export default function WikiAdminPanel({ language = 'en' }) {
   }, [text.loadFailed]);
 
   useEffect(() => { load(); }, [load]);
-
-  useEffect(() => {
-    if (!selectedId) { setDraft(null); return; }
-    const article = articles.find(item => item.id === selectedId);
-    if (article) { setDraft(buildDraft(article)); setDirty(false); }
-  }, [selectedId, articles]);
 
   const options = useMemo(() => folderOptions(folders, uiLanguage), [folders, uiLanguage]);
 
@@ -236,17 +216,17 @@ export default function WikiAdminPanel({ language = 'en' }) {
 
   /* ---------------------------------------------------------- article ops */
 
-  const createArticle = async () => {
+  const createArticle = async (folderId = null) => {
     setBusy('article');
     try {
       const response = await wikiApi.createArticle({
-        folderId: null,
+        folderId: folderId || null,
         translations: { en: { title: uiLanguage === 'de' ? 'Neuer Artikel' : 'New article' } }
       });
+      const newId = response.data?.id;
       await load();
-      setSelectedId(response.data?.id || null);
-      setEditorLanguage('en');
       setError('');
+      if (newId) openEditor(newId);
     } catch (err) {
       setError(getErrorMessage(err, text.saveFailed));
     } finally {
@@ -254,37 +234,12 @@ export default function WikiAdminPanel({ language = 'en' }) {
     }
   };
 
-  const saveArticle = async () => {
-    if (!draft) return;
-    if (!LANGUAGES.some(lang => String(draft.translations[lang]?.title || '').trim())) {
-      setError(text.titleRequired);
-      return;
-    }
-    setBusy('save');
-    try {
-      await wikiApi.updateArticle(draft.id, {
-        folderId: draft.folderId,
-        slug: draft.slug || undefined,
-        translations: draft.translations
-      });
-      await load();
-      setDirty(false);
-      flash(text.saved);
-      setError('');
-    } catch (err) {
-      setError(getErrorMessage(err, text.saveFailed));
-    } finally {
-      setBusy('');
-    }
-  };
 
   const removeArticle = async (articleId) => {
     if (!window.confirm(text.deleteArticleConfirm)) return;
     setBusy(`article-${articleId}`);
     try {
       await wikiApi.deleteArticle(articleId);
-      setSelectedId(null);
-      setDraft(null);
       await load();
     } catch (err) {
       setError(getErrorMessage(err, text.saveFailed));
@@ -293,65 +248,100 @@ export default function WikiAdminPanel({ language = 'en' }) {
     }
   };
 
-  const patchTranslation = (patch) => {
-    setDraft(current => ({
-      ...current,
-      translations: {
-        ...current.translations,
-        [editorLanguage]: { ...current.translations[editorLanguage], ...patch }
-      }
-    }));
-    setDirty(true);
-  };
 
-  /* ------------------------------------------------------------- images */
-
-  /** Insert markdown at the caret so a pasted screenshot lands where expected. */
-  const insertAtCaret = (snippet) => {
-    const field = bodyRef.current;
-    const current = draft.translations[editorLanguage].body || '';
-    if (!field) {
-      patchTranslation({ body: `${current}\n${snippet}\n` });
-      return;
-    }
-    const start = field.selectionStart ?? current.length;
-    const end = field.selectionEnd ?? current.length;
-    const next = `${current.slice(0, start)}${snippet}${current.slice(end)}`;
-    patchTranslation({ body: next });
-    requestAnimationFrame(() => {
-      field.focus();
-      const caret = start + snippet.length;
-      field.setSelectionRange(caret, caret);
-    });
-  };
-
-  const uploadImage = async (file) => {
-    if (!file) return;
-    setBusy('upload');
-    try {
-      const response = await wikiApi.uploadImage(file);
-      const url = response.data?.url;
-      if (url) insertAtCaret(`![${file.name || 'screenshot'}](${url})`);
-      setError('');
-    } catch (err) {
-      setError(getErrorMessage(err, text.uploadFailed));
-    } finally {
-      setBusy('');
-    }
-  };
-
-  const handlePaste = (event) => {
-    const item = [...(event.clipboardData?.items || [])].find(entry => entry.type.startsWith('image/'));
-    if (!item) return;
-    const file = item.getAsFile();
-    if (!file) return;
-    event.preventDefault();
-    uploadImage(file);
-  };
 
   const rootArticles = articles.filter(article => !article.folder_id);
   const articlesIn = (folderId) => articles.filter(article => Number(article.folder_id) === Number(folderId));
-  const translation = draft?.translations?.[editorLanguage];
+  const childFolders = (parentId) => folders
+    .filter(folder => (folder.parent_id || null) === (parentId === null ? null : Number(parentId)))
+    .sort((a, b) => a.position - b.position);
+
+  const articleRow = (article) => (
+    <li key={`a-${article.id}`}>
+      <div className="wiki-admin-article-row">
+        <button type="button" className="wiki-tree-link" onClick={() => openEditor(article.id)}>
+          {titleOf(article)}
+        </button>
+        <button
+          type="button"
+          className="btn-danger btn-tiny"
+          onClick={() => removeArticle(article.id)}
+          disabled={busy === `article-${article.id}`}
+          title={text.remove}
+        >
+          {text.remove}
+        </button>
+      </div>
+    </li>
+  );
+
+  /**
+   * Render one level of the structure. Folders nest visually instead of being
+   * flattened, and each folder carries its own "new subfolder" / "new article"
+   * actions so content can be created directly where it belongs.
+   */
+  const renderBranch = (parentId, depth) => {
+    const subFolders = childFolders(parentId);
+    const ownArticles = parentId === null ? rootArticles : articlesIn(parentId);
+    if (!subFolders.length && !ownArticles.length && depth > 0) {
+      return <p className="hint-text wiki-empty-folder">{text.emptyFolder}</p>;
+    }
+
+    return (
+      <ul className="wiki-tree">
+        {ownArticles.map(articleRow)}
+        {subFolders.map(folder => {
+          const titles = {};
+          for (const item of folder.translations || []) titles[item.language] = item.title;
+          const label = titles[uiLanguage] || titles.en || folder.slug;
+          return (
+            <li key={`f-${folder.id}`} className="wiki-tree-folder" style={{ '--wiki-depth': depth }}>
+              <div className="wiki-admin-folder-row">
+                <span className="wiki-tree-folder-title">{label}</span>
+                <span className="wiki-admin-folder-actions">
+                  <button
+                    type="button"
+                    className="btn-secondary btn-tiny"
+                    title={text.newSubfolder}
+                    onClick={() => setFolderForm({ id: null, parentId: folder.id, titles: {} })}
+                  >
+                    + {text.folderShort}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-secondary btn-tiny"
+                    title={text.newArticleHere}
+                    onClick={() => createArticle(folder.id)}
+                    disabled={busy === 'article'}
+                  >
+                    + {text.articleShort}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-secondary btn-tiny"
+                    title={text.edit}
+                    onClick={() => setFolderForm({ id: folder.id, parentId: folder.parent_id || null, titles })}
+                  >
+                    {text.edit}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-danger btn-tiny"
+                    title={text.remove}
+                    onClick={() => removeFolder(folder.id)}
+                    disabled={busy === `folder-${folder.id}`}
+                  >
+                    {text.remove}
+                  </button>
+                </span>
+              </div>
+              {renderBranch(folder.id, depth + 1)}
+            </li>
+          );
+        })}
+      </ul>
+    );
+  };
 
   return (
     <section className="panel-card wiki-admin-panel">
@@ -364,7 +354,7 @@ export default function WikiAdminPanel({ language = 'en' }) {
           <button type="button" className="btn-secondary btn-small" onClick={() => setFolderForm({ id: null, parentId: null, titles: {} })}>
             {text.newFolder}
           </button>
-          <button type="button" className="btn-primary btn-small" onClick={createArticle} disabled={busy === 'article'}>
+          <button type="button" className="btn-primary btn-small" onClick={() => createArticle(null)} disabled={busy === 'article'}>
             {text.newArticle}
           </button>
         </div>
@@ -417,216 +407,12 @@ export default function WikiAdminPanel({ language = 'en' }) {
           <h4>{text.structure}</h4>
           {!articles.length && !folders.length && <p className="hint-text">{text.noArticles}</p>}
 
-          <ul className="wiki-tree">
-            {rootArticles.map(article => (
-              <li key={article.id}>
-                <button
-                  type="button"
-                  className={`wiki-tree-link ${selectedId === article.id ? 'active' : ''}`}
-                  onClick={() => setSelectedId(article.id)}
-                >
-                  {titleOf(article)}
-                </button>
-              </li>
-            ))}
-            {options.map(option => (
-              <li key={option.id} className="wiki-tree-folder" style={{ '--wiki-depth': option.depth }}>
-                <div className="wiki-admin-folder-row">
-                  <span className="wiki-tree-folder-title">{option.label}</span>
-                  <span className="wiki-admin-folder-actions">
-                    <button
-                      type="button"
-                      className="btn-secondary btn-tiny"
-                      onClick={() => {
-                        const folder = folders.find(item => item.id === option.id);
-                        const titles = {};
-                        for (const item of folder?.translations || []) titles[item.language] = item.title;
-                        setFolderForm({ id: option.id, parentId: folder?.parent_id || null, titles });
-                      }}
-                    >
-                      {text.edit}
-                    </button>
-                    <button
-                      type="button"
-                      className="btn-danger btn-tiny"
-                      onClick={() => removeFolder(option.id)}
-                      disabled={busy === `folder-${option.id}`}
-                    >
-                      {text.remove}
-                    </button>
-                  </span>
-                </div>
-                <ul>
-                  {articlesIn(option.id).map(article => (
-                    <li key={article.id}>
-                      <button
-                        type="button"
-                        className={`wiki-tree-link ${selectedId === article.id ? 'active' : ''}`}
-                        onClick={() => setSelectedId(article.id)}
-                      >
-                        {titleOf(article)}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </li>
-            ))}
-          </ul>
+          {renderBranch(null, 0)}
         </aside>
 
         <div className="wiki-admin-editor">
-          {!draft && <p className="hint-text">{text.selectArticle}</p>}
-
-          {draft && (
-            <>
-              <div className="wiki-editor-toolbar">
-                <div className="wiki-language-tabs" role="tablist">
-                  {LANGUAGES.map(lang => {
-                    const entry = draft.translations[lang];
-                    const filled = String(entry?.title || '').trim().length > 0;
-                    return (
-                      <button
-                        key={lang}
-                        type="button"
-                        role="tab"
-                        aria-selected={editorLanguage === lang}
-                        className={`wiki-language-tab ${editorLanguage === lang ? 'active' : ''}`}
-                        onClick={() => { setEditorLanguage(lang); setPreviewMode(false); }}
-                      >
-                        {lang.toUpperCase()}
-                        <span className={`wiki-language-flag ${entry?.isPublished ? 'published' : 'draft'}`}>
-                          {filled ? text.languageStatus(entry?.isPublished) : '—'}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-                <div className="wiki-editor-toolbar-actions">
-                  {dirty && <span className="wiki-dirty-flag">{text.unsaved}</span>}
-                  <button type="button" className="btn-primary btn-small" onClick={saveArticle} disabled={busy === 'save'}>
-                    {busy === 'save' ? text.saving : text.save}
-                  </button>
-                  <button
-                    type="button"
-                    className="btn-danger btn-small"
-                    onClick={() => removeArticle(draft.id)}
-                    disabled={busy === `article-${draft.id}`}
-                  >
-                    {text.remove}
-                  </button>
-                </div>
-              </div>
-
-              <div className="wiki-editor-meta">
-                <label className="form-group">
-                  <span>{text.location}</span>
-                  <select
-                    value={draft.folderId || ''}
-                    onChange={(event) => { setDraft(current => ({ ...current, folderId: event.target.value || null })); setDirty(true); }}
-                  >
-                    <option value="">{text.rootLevel}</option>
-                    {options.map(option => <option key={option.id} value={option.id}>{option.label}</option>)}
-                  </select>
-                </label>
-                <label className="form-group">
-                  <span>{text.slug}</span>
-                  <input
-                    type="text"
-                    value={draft.slug}
-                    onChange={(event) => { setDraft(current => ({ ...current, slug: event.target.value })); setDirty(true); }}
-                  />
-                </label>
-              </div>
-
-              <div className="wiki-editor-fields">
-                <label className="form-group">
-                  <span>{text.articleTitle} ({editorLanguage.toUpperCase()})</span>
-                  <input
-                    type="text"
-                    value={translation?.title || ''}
-                    onChange={(event) => patchTranslation({ title: event.target.value })}
-                  />
-                </label>
-                <label className="form-group">
-                  <span>{text.summary}</span>
-                  <input
-                    type="text"
-                    value={translation?.summary || ''}
-                    onChange={(event) => patchTranslation({ summary: event.target.value })}
-                  />
-                </label>
-              </div>
-
-              {!String(translation?.title || '').trim() && (
-                <p className="hint-text">{text.translationEmpty}</p>
-              )}
-
-              <div className="wiki-editor-controls">
-                <div className="wiki-format-toggle">
-                  <span>{text.format}:</span>
-                  <button
-                    type="button"
-                    className={translation?.format !== 'text' ? 'active' : ''}
-                    onClick={() => patchTranslation({ format: 'markdown' })}
-                  >
-                    {text.markdown}
-                  </button>
-                  <button
-                    type="button"
-                    className={translation?.format === 'text' ? 'active' : ''}
-                    onClick={() => patchTranslation({ format: 'text' })}
-                  >
-                    {text.plainText}
-                  </button>
-                </div>
-
-                <div className="wiki-editor-control-actions">
-                  <label className="btn-secondary btn-small wiki-upload-button">
-                    {busy === 'upload' ? text.uploading : text.insertImage}
-                    <input
-                      type="file"
-                      accept="image/png,image/jpeg,image/gif,image/webp,image/svg+xml"
-                      onChange={(event) => { uploadImage(event.target.files?.[0]); event.target.value = ''; }}
-                      hidden
-                    />
-                  </label>
-                  <button
-                    type="button"
-                    className={`btn-secondary btn-small ${previewMode ? 'active' : ''}`}
-                    onClick={() => setPreviewMode(value => !value)}
-                  >
-                    {previewMode ? text.write : text.preview}
-                  </button>
-                  <label className="wiki-publish-toggle">
-                    <input
-                      type="checkbox"
-                      checked={!!translation?.isPublished}
-                      onChange={(event) => patchTranslation({ isPublished: event.target.checked })}
-                    />
-                    <span>{text.publishToggle}</span>
-                  </label>
-                </div>
-              </div>
-
-              {previewMode ? (
-                <div className="wiki-preview-pane">
-                  <MarkdownView content={translation?.body || ''} format={translation?.format} language={uiLanguage} />
-                </div>
-              ) : (
-                <textarea
-                  ref={bodyRef}
-                  className="wiki-body-editor"
-                  value={translation?.body || ''}
-                  onChange={(event) => patchTranslation({ body: event.target.value })}
-                  onPaste={handlePaste}
-                  rows={20}
-                  spellCheck={false}
-                  placeholder={text.body}
-                />
-              )}
-              <small className="hint-text">{text.imageHint}</small>
-            </>
-          )}
+          <p className="hint-text">{text.selectArticle}</p>
+          <p className="hint-text">{text.editorHint}</p>
         </div>
       </div>
     </section>
