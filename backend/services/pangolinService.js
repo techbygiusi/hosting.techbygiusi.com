@@ -9,8 +9,7 @@ const { HTTP_STATUS } = require('../config/constants');
 const RAW_PORT_MIN = 20000;
 const RAW_PORT_MAX = 26000;
 const RAW_PORT_POLICY = `${RAW_PORT_MIN}-${RAW_PORT_MAX}`;
-const LEGACY_HTTP_PORT_POLICY = '80,443,3000-9999';
-const HTTP_PORT_POLICY = '80,443,8080,3000-9999';
+const HTTP_PORT_POLICY = '80,443,3000-9999';
 
 const SETTING_KEYS = {
   enabled: 'pangolin_enabled',
@@ -98,6 +97,19 @@ function parsePortPolicy(value) {
   });
 }
 
+function compactPortPolicy(value) {
+  const ranges = parsePortPolicy(value);
+  return ranges
+    .filter((range, index) => {
+      if (range.start !== range.end) return true;
+      return !ranges.some((other, otherIndex) =>
+        otherIndex !== index && other.start <= range.start && other.end >= range.end
+      );
+    })
+    .map((range) => range.start === range.end ? String(range.start) : `${range.start}-${range.end}`)
+    .join(',');
+}
+
 function isPortAllowed(port, policy) {
   const value = Number(port);
   if (!Number.isInteger(value) || value < 1 || value > 65535) return false;
@@ -115,7 +127,7 @@ function validateRawPortPolicy(protocol, policy) {
 function assertRawPort(port, protocol) {
   const value = Number(port);
   if (!Number.isInteger(value) || value < RAW_PORT_MIN || value > RAW_PORT_MAX) {
-    throw new AppError(`Raw ${protocol.toUpperCase()} ports must be between ${RAW_PORT_MIN} and ${RAW_PORT_MAX}`, HTTP_STATUS.FORBIDDEN);
+    throw new AppError(`Public ${protocol.toUpperCase()} ports must be between ${RAW_PORT_MIN} and ${RAW_PORT_MAX}`, HTTP_STATUS.FORBIDDEN);
   }
 }
 
@@ -171,10 +183,8 @@ function configFromRows(rows = {}) {
     // v3.1.49: turn the previous empty "prepared" raw state into the active fixed pool.
     tcpEnabled: legacyPreparedRawState ? true : toBoolean(rows[SETTING_KEYS.tcpEnabled], DEFAULTS.tcpEnabled),
     udpEnabled: legacyPreparedRawState ? true : toBoolean(rows[SETTING_KEYS.udpEnabled], DEFAULTS.udpEnabled),
-    // v3.1.91: keep the traditional defaults but surface common portal port 8080 explicitly.
-    allowedHttpPorts: !storedHttpPolicy || storedHttpPolicy === LEGACY_HTTP_PORT_POLICY
-      ? DEFAULTS.allowedHttpPorts
-      : storedHttpPolicy,
+    // Remove redundant single-port entries already covered by a configured range.
+    allowedHttpPorts: storedHttpPolicy ? compactPortPolicy(storedHttpPolicy) : DEFAULTS.allowedHttpPorts,
     allowedTcpPorts: storedTcpPolicy || DEFAULTS.allowedTcpPorts,
     allowedUdpPorts: storedUdpPolicy || DEFAULTS.allowedUdpPorts,
     defaultTargetMethod: ['http', 'https', 'h2c'].includes(String(rows[SETTING_KEYS.defaultTargetMethod] || '').toLowerCase())
@@ -377,19 +387,18 @@ async function testPangolinConnection(input = {}) {
 }
 
 function assertPublishingEnabled(config, protocol, targetPort, publicPort = targetPort) {
-  if (protocol === 'tcp' || protocol === 'udp') {
-    assertRawPort(targetPort, protocol);
-    assertRawPort(publicPort, protocol);
+  if (!Number.isInteger(Number(targetPort)) || Number(targetPort) < 1 || Number(targetPort) > 65535) {
+    throw new AppError('Target port must be between 1 and 65535', HTTP_STATUS.BAD_REQUEST);
   }
+  if (protocol === 'tcp' || protocol === 'udp') assertRawPort(publicPort, protocol);
   if (!config.enabled) throw new AppError('Public publishing is not configured', HTTP_STATUS.SERVICE_UNAVAILABLE);
   const enabledKey = `${protocol}Enabled`;
   if (!config[enabledKey]) throw new AppError(`${protocol.toUpperCase()} publishing is disabled`, HTTP_STATUS.FORBIDDEN);
   const policy = protocol === 'http' ? config.allowedHttpPorts : protocol === 'tcp' ? config.allowedTcpPorts : config.allowedUdpPorts;
-  if (!isPortAllowed(targetPort, policy)) {
-    throw new AppError(`Port ${targetPort} is outside the allowed ${protocol.toUpperCase()} port ranges`, HTTP_STATUS.FORBIDDEN);
-  }
-  if (protocol !== 'http' && !isPortAllowed(publicPort, policy)) {
-    throw new AppError(`Public port ${publicPort} is outside the allowed ${protocol.toUpperCase()} port ranges`, HTTP_STATUS.FORBIDDEN);
+  const policyPort = protocol === 'http' ? targetPort : publicPort;
+  if (!isPortAllowed(policyPort, policy)) {
+    const label = protocol === 'http' ? 'Port' : 'Public port';
+    throw new AppError(`${label} ${policyPort} is outside the allowed ${protocol.toUpperCase()} port ranges`, HTTP_STATUS.FORBIDDEN);
   }
 }
 

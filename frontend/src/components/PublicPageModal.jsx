@@ -9,7 +9,9 @@ const TEXT = {
     title: 'Edit public access', loading: 'Loading access settings...',
     unavailable: 'Public publishing is not available. Ask an administrator to configure Pangolin.',
     noIp: 'This service has no reachable IPv4 address yet.', protocol: 'Protocol', subdomain: 'Subdomain',
-    targetPort: 'Service port', publicPort: 'Public port', backendProtocol: 'Backend protocol',
+    targetPort: 'Service port', internalPort: 'Internal port', publicPort: 'Public port', backendProtocol: 'Backend protocol',
+    internalPortHint: 'Port used by the service inside its network.',
+    publicPortHint: 'External port selected from the administrator-defined pool.',
     backendProtocolHint: 'Protocol Pangolin uses to connect to the service.',
     autoIp: 'Target IP is selected automatically from your own service:',
     ranges: 'Allowed ports', add: 'Add access', update: 'Save changes', saving: 'Saving...', close: 'Close',
@@ -19,7 +21,7 @@ const TEXT = {
     subdomainHint: 'Lowercase letters, numbers and hyphens only.', subdomainRequired: 'Enter a subdomain.',
     security: 'You cannot enter another IP address. The portal always publishes this service only.',
     disabled: 'Disabled by administrator', existingTitle: 'Published access', noPublications: 'No public access has been configured yet.',
-    addTitle: 'Add public access', editTitle: 'Edit public access', target: 'Target',
+    addTitle: 'Add public access', editTitle: 'Edit public access', target: 'Target', internalTarget: 'Internal target',
     copyHint: 'Click to copy the address without the protocol', copied: 'Copied ✓',
     copyFailed: 'The address could not be copied.',
     saved: 'Public access was saved.', removed: 'Public access was removed.',
@@ -64,7 +66,9 @@ const TEXT = {
     title: 'Öffentlichen Zugriff bearbeiten', loading: 'Zugriffseinstellungen werden geladen...',
     unavailable: 'Die Veröffentlichung ist nicht verfügbar. Ein Administrator muss Pangolin konfigurieren.',
     noIp: 'Für diesen Dienst ist noch keine erreichbare IPv4-Adresse bekannt.', protocol: 'Protokoll', subdomain: 'Subdomain',
-    targetPort: 'Dienst-Port', publicPort: 'Öffentlicher Port', backendProtocol: 'Backend-Protokoll',
+    targetPort: 'Dienst-Port', internalPort: 'Interner Port', publicPort: 'Öffentlicher Port', backendProtocol: 'Backend-Protokoll',
+    internalPortHint: 'Port, den der Dienst innerhalb seines Netzwerks verwendet.',
+    publicPortHint: 'Externer Port aus dem vom Administrator festgelegten Bereich.',
     backendProtocolHint: 'Protokoll, mit dem Pangolin den Dienst erreicht.',
     autoIp: 'Die Ziel-IP wird automatisch von deinem eigenen Dienst übernommen:',
     ranges: 'Erlaubte Ports', add: 'Zugriff hinzufügen', update: 'Änderungen speichern', saving: 'Speichert...', close: 'Schließen',
@@ -74,7 +78,7 @@ const TEXT = {
     subdomainHint: 'Nur Kleinbuchstaben, Zahlen und Bindestriche.', subdomainRequired: 'Bitte gib eine Subdomain ein.',
     security: 'Du kannst keine andere IP-Adresse eintragen. Das Portal veröffentlicht immer nur diesen Dienst.',
     disabled: 'Vom Administrator deaktiviert', existingTitle: 'Veröffentlichte Zugriffe', noPublications: 'Es wurde noch kein öffentlicher Zugriff eingerichtet.',
-    addTitle: 'Öffentlichen Zugriff hinzufügen', editTitle: 'Öffentlichen Zugriff bearbeiten', target: 'Ziel',
+    addTitle: 'Öffentlichen Zugriff hinzufügen', editTitle: 'Öffentlichen Zugriff bearbeiten', target: 'Ziel', internalTarget: 'Internes Ziel',
     copyHint: 'Klicken, um die Adresse ohne Protokoll zu kopieren', copied: 'Kopiert ✓',
     copyFailed: 'Die Adresse konnte nicht kopiert werden.',
     saved: 'Der öffentliche Zugriff wurde gespeichert.', removed: 'Der öffentliche Zugriff wurde entfernt.',
@@ -420,7 +424,7 @@ export default function PublicPageModal({ resource, onClose, onSaved, language: 
                 <strong>{publication.publicUrl ? stripUrlProtocol(publication.publicUrl) : '—'}</strong>
                 {copiedId === publication.id && <span className="publishing-copy-flag">{text.copied}</span>}
               </button>
-              <small>{text.target}: {formatTarget(publication, primaryIp)}</small>
+              <small>{publication.protocol === 'http' ? text.target : text.internalTarget}: {formatTarget(publication, primaryIp)}</small>
             </div>
           </div>
           <div className="publishing-existing-card-actions">
@@ -604,17 +608,29 @@ export default function PublicPageModal({ resource, onClose, onSaved, language: 
                   </div>
                 ) : (
                   <div className="publishing-fields-grid publishing-raw-fields-grid">
-                    <label className="form-group">
+                    <label className="form-group publishing-control-field">
+                      <span>{text.internalPort}</span>
+                      <input
+                        type="number"
+                        min="1"
+                        max="65535"
+                        value={targetPort}
+                        onChange={(event) => setTargetPort(event.target.value)}
+                        disabled={!!busy || !options?.enabled}
+                      />
+                      <small>{text.internalPortHint}</small>
+                    </label>
+                    <label className="form-group publishing-control-field">
                       <span>{text.publicPort}</span>
                       <input
                         type="number"
                         min={rawPortBounds.min}
                         max={rawPortBounds.max}
                         value={publicPort}
-                        onChange={(event) => { setPublicPort(event.target.value); setTargetPort(event.target.value); }}
+                        onChange={(event) => setPublicPort(event.target.value)}
                         disabled={!!busy || !options?.enabled}
                       />
-                      <small>{text.ranges}: {options?.protocols?.[protocol]?.allowedPorts || '—'}</small>
+                      <small>{text.publicPortHint} {text.ranges}: {options?.protocols?.[protocol]?.allowedPorts || '—'}</small>
                     </label>
                   </div>
                 )}
@@ -804,7 +820,7 @@ function parsePortPolicy(value) {
 
 function getCommonHttpPorts(policy) {
   const ranges = parsePortPolicy(policy);
-  return [80, 443, 8080].filter((port) => ranges.some((range) => port >= range.start && port <= range.end));
+  return [80, 443].filter((port) => ranges.some((range) => port >= range.start && port <= range.end));
 }
 
 function getFirstAllowedPort(policy) {

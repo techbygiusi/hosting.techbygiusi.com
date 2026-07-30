@@ -18,7 +18,7 @@ const DEFAULTS = {
   httpEnabled: true,
   tcpEnabled: true,
   udpEnabled: true,
-  allowedHttpPorts: '80,443,8080,3000-9999',
+  allowedHttpPorts: '80,443,3000-9999',
   allowedTcpPorts: RAW_PORT_POLICY,
   allowedUdpPorts: RAW_PORT_POLICY,
   defaultTargetMethod: 'http',
@@ -52,9 +52,9 @@ const TEXT = {
     httpTitle: 'HTTP / HTTPS',
     httpDescription: 'Public web address with automatic TLS. The policy applies to the internal target port.',
     tcpTitle: 'TCP',
-    tcpDescription: 'Raw TCP publishing through the dedicated public port pool. The selected port is used externally and internally.',
+    tcpDescription: 'Raw TCP publishing with independent internal and public ports. The allowed range applies only to the public port.',
     udpTitle: 'UDP',
-    udpDescription: 'Raw UDP publishing through the dedicated public port pool. The selected port is used externally and internally.',
+    udpDescription: 'Raw UDP publishing with independent internal and public ports. The allowed range applies only to the public port.',
     allowedPorts: 'Allowed ports / ranges',
     managed: 'managed publication(s)',
     test: 'Test connection',
@@ -72,7 +72,7 @@ const TEXT = {
     publicationsTitle: 'Managed publications',
     noPublications: 'No services published yet.',
     user: 'User',
-    target: 'Target',
+    target: 'Internal target',
     public: 'Public',
     open: 'Open',
     remove: 'Remove publication',
@@ -108,9 +108,9 @@ const TEXT = {
     httpTitle: 'HTTP / HTTPS',
     httpDescription: 'Öffentliche Webadresse mit automatischem TLS-Zertifikat. Der Bereich gilt für den internen Zielport.',
     tcpTitle: 'TCP',
-    tcpDescription: 'Rohe TCP-Freigaben über den festgelegten öffentlichen Portpool. Der gewählte Port wird extern und intern verwendet.',
+    tcpDescription: 'Rohe TCP-Freigaben mit getrennten internen und öffentlichen Ports. Der erlaubte Bereich gilt nur für den öffentlichen Port.',
     udpTitle: 'UDP',
-    udpDescription: 'Rohe UDP-Freigaben über den festgelegten öffentlichen Portpool. Der gewählte Port wird extern und intern verwendet.',
+    udpDescription: 'Rohe UDP-Freigaben mit getrennten internen und öffentlichen Ports. Der erlaubte Bereich gilt nur für den öffentlichen Port.',
     allowedPorts: 'Erlaubte Ports / Bereiche',
     managed: 'verwaltete Veröffentlichung(en)',
     test: 'Verbindung testen',
@@ -128,7 +128,7 @@ const TEXT = {
     publicationsTitle: 'Verwaltete Veröffentlichungen',
     noPublications: 'Noch keine Dienste veröffentlicht.',
     user: 'Benutzer',
-    target: 'Ziel',
+    target: 'Internes Ziel',
     public: 'Öffentlich',
     open: 'Öffnen',
     remove: 'Freigabe entfernen',
@@ -396,7 +396,7 @@ export default function PangolinSettingsPanel({ onSuccess, onError, language: la
             onEnabled={(value) => update('httpEnabled', value)}
             ports={form.allowedHttpPorts}
             onPorts={(value) => update('allowedHttpPorts', value)}
-            placeholder="80,443,8080,3000-9999"
+            placeholder="80,443,3000-9999"
             text={text}
           />
           <ProtocolPolicy

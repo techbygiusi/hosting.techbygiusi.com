@@ -5621,21 +5621,24 @@ body.theme-dark .cluster-map-canvas .leaflet-container {
 }
 
 .publishing-raw-fields-grid {
-  grid-template-columns: minmax(0, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-.publishing-http-fields-grid > .publishing-control-field {
+.publishing-http-fields-grid > .publishing-control-field,
+.publishing-raw-fields-grid > .publishing-control-field {
   min-width: 0;
   margin: 0;
   align-self: start;
 }
 
 .publishing-http-fields-grid > .publishing-control-field input,
-.publishing-http-fields-grid > .publishing-control-field select {
+.publishing-http-fields-grid > .publishing-control-field select,
+.publishing-raw-fields-grid > .publishing-control-field input {
   width: 100%;
 }
 
-.publishing-http-fields-grid > .publishing-control-field small {
+.publishing-http-fields-grid > .publishing-control-field small,
+.publishing-raw-fields-grid > .publishing-control-field small {
   min-height: 1.45em;
   line-height: 1.45;
 }
@@ -6002,24 +6005,27 @@ body.theme-dark .cluster-map-canvas .leaflet-container {
   }
 }
 
-/* v3.1.50 - balanced publishing modal spacing and aligned HTTP controls */
+/* v3.1.50 / v3.1.93 - balanced publishing modal spacing and aligned publishing controls */
 .publishing-modal-card .publishing-form {
   padding-inline: 2px;
   scrollbar-gutter: stable both-edges;
 }
 
-.publishing-http-fields-grid {
+.publishing-http-fields-grid,
+.publishing-raw-fields-grid {
   align-items: stretch;
 }
 
-.publishing-http-fields-grid > .publishing-control-field {
+.publishing-http-fields-grid > .publishing-control-field,
+.publishing-raw-fields-grid > .publishing-control-field {
   display: grid;
   grid-template-rows: minmax(1.45em, auto) var(--ui-control-height) minmax(1.45em, auto);
   align-content: start;
   align-self: stretch;
 }
 
-.publishing-http-fields-grid > .publishing-control-field > span {
+.publishing-http-fields-grid > .publishing-control-field > span,
+.publishing-raw-fields-grid > .publishing-control-field > span {
   display: flex;
   align-items: flex-end;
   min-height: 1.45em;
@@ -6028,12 +6034,14 @@ body.theme-dark .cluster-map-canvas .leaflet-container {
 }
 
 .publishing-http-fields-grid > .publishing-control-field input,
-.publishing-http-fields-grid > .publishing-control-field select {
+.publishing-http-fields-grid > .publishing-control-field select,
+.publishing-raw-fields-grid > .publishing-control-field input {
   height: var(--ui-control-height);
   min-height: var(--ui-control-height);
 }
 
-.publishing-http-fields-grid > .publishing-control-field small {
+.publishing-http-fields-grid > .publishing-control-field small,
+.publishing-raw-fields-grid > .publishing-control-field small {
   display: block;
   margin: 0;
 }
@@ -6044,7 +6052,8 @@ body.theme-dark .cluster-map-canvas .leaflet-container {
     scrollbar-gutter: auto;
   }
 
-  .publishing-http-fields-grid > .publishing-control-field {
+  .publishing-http-fields-grid > .publishing-control-field,
+  .publishing-raw-fields-grid > .publishing-control-field {
     grid-template-rows: auto var(--ui-control-height) auto;
   }
 }
@@ -7921,7 +7930,7 @@ body.wiki-editor-route-active {
   }
 }
 
-/* v3.1.91 - one three-step type scale for every portal interface */
+/* v3.1.92 - one three-step type scale for every portal interface */
 body {
   font-size: var(--font-size-sm);
 }
@@ -7984,3 +7993,5 @@ small,
   font-size: var(--font-size-sm);
   font-weight: 500;
 }
+
+/* v3.1.93 - independent internal and public TCP/UDP port mapping */
