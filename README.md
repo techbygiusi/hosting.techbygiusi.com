@@ -6,7 +6,13 @@ The frontend is built with React and the backend with Express + SQLite. Proxmox 
 
 ## Version
 
-Current version: **v3.1.90**
+Current version: **v3.1.91**
+
+## What's new in v3.1.91
+
+- Standardized the portal interface around one three-step typography scale: 20px for primary headings, 14px for normal interface text and controls, and 12px for hints, metadata and compact badges.
+- Applied the shared scale across administrator and user navigation, dashboards, cards, menus, dialogs, forms, settings, Pangolin publishing and the wiki interface, so individual popups no longer mix four or five unrelated text sizes.
+- HTTP public access now shows port `8080` explicitly in the default policy and offers it alongside `80` and `443` as a common service-port suggestion. Existing installations using the previous default policy are upgraded automatically; `8080` was already technically covered by `3000-9999`, but is now clearly visible.
 
 ## What's new in v3.1.90
 
@@ -474,7 +480,7 @@ Do not use a root key. Open **Admin Console → Settings → Pangolin publishing
 Port policies accept comma-, space- or semicolon-separated values and inclusive ranges:
 
 ```text
-80,443,3000-3999,8080
+80,443,8080,3000-9999
 ```
 
 For HTTP publishing, Pangolin terminates public TLS while the configured backend method controls the Newt-to-service connection. Every protocol requires a unique subdomain. Raw TCP or UDP resources use that hostname together with the selected port, for example `tcp://service.apps.example.com:20001`; the selected port is used as both the public Pangolin proxy port and the internal service port. The portal accepts and publishes raw ports only inside the dedicated `20000-26000` pool; this limit is enforced in both the administrator settings and every backend publication request.
@@ -584,6 +590,14 @@ docker image prune -f
 The database migrates itself on startup. Keep the backend data volume before updating.
 
 ## Changelog
+
+### v3.1.91 - 2026-07-30
+
+**Commit:** `style: standardize portal typography and surface HTTP port 8080`
+
+- Collapse the interface typography tokens and remaining component-specific declarations into three actual sizes: 20px headings, 14px body/control text and 12px secondary text.
+- Apply the scale consistently to desktop and mobile navigation, cards, forms, modals, settings, publishing controls and wiki authoring/reading surfaces, with clearer weight-based hierarchy for same-size section labels.
+- Add `8080` explicitly to the default HTTP target-port policy, migrate the previous default value when settings are read, update the administrator placeholder and expose `80`, `443` and `8080` as common browser suggestions in the public-access form.
 
 ### v3.1.90 - 2026-07-23
 

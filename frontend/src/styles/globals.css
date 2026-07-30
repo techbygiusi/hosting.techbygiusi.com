@@ -63,10 +63,10 @@ body.theme-light {
   /* Type scale */
   --font-size-xs:   12px;
   --font-size-sm:   14px;
-  --font-size-base: 16px;
-  --font-size-lg:   17px;
-  --font-size-xl:   21px;
-  --font-size-2xl:  30px;
+  --font-size-base: 14px;
+  --font-size-lg:   14px;
+  --font-size-xl:   20px;
+  --font-size-2xl:  20px;
 
   /* Shadows - flat by default; only dialogs lift */
   --shadow-sm: none;
@@ -249,7 +249,7 @@ input::placeholder, textarea::placeholder {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  font-size: 15px;
+  font-size: var(--font-size-sm);
   line-height: 1.2;
   transition: var(--transition);
   white-space: nowrap;
@@ -415,7 +415,7 @@ body.theme-dark .disk-row {
 .auth-header, .setup-header { text-align: center; margin-bottom: var(--spacing-lg); }
 .auth-header h1, .setup-header h1 {
   margin-bottom: 8px;
-  font-size: clamp(28px, 4vw, 38px);
+  font-size: var(--font-size-xl);
 }
 
 .eyebrow {
@@ -553,14 +553,14 @@ body.theme-dark .test-result.error   { color: #f8c4c4; }
 .site-brand p {
   margin: 0 0 3px 0;
   color: var(--color-primary);
-  font-size: 12px;
+  font-size: var(--font-size-xs);
   letter-spacing: 0.12em;
   line-height: 1.2;
   text-transform: uppercase;
 }
 .site-brand h1 {
   margin: 0;
-  font-size: clamp(17px, 2.1vw, 22px);
+  font-size: var(--font-size-xl);
   line-height: 1.08;
   letter-spacing: -0.02em;
   white-space: nowrap;
@@ -628,7 +628,7 @@ body.theme-dark .test-result.error   { color: #f8c4c4; }
   border-radius: 0;
   background: transparent;
   color: var(--color-text-light);
-  font-size: 15px;
+  font-size: var(--font-size-sm);
   white-space: nowrap;
 }
 .app-tabs button.active {
@@ -645,7 +645,7 @@ body.theme-dark .test-result.error   { color: #f8c4c4; }
 .metric-card, .panel-card, .resource-card, .list-card { padding: 20px; }
 .metric-card { display: grid; gap: 7px; }
 .metric-card span, .metric-card small { color: var(--color-text-light); }
-.metric-value { font-size: clamp(24px, 4vw, 34px); line-height: 1; color: var(--color-text); }
+.metric-value { font-size: var(--font-size-xl); line-height: 1; color: var(--color-text); }
 
 .metric-link-card {
   width: 100%;
@@ -669,7 +669,7 @@ body.theme-dark .test-result.error   { color: #f8c4c4; }
   gap: var(--spacing-md);
   margin-bottom: var(--spacing-lg);
 }
-.panel-header h2 { margin-bottom: 6px; font-size: 20px; }
+.panel-header h2 { margin-bottom: 6px; font-size: var(--font-size-xl); }
 
 /* Tables */
 .table-responsive { width: 100%; overflow-x: auto; }
@@ -713,7 +713,7 @@ tr:hover td { background: color-mix(in srgb, var(--color-primary) 7%, transparen
 }
 .setup-check-row span,
 .setup-check-test h3 {
-  font-size: 16px;
+  font-size: var(--font-size-sm);
   line-height: 1.25;
 }
 .setup-check-row small {
@@ -822,7 +822,7 @@ body.theme-light .disk-row {
   justify-content: space-between;
   gap: var(--spacing-md);
 }
-.resource-card-header h2 { margin-top: 4px; font-size: 20px; }
+.resource-card-header h2 { margin-top: 4px; font-size: var(--font-size-xl); }
 .resource-id {
   color: var(--color-primary);
   font-size: var(--font-size-xs);
@@ -906,7 +906,7 @@ body.theme-dark .progress-bar {
   gap: var(--spacing-md);
 }
 .list-card { display: grid; gap: 16px; }
-.list-card h2 { margin: 4px 0; font-size: 18px; }
+.list-card h2 { margin: 4px 0; font-size: var(--font-size-xl); }
 .list-card p { word-break: break-word; }
 
 .card-actions, .button-stack { display: flex; gap: 8px; flex-wrap: wrap; }
@@ -1053,7 +1053,7 @@ body.theme-dark .modal-card textarea {
   gap: var(--spacing-md);
   margin-bottom: 22px;
 }
-.modal-header h2 { margin: 0; font-size: 22px; letter-spacing: -0.01em; }
+.modal-header h2 { margin: 0; font-size: var(--font-size-xl); letter-spacing: -0.01em; }
 .form-actions { padding-top: 4px; }
 
 .icon-button {
@@ -1063,7 +1063,7 @@ body.theme-dark .modal-card textarea {
   border: 0;
   background: var(--color-surface);
   color: var(--color-text);
-  font-size: 22px;
+  font-size: var(--font-size-xl);
   line-height: 1;
 }
 body.theme-dark .icon-button {
@@ -1166,7 +1166,7 @@ body.theme-dark .icon-button {
     min-width: 0;
   }
   .site-brand h1 {
-    font-size: 18px;
+    font-size: var(--font-size-xl);
     letter-spacing: -0.01em;
     white-space: normal;
     overflow-wrap: anywhere;
@@ -1649,7 +1649,7 @@ body.theme-dark .terminal-container { background: #111418; }
 }
 .console-page-header h1 {
   margin: 0;
-  font-size: clamp(20px, 2vw, 28px);
+  font-size: var(--font-size-xl);
 }
 .console-page-actions {
   display: flex;
@@ -1737,7 +1737,7 @@ body.theme-dark .terminal-container { background: #111418; }
   padding: 12px 14px;
   max-height: 260px;
   overflow: auto;
-  font-size: 12px;
+  font-size: var(--font-size-xs);
   line-height: 1.55;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   background: #1b1e23;
@@ -1773,7 +1773,7 @@ body.theme-dark .task-log { background: #111418; }
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 13px;
+  font-size: var(--font-size-sm);
   overflow-wrap: anywhere;
 }
 .credential-notes { white-space: pre-wrap; }
@@ -1904,7 +1904,7 @@ body.theme-dark .task-log { background: #111418; }
   border-radius: 999px;
   background: var(--color-bg-alt);
   color: var(--color-text-light);
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   vertical-align: middle;
 }
 
@@ -2144,7 +2144,7 @@ body.theme-dark .task-log { background: #111418; }
   display: inline-block;
   padding: 2px 8px;
   border-radius: 999px;
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   font-weight: 500;
   vertical-align: middle;
 }
@@ -2804,7 +2804,7 @@ body.theme-dark .cluster-stats-card {
 }
 .cluster-stats-title h3 {
   margin: 4px 0 0;
-  font-size: 18px;
+  font-size: var(--font-size-xl);
 }
 .cluster-stats-summary {
   display: grid;
@@ -2826,7 +2826,7 @@ body.theme-dark .cluster-stats-card {
 }
 .mini-metric strong {
   color: var(--color-text);
-  font-size: 17px;
+  font-size: var(--font-size-xl);
 }
 .cluster-node-list {
   display: grid;
@@ -2954,7 +2954,7 @@ body.theme-dark .cluster-stats-card {
   border: none;
   background: transparent;
   color: inherit;
-  font-size: 20px;
+  font-size: var(--font-size-xl);
   line-height: 1;
   cursor: pointer;
   padding: 0 4px;
@@ -3060,7 +3060,7 @@ body.theme-dark .link-button:hover { color: var(--site-accent); }
   .login-brand-inner { max-width: 480px; }
 
   .login-brand-panel h1 {
-    font-size: clamp(34px, 3.4vw, 46px);
+    font-size: var(--font-size-xl);
     font-weight: 300;
     line-height: 1.15;
     margin: 14px 0 18px;
@@ -4040,7 +4040,7 @@ textarea:focus {
 }
 
 .console-sidebar-card h2 {
-  font-size: 1.5rem;
+  font-size: var(--font-size-xl);
 }
 
 .console-nav-tabs {
@@ -4161,7 +4161,7 @@ textarea:focus {
 .cluster-map-summary-item div span {
   margin-top: 4px;
   color: var(--color-text-light);
-  font-size: 0.92rem;
+  font-size: var(--font-size-sm);
 }
 
 .cluster-map-summary-item > div {
@@ -4228,7 +4228,7 @@ textarea:focus {
 
 .location-search-item span {
   color: var(--color-text-light);
-  font-size: 0.9rem;
+  font-size: var(--font-size-sm);
 }
 
 .location-search-item:hover {
@@ -4242,7 +4242,7 @@ textarea:focus {
 .location-selected-hint,
 .cluster-location-hint {
   color: var(--color-text-light);
-  font-size: 0.92rem;
+  font-size: var(--font-size-sm);
 }
 
 .cluster-location-hint {
@@ -4491,7 +4491,7 @@ body.theme-light .cluster-map-canvas::after {
 .cluster-location-status {
   margin-top: 6px;
   color: var(--color-text-light);
-  font-size: 0.92rem;
+  font-size: var(--font-size-sm);
 }
 
 .cluster-list-card .card-actions {
@@ -4883,7 +4883,7 @@ body.theme-light .cluster-map-canvas::after {
   }
 
   .provisioning-settings-panel .toggle-label {
-    font-size: 0.95rem;
+    font-size: var(--font-size-sm);
   }
 }
 
@@ -4952,7 +4952,7 @@ body.theme-dark .mobile-admin-menu-logout {
   background: transparent;
   color: var(--color-text-light);
   font: inherit;
-  font-size: 0.82rem;
+  font-size: var(--font-size-sm);
   font-weight: 600;
   cursor: pointer;
 }
@@ -4978,7 +4978,7 @@ body.theme-dark .mobile-admin-menu-logout {
     min-width: 30px;
     min-height: 28px;
     padding: 0 6px;
-    font-size: 0.75rem;
+    font-size: var(--font-size-xs);
   }
 }
 
@@ -5173,7 +5173,7 @@ body.theme-dark .mobile-admin-menu-logout {
   background: transparent;
   color: var(--color-text-light);
   font: inherit;
-  font-size: 0.8rem;
+  font-size: var(--font-size-sm);
   font-weight: 600;
   cursor: pointer;
 }
@@ -5204,7 +5204,7 @@ body.theme-dark .language-switch-thumb {
   min-height: 52px;
   padding: 8px 14px;
   line-height: 1.15;
-  font-size: 0.95rem;
+  font-size: var(--font-size-sm);
 }
 
 .cluster-map-summary-item .status-badge,
@@ -5220,7 +5220,7 @@ body.theme-dark .language-switch-thumb {
     min-height: 46px;
     padding: 7px 12px;
     line-height: 1.1;
-    font-size: 0.9rem;
+    font-size: var(--font-size-sm);
   }
 }
 
@@ -5241,7 +5241,7 @@ body.theme-dark .language-switch-thumb {
   border-radius: 999px !important;
   line-height: 1 !important;
   white-space: nowrap !important;
-  font-size: 0.9rem !important;
+  font-size: var(--font-size-sm) !important;
 }
 
 @media (max-width: 767px) {
@@ -5253,7 +5253,7 @@ body.theme-dark .language-switch-thumb {
     min-height: 38px !important;
     max-height: 38px !important;
     padding: 0 12px !important;
-    font-size: 0.86rem !important;
+    font-size: var(--font-size-sm) !important;
   }
 }
 
@@ -5428,7 +5428,7 @@ body.theme-dark .cluster-map-canvas .leaflet-container {
 
 .section-eyebrow {
   margin: 0 0 6px !important;
-  font-size: 0.78rem;
+  font-size: var(--font-size-xs);
   letter-spacing: 0.1em;
   color: var(--color-primary) !important;
 }
@@ -5528,7 +5528,7 @@ body.theme-dark .cluster-map-canvas .leaflet-container {
 }
 
 .pangolin-settings-meta strong {
-  font-size: 1.4rem;
+  font-size: var(--font-size-xl);
   color: var(--color-text);
 }
 
@@ -5556,7 +5556,7 @@ body.theme-dark .cluster-map-canvas .leaflet-container {
   border-radius: 7px;
   background: var(--color-card);
   border: 1px solid var(--color-border);
-  font-size: 0.95rem;
+  font-size: var(--font-size-sm);
 }
 
 .publishing-security-note small {
@@ -5768,7 +5768,7 @@ body.theme-dark .cluster-map-canvas .leaflet-container {
 
 .pangolin-publication-title span:first-child {
   color: var(--color-text-light);
-  font-size: 0.84rem;
+  font-size: var(--font-size-sm);
 }
 
 .pangolin-publication-card dl {
@@ -5904,7 +5904,7 @@ body.theme-dark .cluster-map-canvas .leaflet-container {
   padding: 0.28rem 0.58rem;
   border: 1px solid var(--border-color);
   border-radius: 999px;
-  font-size: 0.78rem;
+  font-size: var(--font-size-xs);
   font-weight: 600;
 }
 
@@ -6080,7 +6080,7 @@ body.theme-dark .cluster-map-canvas .leaflet-container {
 }
 
 .settings-section-heading h3 {
-  font-size: 20px;
+  font-size: var(--font-size-xl);
   line-height: 1.25;
 }
 
@@ -6266,7 +6266,7 @@ body.theme-dark .settings-section-card {
   border: 1px solid var(--color-border);
   border-radius: 999px;
   background: var(--color-card);
-  font-size: 0.78rem;
+  font-size: var(--font-size-xs);
   font-weight: 700;
 }
 
@@ -6356,7 +6356,7 @@ body.theme-dark .settings-section-card {
 
 .publishing-copy-flag {
   flex: 0 0 auto;
-  font-size: 0.75rem;
+  font-size: var(--font-size-xs);
   font-weight: 600;
   color: var(--color-text-light);
   white-space: nowrap;
@@ -6524,7 +6524,7 @@ body.theme-dark .settings-section-card {
 .compact-resource-card .publishing-service-links > * {
   min-height: 42px;
   padding: 7px 6px;
-  font-size: 10px;
+  font-size: var(--font-size-xs);
   line-height: 1.1;
   letter-spacing: -0.015em;
   white-space: normal;
@@ -6550,7 +6550,7 @@ body.theme-dark .settings-section-card {
   .compact-resource-card .publishing-service-links > * {
     min-height: 40px;
     padding: 6px 5px;
-    font-size: 9.5px;
+    font-size: var(--font-size-xs);
   }
 }
 
@@ -6888,7 +6888,7 @@ body.theme-dark {
 
 .wiki-tree-folder-title {
   flex: 1 1 auto;
-  font-size: 14px;
+  font-size: var(--font-size-sm);
   font-weight: 600;
   color: var(--color-text);
   overflow-wrap: anywhere;
@@ -6900,7 +6900,7 @@ body.theme-dark {
   gap: 8px;
   width: 100%;
   text-align: left;
-  font-size: 14px;
+  font-size: var(--font-size-sm);
   padding: 6px 8px;
   border: 0;
   border-radius: 6px;
@@ -6947,7 +6947,7 @@ body.theme-dark {
   border-radius: 8px;
   background: var(--wiki-notice-bg);
   color: var(--wiki-notice-text);
-  font-size: 0.9rem;
+  font-size: var(--font-size-sm);
 }
 
 .wiki-fallback-icon {
@@ -6959,7 +6959,7 @@ body.theme-dark {
   height: 20px;
   border-radius: 50%;
   border: 1px solid currentColor;
-  font-size: 0.72rem;
+  font-size: var(--font-size-xs);
   font-weight: 700;
   font-style: italic;
 }
@@ -6986,7 +6986,7 @@ body.theme-dark {
 
 .btn-tiny {
   padding: 2px 6px;
-  font-size: 0.72rem;
+  font-size: var(--font-size-xs);
   border-radius: 5px;
 }
 
@@ -7046,7 +7046,7 @@ body.theme-dark {
 }
 
 .wiki-language-flag {
-  font-size: 0.68rem;
+  font-size: var(--font-size-xs);
   text-transform: uppercase;
   letter-spacing: 0.03em;
   color: var(--color-text-light);
@@ -7065,7 +7065,7 @@ body.theme-dark {
 }
 
 .wiki-dirty-flag {
-  font-size: 0.75rem;
+  font-size: var(--font-size-xs);
   color: var(--color-text-light);
 }
 
@@ -7101,7 +7101,7 @@ body.theme-dark {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  font-size: 0.85rem;
+  font-size: var(--font-size-sm);
   line-height: 1.3;
   cursor: pointer;
   /* Keep the label on one line so the control does not stack awkwardly
@@ -7118,7 +7118,7 @@ body.theme-dark {
   background: var(--color-surface);
   color: inherit;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 0.88rem;
+  font-size: var(--font-size-sm);
   line-height: 1.55;
   resize: vertical;
 }
@@ -7174,7 +7174,7 @@ body.theme-dark {
   border-radius: 4px;
   background: var(--wiki-inline-code-bg);
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 0.88em;
+  font-size: var(--font-size-sm);
 }
 
 .markdown-body pre {
@@ -7275,7 +7275,7 @@ body.theme-dark {
 }
 
 .markdown-code-lang {
-  font-size: 0.7rem;
+  font-size: var(--font-size-xs);
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--wiki-copy-text);
@@ -7292,7 +7292,7 @@ body.theme-dark {
   background: var(--wiki-copy-bg);
   color: var(--wiki-copy-text);
   font: inherit;
-  font-size: 0.74rem;
+  font-size: var(--font-size-xs);
   line-height: 1.6;
   cursor: pointer;
   opacity: 0;
@@ -7429,7 +7429,7 @@ body.wiki-editor-route-active {
   background: none;
   color: inherit;
   font: inherit;
-  font-size: 0.82rem;
+  font-size: var(--font-size-sm);
   line-height: 1;
   cursor: pointer;
   transition: var(--transition);
@@ -7458,7 +7458,7 @@ body.wiki-editor-route-active {
   background: none;
   color: inherit;
   font: inherit;
-  font-size: 0.82rem;
+  font-size: var(--font-size-sm);
   cursor: pointer;
 }
 
@@ -7588,7 +7588,7 @@ body.wiki-editor-route-active {
 
 .wiki-empty-folder {
   margin: 2px 0 6px 14px;
-  font-size: 0.8rem;
+  font-size: var(--font-size-sm);
   opacity: 0.75;
 }
 
@@ -7620,7 +7620,7 @@ body.wiki-editor-route-active {
 
 .wiki-structure-head h3 {
   margin: 0;
-  font-size: 15px;
+  font-size: var(--font-size-sm);
 }
 
 .wiki-row-icon {
@@ -7774,7 +7774,7 @@ body.wiki-editor-route-active {
 }
 
 .wiki-panel .wiki-tree-link {
-  font-size: 14px;
+  font-size: var(--font-size-sm);
   padding: 7px 10px;
   border-radius: 7px;
   color: var(--color-text-light);
@@ -7790,7 +7790,7 @@ body.wiki-editor-route-active {
 }
 
 .wiki-panel .wiki-tree-folder-title {
-  font-size: 0.72rem;
+  font-size: var(--font-size-xs);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -7813,31 +7813,31 @@ body.wiki-editor-route-active {
 
 .wiki-article-header h3 {
   margin: 0 0 8px;
-  font-size: 24px;
+  font-size: var(--font-size-xl);
   line-height: 1.25;
   font-weight: 650;
 }
 
 .wiki-article-summary {
   margin: 0 0 8px;
-  font-size: 15px;
+  font-size: var(--font-size-sm);
   color: var(--color-text-light);
 }
 
 .wiki-article-meta {
   display: block;
-  font-size: 12px;
+  font-size: var(--font-size-xs);
   color: var(--color-text-light);
 }
 
 .wiki-article .markdown-body {
-  font-size: 15px;
+  font-size: var(--font-size-sm);
   line-height: 1.75;
 }
 
-.wiki-article .markdown-body h1 { font-size: 21px; }
-.wiki-article .markdown-body h2 { font-size: 18px; }
-.wiki-article .markdown-body h3 { font-size: 16px; }
+.wiki-article .markdown-body h1 { font-size: var(--font-size-xl); }
+.wiki-article .markdown-body h2 { font-size: var(--font-size-xl); }
+.wiki-article .markdown-body h3 { font-size: var(--font-size-sm); }
 
 .wiki-article .markdown-body > *:last-child {
   margin-bottom: 0;
@@ -7853,7 +7853,7 @@ body.wiki-editor-route-active {
   }
 
   .wiki-article-header h3 {
-    font-size: 20px;
+    font-size: var(--font-size-xl);
   }
 }
 
@@ -7865,7 +7865,7 @@ body.wiki-editor-route-active {
 .wiki-drag-handle {
   flex: 0 0 auto;
   color: var(--color-text-light);
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   letter-spacing: -1px;
   cursor: grab;
   opacity: 0;
@@ -7902,7 +7902,7 @@ body.wiki-editor-route-active {
   border: 1px dashed var(--color-border);
   border-radius: 8px;
   color: var(--color-text-light);
-  font-size: 13px;
+  font-size: var(--font-size-sm);
   text-align: center;
 }
 
@@ -7919,4 +7919,68 @@ body.wiki-editor-route-active {
   .wiki-drag-handle {
     opacity: 0.5;
   }
+}
+
+/* v3.1.91 - one three-step type scale for every portal interface */
+body {
+  font-size: var(--font-size-sm);
+}
+
+h1, h2 {
+  font-size: var(--font-size-xl);
+}
+
+h3,
+button,
+input,
+select,
+textarea,
+.app-tabs button,
+.modal-tabs button,
+.console-nav-tabs button,
+.mobile-admin-menu-nav button,
+.user-fullscreen-menu-overlay .mobile-admin-menu-nav button {
+  font-size: var(--font-size-sm);
+}
+
+small,
+.hint-text,
+.form-group > small,
+.resource-id,
+.task-status,
+.task-time,
+.credential-scope,
+.section-eyebrow,
+.publishing-count-badge,
+.publishing-protocol-badge,
+.publishing-copy-flag,
+.cluster-publishing-status,
+.wiki-article-meta,
+.wiki-language-flag,
+.wiki-dirty-flag,
+.markdown-code-lang,
+.markdown-copy-btn {
+  font-size: var(--font-size-xs);
+}
+
+.modal-header h2,
+.panel-header h2,
+.resource-card-header h2,
+.list-card h2,
+.dashboard-hero-card h2,
+.console-page-header h1,
+.console-sidebar-card h2,
+.cluster-stats-title h3,
+.settings-section-heading h3,
+.wiki-article-header h3 {
+  font-size: var(--font-size-xl);
+  font-weight: 500;
+}
+
+.publishing-section-heading h3,
+.publishing-protocol-fieldset legend,
+.form-group > span,
+.wiki-structure-head h3 {
+  font-size: var(--font-size-sm);
+  font-weight: 500;
 }

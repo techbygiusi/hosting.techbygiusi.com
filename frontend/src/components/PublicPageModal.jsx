@@ -192,6 +192,10 @@ export default function PublicPageModal({ resource, onClose, onSaved, language: 
     () => getPortPolicyBounds(options?.protocols?.[protocol]?.allowedPorts),
     [options, protocol]
   );
+  const commonHttpPorts = useMemo(
+    () => getCommonHttpPorts(options?.protocols?.http?.allowedPorts),
+    [options]
+  );
 
   const resetForm = (currentPublications = publications, preferredProtocol = null) => {
     const nextProtocol = preferredProtocol && options?.protocols?.[preferredProtocol]?.enabled
@@ -582,7 +586,10 @@ export default function PublicPageModal({ resource, onClose, onSaved, language: 
                   <div className="publishing-fields-grid publishing-http-fields-grid">
                     <label className="form-group publishing-control-field">
                       <span>{text.targetPort}</span>
-                      <input type="number" min="1" max="65535" value={targetPort} onChange={(event) => setTargetPort(event.target.value)} disabled={!!busy || !options?.enabled} />
+                      <input type="number" min="1" max="65535" list="publishing-common-http-ports" value={targetPort} onChange={(event) => setTargetPort(event.target.value)} disabled={!!busy || !options?.enabled} />
+                      <datalist id="publishing-common-http-ports">
+                        {commonHttpPorts.map((port) => <option key={port} value={port} />)}
+                      </datalist>
                       <small>{text.ranges}: {options?.protocols?.http?.allowedPorts || '—'}</small>
                     </label>
                     <label className="form-group publishing-control-field">
@@ -793,6 +800,11 @@ function parsePortPolicy(value) {
       return { start, end };
     })
     .filter(Boolean);
+}
+
+function getCommonHttpPorts(policy) {
+  const ranges = parsePortPolicy(policy);
+  return [80, 443, 8080].filter((port) => ranges.some((range) => port >= range.start && port <= range.end));
 }
 
 function getFirstAllowedPort(policy) {

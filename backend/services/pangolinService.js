@@ -9,6 +9,8 @@ const { HTTP_STATUS } = require('../config/constants');
 const RAW_PORT_MIN = 20000;
 const RAW_PORT_MAX = 26000;
 const RAW_PORT_POLICY = `${RAW_PORT_MIN}-${RAW_PORT_MAX}`;
+const LEGACY_HTTP_PORT_POLICY = '80,443,3000-9999';
+const HTTP_PORT_POLICY = '80,443,8080,3000-9999';
 
 const SETTING_KEYS = {
   enabled: 'pangolin_enabled',
@@ -39,7 +41,7 @@ const DEFAULTS = {
   httpEnabled: true,
   tcpEnabled: true,
   udpEnabled: true,
-  allowedHttpPorts: '80,443,3000-9999',
+  allowedHttpPorts: HTTP_PORT_POLICY,
   allowedTcpPorts: RAW_PORT_POLICY,
   allowedUdpPorts: RAW_PORT_POLICY,
   defaultTargetMethod: 'http',
@@ -152,6 +154,7 @@ async function readSettingRows() {
 }
 
 function configFromRows(rows = {}) {
+  const storedHttpPolicy = String(rows[SETTING_KEYS.allowedHttpPorts] ?? '').trim();
   const storedTcpPolicy = String(rows[SETTING_KEYS.allowedTcpPorts] ?? '').trim();
   const storedUdpPolicy = String(rows[SETTING_KEYS.allowedUdpPorts] ?? '').trim();
   const legacyPreparedRawState = !storedTcpPolicy && !storedUdpPolicy;
@@ -168,7 +171,10 @@ function configFromRows(rows = {}) {
     // v3.1.49: turn the previous empty "prepared" raw state into the active fixed pool.
     tcpEnabled: legacyPreparedRawState ? true : toBoolean(rows[SETTING_KEYS.tcpEnabled], DEFAULTS.tcpEnabled),
     udpEnabled: legacyPreparedRawState ? true : toBoolean(rows[SETTING_KEYS.udpEnabled], DEFAULTS.udpEnabled),
-    allowedHttpPorts: rows[SETTING_KEYS.allowedHttpPorts] ?? DEFAULTS.allowedHttpPorts,
+    // v3.1.91: keep the traditional defaults but surface common portal port 8080 explicitly.
+    allowedHttpPorts: !storedHttpPolicy || storedHttpPolicy === LEGACY_HTTP_PORT_POLICY
+      ? DEFAULTS.allowedHttpPorts
+      : storedHttpPolicy,
     allowedTcpPorts: storedTcpPolicy || DEFAULTS.allowedTcpPorts,
     allowedUdpPorts: storedUdpPolicy || DEFAULTS.allowedUdpPorts,
     defaultTargetMethod: ['http', 'https', 'h2c'].includes(String(rows[SETTING_KEYS.defaultTargetMethod] || '').toLowerCase())

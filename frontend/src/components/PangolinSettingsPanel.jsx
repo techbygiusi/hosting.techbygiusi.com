@@ -18,7 +18,7 @@ const DEFAULTS = {
   httpEnabled: true,
   tcpEnabled: true,
   udpEnabled: true,
-  allowedHttpPorts: '80,443,3000-9999',
+  allowedHttpPorts: '80,443,8080,3000-9999',
   allowedTcpPorts: RAW_PORT_POLICY,
   allowedUdpPorts: RAW_PORT_POLICY,
   defaultTargetMethod: 'http',
@@ -396,7 +396,7 @@ export default function PangolinSettingsPanel({ onSuccess, onError, language: la
             onEnabled={(value) => update('httpEnabled', value)}
             ports={form.allowedHttpPorts}
             onPorts={(value) => update('allowedHttpPorts', value)}
-            placeholder="80,443,3000-9999"
+            placeholder="80,443,8080,3000-9999"
             text={text}
           />
           <ProtocolPolicy
