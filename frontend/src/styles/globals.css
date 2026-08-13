@@ -1616,11 +1616,11 @@ body.theme-dark .btn-danger:hover:not(:disabled) {
   height: min(52vh, 460px);
   padding: 10px;
   border-radius: var(--radius-md);
-  background: #1b1e23;
+  background: #2e3440;
   border: 1px solid var(--color-border);
   overflow: hidden;
 }
-body.theme-dark .terminal-container { background: #111418; }
+body.theme-dark .terminal-container { background: #2e3440; }
 .terminal-container .xterm { height: 100%; }
 .terminal-wrapper-fullscreen {
   flex: 1 1 auto;
@@ -7880,10 +7880,12 @@ body.wiki-editor-route-active {
   opacity: 0;
   transition: opacity 0.15s ease;
   user-select: none;
+  touch-action: none;
 }
 
-.wiki-admin-article-row:hover .wiki-drag-handle {
-  opacity: 0.7;
+.wiki-admin-article-row:hover .wiki-drag-handle,
+.wiki-drag-handle:focus-visible {
+  opacity: 0.8;
 }
 
 .wiki-admin-article-row {
@@ -7923,12 +7925,14 @@ body.wiki-editor-route-active {
 }
 
 @media (hover: none) {
-  /* Touch devices cannot drag; keep the handle visible as an affordance and
-     rely on the folder selector in the editor for moving. */
+  /* Touch devices cannot use native HTML drag and drop; keep the handle visible
+     and rely on the folder selector in the editor for moving. */
   .wiki-drag-handle {
     opacity: 0.5;
   }
 }
+
+/* v3.1.94 - reliable wiki drag handle and folder drop targeting */
 
 /* v3.1.92 - one three-step type scale for every portal interface */
 body {

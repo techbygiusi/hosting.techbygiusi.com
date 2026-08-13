@@ -14,6 +14,51 @@ function terminalText(value) {
   return translatePortalText(value, readStoredLanguage());
 }
 
+const NORD_TERMINAL_BASE = Object.freeze({
+  background: '#2E3440',
+  foreground: '#D8DEE9',
+  black: '#3B4252',
+  red: '#BF616A',
+  yellow: '#EBCB8B',
+  blue: '#81A1C1',
+  magenta: '#B48EAD',
+  cyan: '#88C0D0',
+  white: '#E5E9F0',
+  brightBlack: '#4C566A',
+  brightRed: '#BF616A',
+  brightYellow: '#EBCB8B',
+  brightBlue: '#81A1C1',
+  brightMagenta: '#B48EAD',
+  brightCyan: '#8FBCBB',
+  brightWhite: '#ECEFF4'
+});
+
+function accentWithAlpha(accent, alpha) {
+  const match = /^#([0-9a-f]{6})$/i.exec(String(accent || '').trim());
+  if (!match) return accent;
+  const value = parseInt(match[1], 16);
+  const red = (value >> 16) & 255;
+  const green = (value >> 8) & 255;
+  const blue = value & 255;
+  return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
+}
+
+function getTerminalTheme() {
+  const fallbackAccent = document.body.classList.contains('theme-dark') ? '#c2cea7' : '#7a876f';
+  const accent = getComputedStyle(document.body).getPropertyValue('--site-accent').trim() || fallbackAccent;
+  return {
+    ...NORD_TERMINAL_BASE,
+    // Keep the portal's sage accent for shell greens and terminal focus cues.
+    // Light mode uses the darker accent; dark mode uses the lighter accent.
+    green: accent,
+    brightGreen: accent,
+    cursor: accent,
+    cursorAccent: NORD_TERMINAL_BASE.background,
+    selectionBackground: accentWithAlpha(accent, 0.38),
+    selectionInactiveBackground: accentWithAlpha(accent, 0.22)
+  };
+}
+
 export default function TerminalView({ resourceId, resourceName, fullscreen = false }) {
   const containerRef = useRef(null);
   const [status, setStatus] = useState('connecting');
@@ -49,9 +94,7 @@ export default function TerminalView({ resourceId, resourceName, fullscreen = fa
       fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
       lineHeight: fullscreen ? 1.16 : 1,
       scrollback: 5000,
-      theme: document.body.classList.contains('theme-dark')
-        ? { background: '#111418', foreground: '#E6E6E6', cursor: '#c2cea7' }
-        : { background: '#1b1e23', foreground: '#e8e8e8', cursor: '#7a876f' }
+      theme: getTerminalTheme()
     });
     const fit = new FitAddon();
     term.loadAddon(fit);
@@ -88,6 +131,15 @@ export default function TerminalView({ resourceId, resourceName, fullscreen = fa
     if (typeof ResizeObserver !== 'undefined' && containerRef.current) {
       resizeObserver = new ResizeObserver(() => fitAndResize());
       resizeObserver.observe(containerRef.current);
+    }
+
+    // Update the theme immediately when the portal switches between light and dark mode.
+    let themeObserver = null;
+    if (typeof MutationObserver !== 'undefined') {
+      themeObserver = new MutationObserver(() => {
+        if (!disposed) term.options.theme = getTerminalTheme();
+      });
+      themeObserver.observe(document.body, { attributes: true, attributeFilter: ['class'] });
     }
 
     (async () => {
@@ -353,6 +405,7 @@ export default function TerminalView({ resourceId, resourceName, fullscreen = fa
       disposed = true;
       window.removeEventListener('resize', onWindowResize);
       try { resizeObserver?.disconnect(); } catch (_) { /* noop */ }
+      try { themeObserver?.disconnect(); } catch (_) { /* noop */ }
       if (pingTimer) clearInterval(pingTimer);
       if (selectionCopyTimer) clearTimeout(selectionCopyTimer);
       try { selectionDisposable?.dispose(); } catch (_) { /* noop */ }

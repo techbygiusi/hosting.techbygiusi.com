@@ -245,7 +245,7 @@ export default function WikiEditorPage() {
 
   const leave = () => {
     if (dirty && !window.confirm(text.leaveConfirm)) return;
-    navigate('/admin');
+    navigate('/admin?tab=wiki');
   };
 
   /* --------------------------------------------------- text transformations */
@@ -404,7 +404,7 @@ export default function WikiEditorPage() {
     return (
       <div className="wiki-editor-page">
         <div className="wiki-editor-topbar">
-          <Link to="/admin" className="btn-secondary btn-small">{text.back}</Link>
+          <Link to="/admin?tab=wiki" className="btn-secondary btn-small">{text.back}</Link>
         </div>
         <div className="alert alert-danger">{error}</div>
       </div>

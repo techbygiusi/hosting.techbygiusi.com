@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { wikiApi, getErrorMessage } from '../services/api';
 
@@ -139,6 +139,9 @@ export default function WikiAdminPanel({ language = 'en' }) {
   const [folderForm, setFolderForm] = useState(null);
   const [draggingId, setDraggingId] = useState(null);
   const [dropTarget, setDropTarget] = useState(undefined);
+  // Keep the active article in a ref as well as state. Native drag events can
+  // reach a drop target before React has committed the drag-start state.
+  const draggingIdRef = useRef(null);
 
   const load = useCallback(async () => {
     try {
@@ -261,6 +264,7 @@ export default function WikiAdminPanel({ language = 'en' }) {
     try {
       await wikiApi.updateArticle(articleId, { folderId: next });
       await load();
+      flash(text.saved);
       setError('');
     } catch (err) {
       setError(getErrorMessage(err, text.saveFailed));
@@ -270,13 +274,17 @@ export default function WikiAdminPanel({ language = 'en' }) {
   };
 
   const handleDragStart = (event, articleId) => {
-    setDraggingId(articleId);
+    const numericId = Number(articleId);
+    draggingIdRef.current = numericId;
+    setDraggingId(numericId);
     event.dataTransfer.effectAllowed = 'move';
-    // Some browsers refuse to start a drag without payload on the transfer.
-    event.dataTransfer.setData('text/plain', String(articleId));
+    // Firefox and Chromium require drag data for custom draggable elements.
+    event.dataTransfer.setData('application/x-hosting-portal-wiki-article', String(numericId));
+    event.dataTransfer.setData('text/plain', String(numericId));
   };
 
   const handleDragEnd = () => {
+    draggingIdRef.current = null;
     setDraggingId(null);
     setDropTarget(undefined);
   };
@@ -284,21 +292,27 @@ export default function WikiAdminPanel({ language = 'en' }) {
   // stopPropagation keeps the innermost folder as the drop target instead of
   // the drop bubbling up to its parents and finally to the top level.
   const handleDragOver = (event, folderId) => {
-    if (draggingId === null) return;
+    if (draggingIdRef.current === null) return;
     event.preventDefault();
     event.stopPropagation();
     event.dataTransfer.dropEffect = 'move';
-    setDropTarget(folderId);
+    setDropTarget(folderId === null ? null : Number(folderId));
   };
 
   const handleDrop = (event, folderId) => {
-    if (draggingId === null) return;
+    const transferredId = Number(
+      event.dataTransfer.getData('application/x-hosting-portal-wiki-article')
+      || event.dataTransfer.getData('text/plain')
+    );
+    const articleId = transferredId || draggingIdRef.current;
+    if (!articleId) return;
+
     event.preventDefault();
     event.stopPropagation();
-    const articleId = Number(event.dataTransfer.getData('text/plain')) || draggingId;
+    draggingIdRef.current = null;
     setDraggingId(null);
     setDropTarget(undefined);
-    moveArticle(articleId, folderId);
+    moveArticle(articleId, folderId === null ? null : Number(folderId));
   };
 
   const rootArticles = articles.filter(article => !article.folder_id);
@@ -310,14 +324,18 @@ export default function WikiAdminPanel({ language = 'en' }) {
   const articleRow = (article) => (
     <li key={`a-${article.id}`}>
       <div
-        className={`wiki-admin-article-row ${draggingId === article.id ? 'is-dragging' : ''}`}
-        draggable
-        onDragStart={(event) => handleDragStart(event, article.id)}
-        onDragEnd={handleDragEnd}
-        title={text.dragHint}
+        className={`wiki-admin-article-row ${Number(draggingId) === Number(article.id) ? 'is-dragging' : ''}`}
       >
-        <span className="wiki-drag-handle" aria-hidden="true">⋮⋮</span>
-        <button type="button" className="wiki-tree-link" onClick={() => openEditor(article.id)}>
+        <span
+          className="wiki-drag-handle"
+          draggable
+          title={text.dragHint}
+          onDragStart={(event) => handleDragStart(event, article.id)}
+          onDragEnd={handleDragEnd}
+        >
+          ⋮⋮
+        </span>
+        <button type="button" className="wiki-tree-link" draggable="false" onClick={() => openEditor(article.id)}>
           <span className="wiki-row-icon"><Icon.article /></span>
           <span className="wiki-row-label">{titleOf(article)}</span>
         </button>
@@ -329,6 +347,7 @@ export default function WikiAdminPanel({ language = 'en' }) {
             disabled={busy === `article-${article.id}`}
             title={text.remove}
             aria-label={text.remove}
+            draggable="false"
           >
             <Icon.trash />
           </button>

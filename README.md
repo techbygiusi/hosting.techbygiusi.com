@@ -17,7 +17,7 @@ Hosting Portal is a self-hosted customer portal for Proxmox environments. It com
 
 - View assigned services and their current Proxmox status.
 - Start, stop, restart and delete services according to the assigned permissions.
-- Open service details, task progress and a full-page browser console.
+- Open service details, task progress and a full-page browser console with a Nord-based terminal palette and theme-aware portal accent.
 - Store service credentials and management-page access information.
 - Change the portal account password from the Settings page.
 - Use a responsive interface with English and German translations and light or dark themes.
@@ -44,10 +44,11 @@ Hosting Portal is a self-hosted customer portal for Proxmox environments. It com
 ### Wiki
 
 - Provide an administrator-managed knowledge base inside the user portal.
-- Organize articles in nested folders and move them with drag and drop.
+- Organize articles in nested folders and move them between folders with a dedicated drag handle.
 - Write English and German Markdown articles with independent publication states.
-- Use a full-page editor with formatting tools, split preview and keyboard shortcuts.
+- Use a full-page editor with formatting tools, split preview and keyboard shortcuts, then return directly to the Wiki administration tab.
 - Upload or paste images and control their alignment in an article.
+- Keep wiki articles and uploaded images in persistent backend storage.
 - Search published articles and automatically fall back to the available language.
 
 ### Security

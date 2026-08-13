@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { authApi, adminApi, getErrorMessage, translateMessage } from '../services/api';
 import '../styles/globals.css';
@@ -30,6 +31,24 @@ function MenuIcon() {
       <path d="M4 17h16" />
     </svg>
   );
+}
+
+const ADMIN_TAB_KEYS = new Set([
+  'overview',
+  'users',
+  'groups',
+  'clusters',
+  'templates',
+  'resources',
+  'maintenance',
+  'audit',
+  'wiki',
+  'settings'
+]);
+
+function getAdminTab(searchParams) {
+  const requestedTab = searchParams.get('tab');
+  return ADMIN_TAB_KEYS.has(requestedTab) ? requestedTab : 'overview';
 }
 
 const emptyUser = { email: '', name: '', password: '', role: 'user', sendWelcome: false };
@@ -272,7 +291,8 @@ const MOBILE_MENU_TRANSLATIONS = {
 
 export default function AdminDashboard() {
   const { user, logout } = useAuth();
-  const [activeTab, setActiveTab] = useState('overview');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = getAdminTab(searchParams);
   const [users, setUsers] = useState([]);
   const [clusters, setClusters] = useState([]);
   const [clusterStats, setClusterStats] = useState([]);
@@ -397,7 +417,7 @@ export default function AdminDashboard() {
   }, []);
 
   const handleSelectTab = (tab) => {
-    setActiveTab(tab);
+    setSearchParams(tab === 'overview' ? {} : { tab }, { replace: true });
     setMobileMenuOpen(false);
   };
 
