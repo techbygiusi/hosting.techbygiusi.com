@@ -152,9 +152,9 @@ function bridgeToSsh(clientWs, session) {
       const password = String(session.password || '');
       if (!password) return;
       if (stream) {
-        stream.write(password, 'utf8', () => sendControl('password-pasted'));
+        stream.write(`${password}\r`, 'utf8', () => sendControl('password-pasted'));
       } else {
-        pendingInput.push({ payload: password, acknowledgePasswordPaste: true });
+        pendingInput.push({ payload: `${password}\r`, acknowledgePasswordPaste: true });
       }
       return;
     }

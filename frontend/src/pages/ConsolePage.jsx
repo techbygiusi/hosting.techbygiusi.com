@@ -187,12 +187,14 @@ export default function ConsolePage() {
           <section className="panel-card console-page-message console-machine-wait">
             <span className="spinner"></span>
             <div>
-              <h2>{machineTransition === 'rebooting' ? text('Maschine wird neu gestartet') : text('Maschine wird gestartet')}</h2>
+              <h2>{machineTransition === 'rebooting' ? text('Neustart...') : text('Startet...')}</h2>
               <p>{isSshConsole
                 ? (transitionPhase === 'ssh'
-                  ? text('Die Maschine läuft. SSH-Verbindung und Anmeldung werden geprüft. Die Konsole öffnet erst, wenn SSH wirklich bereit ist.')
-                  : text('Warte auf die Maschine. Sobald sie läuft, werden SSH-Verbindung und Anmeldung geprüft.'))
-                : text('Die Konsole lädt automatisch, sobald die Maschine wieder verfügbar ist.')}
+                  ? text('Teste SSH-Anmeldung...')
+                  : transitionPhase === 'credentials'
+                    ? text('Prüfe SSH-Zugang...')
+                    : text('Warte auf System...'))
+                : text('Teste Konsole...')}
               </p>
             </div>
           </section>
