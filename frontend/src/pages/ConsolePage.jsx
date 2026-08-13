@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import TerminalView from '../components/TerminalView';
 import { userApi, getErrorMessage } from '../services/api';
@@ -11,6 +11,12 @@ export default function ConsolePage() {
   const [resource, setResource] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [powerError, setPowerError] = useState('');
+  const [machineTransition, setMachineTransition] = useState('');
+  const [transitionSawOffline, setTransitionSawOffline] = useState(false);
+  const [consoleGeneration, setConsoleGeneration] = useState(0);
+  const transitionStartedAt = useRef(0);
+  const closeCheckTimer = useRef(null);
 
   useEffect(() => {
     document.documentElement.classList.add('console-route-active');
@@ -18,32 +24,112 @@ export default function ConsolePage() {
     return () => {
       document.documentElement.classList.remove('console-route-active');
       document.body.classList.remove('console-route-active');
+      if (closeCheckTimer.current) clearTimeout(closeCheckTimer.current);
     };
   }, []);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadResource() {
-      try {
-        setLoading(true);
-        setError('');
-        const res = await userApi.getResourceDetails(resourceId);
-        if (!cancelled) setResource(res.data.resource || null);
-      } catch (err) {
-        if (!cancelled) setError(getErrorMessage(err, 'Dienst konnte nicht geladen werden.'));
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
+  const fetchResource = useCallback(async ({ initial = false } = {}) => {
+    try {
+      if (initial) setLoading(true);
+      if (initial) setError('');
+      const res = await userApi.getResourceDetails(resourceId);
+      const next = res.data.resource || null;
+      setResource(next);
+      return next;
+    } catch (err) {
+      if (initial) setError(getErrorMessage(err, 'Dienst konnte nicht geladen werden.'));
+      return null;
+    } finally {
+      if (initial) setLoading(false);
     }
-
-    loadResource();
-    return () => { cancelled = true; };
   }, [resourceId]);
 
-  const closeTab = () => {
-    window.close();
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (cancelled) return;
+      await fetchResource({ initial: true });
+    })();
+    return () => { cancelled = true; };
+  }, [fetchResource]);
+
+  const beginTransition = useCallback((kind) => {
+    transitionStartedAt.current = Date.now();
+    setTransitionSawOffline(false);
+    setPowerError('');
+    setMachineTransition(kind);
+  }, []);
+
+  useEffect(() => {
+    if (!machineTransition) return undefined;
+    let cancelled = false;
+
+    const poll = async () => {
+      const next = await fetchResource();
+      if (cancelled || !next) return;
+      const running = next.status === 'running';
+
+      if (machineTransition === 'starting') {
+        if (running) {
+          setMachineTransition('');
+          setConsoleGeneration(value => value + 1);
+        }
+        return;
+      }
+
+      if (machineTransition === 'rebooting') {
+        if (!running) {
+          setTransitionSawOffline(true);
+          return;
+        }
+        const waitedLongEnough = Date.now() - transitionStartedAt.current >= 10 * 1000;
+        if (transitionSawOffline || waitedLongEnough) {
+          setMachineTransition('');
+          setConsoleGeneration(value => value + 1);
+        }
+      }
+    };
+
+    poll();
+    const timer = setInterval(poll, 2500);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [machineTransition, transitionSawOffline, fetchResource]);
+
+  const closeTab = () => window.close();
+
+  const startMachine = async () => {
+    if (!resource?.capabilities?.canPower) return;
+    try {
+      beginTransition('starting');
+      await userApi.powerAction(resource.id, 'start');
+    } catch (err) {
+      setMachineTransition('');
+      setPowerError(getErrorMessage(err, 'Maschine konnte nicht gestartet werden.'));
+      await fetchResource();
+    }
   };
+
+  const handleRebootDetected = useCallback(() => {
+    beginTransition('rebooting');
+  }, [beginTransition]);
+
+  const handleConsoleClosed = useCallback(({ rebootRequested } = {}) => {
+    if (rebootRequested || machineTransition) return;
+    let attempts = 0;
+    const inspect = async () => {
+      attempts += 1;
+      const next = await fetchResource();
+      if (next && next.status !== 'running') {
+        beginTransition('rebooting');
+        return;
+      }
+      if (attempts < 5) closeCheckTimer.current = setTimeout(inspect, 1500);
+    };
+    closeCheckTimer.current = setTimeout(inspect, 700);
+  }, [beginTransition, fetchResource, machineTransition]);
 
   const caps = resource?.capabilities || {};
   const canUseConsole = !!caps.canConsole;
@@ -55,6 +141,8 @@ export default function ConsolePage() {
   const consoleTarget = isSshConsole
     ? `${resource?.manualIp || resource?.primaryIp || text('Unbekannte IP')}:${resource?.sshPort || 22}`
     : (resource?.node || text('Unbekannter Node'));
+
+  const waitingForMachine = machineTransition === 'starting' || machineTransition === 'rebooting';
 
   return (
     <div className="app-page console-page">
@@ -80,21 +168,44 @@ export default function ConsolePage() {
           </section>
         )}
 
-        {!loading && !error && resource && canUseConsole && !isRunning && (
-          <section className="panel-card console-page-message">
-            <h2>{text('Maschine ist gestoppt')}</h2>
-            <p>{text('Starte die Maschine zuerst, danach kann die Konsole geöffnet werden.')}</p>
+        {!loading && !error && resource && canUseConsole && waitingForMachine && (
+          <section className="panel-card console-page-message console-machine-wait">
+            <span className="spinner"></span>
+            <div>
+              <h2>{machineTransition === 'rebooting' ? text('Maschine wird neu gestartet') : text('Maschine wird gestartet')}</h2>
+              <p>{text('Die Konsole lädt automatisch, sobald die Maschine wieder verfügbar ist.')}</p>
+            </div>
           </section>
         )}
 
-        {!loading && !error && resource && canUseConsole && isRunning && (
+        {!loading && !error && resource && canUseConsole && !isRunning && !waitingForMachine && (
+          <section className="panel-card console-page-message">
+            <h2>{text('Maschine ist gestoppt')}</h2>
+            <p>{text('Starte die Maschine zuerst, danach kann die Konsole geöffnet werden.')}</p>
+            {powerError && <div className="alert alert-danger">{powerError}</div>}
+            {caps.canPower && (
+              <div className="form-actions console-start-actions">
+                <button type="button" className="btn-primary" onClick={startMachine}>{text('Maschine starten')}</button>
+              </div>
+            )}
+          </section>
+        )}
+
+        {!loading && !error && resource && canUseConsole && isRunning && !waitingForMachine && (
           <section className="console-page-card">
             <div className="console-page-meta">
               <span>{resource.clusterName || text('Unbekannter Cluster')}</span>
               <span>{isSshConsole ? `${text('SSH-Ziel')} ${consoleTarget}` : consoleTarget}</span>
               <span>ID {resource.containerId || resource.id}</span>
             </div>
-            <TerminalView resourceId={resource.id} resourceName={resource.name} fullscreen />
+            <TerminalView
+              key={`${resource.id}-${consoleGeneration}`}
+              resourceId={resource.id}
+              resourceName={resource.name}
+              fullscreen
+              onRebootDetected={handleRebootDetected}
+              onConnectionClosed={handleConsoleClosed}
+            />
           </section>
         )}
       </main>

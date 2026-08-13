@@ -673,6 +673,12 @@ export const DE_EN_PHRASES = {
   "SSH-Ziel": "SSH target",
   "Unbekannte IP": "Unknown IP",
   "Starte die Maschine zuerst, danach kann die Konsole geöffnet werden.": "Start the machine first, then the console can be opened.",
+  "Benutzer-Passwort einfügen": "Paste user password",
+  "Maschine wird neu gestartet": "Machine is rebooting",
+  "Maschine wird gestartet": "Machine is starting",
+  "Die Konsole lädt automatisch, sobald die Maschine wieder verfügbar ist.": "The console loads automatically as soon as the machine is available again.",
+  "Maschine starten": "Start machine",
+  "Maschine konnte nicht gestartet werden.": "The machine could not be started.",
 };
 const EN_DE_PHRASES = {
   ...Object.fromEntries(Object.entries(DE_EN_PHRASES).map(([de, en]) => [en, de])),

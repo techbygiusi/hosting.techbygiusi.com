@@ -30,40 +30,29 @@ const NORD_TERMINAL_BASE = Object.freeze({
   brightBlue: '#81A1C1',
   brightMagenta: '#B48EAD',
   brightCyan: '#8FBCBB',
-  brightWhite: '#ECEFF4'
+  brightWhite: '#ECEFF4',
+  // The shell's ANSI green slot is intentionally mapped to Nord Frost blue.
+  // This keeps prompts and other accent text consistent in both portal themes
+  // instead of inheriting the portal's green light/dark accent.
+  green: '#8FBCBB',
+  brightGreen: '#88C0D0',
+  cursor: '#88C0D0',
+  cursorAccent: '#2E3440',
+  selectionBackground: 'rgba(136, 192, 208, 0.36)',
+  selectionInactiveBackground: 'rgba(129, 161, 193, 0.22)'
 });
 
-function accentWithAlpha(accent, alpha) {
-  const match = /^#([0-9a-f]{6})$/i.exec(String(accent || '').trim());
-  if (!match) return accent;
-  const value = parseInt(match[1], 16);
-  const red = (value >> 16) & 255;
-  const green = (value >> 8) & 255;
-  const blue = value & 255;
-  return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
-}
-
 function getTerminalTheme() {
-  const fallbackAccent = document.body.classList.contains('theme-dark') ? '#c2cea7' : '#7a876f';
-  const accent = getComputedStyle(document.body).getPropertyValue('--site-accent').trim() || fallbackAccent;
-  return {
-    ...NORD_TERMINAL_BASE,
-    // Keep the portal's sage accent for shell greens and terminal focus cues.
-    // Light mode uses the darker accent; dark mode uses the lighter accent.
-    green: accent,
-    brightGreen: accent,
-    cursor: accent,
-    cursorAccent: NORD_TERMINAL_BASE.background,
-    selectionBackground: accentWithAlpha(accent, 0.38),
-    selectionInactiveBackground: accentWithAlpha(accent, 0.22)
-  };
+  return { ...NORD_TERMINAL_BASE };
 }
 
-export default function TerminalView({ resourceId, resourceName, fullscreen = false }) {
+export default function TerminalView({ resourceId, resourceName, fullscreen = false, onRebootDetected, onConnectionClosed }) {
   const containerRef = useRef(null);
   const [status, setStatus] = useState('connecting');
   const [message, setMessage] = useState('');
   const [reconnectKey, setReconnectKey] = useState(0);
+  const [canPasteUserPassword, setCanPasteUserPassword] = useState(false);
+  const consoleControlRef = useRef(null);
 
   useEffect(() => {
     let disposed = false;
@@ -77,7 +66,11 @@ export default function TerminalView({ resourceId, resourceName, fullscreen = fa
     let lastCopiedSelection = '';
     let promptStabilized = false;
     let wakeAttempted = false;
+    let commandBuffer = '';
+    let rebootCommandAt = 0;
     const autoLoginWakeTimers = [];
+    setCanPasteUserPassword(false);
+    consoleControlRef.current = null;
 
     const getResponsiveFontSize = () => {
       if (!fullscreen) return 14;
@@ -133,21 +126,16 @@ export default function TerminalView({ resourceId, resourceName, fullscreen = fa
       resizeObserver.observe(containerRef.current);
     }
 
-    // Update the theme immediately when the portal switches between light and dark mode.
-    let themeObserver = null;
-    if (typeof MutationObserver !== 'undefined') {
-      themeObserver = new MutationObserver(() => {
-        if (!disposed) term.options.theme = getTerminalTheme();
-      });
-      themeObserver.observe(document.body, { attributes: true, attributeFilter: ['class'] });
-    }
+    // The console uses a fixed Nord palette in both portal themes. The terminal
+    // therefore stays visually consistent when light/dark mode changes.
 
     (async () => {
       try {
         const res = await userApi.openConsole(resourceId);
         if (disposed) return;
 
-        const { wsPath, user, ticket, autoLogin, mode = 'proxmox' } = res.data;
+        const { wsPath, user, ticket, autoLogin, mode = 'proxmox', canPasteUserPassword: canPasteStoredPassword = false } = res.data;
+        setCanPasteUserPassword(mode === 'ssh' && !!canPasteStoredPassword);
         const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
         ws = new WebSocket(`${protocol}://${window.location.host}${wsPath}`);
         ws.binaryType = 'arraybuffer';
@@ -156,6 +144,12 @@ export default function TerminalView({ resourceId, resourceName, fullscreen = fa
           if (ws && ws.readyState === WebSocket.OPEN) {
             const bytes = new TextEncoder().encode(input);
             ws.send(`0:${bytes.length}:${input}`);
+          }
+        };
+        consoleControlRef.current = (command) => {
+          if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(command);
+            term.focus();
           }
         };
 
@@ -278,6 +272,28 @@ export default function TerminalView({ resourceId, resourceName, fullscreen = fa
           }
         };
 
+        const rememberConsoleCommand = (input) => {
+          for (const char of String(input || '')) {
+            if (char === '\r' || char === '\n') {
+              const command = commandBuffer.trim();
+              commandBuffer = '';
+              if (/^(?:(?:sudo|doas)\s+)?(?:reboot(?:\s+.*)?|systemctl\s+reboot(?:\s+.*)?|shutdown\s+-r(?:\s+.*)?|init\s+6)$/i.test(command)) {
+                rebootCommandAt = Date.now();
+              }
+              continue;
+            }
+            if (char === '\x7f' || char === '\b') {
+              commandBuffer = commandBuffer.slice(0, -1);
+              continue;
+            }
+            if (char === '\x15') {
+              commandBuffer = '';
+              continue;
+            }
+            if (char >= ' ' && char !== '\x1b') commandBuffer = (commandBuffer + char).slice(-500);
+          }
+        };
+
         ws.onopen = () => {
           setStatus('open');
           if (mode !== 'ssh') ws.send(`${user}:${ticket}\n`);
@@ -307,6 +323,11 @@ export default function TerminalView({ resourceId, resourceName, fullscreen = fa
 
         ws.onclose = () => {
           setStatus('closed');
+          setCanPasteUserPassword(false);
+          consoleControlRef.current = null;
+          const rebootWasJustRequested = rebootCommandAt > 0 && (Date.now() - rebootCommandAt) < 60 * 1000;
+          if (rebootWasJustRequested) onRebootDetected?.();
+          onConnectionClosed?.({ rebootRequested: rebootWasJustRequested });
           term.write(`\r\n\x1b[90m${terminalText('[Verbindung beendet]')}\x1b[0m\r\n`);
         };
 
@@ -316,6 +337,7 @@ export default function TerminalView({ resourceId, resourceName, fullscreen = fa
         };
 
         term.onData((input) => {
+          rememberConsoleCommand(input);
           const outgoing = autoLoginState.suppressTerminalReplies
             ? stripTerminalStatusReplies(input)
             : input;
@@ -405,17 +427,17 @@ export default function TerminalView({ resourceId, resourceName, fullscreen = fa
       disposed = true;
       window.removeEventListener('resize', onWindowResize);
       try { resizeObserver?.disconnect(); } catch (_) { /* noop */ }
-      try { themeObserver?.disconnect(); } catch (_) { /* noop */ }
       if (pingTimer) clearInterval(pingTimer);
       if (selectionCopyTimer) clearTimeout(selectionCopyTimer);
       try { selectionDisposable?.dispose(); } catch (_) { /* noop */ }
       if (pasteTarget && onPaste) pasteTarget.removeEventListener('paste', onPaste, true);
       if (pasteTarget && onContextMenu) pasteTarget.removeEventListener('contextmenu', onContextMenu);
       autoLoginWakeTimers.forEach(timer => clearTimeout(timer));
+      consoleControlRef.current = null;
       try { ws?.close(); } catch (_) { /* noop */ }
       term.dispose();
     };
-  }, [resourceId, reconnectKey, fullscreen]);
+  }, [resourceId, reconnectKey, fullscreen, onRebootDetected, onConnectionClosed]);
 
   return (
     <div className={fullscreen ? 'terminal-wrapper terminal-wrapper-fullscreen' : 'terminal-wrapper'}>
@@ -427,6 +449,15 @@ export default function TerminalView({ resourceId, resourceName, fullscreen = fa
           {status === 'error' && (message || terminalText('Fehler'))}
         </span>
         <div className="terminal-toolbar-actions">
+          {status === 'open' && canPasteUserPassword && (
+            <button
+              type="button"
+              className="btn-secondary btn-small"
+              onClick={() => consoleControlRef.current?.('3:paste-user-password')}
+            >
+              {terminalText('Benutzer-Passwort einfügen')}
+            </button>
+          )}
           {status === 'open' && (
             <span className="terminal-clipboard-hint">
               {terminalText('Markieren kopiert · Rechtsklick oder Strg+V fügt ein')}

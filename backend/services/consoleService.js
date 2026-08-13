@@ -145,6 +145,16 @@ function bridgeToSsh(clientWs, session) {
       return;
     }
 
+    // Paste the stored SSH password entirely server-side. The browser only sends
+    // this control frame and never receives the plaintext credential itself.
+    if (text === '3:paste-user-password') {
+      const password = String(session.password || '');
+      if (!password) return;
+      if (stream) stream.write(password);
+      else pendingInput.push(password);
+      return;
+    }
+
     if (text.startsWith('0:')) {
       const payloadStart = text.indexOf(':', 2);
       if (payloadStart === -1) return;

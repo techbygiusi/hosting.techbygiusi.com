@@ -7999,3 +7999,23 @@ small,
 }
 
 /* v3.1.93 - independent internal and public TCP/UDP port mapping */
+
+
+/* v3.1.97 - console restart/start workflow */
+.console-machine-wait {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+}
+.console-machine-wait h2,
+.console-machine-wait p {
+  margin: 0;
+}
+.console-machine-wait p {
+  margin-top: 6px;
+  color: var(--color-text-light);
+}
+.console-start-actions {
+  margin-top: var(--spacing-md);
+  justify-content: flex-start;
+}

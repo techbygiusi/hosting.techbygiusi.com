@@ -1091,7 +1091,8 @@ router.post('/resources/:id/console', async (req, res, next) => {
         mode: 'ssh',
         sessionToken,
         wsPath: `/api/console/ws?token=${sessionToken}`,
-        target: `${manualIp}:${sshPort}`
+        target: `${manualIp}:${sshPort}`,
+        canPasteUserPassword: true
       });
     }
 
