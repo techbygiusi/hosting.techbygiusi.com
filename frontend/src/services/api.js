@@ -116,6 +116,7 @@ const MESSAGE_TRANSLATIONS = {
   'The service IP must be a valid IPv4 address': 'Die Dienst-IP muss eine gültige IPv4-Adresse sein.',
   'The SSH port must be between 1 and 65535': 'Der SSH-Port muss zwischen 1 und 65535 liegen.',
   'Add SSH credentials with a username and password in the Credentials tab before opening the IP console': 'Hinterlege vor dem Öffnen der IP-Konsole im Tab Zugangsdaten einen SSH-Eintrag mit Benutzername und Passwort.',
+  'SSH console credentials require a username and password': 'Für die SSH-Konsole werden Benutzername und Passwort benötigt.',
   'Service IP saved': 'Dienst-IP wurde gespeichert.',
   'Service IP removed': 'Dienst-IP wurde entfernt.',
   'Provisioning is not permitted for this cluster token': 'Der API-Token dieses Clusters erlaubt kein Erstellen von Maschinen.',

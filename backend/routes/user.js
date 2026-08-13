@@ -1039,13 +1039,14 @@ router.put('/resources/:id/service-ip', async (req, res, next) => {
 
 async function getSshConsoleCredential(resourceId) {
   const credential = await get(
-    `SELECT id, label, username, secret_encrypted
+    `SELECT id, label, username, secret_encrypted, COALESCE(is_ssh_console, 0) AS is_ssh_console
      FROM resource_credentials
      WHERE resource_id = ?
        AND COALESCE(purpose, 'general') != 'management'
        AND TRIM(COALESCE(username, '')) != ''
        AND secret_encrypted IS NOT NULL
      ORDER BY
+       CASE WHEN COALESCE(is_ssh_console, 0) = 1 THEN 0 ELSE 1 END,
        CASE WHEN LOWER(COALESCE(label, '')) LIKE '%ssh%' OR LOWER(COALESCE(label, '')) LIKE '%console%' THEN 0 ELSE 1 END,
        CASE WHEN LOWER(TRIM(COALESCE(username, ''))) = 'root' THEN 0 ELSE 1 END,
        id DESC
@@ -1296,7 +1297,8 @@ router.get('/resources/:id/credentials', async (req, res, next) => {
   try {
     await assertResourceAccess(req.user.id, req.params.id);
     const rows = await all(
-      `SELECT id, label, username, url, notes, created_by_role, COALESCE(purpose, 'general') AS purpose, created_at, updated_at
+      `SELECT id, label, username, url, notes, created_by_role, COALESCE(purpose, 'general') AS purpose,
+              COALESCE(is_ssh_console, 0) AS is_ssh_console, created_at, updated_at
        FROM resource_credentials
        WHERE resource_id = ?
        ORDER BY CASE WHEN COALESCE(purpose, 'general') = 'management' THEN 0 ELSE 1 END, label`,
@@ -1307,7 +1309,8 @@ router.get('/resources/:id/credentials', async (req, res, next) => {
         ...row,
         hasSecret: true,
         fromAdmin: row.created_by_role === 'admin',
-        canManage: row.created_by_role !== 'admin' || row.purpose === 'management'
+        canManage: row.created_by_role !== 'admin' || row.purpose === 'management',
+        useForSshConsole: Number(row.is_ssh_console || 0) === 1
       }))
     });
   } catch (err) {
@@ -1334,8 +1337,9 @@ router.get('/resources/:id/credentials/:credId/reveal', async (req, res, next) =
 router.post('/resources/:id/credentials', async (req, res, next) => {
   try {
     const resource = await assertResourceAccess(req.user.id, req.params.id);
-    const { label, username, secret, url, notes, purpose: requestedPurpose } = req.body;
+    const { label, username, secret, url, notes, purpose: requestedPurpose, useForSshConsole } = req.body;
     const purpose = requestedPurpose === 'management' ? 'management' : 'general';
+    const sshConsole = purpose === 'general' && useForSshConsole === true ? 1 : 0;
     const nextLabel = String(label || (purpose === 'management' ? 'Verwaltungsseite' : '')).trim();
 
     if (!nextLabel) {
@@ -1360,9 +1364,16 @@ router.post('/resources/:id/credentials', async (req, res, next) => {
       }
     }
 
+    if (sshConsole) {
+      if (!String(username || '').trim() || !String(secret || '')) {
+        throw new AppError('SSH console credentials require a username and password', HTTP_STATUS.BAD_REQUEST);
+      }
+      await run('UPDATE resource_credentials SET is_ssh_console = 0 WHERE resource_id = ?', [req.params.id]);
+    }
+
     const result = await run(
-      'INSERT INTO resource_credentials (resource_id, label, username, secret_encrypted, url, notes, created_by, created_by_role, purpose) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [req.params.id, nextLabel, String(username || '').trim(), encrypt(secret || ''), nextUrl, String(notes || '').trim(), req.user.id, 'user', purpose]
+      'INSERT INTO resource_credentials (resource_id, label, username, secret_encrypted, url, notes, created_by, created_by_role, purpose, is_ssh_console) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [req.params.id, nextLabel, String(username || '').trim(), encrypt(secret || ''), nextUrl, String(notes || '').trim(), req.user.id, 'user', purpose, sshConsole]
     );
 
     await logAudit(req, 'credential.create', `resource:${req.params.id}`, nextLabel);
@@ -1375,7 +1386,7 @@ router.post('/resources/:id/credentials', async (req, res, next) => {
 router.put('/resources/:id/credentials/:credId', async (req, res, next) => {
   try {
     await assertResourceAccess(req.user.id, req.params.id);
-    const { label, username, secret, url, notes, purpose: requestedPurpose } = req.body;
+    const { label, username, secret, url, notes, purpose: requestedPurpose, useForSshConsole } = req.body;
     const cred = await get(
       'SELECT * FROM resource_credentials WHERE id = ? AND resource_id = ?',
       [req.params.credId, req.params.id]
@@ -1399,10 +1410,19 @@ router.put('/resources/:id/credentials/:credId', async (req, res, next) => {
     }
 
     const nextSecret = secret !== undefined && secret !== '' ? encrypt(secret) : cred.secret_encrypted;
+    const nextUsername = String(username ?? cred.username ?? '').trim();
+    const sshConsole = purpose === 'general' && useForSshConsole === true ? 1 : 0;
+
+    if (sshConsole) {
+      if (!nextUsername || !nextSecret) {
+        throw new AppError('SSH console credentials require a username and password', HTTP_STATUS.BAD_REQUEST);
+      }
+      await run('UPDATE resource_credentials SET is_ssh_console = 0 WHERE resource_id = ? AND id != ?', [req.params.id, req.params.credId]);
+    }
 
     await run(
-      'UPDATE resource_credentials SET label = ?, username = ?, secret_encrypted = ?, url = ?, notes = ?, purpose = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-      [nextLabel, String(username ?? cred.username ?? '').trim(), nextSecret, String(url ?? cred.url ?? '').trim(), String(notes ?? cred.notes ?? '').trim(), purpose, req.params.credId]
+      'UPDATE resource_credentials SET label = ?, username = ?, secret_encrypted = ?, url = ?, notes = ?, purpose = ?, is_ssh_console = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+      [nextLabel, nextUsername, nextSecret, String(url ?? cred.url ?? '').trim(), String(notes ?? cred.notes ?? '').trim(), purpose, sshConsole, req.params.credId]
     );
 
     await logAudit(req, 'credential.update', `resource:${req.params.id}`, nextLabel);

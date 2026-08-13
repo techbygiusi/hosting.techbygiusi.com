@@ -244,9 +244,12 @@ export default function UserDashboard() {
       if (withSpinner) setLoading(true);
       setError('');
       const response = await userApi.getResources();
-      setResources(response.data.resources || []);
+      const nextResources = response.data.resources || [];
+      setResources(nextResources);
+      return nextResources;
     } catch (err) {
       setError(getErrorMessage(err, 'Dienste konnten nicht geladen werden.'));
+      return null;
     } finally {
       if (withSpinner) setLoading(false);
     }
@@ -668,8 +671,7 @@ function ResourceCard({ resource, onOpenDetails, onManagePublicPage, labels }) {
       <Metric label="CPU" percent={cpuPercent} detail={`${cpuPercent.toFixed(1)} %`} />
       <Metric label="RAM" percent={memPercent} detail={`${formatBytes(resource.mem)} / ${formatBytes(resource.maxmem)}`} />
 
-      {(publicUrl || adminUrl || resource.canManagePublicPage) ? (
-        <div className="service-link-row publishing-service-links">
+      <div className="service-link-row publishing-service-links">
           {publicUrl && (
             <a
               className="btn-primary full-button"
@@ -706,7 +708,6 @@ function ResourceCard({ resource, onOpenDetails, onManagePublicPage, labels }) {
             </a>
           )}
         </div>
-      ) : null}
 
       <button type="button" className="btn-secondary full-button service-detail-toggle" onClick={onOpenDetails}>
         {labels.details}

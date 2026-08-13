@@ -58,11 +58,53 @@ export function PowerControls({ resource, onChanged, compact = false, onOpenCons
     try {
       setBusyAction(action);
       setError('');
-      await userApi.powerAction(resource.id, action);
-      // Give Proxmox a moment before refreshing the status
-      setTimeout(() => onChanged?.(), 2500);
+      const response = await userApi.powerAction(resource.id, action);
+      const upid = response.data?.upid || '';
+      const startedAt = Date.now();
+      const deadline = startedAt + 45 * 1000;
+      const initialUptime = Number(resource.uptime || 0);
+      let taskFinished = !upid;
+      let sawRebootTransition = false;
+
+      while (Date.now() < deadline) {
+        await new Promise(resolve => setTimeout(resolve, 1200));
+
+        if (upid && !taskFinished) {
+          try {
+            const taskResponse = await userApi.getTaskLog(resource.id, upid);
+            const task = taskResponse.data?.status || {};
+            if (task.status === 'stopped') {
+              if (task.exitstatus && task.exitstatus !== 'OK') {
+                throw new Error(`Proxmox task failed: ${task.exitstatus}`);
+              }
+              taskFinished = true;
+            }
+          } catch (taskError) {
+            if (String(taskError?.message || '').startsWith('Proxmox task failed:')) throw taskError;
+          }
+        }
+
+        const refreshed = await onChanged?.();
+        const freshResource = Array.isArray(refreshed)
+          ? refreshed.find(item => String(item.id) === String(resource.id))
+          : null;
+        const nextStatus = String(freshResource?.status || '').toLowerCase();
+        const nextUptime = Number(freshResource?.uptime || 0);
+
+        if (action === 'start' && nextStatus === 'running') break;
+        if ((action === 'stop' || action === 'shutdown') && nextStatus === 'stopped') break;
+        if (action === 'reboot') {
+          if (nextStatus && nextStatus !== 'running') sawRebootTransition = true;
+          if (initialUptime > 10 && nextUptime >= 0 && nextUptime + 5 < initialUptime) sawRebootTransition = true;
+          if (nextStatus === 'running' && sawRebootTransition) break;
+          if (taskFinished && nextStatus === 'running' && Date.now() - startedAt >= 8000) break;
+        }
+      }
+
+      await onChanged?.();
     } catch (err) {
       setError(getErrorMessage(err, 'Aktion fehlgeschlagen.'));
+      await onChanged?.();
     } finally {
       setBusyAction('');
     }
@@ -217,7 +259,6 @@ function ServiceIpControl({ resource, onChanged }) {
         </label>
       </div>
       {resource.detectedIp && <small>{text('Automatisch erkannte IP')}: {resource.detectedIp}</small>}
-      <small>{text('Ist eine manuelle IP gesetzt, verwendet die Konsole SSH zu dieser Adresse. Hinterlege dafür im Tab Zugangsdaten einen Eintrag mit Benutzername und Passwort, idealerweise mit „SSH“ in der Bezeichnung.')}</small>
       {error && <div className="alert alert-danger">{error}</div>}
       {notice && <div className="alert alert-success">{notice}</div>}
       <div className="form-actions service-ip-actions">
@@ -328,7 +369,7 @@ function TasksTab({ resource }) {
 }
 
 /* ---------------------------------------------------------- CREDENTIALS */
-const emptyCredential = { label: '', username: '', secret: '', url: '', notes: '', purpose: 'general' };
+const emptyCredential = { label: '', username: '', secret: '', url: '', notes: '', purpose: 'general', useForSshConsole: false };
 
 function CredentialsTab({ resource }) {
   const [credentials, setCredentials] = useState([]);
@@ -359,7 +400,7 @@ function CredentialsTab({ resource }) {
   const openCreate = () => { setEditId(null); setForm(emptyCredential); setShowForm(true); };
   const openEdit = (item) => {
     setEditId(item.id);
-    setForm({ label: item.label || '', username: item.username || '', secret: '', url: item.url || '', notes: item.notes || '', purpose: item.purpose || 'general' });
+    setForm({ label: item.label || '', username: item.username || '', secret: '', url: item.url || '', notes: item.notes || '', purpose: item.purpose || 'general', useForSshConsole: !!item.useForSshConsole });
     setShowForm(true);
   };
 
@@ -449,6 +490,7 @@ function CredentialsTab({ resource }) {
               <strong>{item.label}</strong>
               {item.purpose === 'management' && <span className="credential-badge">Verwaltungsseite</span>}
               {item.fromAdmin && item.purpose !== 'management' && <span className="credential-badge">vom Admin</span>}
+              {item.useForSshConsole && <span className="credential-badge">{translatePortalText('SSH-Konsole', readStoredLanguage())}</span>}
             </div>
             {item.username && <span className="credential-user">{item.username}</span>}
             {item.url && <a href={item.url} target="_blank" rel="noreferrer" className="credential-url">{item.url}</a>}
@@ -472,6 +514,13 @@ function CredentialsTab({ resource }) {
           <label className="form-group"><span>Passwort / Secret</span><input type="password" value={form.secret} onChange={event => setForm(prev => ({ ...prev, secret: event.target.value }))} placeholder={editId ? 'Leer lassen, wenn unverändert' : ''} autoComplete="new-password" /></label>
           <label className="form-group"><span>URL</span><input type="url" value={form.url} onChange={event => setForm(prev => ({ ...prev, url: event.target.value }))} placeholder="Optional" /></label>
           <label className="form-group"><span>Notizen</span><textarea rows="2" value={form.notes} onChange={event => setForm(prev => ({ ...prev, notes: event.target.value }))} placeholder="Optional"></textarea></label>
+          <label className="toggle-row credential-ssh-toggle">
+            <span className="toggle-text"><strong>{translatePortalText('Für SSH-Konsole verwenden', readStoredLanguage())}</strong></span>
+            <span className={`toggle-switch ${form.useForSshConsole ? 'is-on' : ''}`}>
+              <input type="checkbox" checked={form.useForSshConsole} onChange={event => setForm(prev => ({ ...prev, useForSshConsole: event.target.checked }))} />
+              <span className="toggle-knob" aria-hidden="true" />
+            </span>
+          </label>
           <div className="form-actions">
             <button type="button" className="btn-secondary" onClick={() => { setShowForm(false); setEditId(null); }}>Abbrechen</button>
             <button type="submit" className="btn-primary" disabled={busy}>{editId ? 'Speichern' : 'Hinzufügen'}</button>

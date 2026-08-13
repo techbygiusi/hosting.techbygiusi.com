@@ -1393,7 +1393,39 @@ body.modal-open {
 }
 
 .modal-header .icon-button {
+  display: grid;
+  place-items: center;
+  padding: 0;
+  position: relative;
   transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.modal-close-icon {
+  position: relative;
+  display: block;
+  width: 14px;
+  height: 14px;
+}
+
+.modal-close-icon::before,
+.modal-close-icon::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 14px;
+  height: 2px;
+  border-radius: 999px;
+  background: currentColor;
+  transform-origin: center;
+}
+
+.modal-close-icon::before {
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+
+.modal-close-icon::after {
+  transform: translate(-50%, -50%) rotate(-45deg);
 }
 
 .modal-header .icon-button:hover,
@@ -6527,7 +6559,14 @@ body.theme-dark .settings-section-card {
 
 .compact-resource-card .publishing-service-links {
   grid-template-columns: repeat(auto-fit, minmax(86px, 1fr));
+  grid-auto-rows: minmax(42px, auto);
+  align-content: start;
+  min-height: 92px;
   gap: 8px;
+}
+
+.credential-ssh-toggle {
+  margin: 2px 0 0;
 }
 
 .compact-resource-card .publishing-service-links > * {

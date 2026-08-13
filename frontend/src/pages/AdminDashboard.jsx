@@ -1729,7 +1729,7 @@ export default function AdminDashboard() {
  * Management-page access is maintained in the Dashboard access editor.
  */
 function AdminResourceCredentials({ resource, onClose, onError }) {
-  const emptyForm = { label: '', username: '', secret: '', url: '', notes: '', purpose: 'general' };
+  const emptyForm = { label: '', username: '', secret: '', url: '', notes: '', purpose: 'general', useForSshConsole: false };
   const adminReadOnly = !!resource.adminReadOnly || !!resource.isSelfService;
   const [credentials, setCredentials] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -1756,7 +1756,7 @@ function AdminResourceCredentials({ resource, onClose, onError }) {
   const openCreate = () => { setEditId(null); setForm(emptyForm); setShowForm(true); };
   const openEdit = (item) => {
     setEditId(item.id);
-    setForm({ label: item.label || '', username: item.username || '', secret: '', url: item.url || '', notes: item.notes || '', purpose: item.purpose || 'general' });
+    setForm({ label: item.label || '', username: item.username || '', secret: '', url: item.url || '', notes: item.notes || '', purpose: item.purpose || 'general', useForSshConsole: !!item.useForSshConsole });
     setShowForm(true);
   };
 
@@ -1827,7 +1827,7 @@ function AdminResourceCredentials({ resource, onClose, onError }) {
       {!loading && adminCreds.map(item => (
         <div key={item.id} className="credential-row">
           <div className="credential-main">
-            <strong>{item.label}<span className={`cred-tag ${item.fromAdmin ? 'cred-tag-admin' : 'cred-tag-user'}`}>{item.fromAdmin ? 'von Admin' : 'vom Benutzer'}</span></strong>
+            <strong>{item.label}<span className={`cred-tag ${item.fromAdmin ? 'cred-tag-admin' : 'cred-tag-user'}`}>{item.fromAdmin ? 'von Admin' : 'vom Benutzer'}</span>{item.useForSshConsole && <span className="cred-tag">SSH-Konsole</span>}</strong>
             {item.username && <span className="credential-user">{item.username}</span>}
             {item.url && <a href={item.url} target="_blank" rel="noreferrer" className="credential-url">{item.url}</a>}
             {item.notes && <small className="credential-notes">{item.notes}</small>}
@@ -1844,7 +1844,7 @@ function AdminResourceCredentials({ resource, onClose, onError }) {
       {!loading && userCreds.map(item => (
         <div key={item.id} className="credential-row credential-row-locked">
           <div className="credential-main">
-            <strong>{item.label}<span className="cred-tag cred-tag-user">vom Benutzer</span></strong>
+            <strong>{item.label}<span className="cred-tag cred-tag-user">vom Benutzer</span>{item.useForSshConsole && <span className="cred-tag">SSH-Konsole</span>}</strong>
             {item.username && <span className="credential-user">{item.username}</span>}
             {item.url && <span className="credential-url">{item.url}</span>}
             <code className="credential-secret">••••••••</code>
@@ -1864,6 +1864,13 @@ function AdminResourceCredentials({ resource, onClose, onError }) {
           <label className="form-group"><span>Passwort / Secret</span><input type="password" value={form.secret} onChange={e => setForm(prev => ({ ...prev, secret: e.target.value }))} placeholder={editId ? 'Leer lassen, wenn unverändert' : ''} autoComplete="new-password" /></label>
           <label className="form-group"><span>URL</span><input type="url" value={form.url} onChange={e => setForm(prev => ({ ...prev, url: e.target.value }))} placeholder="Optional" /></label>
           <label className="form-group"><span>Notizen</span><textarea rows="2" value={form.notes} onChange={e => setForm(prev => ({ ...prev, notes: e.target.value }))} placeholder="Optional"></textarea></label>
+          <label className="toggle-row credential-ssh-toggle">
+            <span className="toggle-text"><strong>Für SSH-Konsole verwenden</strong></span>
+            <span className={`toggle-switch ${form.useForSshConsole ? 'is-on' : ''}`}>
+              <input type="checkbox" checked={form.useForSshConsole} onChange={e => setForm(prev => ({ ...prev, useForSshConsole: e.target.checked }))} />
+              <span className="toggle-knob" aria-hidden="true" />
+            </span>
+          </label>
           <div className="form-actions"><button type="button" className="btn-secondary" onClick={() => { setShowForm(false); setEditId(null); }}>Abbrechen</button><button type="submit" className="btn-primary" disabled={busy}>{editId ? 'Speichern' : 'Hinzufügen'}</button></div>
         </form>
       )}

@@ -75,6 +75,8 @@ export const DE_EN_PHRASES = {
   "Token prüfen": "Check token",
   "vom Benutzer": "by user",
   "Zugangsdaten": "Credentials",
+  "SSH-Konsole": "SSH console",
+  "Für SSH-Konsole verwenden": "Use for SSH console",
   "Admin-Konsole": "Admin Console",
   "Aktualisieren": "Refresh",
   "Dein Passwort": "Your password",

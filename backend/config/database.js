@@ -287,6 +287,11 @@ async function initDatabase() {
       // v2.6: shared credential slot for the management/admin page of a resource
       database.run(`ALTER TABLE resource_credentials ADD COLUMN purpose TEXT DEFAULT 'general'`, () => {});
       database.run(`CREATE UNIQUE INDEX IF NOT EXISTS idx_resource_management_credential ON resource_credentials(resource_id, purpose) WHERE purpose = 'management'`, () => {});
+      // v3.1.101: one explicit credential can be selected for the SSH console.
+      // Existing installations keep their current automatic fallback until a
+      // credential is selected in the portal.
+      database.run(`ALTER TABLE resource_credentials ADD COLUMN is_ssh_console INTEGER DEFAULT 0`, () => {});
+      database.run(`CREATE UNIQUE INDEX IF NOT EXISTS idx_resource_ssh_console_credential ON resource_credentials(resource_id) WHERE is_ssh_console = 1`, () => {});
 
       // v2.0: audit log
       database.run(`
