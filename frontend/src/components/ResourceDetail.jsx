@@ -71,9 +71,13 @@ export function PowerControls({ resource, onChanged, compact = false, onOpenCons
 
         if (upid && !taskFinished) {
           try {
-            const taskResponse = await userApi.getTaskLog(resource.id, upid);
-            const task = taskResponse.data?.status || {};
-            if (task.status === 'stopped') {
+            // Poll the resource task list instead of the protected task-log endpoint.
+            // During reboot/start transitions the lifecycle boundary can move while the
+            // VM is changing state; a task that temporarily drops out of the current
+            // lifecycle must not generate expected 403 responses in the browser console.
+            const tasksResponse = await userApi.getTasks(resource.id);
+            const task = (tasksResponse.data?.tasks || []).find(item => item.upid === upid);
+            if (task?.status === 'stopped') {
               if (task.exitstatus && task.exitstatus !== 'OK') {
                 throw new Error(`Proxmox task failed: ${task.exitstatus}`);
               }

@@ -457,6 +457,7 @@ async function getVmTasks(clusterUrl, apiToken, node, vmid, limit = 30) {
     upid: task.upid,
     type: task.type,
     status: task.status || (task.endtime ? 'unknown' : 'running'),
+    exitstatus: task.exitstatus || null,
     user: task.user,
     starttime: task.starttime,
     endtime: task.endtime || null
