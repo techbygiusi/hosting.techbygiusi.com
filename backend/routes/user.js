@@ -27,7 +27,7 @@ const {
 } = require('../services/proxmoxService');
 const { enrichResources } = require('../services/resourceService');
 const { encrypt, decrypt } = require('../services/cryptoService');
-const { createConsoleSession } = require('../services/consoleService');
+const { createConsoleSession, testSshConnection } = require('../services/consoleService');
 const { logAudit } = require('../services/auditService');
 const { buildPangolinResourceName } = require('../utils/pangolinResourceName');
 const {
@@ -127,7 +127,8 @@ async function getAccessibleResource(userId, resourceId) {
     node: live.node,
     type: live.type,
     vmid: live.vmid,
-    name: row.name || live.name
+    name: row.name || live.name,
+    status: live.status || 'unknown'
   };
 }
 
@@ -1059,6 +1060,47 @@ async function getSshConsoleCredential(resourceId) {
 }
 
 /* ----------------------------------------------------------- CONSOLE ---- */
+router.get('/resources/:id/console-readiness', async (req, res, next) => {
+  try {
+    const target = await getAccessibleResource(req.user.id, req.params.id);
+    const running = String(target.status || '').toLowerCase() === 'running';
+    const manualIpEligible = !target.row.provisioned_id && String(target.type || '').toLowerCase() === 'qemu';
+    const manualIp = manualIpEligible ? normalizeManualIpv4(target.row.manual_ip || '') : '';
+    const mode = manualIp ? 'ssh' : 'proxmox';
+
+    if (!running) {
+      return res.json({ ready: false, powerReady: false, mode, phase: 'power' });
+    }
+
+    if (!manualIp) {
+      return res.json({ ready: true, powerReady: true, mode, phase: 'ready' });
+    }
+
+    const sshCredential = await getSshConsoleCredential(req.params.id);
+    if (!sshCredential) {
+      return res.json({ ready: false, powerReady: true, mode, phase: 'credentials' });
+    }
+
+    const sshPort = normalizeSshPort(target.row.ssh_port);
+    const probe = await testSshConnection({
+      host: manualIp,
+      port: sshPort,
+      username: sshCredential.username,
+      password: sshCredential.password,
+      timeout: 5500
+    });
+
+    return res.json({
+      ready: !!probe.ready,
+      powerReady: true,
+      mode,
+      phase: probe.ready ? 'ready' : 'ssh'
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.post('/resources/:id/console', async (req, res, next) => {
   try {
     const target = await getAccessibleResource(req.user.id, req.params.id);

@@ -31,15 +31,15 @@ const NORD_TERMINAL_BASE = Object.freeze({
   brightMagenta: '#B48EAD',
   brightCyan: '#8FBCBB',
   brightWhite: '#ECEFF4',
-  // The shell's ANSI green slot is intentionally mapped to Nord Frost blue.
+  // The shell's ANSI green slot is intentionally mapped to the softer Nord Frost teal.
   // This keeps prompts and other accent text consistent in both portal themes
   // instead of inheriting the portal's green light/dark accent.
   green: '#8FBCBB',
-  brightGreen: '#88C0D0',
-  cursor: '#88C0D0',
+  brightGreen: '#8FBCBB',
+  cursor: '#8FBCBB',
   cursorAccent: '#2E3440',
-  selectionBackground: 'rgba(136, 192, 208, 0.36)',
-  selectionInactiveBackground: 'rgba(129, 161, 193, 0.22)'
+  selectionBackground: 'rgba(143, 188, 187, 0.34)',
+  selectionInactiveBackground: 'rgba(143, 188, 187, 0.20)'
 });
 
 function getTerminalTheme() {
@@ -52,6 +52,7 @@ export default function TerminalView({ resourceId, resourceName, fullscreen = fa
   const [message, setMessage] = useState('');
   const [reconnectKey, setReconnectKey] = useState(0);
   const [canPasteUserPassword, setCanPasteUserPassword] = useState(false);
+  const [passwordPasteState, setPasswordPasteState] = useState('idle');
   const consoleControlRef = useRef(null);
 
   useEffect(() => {
@@ -70,6 +71,7 @@ export default function TerminalView({ resourceId, resourceName, fullscreen = fa
     let rebootCommandAt = 0;
     const autoLoginWakeTimers = [];
     setCanPasteUserPassword(false);
+    setPasswordPasteState('idle');
     consoleControlRef.current = null;
 
     const getResponsiveFontSize = () => {
@@ -295,8 +297,12 @@ export default function TerminalView({ resourceId, resourceName, fullscreen = fa
         };
 
         ws.onopen = () => {
-          setStatus('open');
-          if (mode !== 'ssh') ws.send(`${user}:${ticket}\n`);
+          if (mode !== 'ssh') {
+            setStatus('open');
+            ws.send(`${user}:${ticket}\n`);
+          } else {
+            setStatus('connecting');
+          }
           fitAndResize();
           setTimeout(fitAndResize, 150);
           setTimeout(fitAndResize, 700);
@@ -317,6 +323,24 @@ export default function TerminalView({ resourceId, resourceName, fullscreen = fa
           const data = typeof event.data === 'string'
             ? event.data
             : new TextDecoder().decode(event.data);
+
+          // SSH bridge control messages are handled by the portal and are not
+          // rendered inside the terminal. This lets the UI wait for the real
+          // SSH shell instead of treating the browser WebSocket itself as ready.
+          if (data.startsWith('\x1ePORTAL:')) {
+            const control = data.slice('\x1ePORTAL:'.length);
+            if (control === 'ssh-ready') {
+              setStatus('open');
+              fitAndResize();
+              term.focus();
+            } else if (control === 'password-pasted') {
+              setPasswordPasteState('pasted');
+              window.setTimeout(() => setPasswordPasteState('idle'), 1200);
+              term.focus();
+            }
+            return;
+          }
+
           maybeSendAutoLogin(data);
           term.write(data, inspectRenderedPrompt);
         };
@@ -324,6 +348,7 @@ export default function TerminalView({ resourceId, resourceName, fullscreen = fa
         ws.onclose = () => {
           setStatus('closed');
           setCanPasteUserPassword(false);
+          setPasswordPasteState('idle');
           consoleControlRef.current = null;
           const rebootWasJustRequested = rebootCommandAt > 0 && (Date.now() - rebootCommandAt) < 60 * 1000;
           if (rebootWasJustRequested) onRebootDetected?.();
@@ -453,15 +478,16 @@ export default function TerminalView({ resourceId, resourceName, fullscreen = fa
             <button
               type="button"
               className="btn-secondary btn-small"
-              onClick={() => consoleControlRef.current?.('3:paste-user-password')}
+              disabled={passwordPasteState === 'sending'}
+              onClick={() => {
+                setPasswordPasteState('sending');
+                consoleControlRef.current?.('3:paste-user-password');
+              }}
             >
-              {terminalText('Benutzer-Passwort einfügen')}
+              {passwordPasteState === 'pasted'
+                ? terminalText('Passwort eingefügt')
+                : terminalText('Benutzer-Passwort einfügen')}
             </button>
-          )}
-          {status === 'open' && (
-            <span className="terminal-clipboard-hint">
-              {terminalText('Markieren kopiert · Rechtsklick oder Strg+V fügt ein')}
-            </span>
           )}
           {(status === 'closed' || status === 'error') && (
             <button type="button" className="btn-secondary btn-small" onClick={() => { setStatus('connecting'); setMessage(''); setReconnectKey(key => key + 1); }}>

@@ -8019,3 +8019,5 @@ small,
   margin-top: var(--spacing-md);
   justify-content: flex-start;
 }
+
+/* v3.1.98 - SSH-ready console reconnect and password-paste feedback */

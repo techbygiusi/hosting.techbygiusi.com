@@ -124,6 +124,7 @@ function bridgeToSsh(clientWs, session) {
   const sendClient = (data) => {
     if (clientWs.readyState === WebSocket.OPEN) clientWs.send(data);
   };
+  const sendControl = (name) => sendClient(`\x1ePORTAL:${name}`);
 
   const closeAll = () => {
     if (closed) return;
@@ -150,8 +151,11 @@ function bridgeToSsh(clientWs, session) {
     if (text === '3:paste-user-password') {
       const password = String(session.password || '');
       if (!password) return;
-      if (stream) stream.write(password);
-      else pendingInput.push(password);
+      if (stream) {
+        stream.write(password, 'utf8', () => sendControl('password-pasted'));
+      } else {
+        pendingInput.push({ payload: password, acknowledgePasswordPaste: true });
+      }
       return;
     }
 
@@ -160,7 +164,7 @@ function bridgeToSsh(clientWs, session) {
       if (payloadStart === -1) return;
       const payload = text.slice(payloadStart + 1);
       if (stream) stream.write(payload);
-      else pendingInput.push(payload);
+      else pendingInput.push({ payload, acknowledgePasswordPaste: false });
     }
   };
 
@@ -181,7 +185,14 @@ function bridgeToSsh(clientWs, session) {
       }
 
       stream = shell;
-      while (pendingInput.length > 0) stream.write(pendingInput.shift());
+      sendControl('ssh-ready');
+      while (pendingInput.length > 0) {
+        const pending = pendingInput.shift();
+        const payload = typeof pending === 'string' ? pending : pending.payload;
+        stream.write(payload, 'utf8', () => {
+          if (pending?.acknowledgePasswordPaste) sendControl('password-pasted');
+        });
+      }
       stream.on('data', sendClient);
       stream.stderr?.on('data', sendClient);
       stream.on('close', closeSoon);
@@ -210,8 +221,40 @@ function bridgeToSsh(clientWs, session) {
   });
 }
 
+
+function testSshConnection({ host, port = 22, username, password, timeout = 6000 }) {
+  return new Promise((resolve) => {
+    const ssh = new SshClient();
+    let settled = false;
+
+    const finish = (ready, reason = '') => {
+      if (settled) return;
+      settled = true;
+      try { ssh.end(); } catch (_) { /* noop */ }
+      resolve({ ready, reason });
+    };
+
+    ssh.once('ready', () => finish(true, 'ready'));
+    ssh.once('error', (err) => finish(false, String(err?.level || err?.code || 'ssh-unavailable')));
+    ssh.once('close', () => finish(false, 'closed'));
+
+    try {
+      ssh.connect({
+        host,
+        port: Number(port || 22),
+        username,
+        password,
+        readyTimeout: Math.max(1500, Number(timeout) || 6000),
+        keepaliveInterval: 0
+      });
+    } catch (err) {
+      finish(false, String(err?.code || 'ssh-unavailable'));
+    }
+  });
+}
+
 function localized(session, de, en) {
   return String(session?.language || '').toLowerCase() === 'de' ? de : en;
 }
 
-module.exports = { createConsoleSession, attachConsoleProxy };
+module.exports = { createConsoleSession, attachConsoleProxy, testSshConnection };

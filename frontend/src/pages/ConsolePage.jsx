@@ -14,8 +14,8 @@ export default function ConsolePage() {
   const [powerError, setPowerError] = useState('');
   const [machineTransition, setMachineTransition] = useState('');
   const [transitionSawOffline, setTransitionSawOffline] = useState(false);
+  const [transitionPhase, setTransitionPhase] = useState('power');
   const [consoleGeneration, setConsoleGeneration] = useState(0);
-  const transitionStartedAt = useRef(0);
   const closeCheckTimer = useRef(null);
 
   useEffect(() => {
@@ -53,9 +53,9 @@ export default function ConsolePage() {
     return () => { cancelled = true; };
   }, [fetchResource]);
 
-  const beginTransition = useCallback((kind) => {
-    transitionStartedAt.current = Date.now();
-    setTransitionSawOffline(false);
+  const beginTransition = useCallback((kind, { sawOffline = false } = {}) => {
+    setTransitionSawOffline(!!sawOffline);
+    setTransitionPhase('power');
     setPowerError('');
     setMachineTransition(kind);
   }, []);
@@ -63,40 +63,52 @@ export default function ConsolePage() {
   useEffect(() => {
     if (!machineTransition) return undefined;
     let cancelled = false;
+    let polling = false;
 
     const poll = async () => {
-      const next = await fetchResource();
-      if (cancelled || !next) return;
-      const running = next.status === 'running';
+      if (polling || cancelled) return;
+      polling = true;
+      try {
+        const [next, readinessResponse] = await Promise.all([
+          fetchResource(),
+          userApi.getConsoleReadiness(resourceId).catch(() => null)
+        ]);
+        if (cancelled || !next) return;
 
-      if (machineTransition === 'starting') {
-        if (running) {
-          setMachineTransition('');
-          setConsoleGeneration(value => value + 1);
-        }
-        return;
-      }
+        const readiness = readinessResponse?.data || {};
+        const running = next.status === 'running';
+        const ready = !!readiness.ready;
+        setTransitionPhase(readiness.phase || (running ? 'console' : 'power'));
 
-      if (machineTransition === 'rebooting') {
-        if (!running) {
-          setTransitionSawOffline(true);
+        if (!running || readiness.powerReady === false || !ready) {
+          if (machineTransition === 'rebooting') setTransitionSawOffline(true);
           return;
         }
-        const waitedLongEnough = Date.now() - transitionStartedAt.current >= 10 * 1000;
-        if (transitionSawOffline || waitedLongEnough) {
+
+        if (machineTransition === 'starting') {
           setMachineTransition('');
+          setTransitionPhase('ready');
+          setConsoleGeneration(value => value + 1);
+          return;
+        }
+
+        if (machineTransition === 'rebooting' && transitionSawOffline) {
+          setMachineTransition('');
+          setTransitionPhase('ready');
           setConsoleGeneration(value => value + 1);
         }
+      } finally {
+        polling = false;
       }
     };
 
     poll();
-    const timer = setInterval(poll, 2500);
+    const timer = setInterval(poll, 3000);
     return () => {
       cancelled = true;
       clearInterval(timer);
     };
-  }, [machineTransition, transitionSawOffline, fetchResource]);
+  }, [machineTransition, transitionSawOffline, fetchResource, resourceId]);
 
   const closeTab = () => window.close();
 
@@ -113,7 +125,10 @@ export default function ConsolePage() {
   };
 
   const handleRebootDetected = useCallback(() => {
-    beginTransition('rebooting');
+    // The console connection has already closed after the reboot command, so
+    // this is our offline edge. Reconnect only after the readiness probe later
+    // confirms that the real console target is usable again.
+    beginTransition('rebooting', { sawOffline: true });
   }, [beginTransition]);
 
   const handleConsoleClosed = useCallback(({ rebootRequested } = {}) => {
@@ -123,7 +138,7 @@ export default function ConsolePage() {
       attempts += 1;
       const next = await fetchResource();
       if (next && next.status !== 'running') {
-        beginTransition('rebooting');
+        beginTransition('rebooting', { sawOffline: true });
         return;
       }
       if (attempts < 5) closeCheckTimer.current = setTimeout(inspect, 1500);
@@ -173,7 +188,12 @@ export default function ConsolePage() {
             <span className="spinner"></span>
             <div>
               <h2>{machineTransition === 'rebooting' ? text('Maschine wird neu gestartet') : text('Maschine wird gestartet')}</h2>
-              <p>{text('Die Konsole lädt automatisch, sobald die Maschine wieder verfügbar ist.')}</p>
+              <p>{isSshConsole
+                ? (transitionPhase === 'ssh'
+                  ? text('Die Maschine läuft. SSH-Verbindung und Anmeldung werden geprüft. Die Konsole öffnet erst, wenn SSH wirklich bereit ist.')
+                  : text('Warte auf die Maschine. Sobald sie läuft, werden SSH-Verbindung und Anmeldung geprüft.'))
+                : text('Die Konsole lädt automatisch, sobald die Maschine wieder verfügbar ist.')}
+              </p>
             </div>
           </section>
         )}

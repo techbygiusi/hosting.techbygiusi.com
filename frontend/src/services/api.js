@@ -376,6 +376,7 @@ export const userApi = {
   getTaskLog: (resourceId, upid) => apiClient.get(`/user/resources/${resourceId}/tasks/${encodeURIComponent(upid)}/log`),
   saveServiceIp: (resourceId, ip, sshPort = 22) => apiClient.put(`/user/resources/${resourceId}/service-ip`, { ip, sshPort }),
   openConsole: (resourceId) => apiClient.post(`/user/resources/${resourceId}/console`),
+  getConsoleReadiness: (resourceId) => apiClient.get(`/user/resources/${resourceId}/console-readiness`),
   getCredentials: (resourceId) => apiClient.get(`/user/resources/${resourceId}/credentials`),
   revealCredential: (resourceId, credId) => apiClient.get(`/user/resources/${resourceId}/credentials/${credId}/reveal`),
   createCredential: (resourceId, data) => apiClient.post(`/user/resources/${resourceId}/credentials`, data),
