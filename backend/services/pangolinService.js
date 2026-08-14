@@ -437,6 +437,10 @@ async function createPublication(config, input) {
   if (!resourceId) throw new AppError('Pangolin did not return a resource ID', HTTP_STATUS.BAD_GATEWAY);
 
   try {
+    if (protocol === 'http') {
+      await request(config, 'post', `/resource/${resourceId}`, { sso: false });
+    }
+
     const targetBody = {
       siteId: Number(config.siteId),
       ip: input.ip,
