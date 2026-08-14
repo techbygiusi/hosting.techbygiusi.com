@@ -22,8 +22,8 @@ export default function ResetPassword() {
       setError('Bitte beide Felder ausfüllen.');
       return;
     }
-    if (password.length < 8) {
-      setError('Das neue Passwort muss mindestens 8 Zeichen lang sein.');
+    if (password.length < 10) {
+      setError('Das neue Passwort muss mindestens 10 Zeichen lang sein.');
       return;
     }
     if (password !== confirm) {

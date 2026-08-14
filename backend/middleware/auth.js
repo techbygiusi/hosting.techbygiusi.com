@@ -43,8 +43,12 @@ const JWT_SECRET = resolveJwtSecret();
  */
 function authMiddleware(req, res, next) {
   try {
-    const token = req.headers.authorization?.split(' ')[1];
-    
+    // Strict "Bearer <token>" parsing: a header of any other shape is rejected
+    // rather than silently taking whatever sat in the second position.
+    const header = String(req.headers.authorization || '');
+    const match = /^Bearer\s+([A-Za-z0-9._-]+)$/.exec(header.trim());
+    const token = match?.[1];
+
     if (!token) {
       return res.status(HTTP_STATUS.UNAUTHORIZED).json({
         error: 'No token provided',
@@ -52,7 +56,16 @@ function authMiddleware(req, res, next) {
       });
     }
 
-    const decoded = jwt.verify(token, JWT_SECRET);
+    /*
+     * Pin the algorithm. Without `algorithms`, jsonwebtoken accepts whatever
+     * the token's own header claims - the classic path to an "alg: none" or
+     * HS/RS confusion forgery. We only ever issue HS256, so only HS256 is
+     * accepted back.
+     */
+    const decoded = jwt.verify(token, JWT_SECRET, {
+      algorithms: ['HS256'],
+      clockTolerance: 5
+    });
     if (decoded.purpose) {
       // Purpose-bound tokens (e.g. password reset) are not session tokens
       return res.status(HTTP_STATUS.UNAUTHORIZED).json({
@@ -93,7 +106,7 @@ function generateToken(userId, email, role) {
   return jwt.sign(
     { id: userId, email, role },
     JWT_SECRET,
-    { expiresIn }
+    { expiresIn, algorithm: 'HS256' }
   );
 }
 
@@ -105,7 +118,7 @@ function generateResetToken(userId, email) {
   return jwt.sign(
     { id: userId, email, purpose: 'password-reset' },
     JWT_SECRET,
-    { expiresIn: '1h' }
+    { expiresIn: '1h', algorithm: 'HS256' }
   );
 }
 
@@ -113,7 +126,7 @@ function generateResetToken(userId, email) {
  * Verify a reset token. Throws on invalid/expired/wrong-purpose tokens.
  */
 function verifyResetToken(token) {
-  const decoded = jwt.verify(token, JWT_SECRET);
+  const decoded = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'], clockTolerance: 5 });
   if (decoded.purpose !== 'password-reset') {
     throw new Error('Invalid token purpose');
   }

@@ -503,7 +503,7 @@ function CredentialsTab({ resource }) {
           </div>
           <div className="credential-actions">
             <button type="button" className="btn-secondary btn-small" onClick={() => toggleReveal(item)}>{revealed[item.id] !== undefined ? 'Verbergen' : 'Anzeigen'}</button>
-            <button type="button" className="btn-secondary btn-small" onClick={() => copySecret(item)}>{copiedId === item.id ? 'Kopiert ✓' : 'Kopieren'}</button>
+            <button type="button" className="btn-secondary btn-small" onClick={() => copySecret(item)}>{copiedId === item.id ? 'Kopiert' : 'Kopieren'}</button>
             {(item.canManage || !item.fromAdmin) && <button type="button" className="btn-secondary btn-small" onClick={() => openEdit(item)}>Bearbeiten</button>}
             <button type="button" className="btn-danger btn-small" onClick={() => remove(item)} disabled={busy}>Löschen</button>
           </div>

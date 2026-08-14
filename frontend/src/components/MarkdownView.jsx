@@ -200,8 +200,8 @@ function markdownToHtml(source, options = {}) {
 export { markdownToHtml, escapeHtml };
 
 const COPY_LABELS = {
-  en: { copy: 'Copy', copied: 'Copied ✓' },
-  de: { copy: 'Kopieren', copied: 'Kopiert ✓' }
+  en: { copy: 'Copy', copied: 'Copied' },
+  de: { copy: 'Kopieren', copied: 'Kopiert' }
 };
 
 export default function MarkdownView({ content, className = '', language = 'en' }) {

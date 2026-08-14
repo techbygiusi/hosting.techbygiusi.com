@@ -1,43 +1,52 @@
 /* =========================================================================
    Tech by Giusi - Hosting Portal
-   Global stylesheet, aligned to the techbygiusi.com design language.
+   Global stylesheet.
 
-   Design language (single source of truth):
-   - White page background, neutral cold-grey cards (#eeeeee)
-   - Muted sage / olive green accent (#7A876F)
-   - Near-black editorial text, light font weights
-   - Flat surfaces, hairline borders, gentle rounding (8-14px)
-   - Calm dark mode on a deep blue-black (#0B0F14)
+   Design language (single source of truth), v3.2 "Console" redesign:
+   - Near-black console shell in dark mode, pale sage paper in light mode
+   - Muted sage / olive green accent, pale sage highlight cards
+   - Dot-matrix display face for headings and eyebrows, grotesque for body
+   - Flat surfaces, hairline borders, generous rounding (12-20px)
+   - Every icon is an SVG on currentColor - never an emoji
+   - Touch first: 44px minimum hit area, safe-area padding, sheet menus
 
    Organised top-down: tokens -> base -> layout -> components -> responsive.
+   The v3.2 override layer lives at the very end of this file.
    ========================================================================= */
 
 /* ---------------------------------------------------------------- TOKENS */
 :root,
 body.theme-light {
   /* Brand palette */
-  --site-bg:        #ffffff;   /* page background */
-  --site-surface:   #eeeeee;   /* cards / panels / popups */
-  --site-inset:     #ffffff;   /* boxes inside boxes */
-  --site-text:      #111111;
-  --site-muted:     #6B7280;
-  --site-accent:    #7a876f;   /* brand green */
-  --site-accent-strong: #7a876f;
-  --site-border:    rgba(17, 17, 17, 0.10);
+  --site-bg:        #e8ebe4;   /* page background - pale sage paper */
+  --site-surface:   #ffffff;   /* cards / panels / popups */
+  --site-inset:     #f2f4ee;   /* boxes inside boxes */
+  --brand-sage:     #dae3d7;   /* THE accent - pale sage, straight from the design */
+  --site-raise:     var(--brand-sage);  /* highlight cards (the pale blocks) */
+  --site-text:      #101310;
+  --site-muted:     #656d61;
+  /* On paper the pale sage carries surfaces, not text: a #dae3d7 label on white
+     sits at ~1.2:1 contrast. Interactive text and filled buttons therefore use
+     the darkened sage below, which is the same hue at readable contrast. */
+  --site-accent:    #55654e;   /* brand sage, darkened for text on light */
+  --site-accent-strong: #45533f;
+  --site-accent-soft: var(--brand-sage);
+  --site-border:    rgba(16, 19, 16, 0.12);
+  --site-border-strong: rgba(16, 19, 16, 0.22);
   --site-cord:      rgba(0, 0, 0, 0.28);
-  --site-bulb-off:  #e9ecef;
+  --site-bulb-off:  #e2e6dc;
   --site-bulb-on:   #ffd666;
-  --scrollbar-track: rgba(17, 17, 17, 0.04);
-  --scrollbar-thumb: rgba(122, 135, 111, 0.42);
-  --scrollbar-thumb-hover: rgba(122, 135, 111, 0.66);
+  --scrollbar-track: rgba(16, 19, 16, 0.05);
+  --scrollbar-thumb: rgba(85, 101, 78, 0.40);
+  --scrollbar-thumb-hover: rgba(85, 101, 78, 0.66);
 
   /* Semantic aliases used across the app */
   --color-primary:        var(--site-accent);
   --color-primary-dark:   var(--site-accent-strong);
   --button-primary-text:  #ffffff;
-  --color-success:        var(--site-accent);
-  --color-danger:         #b42318;
-  --color-warning:        #b7791f;
+  --color-success:        #3f7a4e;
+  --color-danger:         #a5372c;
+  --color-warning:        #9a6b12;
 
   --color-bg:         var(--site-bg);
   --color-bg-alt:     var(--site-inset);
@@ -54,49 +63,69 @@ body.theme-light {
   --spacing-lg: 24px;
   --spacing-xl: 32px;
 
-  /* Rounding - gentle, editorial */
-  --radius-sm: 8px;
-  --radius-md: 10px;
-  --radius-lg: 12px;
-  --radius-xl: 14px;
+  /* Rounding - softer and more generous than v3.1 */
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 18px;
+  --radius-xl: 22px;
+  --radius-pill: 999px;
 
   /* Type scale */
   --font-size-xs:   12px;
-  --font-size-sm:   14px;
+  --font-size-sm:   13px;
   --font-size-base: 14px;
-  --font-size-lg:   14px;
+  --font-size-lg:   15px;
   --font-size-xl:   20px;
-  --font-size-2xl:  20px;
+  --font-size-2xl:  26px;
 
-  /* Shadows - flat by default; only dialogs lift */
+  /* Minimum comfortable touch target */
+  --touch-target: 44px;
+
+  /* Shadows - flat by default; only dialogs and popovers lift */
   --shadow-sm: none;
-  --shadow-md: none;
-  --shadow-lg: 0 24px 70px rgba(17, 17, 17, 0.18);
+  --shadow-md: 0 2px 10px rgba(16, 19, 16, 0.05);
+  --shadow-lg: 0 26px 74px rgba(16, 19, 16, 0.20);
+  --shadow-pop: 0 18px 44px rgba(16, 19, 16, 0.16);
 
   --transition: all 0.16s ease;
 
-  --site-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
-               Arial, sans-serif;
+  /* Typefaces. The dotted display face degrades to a monospace stack when the
+     web font is unavailable (offline installs), which keeps the same rhythm. */
+  --site-font: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+               Helvetica, Arial, sans-serif;
+  --font-dotted: "DotGothic16", "Courier New", ui-monospace, monospace;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
+               "Liberation Mono", monospace;
 }
 
 body.theme-dark {
-  --site-bg:        #0d0f12;
-  --site-surface:   #171a1f;
-  --site-inset:     #111418;
-  --site-text:      #E6E6E6;
-  --site-muted:     #9AA4B2;
-  --site-accent:    #c2cea7;
-  --site-accent-strong: #c2cea7;
-  --site-border:    #2c3138;
+  --site-bg:        #0b0d0b;
+  --site-surface:   #141713;
+  --site-inset:     #101310;
+  --brand-sage:     #dae3d7;
+  --site-raise:     var(--brand-sage);
+  --site-text:      #e9ede4;
+  --site-muted:     #949c8e;
+  /* On the near-black shell the accent is used undiluted, exactly as in the
+     reference: pale sage type and hairlines against #0b0d0b. */
+  --site-accent:    var(--brand-sage);
+  --site-accent-strong: #e8efe5;
+  --site-accent-soft: rgba(218, 227, 215, 0.16);
+  --site-border:    #262b24;
+  --site-border-strong: #39402f;
   --site-cord:      rgba(255, 255, 255, 0.30);
-  --site-bulb-off:  #2a3242;
+  --site-bulb-off:  #232922;
   --site-bulb-on:   #ffd666;
   --scrollbar-track: rgba(255, 255, 255, 0.05);
-  --scrollbar-thumb: rgba(194, 206, 167, 0.34);
-  --scrollbar-thumb-hover: rgba(194, 206, 167, 0.58);
+  --scrollbar-thumb: rgba(218, 227, 215, 0.30);
+  --scrollbar-thumb-hover: rgba(218, 227, 215, 0.55);
 
+  --color-primary:       var(--site-accent);
   --color-primary-dark:  var(--site-accent-strong);
-  --button-primary-text: #0B0F14;
+  --button-primary-text: #0b0d0b;
+  --color-success:       #7fb98c;
+  --color-danger:        #e08074;
+  --color-warning:       #ddb05a;
 
   --color-bg:         var(--site-bg);
   --color-bg-alt:     var(--site-inset);
@@ -107,8 +136,9 @@ body.theme-dark {
   --color-text-light: var(--site-muted);
 
   --shadow-sm: none;
-  --shadow-md: none;
-  --shadow-lg: 0 28px 90px rgba(0, 0, 0, 0.58);
+  --shadow-md: 0 2px 10px rgba(0, 0, 0, 0.34);
+  --shadow-lg: 0 30px 92px rgba(0, 0, 0, 0.62);
+  --shadow-pop: 0 22px 54px rgba(0, 0, 0, 0.55);
 }
 
 /* ------------------------------------------------------------------ BASE */
@@ -753,13 +783,27 @@ tr:hover td { background: color-mix(in srgb, var(--color-primary) 7%, transparen
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: var(--spacing-md);
+  align-items: stretch;
 }
 .admin-resource-grid { grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }
 
 .resource-card { display: grid; gap: var(--spacing-md); }
 
 .compact-resource-card {
-  align-content: start;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.compact-resource-card .resource-card-footer {
+  display: grid;
+  gap: 12px;
+  margin-top: auto;
+}
+
+.compact-resource-card .service-detail-toggle {
+  margin-top: 0;
+  min-height: 42px;
 }
 .resource-summary {
   display: grid;
@@ -8060,3 +8104,959 @@ small,
 }
 
 /* v3.1.98 - SSH-ready console reconnect and password-paste feedback */
+
+/* =========================================================================
+   v3.2 REDESIGN LAYER
+   Everything below restyles the existing markup to the "Console" language:
+   near-black shell, pale sage (#dae3d7) accent, dot-matrix headings, SVG
+   icons and touch-first hit areas. It is deliberately the last block in the
+   file so it wins over the older component rules without having to unpick
+   them one by one.
+   ========================================================================= */
+
+/* ------------------------------------------------------ TYPE: DOT MATRIX */
+/* Headings use the dot-matrix face. Letter-spacing is opened up because the
+   dotted glyphs read as noise when set tight. */
+.dotted-title,
+.dotted-eyebrow,
+.panel-header > h2,
+.settings-section-header h3,
+.app-error-card h1,
+.auth-card h1 {
+  font-family: var(--font-dotted);
+  letter-spacing: 0.06em;
+  font-weight: 400;
+}
+
+.dotted-title {
+  font-size: clamp(15px, 2.2vw, 19px);
+  line-height: 1.35;
+}
+
+.dotted-eyebrow,
+.resource-id {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--site-muted);
+}
+
+.eyebrow {
+  font-family: var(--font-mono);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  font-size: 11px;
+  color: var(--site-accent);
+}
+
+/* Numerals in metrics pick up the technical, wide-set look of the reference. */
+.metric-line small,
+.stat-value,
+.provisioning-job-progress small {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* --------------------------------------------------------- SHELL & CARDS */
+body {
+  background: var(--site-bg);
+}
+
+.site-header {
+  position: sticky;
+  top: 0;
+  z-index: 60;
+  background: color-mix(in srgb, var(--site-bg) 88%, transparent);
+  backdrop-filter: saturate(140%) blur(14px);
+  -webkit-backdrop-filter: saturate(140%) blur(14px);
+  border-bottom: 1px solid var(--site-border);
+  padding-top: env(safe-area-inset-top);
+}
+
+.site-header-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 64px;
+  padding: 8px clamp(14px, 3vw, 28px);
+  max-width: 1560px;
+  margin: 0 auto;
+}
+
+.site-brand h1 {
+  font-size: 14px;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.site-brand-button {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.site-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.panel-card,
+.resource-card,
+.empty-state,
+.settings-section-card {
+  background: var(--site-surface);
+  border: 1px solid var(--site-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+}
+
+/* The hero and a few summary blocks become the pale sage blocks from the
+   reference - identical in both themes, which is what makes them read as
+   "highlight" rather than "another card". */
+.dashboard-hero-card,
+.user-dashboard-hero-card {
+  background: var(--site-raise);
+  border-color: transparent;
+  color: #101310;
+}
+
+.dashboard-hero-card .resource-id,
+.user-dashboard-hero-card .resource-id {
+  color: rgba(16, 19, 16, 0.62);
+}
+
+/* --------------------------------------------------------------- BUTTONS */
+.btn-primary,
+.btn-secondary,
+.icon-button,
+.wiki-toolbar-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: var(--radius-pill);
+  font-family: var(--site-font);
+  font-size: var(--font-size-base);
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  transition: var(--transition);
+  min-height: var(--touch-target);
+  padding: 10px 20px;
+}
+
+.btn-primary {
+  background: var(--site-accent);
+  color: var(--button-primary-text);
+  border: 1px solid transparent;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--site-accent-strong);
+}
+
+.btn-secondary {
+  background: transparent;
+  color: var(--site-text);
+  border: 1px solid var(--site-border-strong);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  border-color: var(--site-accent);
+  color: var(--site-accent);
+}
+
+.btn-small {
+  min-height: 36px;
+  padding: 6px 14px;
+  font-size: var(--font-size-sm);
+}
+
+.btn-primary:disabled,
+.btn-secondary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* Square icon-only button: menu toggles, close buttons, toolbar actions. */
+.icon-button {
+  width: var(--touch-target);
+  min-width: var(--touch-target);
+  padding: 0;
+  background: transparent;
+  color: var(--site-text);
+  border: 1px solid var(--site-border);
+}
+
+.icon-button:hover {
+  border-color: var(--site-accent);
+  color: var(--site-accent);
+}
+
+.icon {
+  flex: none;
+  display: block;
+}
+
+/* Buttons that carry an icon plus a label keep the icon optically centred. */
+.btn-primary .icon,
+.btn-secondary .icon {
+  margin-left: -2px;
+}
+
+/* ------------------------------------------------------------- AVATARS */
+.avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  border-radius: 50%;
+  overflow: hidden;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  user-select: none;
+  border: 1px solid var(--site-border);
+  background: var(--site-inset);
+  color: var(--site-text);
+}
+
+.avatar-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* Deterministic tints for the initials fallback - muted enough to sit next to
+   the sage accent without competing with it. */
+.avatar-initials.tint-sage  { background: #dae3d7; color: #2c3529; }
+.avatar-initials.tint-moss  { background: #c6d3bd; color: #29321f; }
+.avatar-initials.tint-clay  { background: #ddd2c6; color: #3a2f24; }
+.avatar-initials.tint-slate { background: #cdd4d8; color: #242d33; }
+.avatar-initials.tint-sand  { background: #e4dcc6; color: #35301d; }
+.avatar-initials.tint-fern  { background: #cfdcce; color: #223026; }
+
+/* --------------------------------------------------------- ACCOUNT MENU */
+.account-menu {
+  position: relative;
+}
+
+.account-menu-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: var(--touch-target);
+  padding: 4px 10px 4px 4px;
+  border-radius: var(--radius-pill);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--site-text);
+  cursor: pointer;
+  transition: var(--transition);
+  max-width: 260px;
+}
+
+.account-menu-trigger:hover,
+.account-menu.open .account-menu-trigger {
+  border-color: var(--site-border-strong);
+  background: var(--site-inset);
+}
+
+.account-menu-identity {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+  line-height: 1.25;
+}
+
+.account-menu-identity strong {
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-menu-identity small {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: var(--site-muted);
+}
+
+.account-menu-caret {
+  color: var(--site-muted);
+  transition: transform 0.18s ease;
+}
+
+.account-menu.open .account-menu-caret {
+  transform: rotate(180deg);
+}
+
+.account-menu-panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 10px);
+  width: 288px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: var(--site-surface);
+  border: 1px solid var(--site-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-pop);
+  z-index: 90;
+  animation: account-menu-in 0.14s ease-out;
+}
+
+@keyframes account-menu-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.account-menu-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 10px 14px;
+  border-bottom: 1px solid var(--site-border);
+  margin-bottom: 6px;
+}
+
+.account-menu-head > div {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.account-menu-head strong {
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+}
+
+.account-menu-head small {
+  font-size: var(--font-size-xs);
+  color: var(--site-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.account-menu-label {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--site-muted);
+  padding: 4px 10px 8px;
+}
+
+.account-menu-theme-switch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  padding: 0 6px 10px;
+}
+
+.account-menu-theme-switch button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 40px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--site-border);
+  background: transparent;
+  color: var(--site-text);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.account-menu-theme-switch button.active {
+  background: var(--site-accent-soft);
+  border-color: transparent;
+  color: var(--site-text);
+  font-weight: 600;
+}
+
+body.theme-light .account-menu-theme-switch button.active {
+  color: #2c3529;
+}
+
+.account-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  min-height: var(--touch-target);
+  padding: 10px 12px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--site-text);
+  font-size: var(--font-size-base);
+  text-align: left;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.account-menu-item:hover {
+  background: var(--site-inset);
+}
+
+.account-menu-item-danger:hover {
+  color: var(--color-danger);
+}
+
+/* ------------------------------------------------- AVATAR UPLOAD PANEL */
+.settings-avatar-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 20px;
+  border: 1px solid var(--site-border);
+  border-radius: var(--radius-lg);
+  background: var(--site-inset);
+}
+
+.settings-section-header h3,
+.settings-section-heading h3 {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: var(--font-size-lg);
+  margin: 0 0 4px;
+}
+
+.settings-section-header p,
+.settings-section-heading p {
+  margin: 0;
+  color: var(--site-muted);
+  font-size: var(--font-size-sm);
+  line-height: 1.6;
+}
+
+.avatar-dropzone {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 20px;
+  border: 1px dashed var(--site-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--site-surface);
+  transition: var(--transition);
+}
+
+.avatar-dropzone.dragging {
+  border-color: var(--site-accent);
+  background: var(--site-accent-soft);
+}
+
+.avatar-dropzone.busy {
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+.avatar-dropzone-preview {
+  border: 2px solid var(--site-border);
+}
+
+.avatar-dropzone-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.avatar-dropzone-hint {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--site-muted);
+}
+
+.avatar-dropzone-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.avatar-dropzone-note {
+  color: var(--site-muted);
+  font-size: var(--font-size-xs);
+  line-height: 1.55;
+}
+
+.visually-hidden-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* -------------------------------------------------------------- NAV TABS */
+.console-nav-tabs button,
+.app-tabs button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: var(--touch-target);
+  padding: 10px 14px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--site-muted);
+  font-size: var(--font-size-base);
+  text-align: left;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.console-nav-tabs button:hover,
+.app-tabs button:hover {
+  color: var(--site-text);
+  background: var(--site-inset);
+}
+
+.console-nav-tabs button.active,
+.app-tabs button.active {
+  background: var(--site-accent-soft);
+  color: var(--site-text);
+  font-weight: 600;
+}
+
+body.theme-light .console-nav-tabs button.active,
+body.theme-light .app-tabs button.active {
+  color: #2c3529;
+}
+
+/* ------------------------------------------------------ THEME TOGGLE PILL */
+.theme-toggle {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  width: 68px;
+  height: 38px;
+  padding: 0 9px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--site-border-strong);
+  background: var(--site-inset);
+  cursor: pointer;
+  color: var(--site-muted);
+}
+
+.theme-toggle-thumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--site-accent);
+  transition: transform 0.2s ease;
+}
+
+.theme-toggle-dark .theme-toggle-thumb {
+  transform: translateX(30px);
+}
+
+.theme-toggle-icon {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+}
+
+/* ------------------------------------------------------------ MOBILE MENU */
+.mobile-admin-menu-panel,
+.user-fullscreen-menu-panel {
+  background: var(--site-surface);
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  padding-bottom: calc(18px + env(safe-area-inset-bottom));
+}
+
+.mobile-admin-menu-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--site-border);
+}
+
+.mobile-admin-menu-close {
+  flex: none;
+}
+
+.mobile-admin-language-switch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  padding: 4px;
+  border-radius: var(--radius-pill);
+  background: var(--site-inset);
+  border: 1px solid var(--site-border);
+}
+
+.mobile-admin-language-switch button {
+  min-height: 40px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--site-muted);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.mobile-admin-language-switch button.active {
+  background: var(--site-surface);
+  color: var(--site-text);
+  font-weight: 600;
+  box-shadow: var(--shadow-md);
+}
+
+/* ------------------------------------------------------------- FORM FIELDS */
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="number"],
+input[type="url"],
+input[type="search"],
+select,
+textarea {
+  min-height: var(--touch-target);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--site-border-strong);
+  background: var(--site-surface);
+  color: var(--site-text);
+  padding: 10px 13px;
+  /* 16px prevents iOS Safari from zooming the viewport on focus */
+  font-size: 16px;
+  transition: var(--transition);
+}
+
+textarea {
+  min-height: 120px;
+  line-height: 1.6;
+}
+
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+button:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--site-accent);
+  outline-offset: 2px;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: var(--site-accent);
+}
+
+.form-group > span {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--site-muted);
+}
+
+/* --------------------------------------------------------------- BADGES */
+.status-badge {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 5px 11px;
+  border-radius: var(--radius-pill);
+}
+
+.progress-bar {
+  height: 5px;
+  border-radius: var(--radius-pill);
+  background: var(--site-bulb-off);
+  overflow: hidden;
+}
+
+.progress-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: var(--radius-pill);
+  background: var(--site-accent);
+}
+
+.maintenance-notified {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--color-success);
+}
+
+.alert {
+  border-radius: var(--radius-md);
+  border: 1px solid var(--site-border);
+  padding: 12px 15px;
+  font-size: var(--font-size-sm);
+  line-height: 1.6;
+}
+
+/* --------------------------------------------------------- WIKI TOOLBAR */
+.wiki-toolbar-btn {
+  min-height: 38px;
+  min-width: 38px;
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--site-border);
+  background: var(--site-surface);
+  color: var(--site-text);
+}
+
+.wiki-toolbar-btn:hover:not(:disabled) {
+  border-color: var(--site-accent);
+  color: var(--site-accent);
+}
+
+.wiki-upload-button {
+  gap: 7px;
+}
+
+/* ========================================================================
+   RESPONSIVE - tablet and phone. Touch pointers get bigger hit areas and
+   the account chip collapses to the avatar alone so the header never wraps.
+   ======================================================================== */
+
+/* Tablet: sidebar collapses, cards go two-up, spacing tightens. */
+@media (max-width: 1024px) {
+  .site-header-inner {
+    min-height: 60px;
+  }
+
+  .resource-grid {
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  }
+
+  .account-menu-identity strong {
+    max-width: 120px;
+  }
+}
+
+/* Phone and small tablets in portrait. */
+@media (max-width: 720px) {
+  .site-header-inner {
+    padding: 8px 14px;
+    gap: 8px;
+  }
+
+  .site-brand h1 {
+    font-size: 12px;
+    max-width: 46vw;
+  }
+
+  /* Name and role drop away - the picture alone identifies the account. */
+  .account-menu-identity,
+  .account-menu-caret {
+    display: none;
+  }
+
+  .account-menu-trigger {
+    padding: 3px;
+  }
+
+  /* The dropdown becomes a bottom sheet: reachable with one thumb. */
+  .account-menu-panel {
+    position: fixed;
+    left: 12px;
+    right: 12px;
+    top: auto;
+    bottom: calc(12px + env(safe-area-inset-bottom));
+    width: auto;
+    padding: 14px;
+    border-radius: var(--radius-xl);
+    animation: account-sheet-in 0.18s ease-out;
+  }
+
+  @keyframes account-sheet-in {
+    from { opacity: 0; transform: translateY(14px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .avatar-dropzone {
+    flex-direction: column;
+    align-items: stretch;
+    text-align: center;
+    gap: 16px;
+  }
+
+  .avatar-dropzone-preview {
+    align-self: center;
+  }
+
+  .avatar-dropzone-actions {
+    flex-direction: column;
+  }
+
+  .avatar-dropzone-actions .btn-primary,
+  .avatar-dropzone-actions .btn-secondary {
+    width: 100%;
+  }
+
+  .resource-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .panel-card,
+  .resource-card {
+    border-radius: var(--radius-md);
+  }
+}
+
+/* Coarse pointers (touch screens of any size) get the full 48px target and
+   lose hover-only affordances that would otherwise stick after a tap. */
+@media (hover: none) and (pointer: coarse) {
+  :root {
+    --touch-target: 48px;
+  }
+
+  .btn-primary,
+  .btn-secondary,
+  .icon-button,
+  .account-menu-item,
+  .console-nav-tabs button,
+  .app-tabs button {
+    min-height: 48px;
+  }
+
+  .btn-small {
+    min-height: 40px;
+  }
+
+  .wiki-toolbar-btn {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  .btn-secondary:hover:not(:disabled),
+  .icon-button:hover,
+  .account-menu-item:hover {
+    border-color: var(--site-border-strong);
+    color: inherit;
+    background: transparent;
+  }
+
+  .btn-primary:active,
+  .btn-secondary:active,
+  .icon-button:active,
+  .account-menu-item:active,
+  .console-nav-tabs button:active {
+    transform: scale(0.985);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ------------------------------------------- HIGHLIGHT CARD CORRECTIONS */
+/* The pale sage blocks keep their colour in both themes, so anything sitting
+   inside them has to be re-tuned for a light background even in dark mode -
+   otherwise a sage button would disappear into a sage card. */
+.dashboard-hero-card .btn-primary,
+.user-dashboard-hero-card .btn-primary {
+  background: #2c3529;
+  color: var(--brand-sage);
+  border-color: transparent;
+}
+
+.dashboard-hero-card .btn-primary:hover:not(:disabled),
+.user-dashboard-hero-card .btn-primary:hover:not(:disabled) {
+  background: #1b211a;
+}
+
+.dashboard-hero-card .btn-secondary,
+.user-dashboard-hero-card .btn-secondary {
+  color: #2c3529;
+  border-color: rgba(16, 19, 16, 0.28);
+}
+
+.dashboard-hero-card h2,
+.user-dashboard-hero-card h2 {
+  color: #101310;
+}
+
+/* Section headings that carry an SVG icon align it with the text baseline. */
+.settings-language-card h3,
+.settings-notification-card h3,
+.panel-header h2,
+.user-settings-card h3 {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+/* ------------------------------------------------ SERVICE ASSIGNMENT BLOCK */
+/* User and group are both optional; the block groups them so the "at least
+   one" rule reads as a single decision rather than two unrelated fields. */
+.assignment-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--site-border);
+  border-radius: var(--radius-md);
+  background: var(--site-inset);
+}
+
+.assignment-hint {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  line-height: 1.55;
+  color: var(--site-muted);
+}
+
+.assignment-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 9px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--site-accent-soft);
+  color: var(--site-text);
+  font-size: var(--font-size-sm);
+}
+
+body.theme-light .assignment-note {
+  color: #2c3529;
+}

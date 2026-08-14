@@ -2,12 +2,23 @@ const express = require('express');
 const { authMiddleware, adminMiddleware } = require('../middleware/auth');
 const wikiService = require('../services/wikiService');
 const { logAudit } = require('../services/auditService');
+const { registerIdParams } = require('../middleware/validate');
 
 const router = express.Router();
 
+// Reject non-numeric :id values before any handler runs.
+registerIdParams(router, ['id']);
+
 function handleError(res, err, fallback) {
   const status = err?.statusCode || 500;
-  if (status >= 500) console.error(fallback, err);
+  if (status >= 500) {
+    // Server-side faults are logged in full but answered generically - the raw
+    // message can carry SQLite or filesystem detail.
+    console.error(fallback, err);
+    res.status(500).json({ error: fallback, message: fallback });
+    return;
+  }
+  // 4xx messages are written for the caller and describe their own input.
   res.status(status).json({ error: fallback, message: err?.message || fallback });
 }
 

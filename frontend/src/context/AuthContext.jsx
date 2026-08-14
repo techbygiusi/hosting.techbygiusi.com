@@ -19,29 +19,6 @@ export function AuthProvider({ children }) {
     return setupRes.data;
   };
 
-  const persistUser = (nextUser) => {
-    if (nextUser) {
-      localStorage.setItem('user', JSON.stringify(nextUser));
-      if (nextUser?.preferredLanguage) storeLanguage(nextUser.preferredLanguage);
-    } else {
-      localStorage.removeItem('user');
-    }
-    setUser(nextUser);
-  };
-
-  const updateUserData = (updater) => {
-    setUser((current) => {
-      const nextUser = typeof updater === 'function' ? updater(current) : { ...(current || {}), ...(updater || {}) };
-      if (nextUser) {
-        localStorage.setItem('user', JSON.stringify(nextUser));
-        if (nextUser?.preferredLanguage) storeLanguage(nextUser.preferredLanguage);
-      } else {
-        localStorage.removeItem('user');
-      }
-      return nextUser;
-    });
-  };
-
   useEffect(() => {
     const initAuth = async () => {
       try {
@@ -64,7 +41,9 @@ export function AuthProvider({ children }) {
               const serverUser = verifyResponse.data.user;
               const preferredLanguage = serverUser.preferredLanguage || readStoredLanguage();
               const verifiedUser = { ...serverUser, preferredLanguage };
-              persistUser(verifiedUser);
+              localStorage.setItem('user', JSON.stringify(verifiedUser));
+              setUser(verifiedUser);
+              storeLanguage(preferredLanguage);
               if (!serverUser.preferredLanguage) {
                 await userApi.updateLanguage(preferredLanguage);
               }
@@ -130,9 +109,11 @@ export function AuthProvider({ children }) {
       const { token: newToken, user: userData } = response.data;
 
       localStorage.setItem('token', newToken);
-      persistUser(userData);
+      localStorage.setItem('user', JSON.stringify(userData));
 
       setToken(newToken);
+      setUser(userData);
+      storeLanguage(userData.preferredLanguage || 'en');
       setSetupRequired(false);
       return userData;
     } catch (err) {
@@ -162,9 +143,11 @@ export function AuthProvider({ children }) {
       const { token: newToken, user: userData } = response.data;
 
       localStorage.setItem('token', newToken);
-      persistUser(userData);
+      localStorage.setItem('user', JSON.stringify(userData));
 
       setToken(newToken);
+      setUser(userData);
+      storeLanguage(userData.preferredLanguage || readStoredLanguage());
       await refreshSetupStatus();
       return userData;
     } catch (err) {
@@ -182,9 +165,22 @@ export function AuthProvider({ children }) {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       setToken(null);
-      persistUser(null);
+      setUser(null);
       setError(null);
     }
+  };
+
+  /**
+   * Merge a partial update (e.g. a freshly uploaded profile picture) into the
+   * cached user so the header updates without a round trip.
+   */
+  const applyUserPatch = (patch) => {
+    setUser(current => {
+      if (!current) return current;
+      const next = { ...current, ...patch };
+      localStorage.setItem('user', JSON.stringify(next));
+      return next;
+    });
   };
 
   const changePassword = async (currentPassword, newPassword) => {
@@ -211,7 +207,7 @@ export function AuthProvider({ children }) {
     setup,
     logout,
     changePassword,
-    updateUserData,
+    applyUserPatch,
     isAdmin: user?.role === 'admin',
     isAuthenticated: !!token
   };

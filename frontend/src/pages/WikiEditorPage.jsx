@@ -4,6 +4,10 @@ import MarkdownView from '../components/MarkdownView';
 import { wikiApi, getErrorMessage } from '../services/api';
 import { readStoredLanguage } from '../components/LanguageSwitch';
 import '../styles/globals.css';
+import {
+  QuoteIcon, LinkIcon, ImageIcon, ArrowLeftIcon,
+  AlignLeftIcon, AlignCenterIcon, AlignRightIcon, CloseIcon
+} from '../components/Icons';
 
 const LANGUAGES = ['en', 'de'];
 
@@ -143,9 +147,9 @@ const TOOLS = [
   { key: 'code', label: '</>', wrap: '`', kind: 'wrap', group: 'inline' },
   { key: 'ul', label: '• List', prefix: '- ', kind: 'prefix', group: 'block' },
   { key: 'ol', label: '1. List', prefix: '1. ', kind: 'prefix', group: 'block', ordered: true },
-  { key: 'quote', label: '❝', prefix: '> ', kind: 'prefix', group: 'block' },
+  { key: 'quote', icon: QuoteIcon, label: 'Quote', prefix: '> ', kind: 'prefix', group: 'block' },
   { key: 'codeblock', label: 'Code', kind: 'block', blockLevel: true, template: '```\n$SELECTION\n```', group: 'block' },
-  { key: 'link', label: '🔗', kind: 'block', template: '[$SELECTION](https://)', group: 'block', shortcut: 'k' },
+  { key: 'link', icon: LinkIcon, label: 'Link', kind: 'block', template: '[$SELECTION](https://)', group: 'block', shortcut: 'k' },
   { key: 'table', label: 'Table', kind: 'block', blockLevel: true, template: '| A | B |\n| --- | --- |\n| 1 | 2 |', group: 'block' },
   { key: 'hr', label: '―', kind: 'block', blockLevel: true, template: '\n---\n', group: 'block' }
 ];
@@ -419,7 +423,7 @@ export default function WikiEditorPage() {
     <div className="wiki-editor-page">
       <header className="wiki-editor-topbar">
         <div className="wiki-editor-topbar-left">
-          <button type="button" className="btn-secondary btn-small" onClick={leave}>← {text.back}</button>
+          <button type="button" className="btn-secondary btn-small" onClick={leave}><ArrowLeftIcon size={16} />{text.back}</button>
           <span className="wiki-editor-title">{translation?.title || draft.slug}</span>
           {dirty && <span className="wiki-dirty-flag">{text.unsaved}</span>}
         </div>
@@ -505,14 +509,14 @@ export default function WikiEditorPage() {
                   onClick={() => applyToSelection(tool)}
                   disabled={viewMode === 'preview'}
                 >
-                  {tool.label}
+                  {tool.icon ? <tool.icon size={17} /> : tool.label}
                 </button>
               ))}
             </div>
           ))}
           <div className="wiki-toolbar-group">
             <label className="wiki-toolbar-btn wiki-upload-button" title={text.tools.image}>
-              {busy === 'upload' ? text.uploading : `🖼 ${text.tools.image}`}
+              {busy === 'upload' ? text.uploading : <><ImageIcon size={17} />{text.tools.image}</>}
               <input
                 type="file"
                 accept="image/png,image/jpeg,image/gif,image/webp,image/svg+xml"
@@ -521,11 +525,11 @@ export default function WikiEditorPage() {
               />
             </label>
             {[
-              ['left', '⇤', text.tools.alignLeft],
-              ['center', '↔', text.tools.alignCenter],
-              ['right', '⇥', text.tools.alignRight],
-              ['', '⦸', text.tools.alignNone]
-            ].map(([align, glyph, label]) => (
+              ['left', AlignLeftIcon, text.tools.alignLeft],
+              ['center', AlignCenterIcon, text.tools.alignCenter],
+              ['right', AlignRightIcon, text.tools.alignRight],
+              ['', CloseIcon, text.tools.alignNone]
+            ].map(([align, Glyph, label]) => (
               <button
                 key={align || 'none'}
                 type="button"
@@ -535,7 +539,7 @@ export default function WikiEditorPage() {
                 onClick={() => alignImage(align)}
                 disabled={viewMode === 'preview'}
               >
-                {glyph}
+                <Glyph size={17} />
               </button>
             ))}
           </div>

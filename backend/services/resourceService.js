@@ -114,8 +114,10 @@ function normalizeResourceRow(row, liveResource = null, error = null, diskInfo =
     clusterName: row.cluster_name || '',
     clusterPublishingEnabled: Number(row.allow_publishing ?? 1) === 1,
     userId: row.user_id,
+    // Group-only services have no owner; the UI falls back to the group name.
     userName: row.user_name || '',
     userEmail: row.user_email || '',
+    ownerType: row.user_id ? 'user' : (row.group_name ? 'group' : 'none'),
     groupId: row.group_id || null,
     groupName: row.group_name || '',
     operatingSystem,
@@ -136,6 +138,39 @@ function normalizeResourceRow(row, liveResource = null, error = null, diskInfo =
   };
 }
 
+/**
+ * Run an async mapper over a list with a bounded number of concurrent tasks.
+ * Unbounded Promise.all would open one Proxmox connection per resource at once
+ * and can trip the API's own rate limiting on larger installs; a small pool
+ * keeps the wall-clock win without the stampede.
+ */
+async function mapWithConcurrency(items, limit, mapper) {
+  const results = new Array(items.length);
+  let cursor = 0;
+
+  const workers = new Array(Math.min(limit, items.length)).fill(null).map(async () => {
+    while (cursor < items.length) {
+      const index = cursor;
+      cursor += 1;
+      results[index] = await mapper(items[index], index);
+    }
+  });
+
+  await Promise.all(workers);
+  return results;
+}
+
+const RESOURCE_CONCURRENCY = Number(process.env.RESOURCE_FETCH_CONCURRENCY || 8);
+
+/**
+ * Attach live Proxmox state (status, disks, IPs) to stored resource rows.
+ *
+ * Previously this walked clusters one after another and, inside each cluster,
+ * every resource one after another - so a dashboard with N services paid N
+ * sequential round trips. Clusters are now queried in parallel and the
+ * per-resource detail calls run through a bounded pool, which turns that into
+ * roughly ceil(N / RESOURCE_FETCH_CONCURRENCY) round trips instead.
+ */
 async function enrichResources(rows) {
   const grouped = rows.reduce((acc, row) => {
     const key = String(row.cluster_id);
@@ -150,9 +185,7 @@ async function enrichResources(rows) {
     return acc;
   }, {});
 
-  const result = [];
-
-  for (const group of Object.values(grouped)) {
+  const perCluster = await Promise.all(Object.values(grouped).map(async (group) => {
     let liveResources = [];
     let clusterError = null;
 
@@ -162,8 +195,11 @@ async function enrichResources(rows) {
       clusterError = err.message || 'Monitoring konnte nicht geladen werden.';
     }
 
-    for (const row of group.rows) {
-      const liveResource = liveResources.find(item => String(item.vmid) === String(row.container_id));
+    // Linear scan per row became quadratic on large clusters; index once.
+    const liveByVmid = new Map(liveResources.map(item => [String(item.vmid), item]));
+
+    return mapWithConcurrency(group.rows, RESOURCE_CONCURRENCY, async (row) => {
+      const liveResource = liveByVmid.get(String(row.container_id)) || null;
       let diskInfo = null;
       let ipEntries = [];
       let rowError = clusterError;
@@ -180,11 +216,11 @@ async function enrichResources(rows) {
         if (ipResult.status === 'fulfilled') ipEntries = ipResult.value;
       }
 
-      result.push(normalizeResourceRow(row, liveResource, rowError, diskInfo, ipEntries, diskInfo?.systemInfo || null));
-    }
-  }
+      return normalizeResourceRow(row, liveResource, rowError, diskInfo, ipEntries, diskInfo?.systemInfo || null);
+    });
+  }));
 
-  return result;
+  return perCluster.flat();
 }
 
 module.exports = {

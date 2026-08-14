@@ -24,11 +24,158 @@ function getDatabase() {
         console.log('Database connection established');
       }
     });
-    
-    // Enable foreign keys
-    db.run('PRAGMA foreign_keys = ON');
+
+    /*
+     * Connection tuning. The defaults are built for maximum portability, not
+     * for a long-lived server process, and cost a lot on every write:
+     *
+     *  journal_mode=WAL   readers no longer block the writer. The monitoring
+     *                     loop writes status events while dashboards read, so
+     *                     this removes the main source of SQLITE_BUSY stalls.
+     *  synchronous=NORMAL one fsync per checkpoint instead of per transaction.
+     *                     Safe with WAL: a crash can lose the last commits but
+     *                     never corrupts the file.
+     *  busy_timeout       wait instead of failing instantly on a lock.
+     *  foreign_keys       enforce the ON DELETE CASCADE rules the schema declares.
+     *  cache_size=-16000  16 MB page cache (negative = KiB), so the hot tables
+     *                     stay resident instead of hitting disk each query.
+     *  temp_store=MEMORY  sorts and temp b-trees stay off disk.
+     */
+    db.serialize(() => {
+      db.run('PRAGMA journal_mode = WAL');
+      db.run('PRAGMA synchronous = NORMAL');
+      db.run('PRAGMA busy_timeout = 5000');
+      db.run('PRAGMA foreign_keys = ON');
+      db.run('PRAGMA cache_size = -16000');
+      db.run('PRAGMA temp_store = MEMORY');
+    });
   }
   return db;
+}
+
+
+
+/**
+ * v3.2.0: a service may be assigned to a user, to a group, or to both.
+ *
+ * The original schema declared resources.user_id NOT NULL, which forced an
+ * owner even when a service was only ever meant to be shared with a group.
+ * SQLite cannot relax a NOT NULL constraint in place, so the table is rebuilt
+ * following the documented 12-step procedure. The migration is a no-op once
+ * user_id is already nullable, so it costs one PRAGMA on every later boot.
+ *
+ * user_id keeps ON DELETE CASCADE: deleting a user still removes the services
+ * they personally own, exactly as before. Group-only services carry a NULL
+ * owner and are untouched by user deletion.
+ */
+function migrateResourceOwnership(database, done) {
+  database.all('PRAGMA table_info(resources)', (err, columns) => {
+    if (err || !Array.isArray(columns) || columns.length === 0) {
+      done();
+      return;
+    }
+
+    const userIdColumn = columns.find(column => column.name === 'user_id');
+    if (!userIdColumn || Number(userIdColumn.notnull) === 0) {
+      done();
+      return;
+    }
+
+    // Copy only columns that exist in both schemas. The candidate list is a
+    // literal here - no runtime input ever reaches this SQL.
+    const candidates = [
+      'id', 'name', 'container_id', 'cluster_id', 'user_id', 'group_id',
+      'web_url', 'public_url', 'admin_url', 'manual_public_url', 'manual_ip',
+      'ssh_port', 'resource_type', 'created_at', 'updated_at'
+    ];
+    const existing = new Set(columns.map(column => column.name));
+    const copied = candidates.filter(name => existing.has(name)).join(', ');
+
+    database.exec(`
+      PRAGMA foreign_keys = OFF;
+      BEGIN TRANSACTION;
+      CREATE TABLE resources_owner_migration (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT,
+        container_id TEXT NOT NULL,
+        cluster_id INTEGER NOT NULL,
+        user_id INTEGER,
+        group_id INTEGER REFERENCES customer_groups(id) ON DELETE SET NULL,
+        web_url TEXT,
+        public_url TEXT,
+        admin_url TEXT,
+        manual_public_url TEXT,
+        manual_ip TEXT,
+        ssh_port INTEGER DEFAULT 22,
+        resource_type TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (cluster_id) REFERENCES proxmox_clusters(id) ON DELETE CASCADE,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      );
+      INSERT INTO resources_owner_migration (${copied}) SELECT ${copied} FROM resources;
+      DROP TABLE resources;
+      ALTER TABLE resources_owner_migration RENAME TO resources;
+      COMMIT;
+      PRAGMA foreign_keys = ON;
+    `, (migrationError) => {
+      if (migrationError) {
+        console.error('✗ Resource ownership migration failed:', migrationError.message);
+      } else {
+        console.log('✓ Migrated resources: group-only assignments are now allowed');
+      }
+      done();
+    });
+  });
+}
+
+/**
+ * Indexes for the hot query paths.
+ *
+ * These cover the joins and filters the portal runs on every dashboard load and
+ * on every monitoring tick. Without them SQLite falls back to full table scans -
+ * unnoticeable on a fresh install, increasingly expensive as audit_log and
+ * status_events grow into six figures. All are IF NOT EXISTS, so this is safe to
+ * re-run on every boot, and errors are ignored because a missing legacy column
+ * must never stop the server from starting.
+ */
+function createPerformanceIndexes(database, done) {
+  const statements = [
+    // Resource access checks: owner lookup, group sharing, monitoring joins
+    `CREATE INDEX IF NOT EXISTS idx_resources_user ON resources(user_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_resources_group ON resources(group_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_resources_cluster_container ON resources(cluster_id, container_id)`,
+    // Group membership is joined on both sides of the access filter
+    `CREATE INDEX IF NOT EXISTS idx_user_groups_user ON user_groups(user_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_user_groups_group ON user_groups(group_id)`,
+    // Login and notification fan-out read users by email
+    `CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)`,
+    // Audit view: newest-first paging plus the settings key lookup
+    `CREATE INDEX IF NOT EXISTS idx_audit_log_created ON audit_log(id DESC)`,
+    `CREATE INDEX IF NOT EXISTS idx_audit_log_user ON audit_log(user_id, id DESC)`,
+    // Credentials and publications are always fetched per resource
+    `CREATE INDEX IF NOT EXISTS idx_resource_credentials_resource ON resource_credentials(resource_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_provisioned_machines_lookup ON provisioned_machines(cluster_id, vmid)`,
+    // Status history is read newest-first per resource
+    `CREATE INDEX IF NOT EXISTS idx_status_events_resource ON status_events(cluster_id, container_id, id DESC)`
+  ];
+
+  let remaining = statements.length;
+  if (!remaining) {
+    done();
+    return;
+  }
+
+  for (const statement of statements) {
+    database.run(statement, () => {
+      remaining -= 1;
+      if (remaining === 0) {
+        // ANALYZE refreshes the planner statistics so the new indexes actually
+        // get chosen. Cheap on a database this size and only runs at startup.
+        database.run('ANALYZE', () => done());
+      }
+    });
+  }
 }
 
 /**
@@ -48,13 +195,10 @@ async function initDatabase() {
           password_hash TEXT NOT NULL,
           role TEXT DEFAULT 'user' CHECK(role IN ('admin', 'user')),
           preferred_language TEXT DEFAULT 'en',
-          avatar_path TEXT,
           created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
           updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
       `);
-
-      database.run(`ALTER TABLE users ADD COLUMN avatar_path TEXT`, () => {});
 
       // Customer Groups table
       database.run(`
@@ -408,6 +552,12 @@ async function initDatabase() {
       database.run(`ALTER TABLE users ADD COLUMN notify_maintenance INTEGER DEFAULT 1`, () => {});
       // v3.1.23: persisted portal/e-mail language per user
       database.run(`ALTER TABLE users ADD COLUMN preferred_language TEXT`, () => {});
+      // v3.2.0: profile picture (avatar) per account, stored as base64 in SQLite.
+      // Images are downscaled to a square thumbnail in the browser before upload,
+      // so the payload stays small enough to travel with the user object.
+      database.run(`ALTER TABLE users ADD COLUMN avatar_mime TEXT`, () => {});
+      database.run(`ALTER TABLE users ADD COLUMN avatar_data TEXT`, () => {});
+      database.run(`ALTER TABLE users ADD COLUMN avatar_updated_at DATETIME`, () => {});
 
       // v3.0: scheduled maintenance windows / announcements
       database.run(`
@@ -525,10 +675,17 @@ async function initDatabase() {
                 `, (settingsError) => {
                   if (settingsError) {
                     reject(settingsError);
-                  } else {
-                    console.log('✓ All tables initialized');
-                    resolve();
+                    return;
                   }
+
+                  // Schema migrations run before the indexes, because a table
+                  // rebuild drops the indexes attached to the old table.
+                  migrateResourceOwnership(database, () => {
+                    createPerformanceIndexes(database, () => {
+                      console.log('✓ All tables initialized');
+                      resolve();
+                    });
+                  });
                 });
               });
             });

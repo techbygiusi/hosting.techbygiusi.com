@@ -69,7 +69,7 @@ export default function Setup() {
       setError('Die Administrator-Passwörter stimmen nicht überein.');
       return false;
     }
-    if (adminData.password.length < 6) {
+    if (adminData.password.length < 10) {
       setError('Das Administrator-Passwort muss mindestens 6 Zeichen lang sein.');
       return false;
     }
@@ -239,7 +239,7 @@ export default function Setup() {
                   </label>
                   <label className="form-group">
                     <span>Passwort</span>
-                    <input type="password" name="password" value={adminData.password} onChange={handleAdminChange} placeholder="Mindestens 6 Zeichen" />
+                    <input type="password" name="password" value={adminData.password} onChange={handleAdminChange} placeholder="Mindestens 10 Zeichen" />
                   </label>
                   <label className="form-group">
                     <span>Passwort bestätigen</span>

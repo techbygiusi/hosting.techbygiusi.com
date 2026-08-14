@@ -104,7 +104,12 @@ const MESSAGE_TRANSLATIONS = {
   'Current and new password required': 'Aktuelles und neues Passwort sind erforderlich.',
   'Current password is incorrect': 'Das aktuelle Passwort ist falsch.',
   'New password must be at least 6 characters': 'Das neue Passwort muss mindestens 6 Zeichen lang sein.',
-  'New password must be at least 8 characters': 'Das neue Passwort muss mindestens 8 Zeichen lang sein.',
+  'The password must be at least 10 characters long': 'Das Passwort muss mindestens 10 Zeichen lang sein.',
+  'The new password must be at least 10 characters long': 'Das neue Passwort muss mindestens 10 Zeichen lang sein.',
+  'This password is too common. Please choose a different one.': 'Dieses Passwort ist zu häufig. Bitte wähle ein anderes.',
+  'The new password must differ from the current one': 'Das neue Passwort muss sich vom aktuellen unterscheiden.',
+  'Assign the service to a user, a group, or both': 'Bitte einen Benutzer, eine Gruppe oder beides zuweisen.',
+  'Resource and cluster are required': 'Bitte Cluster und Dienst auswählen.',
   'Account temporarily locked. Try again later.': 'Konto vorübergehend gesperrt. Bitte später erneut versuchen.',
   'Too many login attempts. Please try again later.': 'Zu viele Anmeldeversuche. Bitte später erneut versuchen.',
   'Rate limit exceeded.': 'Zu viele Anfragen. Bitte kurz warten.',
@@ -175,18 +180,13 @@ const MESSAGE_TRANSLATIONS = {
   'Maintenance window deleted': 'Wartungsfenster wurde gelöscht.',
   'Notification preferences updated': 'Benachrichtigungseinstellungen gespeichert.',
   'Test email sent': 'Test-E-Mail wurde versendet.',
-  'Admin password must be at least 8 characters': 'Das Admin-Passwort muss mindestens 8 Zeichen lang sein.',
-  'Password must be at least 8 characters': 'Das Passwort muss mindestens 8 Zeichen lang sein.',
+  'The admin password must be at least 10 characters long': 'Das Admin-Passwort muss mindestens 10 Zeichen lang sein.',
+  'The password must be at least 10 characters long.': 'Das Passwort muss mindestens 10 Zeichen lang sein.',
   'Please select a valid location from the search results': 'Bitte einen gültigen Standort aus den Suchergebnissen auswählen.',
   'Location search failed': 'Standortsuche fehlgeschlagen.',
   'Invalid token purpose': 'Ungültiger Token-Zweck.',
   'Timed out while starting Proxmox node command': 'Zeitüberschreitung beim Starten des Proxmox-Node-Befehls.',
   'Name is required': 'Name ist erforderlich.',
-  'Profile image updated': 'Profilbild erfolgreich aktualisiert.',
-  'Profile image removed': 'Profilbild wurde entfernt.',
-  'Unsupported avatar file type': 'Dieses Bildformat wird nicht unterstützt.',
-  'Avatar image is required': 'Bitte wähle ein Bild aus.',
-  'Avatar image is too large': 'Das Bild ist zu groß. Maximal 2 MB sind erlaubt.',
   'No available Proxmox storage found on the selected node': 'Auf der ausgewählten Node wurde kein verfügbarer Proxmox-Speicher gefunden.',
   'Proxmox name, URL, and API token are required': 'Proxmox-Name, URL und API-Token sind erforderlich.',
   'Proxmox URL must start with http:// or https://': 'Die Proxmox-URL muss mit http:// oder https:// beginnen.',
@@ -356,6 +356,10 @@ export const adminApi = {
 };
 
 export const userApi = {
+  // Profile picture of the signed-in account (users and admins alike)
+  getAvatar: () => apiClient.get('/user/avatar'),
+  updateAvatar: (avatar) => apiClient.put('/user/avatar', { avatar }),
+  deleteAvatar: () => apiClient.delete('/user/avatar'),
   getResources: () => apiClient.get('/user/resources'),
   getResourceDetails: (resourceId) => apiClient.get(`/user/resources/${resourceId}`),
   getPublishingOptions: (resourceId) => apiClient.get(`/user/publishing/options${resourceId ? `?resourceId=${encodeURIComponent(resourceId)}` : ''}`),
@@ -375,13 +379,6 @@ export const userApi = {
   getContainerDetails: (containerId) => apiClient.get(`/user/containers/${containerId}`),
   getProfile: () => apiClient.get('/user/profile'),
   updateProfile: (data) => apiClient.put('/user/profile', data),
-  uploadProfileAvatar: (file) => apiClient.post('/user/profile/avatar', file, {
-    headers: {
-      'Content-Type': file.type || 'application/octet-stream',
-      'X-Filename': encodeURIComponent(file.name || 'avatar')
-    }
-  }),
-  deleteProfileAvatar: () => apiClient.delete('/user/profile/avatar'),
   updateLanguage: (language) => apiClient.put('/user/language', { language }),
   // v2.0
   powerAction: (resourceId, action) => apiClient.post(`/user/resources/${resourceId}/power`, { action }),
