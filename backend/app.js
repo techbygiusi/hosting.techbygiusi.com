@@ -1,5 +1,6 @@
 require('dotenv').config();
 const http = require('http');
+const path = require('path');
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -73,6 +74,8 @@ app.use('/api', apiLimiter);
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
+
+app.use('/uploads', express.static(path.join(__dirname, 'data/uploads'), { maxAge: '7d', fallthrough: true }));
 
 initDatabase().then(() => {
   console.log('✓ Database initialized');

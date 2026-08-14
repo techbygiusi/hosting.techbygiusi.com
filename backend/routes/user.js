@@ -31,6 +31,15 @@ const { createConsoleSession, testSshConnection } = require('../services/console
 const { logAudit } = require('../services/auditService');
 const { buildPangolinResourceName } = require('../utils/pangolinResourceName');
 const {
+  ALLOWED_MIME_TYPES,
+  MAX_AVATAR_BYTES,
+  ensureAvatarDirectory,
+  avatarPublicPath,
+  avatarAbsoluteUrl,
+  makeAvatarFilename,
+  deleteAvatarFile
+} = require('../utils/avatar');
+const {
   getPangolinConfig,
   publicConfig: getPublicPangolinConfig,
   createPublication,
@@ -325,7 +334,7 @@ function normalizePublishingProtocol(value) {
 router.get('/profile', async (req, res, next) => {
   try {
     const user = await get(
-      'SELECT id, email, name, role, preferred_language, created_at, updated_at FROM users WHERE id = ?',
+      'SELECT id, email, name, role, preferred_language, avatar_path, created_at, updated_at FROM users WHERE id = ?',
       [req.user.id]
     );
     if (!user) throw new AppError('User not found', HTTP_STATUS.NOT_FOUND);
@@ -336,7 +345,7 @@ router.get('/profile', async (req, res, next) => {
       WHERE ug.user_id = ?
     `, [req.user.id]);
 
-    res.json({ user: { ...user, preferredLanguage: user.preferred_language || 'en', groups } });
+    res.json({ user: { ...user, preferredLanguage: user.preferred_language || 'en', avatarUrl: avatarAbsoluteUrl(req, user.avatar_path), groups } });
   } catch (err) {
     next(err);
   }
@@ -353,10 +362,79 @@ router.put('/profile', async (req, res, next) => {
     );
 
     const user = await get(
-      'SELECT id, email, name, role, preferred_language, created_at, updated_at FROM users WHERE id = ?',
+      'SELECT id, email, name, role, preferred_language, avatar_path, created_at, updated_at FROM users WHERE id = ?',
       [req.user.id]
     );
-    res.json({ user: { ...user, preferredLanguage: user.preferred_language || 'en' } });
+    res.json({ user: { ...user, preferredLanguage: user.preferred_language || 'en', avatarUrl: avatarAbsoluteUrl(req, user.avatar_path) } });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/profile/avatar', express.raw({
+  type: ['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'application/octet-stream'],
+  limit: `${Math.max(MAX_AVATAR_BYTES, 1024)}b`
+}), async (req, res, next) => {
+  try {
+    const mimeType = String(req.headers['content-type'] || '').split(';')[0].trim().toLowerCase();
+    const buffer = Buffer.isBuffer(req.body) ? req.body : Buffer.from([]);
+
+    if (!ALLOWED_MIME_TYPES.has(mimeType)) {
+      throw new AppError('Unsupported avatar file type', HTTP_STATUS.BAD_REQUEST);
+    }
+    if (!buffer.length) {
+      throw new AppError('Avatar image is required', HTTP_STATUS.BAD_REQUEST);
+    }
+    if (buffer.length > MAX_AVATAR_BYTES) {
+      throw new AppError('Avatar image is too large', HTTP_STATUS.BAD_REQUEST);
+    }
+
+    ensureAvatarDirectory();
+    const current = await get('SELECT id, avatar_path FROM users WHERE id = ?', [req.user.id]);
+    if (!current) throw new AppError('User not found', HTTP_STATUS.NOT_FOUND);
+
+    const filename = makeAvatarFilename(mimeType);
+    if (!filename) {
+      throw new AppError('Unsupported avatar file type', HTTP_STATUS.BAD_REQUEST);
+    }
+
+    const publicPath = avatarPublicPath(filename);
+    const fs = require('fs');
+    const path = require('path');
+    fs.writeFileSync(path.join(require('../utils/avatar').AVATAR_DIR, filename), buffer);
+
+    await run('UPDATE users SET avatar_path = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [publicPath, req.user.id]);
+    deleteAvatarFile(current.avatar_path);
+
+    const user = await get('SELECT id, email, name, role, preferred_language, avatar_path, created_at, updated_at FROM users WHERE id = ?', [req.user.id]);
+    res.json({
+      message: 'Profile image updated',
+      user: {
+        ...user,
+        preferredLanguage: user.preferred_language || 'en',
+        avatarUrl: avatarAbsoluteUrl(req, user.avatar_path)
+      }
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.delete('/profile/avatar', async (req, res, next) => {
+  try {
+    const current = await get('SELECT id, avatar_path FROM users WHERE id = ?', [req.user.id]);
+    if (!current) throw new AppError('User not found', HTTP_STATUS.NOT_FOUND);
+    deleteAvatarFile(current.avatar_path);
+    await run('UPDATE users SET avatar_path = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [req.user.id]);
+    const user = await get('SELECT id, email, name, role, preferred_language, avatar_path, created_at, updated_at FROM users WHERE id = ?', [req.user.id]);
+    res.json({
+      message: 'Profile image removed',
+      user: {
+        ...user,
+        preferredLanguage: user.preferred_language || 'en',
+        avatarUrl: avatarAbsoluteUrl(req, user.avatar_path)
+      }
+    });
   } catch (err) {
     next(err);
   }

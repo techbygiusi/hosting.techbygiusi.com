@@ -3,12 +3,23 @@
  * Every template accepts language: 'en' | 'de'. English is the fallback.
  */
 
-const BRAND_NAME = process.env.BRAND_NAME || 'Hosting by TechByGiusi';
+const BRAND_NAME = process.env.BRAND_NAME || 'Hosting Portal';
 const BRAND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
 
 const COLORS = {
-  accent: '#7A876F', text: '#111111', muted: '#6B7280', surface: '#f4f4f2',
-  border: '#e3e3e0', danger: '#b42318', warning: '#b7791f', success: '#2f7d46'
+  accent: '#98a889',
+  accentStrong: '#728464',
+  accentSoft: '#e6ecde',
+  text: '#101617',
+  muted: '#5d6868',
+  surface: '#ffffff',
+  border: '#dde5d8',
+  danger: '#bb3f3f',
+  warning: '#c6842f',
+  success: '#5f8b68',
+  shell: '#eff2ec',
+  header: '#0d1311',
+  panel: '#f8faf7'
 };
 
 function normalizeLanguage(language) {
@@ -42,22 +53,22 @@ function baseLayout({ language = 'en', preheader = '', title, bodyHtml, footerNo
   return `<!DOCTYPE html>
 <html lang="${lang}">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(title)}</title></head>
-<body style="margin:0;padding:0;background:#ffffff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:${COLORS.text};">
+<body style="margin:0;padding:0;background:${COLORS.shell};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:${COLORS.text};">
 <span style="display:none!important;visibility:hidden;opacity:0;height:0;width:0;overflow:hidden;">${escapeHtml(preheader)}</span>
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#ffffff;padding:32px 16px;"><tr><td align="center">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;">
-<tr><td style="padding:0 8px 20px"><div style="font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:${COLORS.accent};font-weight:600;">${escapeHtml(BRAND_NAME)}</div></td></tr>
-<tr><td style="background:${COLORS.surface};border:1px solid ${COLORS.border};border-radius:14px;padding:32px 28px;">
-<h1 style="margin:0 0 16px;font-size:22px;font-weight:600;line-height:1.3;color:${COLORS.text};">${escapeHtml(title)}</h1>${bodyHtml}</td></tr>
-<tr><td style="padding:20px 8px 0"><p style="margin:0;font-size:12px;line-height:1.6;color:${COLORS.muted};">${footer}${footerNote ? `<br>${escapeHtml(footerNote)}` : ''}</p></td></tr>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${COLORS.shell};padding:36px 16px;"><tr><td align="center">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:620px;">
+<tr><td style="padding:0 8px 18px"><div style="display:inline-flex;align-items:center;gap:8px;padding:10px 16px;border-radius:999px;background:${COLORS.header};font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:#f3f7ef;font-weight:700;box-shadow:0 10px 24px rgba(16,22,23,0.14);">${escapeHtml(BRAND_NAME)}</div></td></tr>
+<tr><td style="background:${COLORS.panel};border:1px solid ${COLORS.border};border-radius:30px;padding:38px 32px;box-shadow:0 24px 60px rgba(16,22,23,0.10);">
+<h1 style="margin:0 0 16px;font-size:28px;font-weight:700;line-height:1.15;color:${COLORS.text};letter-spacing:-0.03em;font-family:'Trebuchet MS','Arial Rounded MT Bold','Segoe UI',sans-serif;">${escapeHtml(title)}</h1>${bodyHtml}</td></tr>
+<tr><td style="padding:18px 8px 0"><p style="margin:0;font-size:12px;line-height:1.7;color:${COLORS.muted};">${footer}${footerNote ? `<br>${escapeHtml(footerNote)}` : ''}</p></td></tr>
 </table></td></tr></table></body></html>`;
 }
 
 function button(href, label) {
-  return `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:24px 0;"><tr><td style="border-radius:10px;background:${COLORS.accent};"><a href="${escapeHtml(href)}" target="_blank" style="display:inline-block;padding:12px 28px;font-size:15px;font-weight:600;color:#fff;text-decoration:none;border-radius:10px;">${escapeHtml(label)}</a></td></tr></table>`;
+  return `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:24px 0;"><tr><td style="border-radius:14px;background:linear-gradient(135deg, ${COLORS.accentStrong}, ${COLORS.accent});box-shadow:0 12px 24px rgba(114,132,100,0.24);"><a href="${escapeHtml(href)}" target="_blank" style="display:inline-block;padding:13px 28px;font-size:15px;font-weight:700;color:#ffffff;text-decoration:none;border-radius:14px;">${escapeHtml(label)}</a></td></tr></table>`;
 }
-function infoRow(label, value) { return `<tr><td style="padding:6px 12px 6px 0;font-size:13px;color:${COLORS.muted};white-space:nowrap;vertical-align:top;">${escapeHtml(label)}</td><td style="padding:6px 0;font-size:14px;color:${COLORS.text};font-weight:500;">${escapeHtml(value)}</td></tr>`; }
-function paragraph(html) { return `<p style="margin:0 0 14px;font-size:15px;line-height:1.6;color:${COLORS.text};">${html}</p>`; }
+function infoRow(label, value) { return `<tr><td style="padding:6px 12px 6px 0;font-size:13px;color:${COLORS.muted};white-space:nowrap;vertical-align:top;font-weight:600;">${escapeHtml(label)}</td><td style="padding:6px 0;font-size:14px;color:${COLORS.text};font-weight:600;">${escapeHtml(value)}</td></tr>`; }
+function paragraph(html) { return `<p style="margin:0 0 14px;font-size:15px;line-height:1.7;color:${COLORS.text};">${html}</p>`; }
 function statusPill(text, color) { return `<span style="display:inline-block;padding:3px 12px;border-radius:999px;background:${color};color:#fff;font-size:12px;font-weight:600;letter-spacing:.04em;">${escapeHtml(text)}</span>`; }
 function hello(name, lang) { return lang === 'de' ? `Hallo ${escapeHtml(name || '')},` : `Hello ${escapeHtml(name || '')},`; }
 

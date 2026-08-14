@@ -11,6 +11,8 @@ import ClusterMapSection from '../components/ClusterMapSection';
 import PangolinSettingsPanel from '../components/PangolinSettingsPanel';
 import { readStoredLanguage, storeLanguage } from '../components/LanguageSwitch';
 import { translatePortalText } from '../i18n';
+import ProfileSettingsPanel from '../components/ProfileSettingsPanel';
+import UserAvatar from '../components/UserAvatar';
 
 function LogoutIcon() {
   return (
@@ -290,7 +292,7 @@ const MOBILE_MENU_TRANSLATIONS = {
 
 
 export default function AdminDashboard() {
-  const { user, logout } = useAuth();
+  const { user, logout, updateUserData } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = getAdminTab(searchParams);
   const [users, setUsers] = useState([]);
@@ -1212,9 +1214,16 @@ export default function AdminDashboard() {
       <MaintenanceBanner />
       <header className="site-header">
         <div className="site-header-inner">
-          <button type="button" className="site-brand site-brand-button" onClick={() => handleSelectTab('overview')} aria-label="Zum Dashboard"><h1>Hosting by TechByGiusi</h1></button>
+          <button type="button" className="site-brand site-brand-button" onClick={() => handleSelectTab('overview')} aria-label="Zum Dashboard"><h1>Hosting Portal</h1></button>
           <div className="site-actions">
             <ThemeButton />
+            <div className="header-user-chip">
+              <div className="header-user-copy">
+                <strong>{user?.name || 'Administrator'}</strong>
+                <span>{mobileMenuText.adminConsole}</span>
+              </div>
+              <UserAvatar user={user} size={42} />
+            </div>
             <button type="button" className="btn-secondary admin-mobile-menu-toggle" onClick={() => setMobileMenuOpen(true)} aria-label={mobileMenuText.openMenu}><MenuIcon /><span>{mobileMenuText.menu}</span></button>
             <button type="button" className="btn-secondary logout-button" onClick={logout} aria-label={mobileMenuText.logout}><LogoutIcon /><span className="logout-label">{mobileMenuText.logout}</span></button>
           </div>
@@ -1224,10 +1233,13 @@ export default function AdminDashboard() {
       <div className={`mobile-admin-menu-overlay ${mobileMenuOpen ? 'open' : ''}`} onClick={() => setMobileMenuOpen(false)} aria-hidden={!mobileMenuOpen}>
         <div className="mobile-admin-menu-panel" onClick={(e) => e.stopPropagation()}>
           <div className="mobile-admin-menu-header">
-            <div>
-              <span className="resource-id">{mobileMenuText.adminConsole}</span>
-              <h2>{user?.name || 'Administrator'}</h2>
-              <p>{clusters.length} {mobileMenuText.counts.clusters} · {resources.length} {mobileMenuText.counts.services} · {users.length} {mobileMenuText.counts.users}</p>
+            <div className="sidebar-profile-block">
+              <UserAvatar user={user} size={52} />
+              <div>
+                <span className="resource-id">{mobileMenuText.adminConsole}</span>
+                <h2>{user?.name || 'Administrator'}</h2>
+                <p>{clusters.length} {mobileMenuText.counts.clusters} · {resources.length} {mobileMenuText.counts.services} · {users.length} {mobileMenuText.counts.users}</p>
+              </div>
             </div>
             <button type="button" className="btn-secondary mobile-admin-menu-close" onClick={() => setMobileMenuOpen(false)} aria-label={mobileMenuText.closeMenu}>{mobileMenuText.close}</button>
           </div>
@@ -1257,9 +1269,14 @@ export default function AdminDashboard() {
       <main className="app-container compact-container admin-shell">
         <aside className="admin-sidebar-shell desktop-admin-sidebar">
           <div className="panel-card console-sidebar-card">
-            <span className="resource-id">{mobileMenuText.adminConsole}</span>
-            <h2>{user?.name || 'Administrator'}</h2>
-            <p>{clusters.length} {mobileMenuText.counts.clusters} · {resources.length} {mobileMenuText.counts.services} · {users.length} {mobileMenuText.counts.users}</p>
+            <div className="sidebar-profile-block">
+              <UserAvatar user={user} size={56} />
+              <div>
+                <span className="resource-id">{mobileMenuText.adminConsole}</span>
+                <h2>{user?.name || 'Administrator'}</h2>
+                <p>{clusters.length} {mobileMenuText.counts.clusters} · {resources.length} {mobileMenuText.counts.services} · {users.length} {mobileMenuText.counts.users}</p>
+              </div>
+            </div>
           </div>
           <nav className="app-tabs console-nav-tabs" aria-label={mobileMenuText.menu}>
             {mobileMenuTabs.map(([key, label]) => (
@@ -1278,7 +1295,7 @@ export default function AdminDashboard() {
             <>
               <section className="panel-card dashboard-hero-card">
                 <div>
-                  <span className="resource-id">Hosting by TechByGiusi</span>
+                  <span className="resource-id">Control Center</span>
                   <h2>Dashboard</h2>
                   
                 </div>
@@ -1481,6 +1498,8 @@ export default function AdminDashboard() {
         {!loading && activeTab === 'settings' && (
           <section className="panel-card settings-card">
             <PanelHeader title="Einstellungen" />
+
+            <ProfileSettingsPanel language={mobileMenuLanguage} currentUser={user} onUserUpdated={updateUserData} />
 
             <section className="settings-section-card settings-language-section" aria-labelledby="settings-language-title">
               <div className="settings-section-heading">

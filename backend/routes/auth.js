@@ -12,12 +12,13 @@ const { testConnection } = require('../services/proxmoxService');
 const { passwordResetTemplate } = require('../services/emailTemplates');
 const { logAudit } = require('../services/auditService');
 const { getPublicFrontendUrl } = require('../utils/publicUrl');
+const { avatarPublicPath, avatarAbsoluteUrl } = require('../utils/avatar');
 
 const SETUP_KEYS = ['smtp_host', 'smtp_port', 'smtp_user', 'smtp_password'];
 
 async function getSetupState() {
   const adminUser = await get(
-    'SELECT id, email, name, role, preferred_language FROM users WHERE role = ? ORDER BY id ASC LIMIT 1',
+    'SELECT id, email, name, role, preferred_language, avatar_path FROM users WHERE role = ? ORDER BY id ASC LIMIT 1',
     [ROLES.ADMIN]
   );
   const proxmoxCluster = await get('SELECT id FROM proxmox_clusters ORDER BY id ASC LIMIT 1');
@@ -54,7 +55,8 @@ async function getSetupState() {
       email: adminUser.email,
       name: adminUser.name,
       role: adminUser.role,
-      preferredLanguage: adminUser.preferred_language || 'en'
+      preferredLanguage: adminUser.preferred_language || 'en',
+      avatarUrl: avatarAbsoluteUrl(null, adminUser.avatar_path)
     } : null
   };
 }
@@ -177,7 +179,8 @@ router.post('/setup', async (req, res, next) => {
         email: adminEmail.trim().toLowerCase(),
         name: adminName.trim(),
         role: ROLES.ADMIN,
-        preferredLanguage: ['de', 'en'].includes(String(preferredLanguage || '').toLowerCase()) ? String(preferredLanguage).toLowerCase() : 'en'
+        preferredLanguage: ['de', 'en'].includes(String(preferredLanguage || '').toLowerCase()) ? String(preferredLanguage).toLowerCase() : 'en',
+        avatarUrl: ''
       };
     }
 
@@ -313,7 +316,8 @@ router.post('/login', async (req, res, next) => {
         email: user.email,
         name: user.name,
         role: user.role,
-        preferredLanguage: user.preferred_language || 'en'
+        preferredLanguage: user.preferred_language || 'en',
+        avatarUrl: avatarAbsoluteUrl(req, user.avatar_path)
       }
     });
   } catch (err) {
@@ -324,7 +328,7 @@ router.post('/login', async (req, res, next) => {
 router.get('/verify', authMiddleware, async (req, res, next) => {
   try {
     const setupState = await getSetupState();
-    const storedUser = await get('SELECT id, email, name, role, preferred_language FROM users WHERE id = ?', [req.user.id]);
+    const storedUser = await get('SELECT id, email, name, role, preferred_language, avatar_path FROM users WHERE id = ?', [req.user.id]);
     res.json({
       valid: true,
       user: storedUser ? {
@@ -332,7 +336,8 @@ router.get('/verify', authMiddleware, async (req, res, next) => {
         email: storedUser.email,
         name: storedUser.name,
         role: storedUser.role,
-        preferredLanguage: storedUser.preferred_language || null
+        preferredLanguage: storedUser.preferred_language || null,
+        avatarUrl: avatarAbsoluteUrl(req, storedUser.avatar_path)
       } : req.user,
       setupRequired: setupState.setupRequired
     });

@@ -48,10 +48,13 @@ async function initDatabase() {
           password_hash TEXT NOT NULL,
           role TEXT DEFAULT 'user' CHECK(role IN ('admin', 'user')),
           preferred_language TEXT DEFAULT 'en',
+          avatar_path TEXT,
           created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
           updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
       `);
+
+      database.run(`ALTER TABLE users ADD COLUMN avatar_path TEXT`, () => {});
 
       // Customer Groups table
       database.run(`

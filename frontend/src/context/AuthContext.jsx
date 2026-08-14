@@ -19,6 +19,29 @@ export function AuthProvider({ children }) {
     return setupRes.data;
   };
 
+  const persistUser = (nextUser) => {
+    if (nextUser) {
+      localStorage.setItem('user', JSON.stringify(nextUser));
+      if (nextUser?.preferredLanguage) storeLanguage(nextUser.preferredLanguage);
+    } else {
+      localStorage.removeItem('user');
+    }
+    setUser(nextUser);
+  };
+
+  const updateUserData = (updater) => {
+    setUser((current) => {
+      const nextUser = typeof updater === 'function' ? updater(current) : { ...(current || {}), ...(updater || {}) };
+      if (nextUser) {
+        localStorage.setItem('user', JSON.stringify(nextUser));
+        if (nextUser?.preferredLanguage) storeLanguage(nextUser.preferredLanguage);
+      } else {
+        localStorage.removeItem('user');
+      }
+      return nextUser;
+    });
+  };
+
   useEffect(() => {
     const initAuth = async () => {
       try {
@@ -41,9 +64,7 @@ export function AuthProvider({ children }) {
               const serverUser = verifyResponse.data.user;
               const preferredLanguage = serverUser.preferredLanguage || readStoredLanguage();
               const verifiedUser = { ...serverUser, preferredLanguage };
-              localStorage.setItem('user', JSON.stringify(verifiedUser));
-              setUser(verifiedUser);
-              storeLanguage(preferredLanguage);
+              persistUser(verifiedUser);
               if (!serverUser.preferredLanguage) {
                 await userApi.updateLanguage(preferredLanguage);
               }
@@ -109,11 +130,9 @@ export function AuthProvider({ children }) {
       const { token: newToken, user: userData } = response.data;
 
       localStorage.setItem('token', newToken);
-      localStorage.setItem('user', JSON.stringify(userData));
+      persistUser(userData);
 
       setToken(newToken);
-      setUser(userData);
-      storeLanguage(userData.preferredLanguage || 'en');
       setSetupRequired(false);
       return userData;
     } catch (err) {
@@ -143,11 +162,9 @@ export function AuthProvider({ children }) {
       const { token: newToken, user: userData } = response.data;
 
       localStorage.setItem('token', newToken);
-      localStorage.setItem('user', JSON.stringify(userData));
+      persistUser(userData);
 
       setToken(newToken);
-      setUser(userData);
-      storeLanguage(userData.preferredLanguage || readStoredLanguage());
       await refreshSetupStatus();
       return userData;
     } catch (err) {
@@ -165,7 +182,7 @@ export function AuthProvider({ children }) {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       setToken(null);
-      setUser(null);
+      persistUser(null);
       setError(null);
     }
   };
@@ -194,6 +211,7 @@ export function AuthProvider({ children }) {
     setup,
     logout,
     changePassword,
+    updateUserData,
     isAdmin: user?.role === 'admin',
     isAuthenticated: !!token
   };

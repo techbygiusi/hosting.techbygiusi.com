@@ -10,6 +10,8 @@ import MaintenanceBanner from '../components/MaintenanceBanner';
 import NotificationSettingsPanel from '../components/NotificationSettingsPanel';
 import WikiBrowser from '../components/WikiBrowser';
 import PublicPageModal from '../components/PublicPageModal';
+import ProfileSettingsPanel from '../components/ProfileSettingsPanel';
+import UserAvatar from '../components/UserAvatar';
 
 const USER_LANGUAGE_OPTIONS = [
   { code: 'en', label: 'English' },
@@ -225,7 +227,7 @@ function LogoutIcon() {
 }
 
 export default function UserDashboard() {
-  const { user, logout, changePassword } = useAuth();
+  const { user, logout, changePassword, updateUserData } = useAuth();
   const [resources, setResources] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -341,10 +343,17 @@ export default function UserDashboard() {
       <header className="site-header">
         <div className="site-header-inner">
           <div className="site-brand">
-            <h1>Hosting by TechByGiusi</h1>
+            <h1>Hosting Portal</h1>
           </div>
           <div className="site-actions">
             <ThemeButton />
+            <div className="header-user-chip">
+              <div className="header-user-copy">
+                <strong>{user?.name || user?.email || 'User'}</strong>
+                <span>{labels.userConsole}</span>
+              </div>
+              <UserAvatar user={user} size={42} />
+            </div>
             <button type="button" className="btn-secondary admin-mobile-menu-toggle user-menu-toggle-icon-only" onClick={() => setMenuOpen(true)} aria-label={labels.openMenu} title={labels.menu}><MenuIcon /></button>
             <button type="button" className="btn-secondary logout-button" onClick={logout} aria-label={labels.logout}><LogoutIcon /><span className="logout-label">{labels.logout}</span></button>
           </div>
@@ -354,10 +363,13 @@ export default function UserDashboard() {
       <div className={`user-fullscreen-menu-overlay ${menuOpen ? 'open' : ''}`} onClick={() => setMenuOpen(false)} aria-hidden={!menuOpen}>
         <div className="user-fullscreen-menu-panel" onClick={(e) => e.stopPropagation()}>
           <div className="mobile-admin-menu-header">
-            <div>
-              <span className="resource-id">{labels.userConsole}</span>
-              <h2>{user?.name || user?.email || 'User'}</h2>
-              <p>{resources.length} {labels.counts.services} · {onlineCount} {labels.counts.online}</p>
+            <div className="sidebar-profile-block">
+              <UserAvatar user={user} size={52} />
+              <div>
+                <span className="resource-id">{labels.userConsole}</span>
+                <h2>{user?.name || user?.email || 'User'}</h2>
+                <p>{resources.length} {labels.counts.services} · {onlineCount} {labels.counts.online}</p>
+              </div>
             </div>
             <button type="button" className="btn-secondary mobile-admin-menu-close" onClick={() => setMenuOpen(false)} aria-label={labels.closeMenu}>{labels.close}</button>
           </div>
@@ -387,9 +399,14 @@ export default function UserDashboard() {
       <main className="app-container compact-container admin-shell user-dashboard-shell">
         <aside className="admin-sidebar-shell desktop-admin-sidebar user-desktop-sidebar">
           <div className="panel-card console-sidebar-card">
-            <span className="resource-id">{labels.userConsole}</span>
-            <h2>{user?.name || user?.email || 'User'}</h2>
-            <p>{resources.length} {labels.counts.services} · {onlineCount} {labels.counts.online}</p>
+            <div className="sidebar-profile-block">
+              <UserAvatar user={user} size={56} />
+              <div>
+                <span className="resource-id">{labels.userConsole}</span>
+                <h2>{user?.name || user?.email || 'User'}</h2>
+                <p>{resources.length} {labels.counts.services} · {onlineCount} {labels.counts.online}</p>
+              </div>
+            </div>
           </div>
           <nav className="app-tabs console-nav-tabs" aria-label={labels.menu}>
             <button type="button" className={activeTab === 'dashboard' ? 'active' : ''} onClick={() => selectTab('dashboard')}>{labels.dashboard}</button>
@@ -405,7 +422,7 @@ export default function UserDashboard() {
             <>
               <section className="panel-card dashboard-hero-card user-dashboard-hero-card">
                 <div>
-                  <span className="resource-id">Hosting by TechByGiusi</span>
+                  <span className="resource-id">Control Center</span>
                   <h2>{labels.hero.title}</h2>
                 </div>
                 {availableProvisioningOptions.length > 0 && (
@@ -471,6 +488,7 @@ export default function UserDashboard() {
           {activeTab === 'settings' && (
             <section className="panel-card user-settings-card">
               <div className="panel-header"><h2>{labels.settings}</h2></div>
+              <ProfileSettingsPanel language={language} currentUser={user} onUserUpdated={updateUserData} />
               <div className="settings-language-card language-settings-block">
                 <div>
                   <h3>{labels.language}</h3>

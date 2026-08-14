@@ -182,6 +182,11 @@ const MESSAGE_TRANSLATIONS = {
   'Invalid token purpose': 'Ungültiger Token-Zweck.',
   'Timed out while starting Proxmox node command': 'Zeitüberschreitung beim Starten des Proxmox-Node-Befehls.',
   'Name is required': 'Name ist erforderlich.',
+  'Profile image updated': 'Profilbild erfolgreich aktualisiert.',
+  'Profile image removed': 'Profilbild wurde entfernt.',
+  'Unsupported avatar file type': 'Dieses Bildformat wird nicht unterstützt.',
+  'Avatar image is required': 'Bitte wähle ein Bild aus.',
+  'Avatar image is too large': 'Das Bild ist zu groß. Maximal 2 MB sind erlaubt.',
   'No available Proxmox storage found on the selected node': 'Auf der ausgewählten Node wurde kein verfügbarer Proxmox-Speicher gefunden.',
   'Proxmox name, URL, and API token are required': 'Proxmox-Name, URL und API-Token sind erforderlich.',
   'Proxmox URL must start with http:// or https://': 'Die Proxmox-URL muss mit http:// oder https:// beginnen.',
@@ -370,6 +375,13 @@ export const userApi = {
   getContainerDetails: (containerId) => apiClient.get(`/user/containers/${containerId}`),
   getProfile: () => apiClient.get('/user/profile'),
   updateProfile: (data) => apiClient.put('/user/profile', data),
+  uploadProfileAvatar: (file) => apiClient.post('/user/profile/avatar', file, {
+    headers: {
+      'Content-Type': file.type || 'application/octet-stream',
+      'X-Filename': encodeURIComponent(file.name || 'avatar')
+    }
+  }),
+  deleteProfileAvatar: () => apiClient.delete('/user/profile/avatar'),
   updateLanguage: (language) => apiClient.put('/user/language', { language }),
   // v2.0
   powerAction: (resourceId, action) => apiClient.post(`/user/resources/${resourceId}/power`, { action }),
