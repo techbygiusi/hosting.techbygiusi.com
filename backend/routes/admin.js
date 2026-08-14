@@ -287,51 +287,59 @@ router.post('/users', async (req, res, next) => {
 router.put('/users/:id', async (req, res, next) => {
   try {
     const userId = req.params.id;
-    const { email, name, role, password } = req.body;
+    const { email, name, role, password, changePassword = false } = req.body;
 
     const user = await get('SELECT * FROM users WHERE id = ?', [userId]);
     if (!user) {
       throw new AppError('User not found', HTTP_STATUS.NOT_FOUND);
     }
 
-    if (role) validateRole(role);
-    if (password) validatePassword(password, false);
+    const nextEmail = email !== undefined ? normalizeEmail(email) : user.email;
+    const nextName = name !== undefined ? String(name || '').trim() : user.name;
+    const nextRole = role || user.role;
 
-    const updates = [];
-    const params = [];
+    if (!nextEmail || !nextName) {
+      throw new AppError('Email and name are required', HTTP_STATUS.BAD_REQUEST);
+    }
+    validateRole(nextRole);
 
-    if (email !== undefined) {
-      const normalizedEmail = normalizeEmail(email);
-      if (!normalizedEmail) throw new AppError('Email and name are required', HTTP_STATUS.BAD_REQUEST);
-      updates.push('email = ?');
-      params.push(normalizedEmail);
+    const duplicate = await get(
+      'SELECT id FROM users WHERE email = ? AND id != ?',
+      [nextEmail, userId]
+    );
+    if (duplicate) {
+      throw new AppError('A user with this email address already exists', HTTP_STATUS.CONFLICT);
     }
 
-    if (name !== undefined) {
-      const cleanName = String(name || '').trim();
-      if (!cleanName) throw new AppError('Email and name are required', HTTP_STATUS.BAD_REQUEST);
-      updates.push('name = ?');
-      params.push(cleanName);
+    let passwordHash = user.password_hash;
+    if (changePassword === true) {
+      validatePassword(password, true);
+      passwordHash = await bcryptjs.hash(password, 12);
     }
 
-    if (role) {
-      updates.push('role = ?');
-      params.push(role);
+    const result = await run(
+      `UPDATE users
+       SET email = ?, name = ?, role = ?, password_hash = ?, updated_at = CURRENT_TIMESTAMP
+       WHERE id = ?`,
+      [nextEmail, nextName, nextRole, passwordHash, userId]
+    );
+
+    if (result.changes !== 1) {
+      throw new AppError('User could not be updated', HTTP_STATUS.INTERNAL_SERVER_ERROR);
     }
 
-    if (password) {
-      const passwordHash = await bcryptjs.hash(password, 12);
-      updates.push('password_hash = ?');
-      params.push(passwordHash);
+    const updated = await get(
+      'SELECT id, email, name, role, preferred_language, created_at, updated_at FROM users WHERE id = ?',
+      [userId]
+    );
+
+    if (!updated || updated.email !== nextEmail) {
+      throw new AppError('User email could not be updated', HTTP_STATUS.INTERNAL_SERVER_ERROR);
     }
 
-    if (updates.length > 0) {
-      updates.push('updated_at = CURRENT_TIMESTAMP');
-      params.push(userId);
-      await run(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`, params);
-    }
+    const emailChange = user.email !== updated.email ? `${user.email} -> ${updated.email}` : updated.email;
+    await logAudit(req, 'admin.user_updated', emailChange);
 
-    const updated = await get('SELECT id, email, name, role, preferred_language, created_at FROM users WHERE id = ?', [userId]);
     res.json({ user: updated });
   } catch (err) {
     next(err);

@@ -300,6 +300,7 @@ export default function AdminDashboard() {
   const [clusterContainers, setClusterContainers] = useState([]);
   const [settings, setSettings] = useState(emptySmtp);
   const [newUser, setNewUser] = useState(emptyUser);
+  const [userPasswordEdited, setUserPasswordEdited] = useState(false);
   const [newCluster, setNewCluster] = useState(emptyCluster);
   const [newResource, setNewResource] = useState(emptyResource);
   const [editUserId, setEditUserId] = useState(null);
@@ -533,12 +534,14 @@ export default function AdminDashboard() {
   const openCreateUser = () => {
     setEditUserId(null);
     setNewUser(emptyUser);
+    setUserPasswordEdited(false);
     setShowUserModal(true);
   };
 
   const openEditUser = (item) => {
     setEditUserId(item.id);
     setNewUser({ email: item.email || '', name: item.name || '', password: '', role: item.role || 'user' });
+    setUserPasswordEdited(false);
     setShowUserModal(true);
   };
 
@@ -546,6 +549,7 @@ export default function AdminDashboard() {
     setShowUserModal(false);
     setEditUserId(null);
     setNewUser(emptyUser);
+    setUserPasswordEdited(false);
   };
 
   const handleSaveUser = async (e) => {
@@ -567,9 +571,19 @@ export default function AdminDashboard() {
       setActionLoading(true);
       setError('');
       if (editUserId) {
-        const payload = { email: newUser.email, name: newUser.name, role: newUser.role };
-        if (newUser.password) payload.password = newUser.password;
-        await adminApi.updateUser(editUserId, payload);
+        const payload = {
+          email: newUser.email.trim(),
+          name: newUser.name.trim(),
+          role: newUser.role,
+          changePassword: userPasswordEdited && Boolean(newUser.password)
+        };
+        if (payload.changePassword) payload.password = newUser.password;
+        const response = await adminApi.updateUser(editUserId, payload);
+        const updatedUser = response.data?.user;
+        if (!updatedUser || updatedUser.email !== newUser.email.trim().toLowerCase()) {
+          throw new Error('The saved email address could not be verified.');
+        }
+        setUsers(prev => prev.map(item => String(item.id) === String(editUserId) ? { ...item, ...updatedUser } : item));
         showSuccess('Benutzer wurde gespeichert.');
       } else {
         await adminApi.createUser(newUser);
@@ -1613,10 +1627,10 @@ export default function AdminDashboard() {
 
       {showUserModal && (
         <Modal title={editUserId ? 'Benutzer bearbeiten' : 'Benutzer anlegen'} onClose={closeUserModal}>
-          <form className="form-stack" onSubmit={handleSaveUser}>
-            <label className="form-group"><span>Name</span><input type="text" value={newUser.name} onChange={e => setNewUser(prev => ({ ...prev, name: e.target.value }))} placeholder="Max Mustermann" /></label>
-            <label className="form-group"><span>E-Mail-Adresse</span><input type="email" value={newUser.email} onChange={e => setNewUser(prev => ({ ...prev, email: e.target.value }))} placeholder="max@example.com" /></label>
-            <label className="form-group"><span>{editUserId ? 'Neues Passwort' : 'Startpasswort'}</span><input type="text" value={newUser.password} onChange={e => setNewUser(prev => ({ ...prev, password: e.target.value }))} placeholder={editUserId ? 'Leer lassen, wenn unverändert' : 'Passwort für den Benutzer'} /></label>
+          <form className="form-stack" onSubmit={handleSaveUser} autoComplete="off">
+            <label className="form-group"><span>Name</span><input type="text" value={newUser.name} onChange={e => setNewUser(prev => ({ ...prev, name: e.target.value }))} placeholder="Max Mustermann" autoComplete="off" /></label>
+            <label className="form-group"><span>E-Mail-Adresse</span><input type="email" value={newUser.email} onChange={e => setNewUser(prev => ({ ...prev, email: e.target.value }))} placeholder="max@example.com" autoComplete="off" /></label>
+            <label className="form-group"><span>{editUserId ? 'Neues Passwort' : 'Startpasswort'}</span><input type="password" value={newUser.password} onChange={e => { setUserPasswordEdited(true); setNewUser(prev => ({ ...prev, password: e.target.value })); }} placeholder={editUserId ? 'Leer lassen, wenn unverändert' : 'Passwort für den Benutzer'} autoComplete="new-password" /></label>
             <label className="form-group"><span>Rolle</span><select value={newUser.role} onChange={e => setNewUser(prev => ({ ...prev, role: e.target.value }))}><option value="user">Benutzer</option><option value="admin">Administrator</option></select></label>
             {!editUserId && (
               <label className="checkbox-row">
