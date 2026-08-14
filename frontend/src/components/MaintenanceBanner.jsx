@@ -46,14 +46,14 @@ function saveDismissed(ids) {
 function formatDateTime(value, language) {
   const labels = BANNER_LABELS[language] || BANNER_LABELS.en;
   try {
-    const formatted = new Date(value).toLocaleString(labels.locale, {
+    return new Date(value).toLocaleString(labels.locale, {
       weekday: 'short',
       day: '2-digit',
       month: '2-digit',
       hour: '2-digit',
-      minute: '2-digit'
+      minute: '2-digit',
+      timeZoneName: 'short'
     });
-    return language === 'de' ? `${formatted} Uhr` : formatted;
   } catch (_) {
     return String(value);
   }
