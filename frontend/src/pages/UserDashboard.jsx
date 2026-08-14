@@ -671,7 +671,8 @@ function ResourceCard({ resource, onOpenDetails, onManagePublicPage, labels }) {
       <Metric label="CPU" percent={cpuPercent} detail={`${cpuPercent.toFixed(1)} %`} />
       <Metric label="RAM" percent={memPercent} detail={`${formatBytes(resource.mem)} / ${formatBytes(resource.maxmem)}`} />
 
-      <div className="service-link-row publishing-service-links">
+      <div className="resource-card-footer">
+        <div className="service-link-row publishing-service-links">
           {publicUrl && (
             <a
               className="btn-primary full-button"
@@ -709,9 +710,10 @@ function ResourceCard({ resource, onOpenDetails, onManagePublicPage, labels }) {
           )}
         </div>
 
-      <button type="button" className="btn-secondary full-button service-detail-toggle" onClick={onOpenDetails}>
-        {labels.details}
-      </button>
+        <button type="button" className="btn-secondary full-button service-detail-toggle" onClick={onOpenDetails}>
+          {labels.details}
+        </button>
+      </div>
     </article>
   );
 }
