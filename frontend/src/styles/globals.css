@@ -8826,8 +8826,8 @@ body.theme-light {
   --site-inset: rgba(255, 255, 255, 0.94);
   --site-text: #101617;
   --site-muted: #5d6868;
-  --site-accent: #98a889;
-  --site-accent-strong: #728464;
+  --site-accent: #dae3d7;
+  --site-accent-strong: #879b82;
   --site-border: rgba(16, 22, 23, 0.09);
   --color-primary: var(--site-accent-strong);
   --button-primary-text: #f7faf7;
@@ -8846,8 +8846,8 @@ body.theme-dark {
   --site-inset: rgba(20, 24, 24, 0.96);
   --site-text: #edf3ee;
   --site-muted: #a0aba6;
-  --site-accent: #cad7b6;
-  --site-accent-strong: #dfe8d0;
+  --site-accent: #dae3d7;
+  --site-accent-strong: #e8eee5;
   --site-border: rgba(222, 232, 208, 0.10);
   --color-primary: #d2debf;
   --button-primary-text: #09100c;
@@ -9115,7 +9115,7 @@ body.theme-dark .dashboard-hero-card {
 }
 
 body.theme-dark .btn-primary {
-  background: linear-gradient(135deg, #c3d0ae, #e0e8d1);
+  background: linear-gradient(135deg, #dae3d7, #e8eee5);
 }
 
 .btn-secondary,

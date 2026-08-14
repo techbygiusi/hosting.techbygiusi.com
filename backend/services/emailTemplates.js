@@ -7,9 +7,9 @@ const BRAND_NAME = process.env.BRAND_NAME || 'Hosting Portal';
 const BRAND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
 
 const COLORS = {
-  accent: '#98a889',
-  accentStrong: '#728464',
-  accentSoft: '#e6ecde',
+  accent: '#dae3d7',
+  accentStrong: '#879b82',
+  accentSoft: '#edf2ea',
   text: '#101617',
   muted: '#5d6868',
   surface: '#ffffff',
@@ -48,8 +48,8 @@ function formatDateTime(value, language = 'en') {
 function baseLayout({ language = 'en', preheader = '', title, bodyHtml, footerNote = '' }) {
   const lang = normalizeLanguage(language);
   const footer = lang === 'de'
-    ? `Diese Nachricht wurde automatisch von <a href="${BRAND_URL}" style="color:${COLORS.accent};text-decoration:none;">${escapeHtml(BRAND_NAME)}</a> versendet.`
-    : `This message was sent automatically by <a href="${BRAND_URL}" style="color:${COLORS.accent};text-decoration:none;">${escapeHtml(BRAND_NAME)}</a>.`;
+    ? `Diese Nachricht wurde automatisch von <a href="${BRAND_URL}" style="color:${COLORS.accentStrong};text-decoration:none;">${escapeHtml(BRAND_NAME)}</a> versendet.`
+    : `This message was sent automatically by <a href="${BRAND_URL}" style="color:${COLORS.accentStrong};text-decoration:none;">${escapeHtml(BRAND_NAME)}</a>.`;
   return `<!DOCTYPE html>
 <html lang="${lang}">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(title)}</title></head>
