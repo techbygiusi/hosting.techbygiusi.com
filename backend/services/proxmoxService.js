@@ -3,70 +3,24 @@ const crypto = require('crypto');
 const https = require('https');
 const WebSocket = require('ws');
 
-/*
- * Connection pooling.
- *
- * Proxmox runs over TLS, and a fresh handshake per request is the single
- * largest slice of latency in this service - a dashboard with a dozen services
- * used to pay for a dozen handshakes. keepAlive reuses sockets across calls, so
- * only the first request to a node pays the handshake cost.
- *
- * rejectUnauthorized stays configurable: Proxmox ships a self-signed
- * certificate by default, so verification is off unless PROXMOX_VERIFY_TLS is
- * set, which lets anyone running a proper certificate turn it back on.
- */
 const httpsAgent = new https.Agent({
-  rejectUnauthorized: String(process.env.PROXMOX_VERIFY_TLS || '').toLowerCase() === 'true',
-  keepAlive: true,
-  keepAliveMsecs: 15000,
-  maxSockets: 32,
-  maxFreeSockets: 8,
-  timeout: 30000
+  rejectUnauthorized: false
 });
 
 const VM_DISK_KEY = /^(ide|sata|scsi|virtio)\d+$/;
 const LXC_DISK_KEY = /^(rootfs|mp\d+)$/;
 
-const REQUEST_TIMEOUT_MS = Number(process.env.PROXMOX_TIMEOUT_MS || 10000);
-
-/*
- * Axios instances are stateless apart from their config, so building a new one
- * per call was pure overhead. They are cached per cluster+token instead. The
- * cache key is hashed so an API token never sits in a map key (and therefore
- * never shows up in a heap dump or debug print).
- */
-const clientCache = new Map();
-const CLIENT_CACHE_LIMIT = 64;
-
-function clientCacheKey(baseURL, token) {
-  return `${baseURL}|${crypto.createHash('sha256').update(String(token)).digest('hex')}`;
-}
-
 function createProxmoxClient(baseURL, token) {
-  const key = clientCacheKey(baseURL, token);
-  const cached = clientCache.get(key);
-  if (cached) return cached;
-
-  const client = axios.create({
+  return axios.create({
     baseURL,
     headers: {
       Authorization: `PVEAPIToken=${token}`,
       'Content-Type': 'application/json'
     },
     httpsAgent,
-    timeout: REQUEST_TIMEOUT_MS,
-    // Proxmox answers with large task logs and resource lists; without a raised
-    // ceiling axios aborts them mid-stream.
-    maxContentLength: 20 * 1024 * 1024,
-    maxBodyLength: 8 * 1024 * 1024,
+    timeout: 10000,
     validateStatus: () => true
   });
-
-  if (clientCache.size >= CLIENT_CACHE_LIMIT) {
-    clientCache.delete(clientCache.keys().next().value);
-  }
-  clientCache.set(key, client);
-  return client;
 }
 
 function proxmoxErrorDetails(response) {
@@ -85,26 +39,10 @@ function proxmoxErrorDetails(response) {
   return Array.from(new Set(details)).join('; ').slice(0, 900);
 }
 
-/**
- * Errors describing what the *Proxmox API* answered are safe to show: they
- * contain a status code and Proxmox's own message, never our schema or the
- * cluster URL. They are marked `expose` so the global error handler passes the
- * text through instead of replacing it with a generic 500 - transport-level
- * failures (DNS, ECONNREFUSED, TLS) stay unexposed, because those messages can
- * carry the internal cluster hostname.
- */
-function integrationError(message) {
-  const error = new Error(String(message).slice(0, 900));
-  error.expose = true;
-  error.status = 502;
-  error.error = 'Upstream Error';
-  return error;
-}
-
 function ensureSuccess(response, fallbackMessage) {
   if (response.status >= 200 && response.status < 300) return;
   const details = proxmoxErrorDetails(response);
-  throw integrationError(`${fallbackMessage} HTTP ${response.status}${response.statusText ? ` ${response.statusText}` : ''}${details ? ` - ${details}` : ''}`);
+  throw new Error(`${fallbackMessage} HTTP ${response.status}${response.statusText ? ` ${response.statusText}` : ''}${details ? ` - ${details}` : ''}`);
 }
 
 
@@ -173,74 +111,20 @@ function normalizeClusterResource(item) {
   };
 }
 
-/*
- * The cluster resource list is the single most requested Proxmox endpoint: the
- * monitoring loop polls it, and so does every open dashboard. Two mechanisms
- * keep that from multiplying into redundant load:
- *
- *  - in-flight de-duplication: concurrent callers for the same cluster share
- *    one HTTP request instead of each issuing their own,
- *  - a short TTL cache: repeat calls inside the window reuse the last answer.
- *
- * The TTL is deliberately small (default 4s, well under the 30s dashboard poll)
- * so status changes still surface promptly, and any power action drops the
- * entry immediately so the UI never shows a stale state after a user acts.
- */
-const CLUSTER_CACHE_TTL_MS = Number(process.env.PROXMOX_CACHE_TTL_MS || 4000);
-const clusterResourceCache = new Map();
-const clusterResourceInflight = new Map();
-
-function clusterCacheKey(clusterUrl, apiToken) {
-  return clientCacheKey(clusterUrl, apiToken);
-}
-
-/** Drop the cached resource list for a cluster (after a state-changing call). */
-function invalidateClusterResources(clusterUrl, apiToken) {
-  if (!clusterUrl) {
-    clusterResourceCache.clear();
-    return;
-  }
-  clusterResourceCache.delete(clusterCacheKey(clusterUrl, apiToken));
-}
-
-async function fetchClusterResources(clusterUrl, apiToken) {
+async function getClusterResources(clusterUrl, apiToken) {
   const client = createProxmoxClient(clusterUrl, apiToken);
   const response = await client.get('/api2/json/cluster/resources?type=vm');
   ensureSuccess(response, 'Proxmox Ressourcenabfrage fehlgeschlagen:');
 
   const resources = response.data?.data || [];
   if (!Array.isArray(resources)) {
-    throw integrationError('Proxmox hat eine unerwartete Antwort geliefert.');
+    throw new Error('Proxmox hat eine unerwartete Antwort geliefert.');
   }
 
   return resources
     .filter(item => item.type === 'lxc' || item.type === 'qemu')
     .map(normalizeClusterResource)
     .sort((a, b) => Number(a.vmid) - Number(b.vmid));
-}
-
-async function getClusterResources(clusterUrl, apiToken) {
-  const key = clusterCacheKey(clusterUrl, apiToken);
-
-  const cached = clusterResourceCache.get(key);
-  if (cached && Date.now() - cached.at < CLUSTER_CACHE_TTL_MS) {
-    return cached.value;
-  }
-
-  const inflight = clusterResourceInflight.get(key);
-  if (inflight) return inflight;
-
-  const request = fetchClusterResources(clusterUrl, apiToken)
-    .then((value) => {
-      clusterResourceCache.set(key, { at: Date.now(), value });
-      return value;
-    })
-    .finally(() => {
-      clusterResourceInflight.delete(key);
-    });
-
-  clusterResourceInflight.set(key, request);
-  return request;
 }
 
 async function getAllContainers(clusterUrl, apiToken) {
@@ -558,9 +442,6 @@ async function powerAction(clusterUrl, apiToken, node, type, vmid, action) {
   const kind = type === 'lxc' ? 'lxc' : 'qemu';
   const response = await client.post(`/api2/json/nodes/${node}/${kind}/${vmid}/status/${action}`, {});
   ensureSuccess(response, `Proxmox ${action} fehlgeschlagen:`);
-  // The cached list is now stale by definition - drop it so the next read
-  // reflects the action the user just triggered.
-  invalidateClusterResources(clusterUrl, apiToken);
   return { upid: response.data?.data || '' };
 }
 
@@ -1699,7 +1580,6 @@ async function createQemuVm(clusterUrl, apiToken, node, options) {
 module.exports = {
   getAllContainers,
   getClusterResources,
-  invalidateClusterResources,
   getContainerDetails,
   getContainerIps,
   getResourceDiskDetails,

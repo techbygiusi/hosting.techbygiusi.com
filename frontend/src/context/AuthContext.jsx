@@ -170,19 +170,6 @@ export function AuthProvider({ children }) {
     }
   };
 
-  /**
-   * Merge a partial update (e.g. a freshly uploaded profile picture) into the
-   * cached user so the header updates without a round trip.
-   */
-  const applyUserPatch = (patch) => {
-    setUser(current => {
-      if (!current) return current;
-      const next = { ...current, ...patch };
-      localStorage.setItem('user', JSON.stringify(next));
-      return next;
-    });
-  };
-
   const changePassword = async (currentPassword, newPassword) => {
     try {
       setError(null);
@@ -207,7 +194,6 @@ export function AuthProvider({ children }) {
     setup,
     logout,
     changePassword,
-    applyUserPatch,
     isAdmin: user?.role === 'admin',
     isAuthenticated: !!token
   };

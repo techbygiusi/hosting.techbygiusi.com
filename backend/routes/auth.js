@@ -1,5 +1,4 @@
 const express = require('express');
-const crypto = require('crypto');
 const bcryptjs = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const router = express.Router();
@@ -12,8 +11,6 @@ const { sendEmail, testSmtpConnection, initializeEmailService, encryptString } =
 const { testConnection } = require('../services/proxmoxService');
 const { passwordResetTemplate } = require('../services/emailTemplates');
 const { logAudit } = require('../services/auditService');
-const { buildAvatarUrl } = require('../services/avatarService');
-const { asString, asEmail, asEnum, assertPasswordPolicy } = require('../middleware/validate');
 const { getPublicFrontendUrl } = require('../utils/publicUrl');
 
 const SETUP_KEYS = ['smtp_host', 'smtp_port', 'smtp_user', 'smtp_password'];
@@ -157,29 +154,30 @@ router.post('/setup', async (req, res, next) => {
     let adminUser = state.adminUser;
 
     if (!state.adminConfigured) {
-      const normalizedAdminEmail = asEmail(adminEmail, { field: 'Admin email' });
-      const normalizedAdminName = asString(adminName, { field: 'Admin name', max: 120, required: true });
-      const normalizedPassword = asString(adminPassword, { field: 'Admin password', max: 200, required: true });
-      assertPasswordPolicy(normalizedPassword, 'Admin password');
-      const setupLanguage = asEnum(preferredLanguage, ['en', 'de'], { fallback: 'en' });
+      if (!adminName || !adminEmail || !adminPassword) {
+        throw new AppError('Admin name, email, and password are required', HTTP_STATUS.BAD_REQUEST);
+      }
+      if (adminPassword.length < 8) {
+        throw new AppError('Admin password must be at least 8 characters', HTTP_STATUS.BAD_REQUEST);
+      }
 
-      const existingUser = await get('SELECT id FROM users WHERE email = ?', [normalizedAdminEmail]);
+      const existingUser = await get('SELECT id FROM users WHERE email = ?', [adminEmail.trim().toLowerCase()]);
       if (existingUser) {
         throw new AppError(ERROR_MESSAGES.USER_EXISTS, HTTP_STATUS.CONFLICT);
       }
 
-      const passwordHash = await bcryptjs.hash(normalizedPassword, 12);
+      const passwordHash = await bcryptjs.hash(adminPassword, 12);
       const result = await run(
         'INSERT INTO users (email, name, password_hash, role, preferred_language) VALUES (?, ?, ?, ?, ?)',
-        [normalizedAdminEmail, normalizedAdminName, passwordHash, ROLES.ADMIN, setupLanguage]
+        [adminEmail.trim().toLowerCase(), adminName.trim(), passwordHash, ROLES.ADMIN, ['de', 'en'].includes(String(preferredLanguage || '').toLowerCase()) ? String(preferredLanguage).toLowerCase() : 'en']
       );
 
       adminUser = {
         id: result.lastID,
-        email: normalizedAdminEmail,
-        name: normalizedAdminName,
+        email: adminEmail.trim().toLowerCase(),
+        name: adminName.trim(),
         role: ROLES.ADMIN,
-        preferredLanguage: setupLanguage
+        preferredLanguage: ['de', 'en'].includes(String(preferredLanguage || '').toLowerCase()) ? String(preferredLanguage).toLowerCase() : 'en'
       };
     }
 
@@ -238,111 +236,66 @@ router.post('/setup', async (req, res, next) => {
   }
 });
 
-/*
- * Brute-force lockout: 5 failed attempts lock further tries for 15 minutes.
- *
- * Attempts are tracked per email *and* per source IP. Email-only tracking lets
- * anyone lock a known account out on purpose (a denial-of-service against that
- * user); IP-only tracking lets a distributed attacker spread attempts across
- * hosts. Requiring both narrows each of those.
- *
- * The map is swept on write and hard-capped, so a spray of random addresses
- * cannot grow it without bound - the previous version never removed entries.
- */
+// Brute-force lockout: 5 failed attempts per email lock login for 15 minutes
 const LOGIN_MAX_ATTEMPTS = 5;
 const LOGIN_LOCK_MS = 15 * 60 * 1000;
-const LOGIN_ATTEMPT_LIMIT = 10000;
 const loginAttempts = new Map();
 
-function clientIp(req) {
-  const forwarded = req?.headers?.['x-forwarded-for'];
-  const first = Array.isArray(forwarded) ? forwarded[0] : String(forwarded || '').split(',')[0];
-  return String(first || req?.socket?.remoteAddress || '').trim() || 'unknown';
-}
-
-function loginKey(email, req) {
-  return `${email}|${clientIp(req)}`;
-}
-
-function pruneLoginAttempts(now) {
-  for (const [key, entry] of loginAttempts) {
-    const expired = (entry.lockedUntil || 0) < now && (entry.seenAt || 0) < now - LOGIN_LOCK_MS;
-    if (expired) loginAttempts.delete(key);
-  }
-  if (loginAttempts.size > LOGIN_ATTEMPT_LIMIT) {
-    // Oldest-first eviction; Map preserves insertion order.
-    const excess = loginAttempts.size - LOGIN_ATTEMPT_LIMIT;
-    let removed = 0;
-    for (const key of loginAttempts.keys()) {
-      loginAttempts.delete(key);
-      removed += 1;
-      if (removed >= excess) break;
-    }
-  }
-}
-
-function checkLoginLock(key) {
-  const entry = loginAttempts.get(key);
+function checkLoginLock(email) {
+  const entry = loginAttempts.get(email);
   if (!entry) return;
   if (entry.lockedUntil && Date.now() < entry.lockedUntil) {
     throw new AppError('Account temporarily locked. Try again later.', HTTP_STATUS.UNAUTHORIZED);
   }
 }
 
-function registerFailedLogin(key) {
-  const now = Date.now();
-  pruneLoginAttempts(now);
-  const entry = loginAttempts.get(key) || { count: 0, lockedUntil: 0, seenAt: now };
+function registerFailedLogin(email) {
+  const entry = loginAttempts.get(email) || { count: 0, lockedUntil: 0 };
   entry.count += 1;
-  entry.seenAt = now;
   if (entry.count >= LOGIN_MAX_ATTEMPTS) {
-    entry.lockedUntil = now + LOGIN_LOCK_MS;
+    entry.lockedUntil = Date.now() + LOGIN_LOCK_MS;
     entry.count = 0;
   }
-  loginAttempts.set(key, entry);
+  loginAttempts.set(email, entry);
 }
 
-function clearFailedLogins(key) {
-  loginAttempts.delete(key);
+function clearFailedLogins(email) {
+  loginAttempts.delete(email);
 }
-
-/*
- * A bcrypt hash of a random value, compared against when no user matches.
- * Without it, an unknown email returns in ~1ms while a known one costs a full
- * bcrypt verification (~250ms) - a timing gap wide enough to enumerate valid
- * accounts. Doing the same work in both branches closes it.
- */
-const DUMMY_PASSWORD_HASH = bcryptjs.hashSync(crypto.randomBytes(32).toString('hex'), 12);
 
 router.post('/login', async (req, res, next) => {
   try {
-    // Coerce at the edge: a body like {"email":{}} must fail as a clean 400,
-    // never as a TypeError inside the handler.
-    const normalizedEmail = asEmail(req.body?.email, { field: 'Email' });
-    const password = asString(req.body?.password, { field: 'Password', max: 200, required: true });
-    const preferredLanguage = asEnum(req.body?.preferredLanguage, ['en', 'de'], { fallback: null });
+    const { email, password, preferredLanguage } = req.body;
+
+    if (!email || !password) {
+      throw new AppError('Email and password required', HTTP_STATUS.BAD_REQUEST);
+    }
 
     const setupState = await getSetupState();
     if (setupState.setupRequired) {
       throw new AppError(ERROR_MESSAGES.SETUP_REQUIRED, HTTP_STATUS.FORBIDDEN);
     }
 
-    const attemptKey = loginKey(normalizedEmail, req);
-    checkLoginLock(attemptKey);
+    const normalizedEmail = email.trim().toLowerCase();
+    checkLoginLock(normalizedEmail);
 
     const user = await get('SELECT * FROM users WHERE email = ?', [normalizedEmail]);
 
-    // Always run a bcrypt comparison, even for an unknown account, so the
-    // response time does not reveal whether the email exists.
-    const passwordMatch = await bcryptjs.compare(password, user?.password_hash || DUMMY_PASSWORD_HASH);
-
-    if (!user || !passwordMatch) {
-      registerFailedLogin(attemptKey);
-      await logAudit(req, 'auth.login_failed', normalizedEmail, user ? 'wrong password' : 'unknown user');
+    if (!user) {
+      registerFailedLogin(normalizedEmail);
+      await logAudit(req, 'auth.login_failed', normalizedEmail, 'unknown user');
       throw new AppError(ERROR_MESSAGES.INVALID_CREDENTIALS, HTTP_STATUS.UNAUTHORIZED);
     }
 
-    clearFailedLogins(attemptKey);
+    const passwordMatch = await bcryptjs.compare(password, user.password_hash);
+
+    if (!passwordMatch) {
+      registerFailedLogin(normalizedEmail);
+      await logAudit(req, 'auth.login_failed', normalizedEmail, 'wrong password');
+      throw new AppError(ERROR_MESSAGES.INVALID_CREDENTIALS, HTTP_STATUS.UNAUTHORIZED);
+    }
+
+    clearFailedLogins(normalizedEmail);
     const requestedLanguage = ['en', 'de'].includes(String(preferredLanguage || '').toLowerCase())
       ? String(preferredLanguage).toLowerCase()
       : (user.preferred_language || 'en');
@@ -360,8 +313,7 @@ router.post('/login', async (req, res, next) => {
         email: user.email,
         name: user.name,
         role: user.role,
-        preferredLanguage: user.preferred_language || 'en',
-        avatarUrl: buildAvatarUrl(user)
+        preferredLanguage: user.preferred_language || 'en'
       }
     });
   } catch (err) {
@@ -372,7 +324,7 @@ router.post('/login', async (req, res, next) => {
 router.get('/verify', authMiddleware, async (req, res, next) => {
   try {
     const setupState = await getSetupState();
-    const storedUser = await get('SELECT id, email, name, role, preferred_language, avatar_mime, avatar_data FROM users WHERE id = ?', [req.user.id]);
+    const storedUser = await get('SELECT id, email, name, role, preferred_language FROM users WHERE id = ?', [req.user.id]);
     res.json({
       valid: true,
       user: storedUser ? {
@@ -380,8 +332,7 @@ router.get('/verify', authMiddleware, async (req, res, next) => {
         email: storedUser.email,
         name: storedUser.name,
         role: storedUser.role,
-        preferredLanguage: storedUser.preferred_language || null,
-        avatarUrl: buildAvatarUrl(storedUser)
+        preferredLanguage: storedUser.preferred_language || null
       } : req.user,
       setupRequired: setupState.setupRequired
     });
@@ -392,11 +343,13 @@ router.get('/verify', authMiddleware, async (req, res, next) => {
 
 router.post('/change-password', authMiddleware, async (req, res, next) => {
   try {
-    const currentPassword = asString(req.body?.currentPassword, { field: 'Current password', max: 200, required: true });
-    const newPassword = asString(req.body?.newPassword, { field: 'New password', max: 200, required: true });
-    assertPasswordPolicy(newPassword, 'New password');
-    if (newPassword === currentPassword) {
-      throw new AppError('The new password must differ from the current one', HTTP_STATUS.BAD_REQUEST);
+    const { currentPassword, newPassword } = req.body;
+
+    if (!currentPassword || !newPassword) {
+      throw new AppError('Current and new password required', HTTP_STATUS.BAD_REQUEST);
+    }
+    if (newPassword.length < 8) {
+      throw new AppError('New password must be at least 8 characters', HTTP_STATUS.BAD_REQUEST);
     }
 
     const user = await get('SELECT * FROM users WHERE id = ?', [req.user.id]);
@@ -463,9 +416,14 @@ router.post('/forgot-password', async (req, res, next) => {
 
 router.post('/reset-password', async (req, res, next) => {
   try {
-    const token = asString(req.body?.token, { field: 'Token', max: 4000, required: true });
-    const newPassword = asString(req.body?.newPassword, { field: 'New password', max: 200, required: true });
-    assertPasswordPolicy(newPassword, 'New password');
+    const { token, newPassword } = req.body;
+
+    if (!token || !newPassword) {
+      throw new AppError('Token and new password required', HTTP_STATUS.BAD_REQUEST);
+    }
+    if (newPassword.length < 8) {
+      throw new AppError('New password must be at least 8 characters', HTTP_STATUS.BAD_REQUEST);
+    }
 
     let decoded;
     try {

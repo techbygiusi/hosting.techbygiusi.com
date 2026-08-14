@@ -6,7 +6,6 @@ const router = express.Router();
 const { get, run, all } = require('../config/database');
 const { adminMiddleware } = require('../middleware/auth');
 const { AppError } = require('../middleware/errorHandler');
-const { asString, asEmail, assertPasswordPolicy, registerIdParams } = require('../middleware/validate');
 const { HTTP_STATUS, ROLES } = require('../config/constants');
 const { getClusterResources, testConnection, getCapabilities, getClusterFirewallStatus, getOnlineNodes, getNodeTemplates, getNodeIsos, getNodeStorages, getClusterDashboardStats } = require('../services/proxmoxService');
 const { enrichResources } = require('../services/resourceService');
@@ -27,12 +26,8 @@ const { syncClusterTemplates, ensureClusterTemplates, listClusterTemplates } = r
 
 router.use(adminMiddleware);
 
-// Reject non-numeric :id / :credId / :publicationId values before any handler runs.
-registerIdParams(router);
-
 function normalizeEmail(email) {
-  // Shape-checked and lowercased centrally; rejects non-string payloads.
-  return asEmail(email, { field: 'Email', required: false });
+  return String(email || '').trim().toLowerCase();
 }
 
 function normalizeUrl(url) {
@@ -47,8 +42,9 @@ function validateRole(role) {
 
 function validatePassword(password, required = true) {
   if (!password && !required) return;
-  // Admin-created passwords meet the same policy as self-chosen ones.
-  assertPasswordPolicy(asString(password, { field: 'Password', max: 200, required: true }), 'Password');
+  if (!password || String(password).length < 8) {
+    throw new AppError('Password must be at least 8 characters', HTTP_STATUS.BAD_REQUEST);
+  }
 }
 
 function validateSmtp({ smtpHost, smtpPort, smtpUser, smtpPassword }, passwordRequired = true) {
@@ -226,8 +222,7 @@ async function getResourceRows(where = '', params = []) {
       pm.user_id as provisioned_user_id
     FROM resources r
     JOIN proxmox_clusters pc ON r.cluster_id = pc.id
-    -- LEFT so services shared only with a group (user_id IS NULL) still appear
-    LEFT JOIN users u ON r.user_id = u.id
+    JOIN users u ON r.user_id = u.id
     LEFT JOIN customer_groups cg ON r.group_id = cg.id
     LEFT JOIN provisioned_machines pm ON pm.cluster_id = r.cluster_id AND CAST(pm.vmid AS TEXT) = CAST(r.container_id AS TEXT)
     ${where}
@@ -1234,21 +1229,8 @@ router.post('/resources', async (req, res, next) => {
   try {
     const { name, containerId, clusterId, userId, groupId, adminUrl } = req.body;
 
-    if (!containerId || !clusterId) {
-      throw new AppError('Resource and cluster are required', HTTP_STATUS.BAD_REQUEST);
-    }
-
-    /*
-     * A service needs at least one recipient, but either kind will do: a
-     * personal owner, a group, or both. Requiring an owner even when the
-     * service is only ever meant to be shared with a group forced admins to
-     * pick an arbitrary user, so only the "at least one" rule is enforced.
-     */
-    const hasUser = userId !== undefined && userId !== null && userId !== '' && Number(userId) !== 0;
-    const hasGroup = groupId !== undefined && groupId !== null && groupId !== '' && Number(groupId) !== 0;
-
-    if (!hasUser && !hasGroup) {
-      throw new AppError('Assign the service to a user, a group, or both', HTTP_STATUS.BAD_REQUEST);
+    if (!containerId || !clusterId || !userId) {
+      throw new AppError('Resource, cluster, and user are required', HTTP_STATUS.BAD_REQUEST);
     }
 
     const cluster = await get('SELECT * FROM proxmox_clusters WHERE id = ?', [clusterId]);
@@ -1256,17 +1238,13 @@ router.post('/resources', async (req, res, next) => {
       throw new AppError('Cluster not found', HTTP_STATUS.NOT_FOUND);
     }
 
-    let cleanUserId = null;
-    if (hasUser) {
-      const user = await get('SELECT id FROM users WHERE id = ?', [userId]);
-      if (!user) {
-        throw new AppError('User not found', HTTP_STATUS.NOT_FOUND);
-      }
-      cleanUserId = user.id;
+    const user = await get('SELECT id FROM users WHERE id = ?', [userId]);
+    if (!user) {
+      throw new AppError('User not found', HTTP_STATUS.NOT_FOUND);
     }
 
     let cleanGroupId = null;
-    if (hasGroup) {
+    if (groupId) {
       const group = await get('SELECT id FROM customer_groups WHERE id = ?', [groupId]);
       if (!group) throw new AppError('Group not found', HTTP_STATUS.NOT_FOUND);
       cleanGroupId = group.id;
@@ -1298,7 +1276,7 @@ router.post('/resources', async (req, res, next) => {
 
     const result = await run(
       'INSERT INTO resources (name, container_id, cluster_id, user_id, group_id, web_url, public_url, admin_url, manual_ip, ssh_port, resource_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [resourceName, String(containerId), clusterId, cleanUserId, cleanGroupId, cleanPublicUrl, cleanPublicUrl, cleanAdminUrl, cleanManualIp || null, cleanSshPort, resourceType || null]
+      [resourceName, String(containerId), clusterId, userId, cleanGroupId, cleanPublicUrl, cleanPublicUrl, cleanAdminUrl, cleanManualIp || null, cleanSshPort, resourceType || null]
     );
 
     await logAudit(req, 'resource.create', `resource:${result.lastID}`, resourceName);
@@ -1325,17 +1303,11 @@ router.put('/resources/:id', async (req, res, next) => {
 
     const nextClusterId = clusterId || resource.cluster_id;
     const nextContainerId = String(containerId || resource.container_id);
-
-    // An explicitly empty userId clears the owner, leaving a group-only
-    // service. Omitting the field entirely keeps whatever is stored.
-    let nextUserId = resource.user_id;
-    if (userId !== undefined) {
-      nextUserId = (userId === null || userId === '' || Number(userId) === 0) ? null : userId;
-    }
+    const nextUserId = userId || resource.user_id;
 
     let nextGroupId = resource.group_id;
     if (groupId !== undefined) {
-      if (groupId === null || groupId === '' || Number(groupId) === 0) {
+      if (groupId === null || groupId === '' || groupId === 0) {
         nextGroupId = null;
       } else {
         const group = await get('SELECT id FROM customer_groups WHERE id = ?', [groupId]);
@@ -1344,19 +1316,11 @@ router.put('/resources/:id', async (req, res, next) => {
       }
     }
 
-    if (!nextUserId && !nextGroupId) {
-      throw new AppError('Assign the service to a user, a group, or both', HTTP_STATUS.BAD_REQUEST);
-    }
-
     const cluster = await get('SELECT * FROM proxmox_clusters WHERE id = ?', [nextClusterId]);
     if (!cluster) throw new AppError('Cluster not found', HTTP_STATUS.NOT_FOUND);
 
-    if (nextUserId) {
-      const user = await get('SELECT id FROM users WHERE id = ?', [nextUserId]);
-      if (!user) throw new AppError('User not found', HTTP_STATUS.NOT_FOUND);
-    } else {
-      nextUserId = null;
-    }
+    const user = await get('SELECT id FROM users WHERE id = ?', [nextUserId]);
+    if (!user) throw new AppError('User not found', HTTP_STATUS.NOT_FOUND);
 
     let nextName = String(name || resource.name || '').trim();
     if (!nextName) nextName = `Ressource ${nextContainerId}`;
@@ -1516,7 +1480,7 @@ router.get('/pangolin-publications', async (req, res, next) => {
         pc.name AS cluster_name
       FROM resource_publications rp
       JOIN resources r ON r.id = rp.resource_id
-      LEFT JOIN users u ON u.id = r.user_id
+      JOIN users u ON u.id = r.user_id
       JOIN proxmox_clusters pc ON pc.id = r.cluster_id
       ORDER BY rp.updated_at DESC
     `);

@@ -2,9 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { userApi, getErrorMessage, translateMessage } from '../services/api';
 import '../styles/globals.css';
-import AccountMenu from '../components/AccountMenu';
-import AvatarSettingsPanel from '../components/AvatarSettingsPanel';
-import { MenuIcon, DashboardIcon, BookIcon, SettingsIcon, GlobeIcon, LockIcon, BellIcon, CloseIcon } from '../components/Icons';
+import ThemeButton from '../components/ThemeButton';
 import { readStoredLanguage, storeLanguage } from '../components/LanguageSwitch';
 import ResourceDetail, { getPercent, formatBytes, renderType } from '../components/ResourceDetail';
 import CreateMachineModal from '../components/CreateMachineModal';
@@ -63,7 +61,7 @@ const USER_TRANSLATIONS = {
     changingPassword: 'Changing password...',
     passwordChanged: 'Your password was changed successfully.',
     passwordRequired: 'Enter your current password and a new password.',
-    passwordTooShort: 'The new password must be at least 10 characters long.',
+    passwordTooShort: 'The new password must be at least 8 characters long.',
     passwordMismatch: 'The new passwords do not match.',
     passwordChangeFailed: 'The password could not be changed.',
     logout: 'Log out',
@@ -143,7 +141,7 @@ const USER_TRANSLATIONS = {
     changingPassword: 'Passwort wird geändert...',
     passwordChanged: 'Dein Passwort wurde erfolgreich geändert.',
     passwordRequired: 'Bitte das aktuelle und ein neues Passwort eingeben.',
-    passwordTooShort: 'Das neue Passwort muss mindestens 10 Zeichen lang sein.',
+    passwordTooShort: 'Das neue Passwort muss mindestens 8 Zeichen lang sein.',
     passwordMismatch: 'Die neuen Passwörter stimmen nicht überein.',
     passwordChangeFailed: 'Das Passwort konnte nicht geändert werden.',
     logout: 'Abmelden',
@@ -204,6 +202,26 @@ const USER_TRANSLATIONS = {
 
 function renderUserStatus(status, labels) {
   return labels.status[status] || labels.status.unknown;
+}
+
+function MenuIcon() {
+  return (
+    <svg className="menu-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M4 7h16" />
+      <path d="M4 12h16" />
+      <path d="M4 17h16" />
+    </svg>
+  );
+}
+
+function LogoutIcon() {
+  return (
+    <svg className="logout-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M10 6H5v12h5" />
+      <path d="M14 8l4 4-4 4" />
+      <path d="M8 12h10" />
+    </svg>
+  );
 }
 
 export default function UserDashboard() {
@@ -323,16 +341,12 @@ export default function UserDashboard() {
       <header className="site-header">
         <div className="site-header-inner">
           <div className="site-brand">
-            <h1 className="dotted-title">Hosting by TechByGiusi</h1>
+            <h1>Hosting by TechByGiusi</h1>
           </div>
           <div className="site-actions">
-            <button type="button" className="icon-button admin-mobile-menu-toggle user-menu-toggle-icon-only" onClick={() => setMenuOpen(true)} aria-label={labels.openMenu} title={labels.menu}><MenuIcon size={20} /></button>
-            <AccountMenu
-              user={user}
-              language={language}
-              onOpenSettings={() => selectTab('settings')}
-              onLogout={logout}
-            />
+            <ThemeButton />
+            <button type="button" className="btn-secondary admin-mobile-menu-toggle user-menu-toggle-icon-only" onClick={() => setMenuOpen(true)} aria-label={labels.openMenu} title={labels.menu}><MenuIcon /></button>
+            <button type="button" className="btn-secondary logout-button" onClick={logout} aria-label={labels.logout}><LogoutIcon /><span className="logout-label">{labels.logout}</span></button>
           </div>
         </div>
       </header>
@@ -341,11 +355,11 @@ export default function UserDashboard() {
         <div className="user-fullscreen-menu-panel" onClick={(e) => e.stopPropagation()}>
           <div className="mobile-admin-menu-header">
             <div>
-              <span className="resource-id dotted-eyebrow">{labels.userConsole}</span>
+              <span className="resource-id">{labels.userConsole}</span>
               <h2>{user?.name || user?.email || 'User'}</h2>
               <p>{resources.length} {labels.counts.services} · {onlineCount} {labels.counts.online}</p>
             </div>
-            <button type="button" className="icon-button mobile-admin-menu-close" onClick={() => setMenuOpen(false)} aria-label={labels.closeMenu} title={labels.close}><CloseIcon size={20} /></button>
+            <button type="button" className="btn-secondary mobile-admin-menu-close" onClick={() => setMenuOpen(false)} aria-label={labels.closeMenu}>{labels.close}</button>
           </div>
           <div className="mobile-admin-language-switch user-menu-language-switch" role="group" aria-label={labels.language}>
             {USER_LANGUAGE_OPTIONS.map(option => (
@@ -360,9 +374,9 @@ export default function UserDashboard() {
             ))}
           </div>
           <nav className="console-nav-tabs mobile-admin-menu-nav" aria-label={labels.menu}>
-            <button type="button" className={activeTab === 'dashboard' ? 'active' : ''} onClick={() => selectTab('dashboard')}><DashboardIcon size={18} />{labels.dashboard}</button>
-            <button type="button" className={activeTab === 'wiki' ? 'active' : ''} onClick={() => selectTab('wiki')}><BookIcon size={18} />{labels.wiki}</button>
-            <button type="button" className={activeTab === 'settings' ? 'active' : ''} onClick={() => selectTab('settings')}><SettingsIcon size={18} />{labels.settings}</button>
+            <button type="button" className={activeTab === 'dashboard' ? 'active' : ''} onClick={() => selectTab('dashboard')}>{labels.dashboard}</button>
+            <button type="button" className={activeTab === 'wiki' ? 'active' : ''} onClick={() => selectTab('wiki')}>{labels.wiki}</button>
+            <button type="button" className={activeTab === 'settings' ? 'active' : ''} onClick={() => selectTab('settings')}>{labels.settings}</button>
           </nav>
           <div className="mobile-admin-menu-footer">
             <button type="button" className="btn-secondary mobile-admin-menu-logout" onClick={logout}>{labels.logout}</button>
@@ -378,9 +392,9 @@ export default function UserDashboard() {
             <p>{resources.length} {labels.counts.services} · {onlineCount} {labels.counts.online}</p>
           </div>
           <nav className="app-tabs console-nav-tabs" aria-label={labels.menu}>
-            <button type="button" className={activeTab === 'dashboard' ? 'active' : ''} onClick={() => selectTab('dashboard')}><DashboardIcon size={18} />{labels.dashboard}</button>
-            <button type="button" className={activeTab === 'wiki' ? 'active' : ''} onClick={() => selectTab('wiki')}><BookIcon size={18} />{labels.wiki}</button>
-            <button type="button" className={activeTab === 'settings' ? 'active' : ''} onClick={() => selectTab('settings')}><SettingsIcon size={18} />{labels.settings}</button>
+            <button type="button" className={activeTab === 'dashboard' ? 'active' : ''} onClick={() => selectTab('dashboard')}>{labels.dashboard}</button>
+            <button type="button" className={activeTab === 'wiki' ? 'active' : ''} onClick={() => selectTab('wiki')}>{labels.wiki}</button>
+            <button type="button" className={activeTab === 'settings' ? 'active' : ''} onClick={() => selectTab('settings')}>{labels.settings}</button>
           </nav>
         </aside>
 
@@ -391,8 +405,8 @@ export default function UserDashboard() {
             <>
               <section className="panel-card dashboard-hero-card user-dashboard-hero-card">
                 <div>
-                  <span className="resource-id dotted-eyebrow">Hosting by TechByGiusi</span>
-                  <h2 className="dotted-title">{labels.hero.title}</h2>
+                  <span className="resource-id">Hosting by TechByGiusi</span>
+                  <h2>{labels.hero.title}</h2>
                 </div>
                 {availableProvisioningOptions.length > 0 && (
                   <div className="dashboard-hero-actions">
@@ -456,11 +470,10 @@ export default function UserDashboard() {
 
           {activeTab === 'settings' && (
             <section className="panel-card user-settings-card">
-              <div className="panel-header"><h2 className="dotted-title">{labels.settings}</h2></div>
-              <AvatarSettingsPanel language={language} />
+              <div className="panel-header"><h2>{labels.settings}</h2></div>
               <div className="settings-language-card language-settings-block">
                 <div>
-                  <h3><GlobeIcon size={18} />{labels.language}</h3>
+                  <h3>{labels.language}</h3>
                   <p>{labels.languageText}</p>
                 </div>
                 <div className="mobile-admin-language-switch settings-language-buttons" role="group" aria-label={labels.language}>
@@ -479,7 +492,7 @@ export default function UserDashboard() {
               <PasswordSettingsPanel labels={labels} onChangePassword={changePassword} />
               <div className="settings-notification-card">
                 <div className="settings-section-header">
-                  <h3><BellIcon size={18} />{labels.notifications}</h3>
+                  <h3>{labels.notifications}</h3>
                 </div>
                 <NotificationSettingsPanel language={language} />
               </div>
@@ -553,7 +566,7 @@ function PasswordSettingsPanel({ labels, onChangePassword }) {
       setError(labels.passwordRequired);
       return;
     }
-    if (form.newPassword.length < 10) {
+    if (form.newPassword.length < 8) {
       setError(labels.passwordTooShort);
       return;
     }
@@ -578,7 +591,7 @@ function PasswordSettingsPanel({ labels, onChangePassword }) {
     <div className="settings-password-card">
       <div className="settings-section-header">
         <div>
-          <h3><LockIcon size={18} />{labels.password}</h3>
+          <h3>{labels.password}</h3>
           <p>{labels.passwordText}</p>
         </div>
       </div>
@@ -601,7 +614,7 @@ function PasswordSettingsPanel({ labels, onChangePassword }) {
               value={form.newPassword}
               onChange={event => updateField('newPassword', event.target.value)}
               autoComplete="new-password"
-              minLength="10"
+              minLength="8"
               disabled={busy}
             />
           </label>
@@ -612,7 +625,7 @@ function PasswordSettingsPanel({ labels, onChangePassword }) {
               value={form.confirmPassword}
               onChange={event => updateField('confirmPassword', event.target.value)}
               autoComplete="new-password"
-              minLength="10"
+              minLength="8"
               disabled={busy}
             />
           </label>

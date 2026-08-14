@@ -6,7 +6,6 @@ const router = express.Router();
 const { get, run, all } = require('../config/database');
 const { HTTP_STATUS } = require('../config/constants');
 const { AppError } = require('../middleware/errorHandler');
-const { asString, asInt, asEnum, registerIdParams } = require('../middleware/validate');
 const {
   getAllContainers,
   getContainerIps,
@@ -39,11 +38,7 @@ const {
   deletePublication
 } = require('../services/pangolinService');
 const { ensureClusterTemplates, syncClusterTemplates } = require('../services/templateService');
-const { getAvatarForUser, saveAvatarForUser, deleteAvatarForUser } = require('../services/avatarService');
 const { createJob, getJob: getProvisioningJob, listJobsForUser } = require('../services/provisioningJobService');
-
-// Reject non-numeric :id / :credId / :publicationId values before any handler runs.
-registerIdParams(router);
 
 /* ------------------------------------------------------------ ACCESS ---- */
 /**
@@ -98,8 +93,7 @@ async function getResourceRowsForUser(userId, resourceId = null) {
       pm.user_id as provisioned_user_id
     FROM resources r
     JOIN proxmox_clusters pc ON r.cluster_id = pc.id
-    -- LEFT so services shared only with a group (user_id IS NULL) still appear
-    LEFT JOIN users u ON r.user_id = u.id
+    JOIN users u ON r.user_id = u.id
     LEFT JOIN customer_groups cg ON r.group_id = cg.id
     LEFT JOIN provisioned_machines pm ON pm.cluster_id = r.cluster_id AND CAST(pm.vmid AS TEXT) = CAST(r.container_id AS TEXT)
     ${filter}
@@ -368,38 +362,6 @@ router.put('/profile', async (req, res, next) => {
   }
 });
 
-/* ----------------------------------------------------------- AVATAR ---- */
-/**
- * Profile picture of the signed-in account. Available to every role, so both
- * users and administrators manage their own picture through the same endpoints.
- */
-router.get('/avatar', async (req, res, next) => {
-  try {
-    res.json(await getAvatarForUser(req.user.id));
-  } catch (err) {
-    next(err);
-  }
-});
-
-router.put('/avatar', async (req, res, next) => {
-  try {
-    const result = await saveAvatarForUser(req.user.id, req.body?.avatar || req.body?.dataUrl);
-    await logAudit(req, 'user.avatar_updated', req.user.email);
-    res.json(result);
-  } catch (err) {
-    next(err);
-  }
-});
-
-router.delete('/avatar', async (req, res, next) => {
-  try {
-    const result = await deleteAvatarForUser(req.user.id);
-    await logAudit(req, 'user.avatar_removed', req.user.email);
-    res.json(result);
-  } catch (err) {
-    next(err);
-  }
-});
 
 /* --------------------------------------------------------- LANGUAGE ---- */
 router.put('/language', async (req, res, next) => {

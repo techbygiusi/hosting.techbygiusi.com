@@ -3,9 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { authApi, adminApi, getErrorMessage, translateMessage } from '../services/api';
 import '../styles/globals.css';
-import AccountMenu from '../components/AccountMenu';
-import AvatarSettingsPanel from '../components/AvatarSettingsPanel';
-import { MenuIcon, CloseIcon, GlobeIcon, UserIcon, CheckIcon } from '../components/Icons';
+import ThemeButton from '../components/ThemeButton';
 import WikiAdminPanel from '../components/WikiAdminPanel';
 import Modal from '../components/Modal';
 import MaintenanceBanner from '../components/MaintenanceBanner';
@@ -13,6 +11,27 @@ import ClusterMapSection from '../components/ClusterMapSection';
 import PangolinSettingsPanel from '../components/PangolinSettingsPanel';
 import { readStoredLanguage, storeLanguage } from '../components/LanguageSwitch';
 import { translatePortalText } from '../i18n';
+
+function LogoutIcon() {
+  return (
+    <svg className="logout-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M10 6H5v12h5" />
+      <path d="M14 8l4 4-4 4" />
+      <path d="M8 12h10" />
+    </svg>
+  );
+}
+
+
+function MenuIcon() {
+  return (
+    <svg className="menu-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M4 7h16" />
+      <path d="M4 12h16" />
+      <path d="M4 17h16" />
+    </svg>
+  );
+}
 
 const ADMIN_TAB_KEYS = new Set([
   'overview',
@@ -163,8 +182,6 @@ const MOBILE_MENU_TRANSLATIONS = {
     language: 'Language',
     languageText: 'Choose the language used by the portal, menus, placeholders and maintenance banners.',
     logout: 'Log out',
-    account: 'Account',
-    accountText: 'Manage the profile picture shown in the portal header.',
     adminConsole: 'Admin Console',
     loading: 'Loading data...',
     counts: { clusters: 'clusters', services: 'services', users: 'users' },
@@ -221,8 +238,6 @@ const MOBILE_MENU_TRANSLATIONS = {
     language: 'Sprache',
     languageText: 'Wähle die Sprache für Portal, Menüs, Platzhalter und Wartungsbanner.',
     logout: 'Abmelden',
-    account: 'Konto',
-    accountText: 'Verwalte das Profilbild, das in der Kopfzeile des Portals erscheint.',
     adminConsole: 'Admin-Konsole',
     loading: 'Daten werden geladen...',
     counts: { clusters: 'Cluster', services: 'Dienste', users: 'Benutzer' },
@@ -547,8 +562,8 @@ export default function AdminDashboard() {
       setError('Bitte ein Startpasswort eingeben.');
       return;
     }
-    if (newUser.password && newUser.password.length < 10) {
-      setError('Das Passwort muss mindestens 10 Zeichen lang sein.');
+    if (newUser.password && newUser.password.length < 8) {
+      setError('Das Passwort muss mindestens 8 Zeichen lang sein.');
       return;
     }
 
@@ -949,14 +964,8 @@ export default function AdminDashboard() {
 
   const handleSaveResource = async (e) => {
     e.preventDefault();
-    if (!newResource.clusterId || !newResource.containerId) {
-      setError('Bitte Cluster und Dienst auswählen.');
-      return;
-    }
-    // Either a personal owner or a group is enough - a service can be shared
-    // with a group without belonging to any single user.
-    if (!newResource.userId && !newResource.groupId) {
-      setError('Bitte einen Benutzer, eine Gruppe oder beides zuweisen.');
+    if (!newResource.clusterId || !newResource.containerId || !newResource.userId) {
+      setError('Bitte Cluster, Dienst und Benutzer auswählen.');
       return;
     }
 
@@ -1203,15 +1212,11 @@ export default function AdminDashboard() {
       <MaintenanceBanner />
       <header className="site-header">
         <div className="site-header-inner">
-          <button type="button" className="site-brand site-brand-button" onClick={() => handleSelectTab('overview')} aria-label="Zum Dashboard"><h1 className="dotted-title">Hosting by TechByGiusi</h1></button>
+          <button type="button" className="site-brand site-brand-button" onClick={() => handleSelectTab('overview')} aria-label="Zum Dashboard"><h1>Hosting by TechByGiusi</h1></button>
           <div className="site-actions">
-            <button type="button" className="icon-button admin-mobile-menu-toggle" onClick={() => setMobileMenuOpen(true)} aria-label={mobileMenuText.openMenu} title={mobileMenuText.menu}><MenuIcon size={20} /></button>
-            <AccountMenu
-              user={user}
-              language={mobileMenuLanguage}
-              onOpenSettings={() => handleSelectTab('settings')}
-              onLogout={logout}
-            />
+            <ThemeButton />
+            <button type="button" className="btn-secondary admin-mobile-menu-toggle" onClick={() => setMobileMenuOpen(true)} aria-label={mobileMenuText.openMenu}><MenuIcon /><span>{mobileMenuText.menu}</span></button>
+            <button type="button" className="btn-secondary logout-button" onClick={logout} aria-label={mobileMenuText.logout}><LogoutIcon /><span className="logout-label">{mobileMenuText.logout}</span></button>
           </div>
         </div>
       </header>
@@ -1220,11 +1225,11 @@ export default function AdminDashboard() {
         <div className="mobile-admin-menu-panel" onClick={(e) => e.stopPropagation()}>
           <div className="mobile-admin-menu-header">
             <div>
-              <span className="resource-id dotted-eyebrow">{mobileMenuText.adminConsole}</span>
+              <span className="resource-id">{mobileMenuText.adminConsole}</span>
               <h2>{user?.name || 'Administrator'}</h2>
               <p>{clusters.length} {mobileMenuText.counts.clusters} · {resources.length} {mobileMenuText.counts.services} · {users.length} {mobileMenuText.counts.users}</p>
             </div>
-            <button type="button" className="icon-button mobile-admin-menu-close" onClick={() => setMobileMenuOpen(false)} aria-label={mobileMenuText.closeMenu} title={mobileMenuText.close}><CloseIcon size={20} /></button>
+            <button type="button" className="btn-secondary mobile-admin-menu-close" onClick={() => setMobileMenuOpen(false)} aria-label={mobileMenuText.closeMenu}>{mobileMenuText.close}</button>
           </div>
           <div className="mobile-admin-language-switch" role="group" aria-label="Language">
             {OVERLAY_LANGUAGE_OPTIONS.map(option => (
@@ -1410,7 +1415,7 @@ export default function AdminDashboard() {
                         <h2>{item.title}</h2>
                         <p>{formatDateTime(item.starts_at)} - {formatDateTime(item.ends_at)}</p>
                         {item.message ? <p className="maintenance-message">{item.message}</p> : null}
-                        {item.notified_at ? <p className="maintenance-notified"><CheckIcon size={15} />Benutzer benachrichtigt am {formatDateTime(item.notified_at)}</p> : null}
+                        {item.notified_at ? <p className="maintenance-notified">✓ Benutzer benachrichtigt am {formatDateTime(item.notified_at)}</p> : null}
                       </div>
                       <div className="card-actions">
                         <button type="button" className="btn-secondary btn-small" onClick={() => openEditMaintenance(item)}>Bearbeiten</button>
@@ -1477,17 +1482,9 @@ export default function AdminDashboard() {
           <section className="panel-card settings-card">
             <PanelHeader title="Einstellungen" />
 
-            <section className="settings-section-card settings-account-section" aria-labelledby="settings-account-title">
-              <div className="settings-section-heading">
-                <h3 id="settings-account-title"><UserIcon size={18} />{mobileMenuText.account || 'Konto'}</h3>
-                <p>{mobileMenuText.accountText || 'Verwalte dein Profilbild für die Kopfzeile des Portals.'}</p>
-              </div>
-              <AvatarSettingsPanel language={mobileMenuLanguage} />
-            </section>
-
             <section className="settings-section-card settings-language-section" aria-labelledby="settings-language-title">
               <div className="settings-section-heading">
-                <h3 id="settings-language-title"><GlobeIcon size={18} />{mobileMenuText.language}</h3>
+                <h3 id="settings-language-title">{mobileMenuText.language}</h3>
                 <p>{mobileMenuText.languageText}</p>
               </div>
               <div className="mobile-admin-language-switch settings-language-buttons" role="group" aria-label={mobileMenuText.language}>
@@ -1710,14 +1707,8 @@ export default function AdminDashboard() {
                 <label className="form-group service-ip-port"><span>SSH-Port</span><input type="number" min="1" max="65535" value={newResource.sshPort} onChange={e => setNewResource(prev => ({ ...prev, sshPort: e.target.value }))} /></label>
               </div>
             )}
-            <div className="assignment-fields">
-              <p className="assignment-hint">Zuweisung: Benutzer, Gruppe oder beides. Mindestens eines ist erforderlich.</p>
-              <label className="form-group"><span>Benutzer (optional)</span><select value={newResource.userId} onChange={e => setNewResource(prev => ({ ...prev, userId: e.target.value }))}><option value="">Kein einzelner Benutzer</option>{users.map(item => <option key={item.id} value={item.id}>{item.name} · {item.email}</option>)}</select></label>
-              <label className="form-group"><span>Gruppe (optional, geteilter Zugriff)</span><select value={newResource.groupId} onChange={e => setNewResource(prev => ({ ...prev, groupId: e.target.value }))}><option value="">Keine Gruppe</option>{groups.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
-              {!newResource.userId && newResource.groupId && (
-                <p className="assignment-note">Dieser Dienst ist nur über die Gruppe zugänglich.</p>
-              )}
-            </div>
+            <label className="form-group"><span>Benutzer</span><select value={newResource.userId} onChange={e => setNewResource(prev => ({ ...prev, userId: e.target.value }))}><option value="">Bitte auswählen</option>{users.map(item => <option key={item.id} value={item.id}>{item.name} · {item.email}</option>)}</select></label>
+            <label className="form-group"><span>Gruppe (geteilter Zugriff)</span><select value={newResource.groupId} onChange={e => setNewResource(prev => ({ ...prev, groupId: e.target.value }))}><option value="">Keine Gruppe</option>{groups.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
             <label className="form-group"><span>Verwaltungsseite</span><input type="url" value={newResource.adminUrl} onChange={e => setNewResource(prev => ({ ...prev, adminUrl: e.target.value }))} placeholder="https://admin.example.com" /></label>
             <div className="form-actions"><button type="button" className="btn-secondary" onClick={closeResourceModal}>Abbrechen</button><button type="submit" className="btn-primary" disabled={actionLoading}>{editResourceId ? 'Speichern' : 'Anlegen'}</button></div>
           </form>
@@ -2354,7 +2345,7 @@ function ResourceCard({ resource, onEdit, onDelete, onManageCredentials, actionL
       </div>
 
       <div className="resource-summary">
-        <div><span>Benutzer</span><strong>{resource.userName || resource.userEmail || (resource.groupName ? 'Nur Gruppe' : 'Nicht gesetzt')}</strong></div>
+        <div><span>Benutzer</span><strong>{resource.userName || resource.userEmail || 'Nicht gesetzt'}</strong></div>
         <div><span>Cluster</span><strong>{resource.clusterName || 'Unbekannt'}</strong></div>
         {resource.groupName && <div><span>Gruppe</span><strong>{resource.groupName}</strong></div>}
       </div>
@@ -2377,7 +2368,7 @@ function ResourceCard({ resource, onEdit, onDelete, onManageCredentials, actionL
         <Modal title={`Details · ${resource.name}`} onClose={() => setDetailsOpen(false)} className="detail-modal-card">
           <div className="resource-details detail-modal-content">
             <div className="resource-meta">
-              <span>Benutzer</span><span>{resource.userName || resource.userEmail || (resource.groupName ? 'Nur Gruppe' : 'Nicht gesetzt')}</span>
+              <span>Benutzer</span><span>{resource.userName || resource.userEmail || 'Nicht gesetzt'}</span>
               <span>Cluster</span><span>{resource.clusterName || 'Unbekannt'}</span>
               <span>Node</span><span>{resource.node || 'Unbekannt'}</span>
               <span>Typ</span><span>{renderType(resource.type)}</span>

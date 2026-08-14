@@ -104,12 +104,7 @@ const MESSAGE_TRANSLATIONS = {
   'Current and new password required': 'Aktuelles und neues Passwort sind erforderlich.',
   'Current password is incorrect': 'Das aktuelle Passwort ist falsch.',
   'New password must be at least 6 characters': 'Das neue Passwort muss mindestens 6 Zeichen lang sein.',
-  'The password must be at least 10 characters long': 'Das Passwort muss mindestens 10 Zeichen lang sein.',
-  'The new password must be at least 10 characters long': 'Das neue Passwort muss mindestens 10 Zeichen lang sein.',
-  'This password is too common. Please choose a different one.': 'Dieses Passwort ist zu häufig. Bitte wähle ein anderes.',
-  'The new password must differ from the current one': 'Das neue Passwort muss sich vom aktuellen unterscheiden.',
-  'Assign the service to a user, a group, or both': 'Bitte einen Benutzer, eine Gruppe oder beides zuweisen.',
-  'Resource and cluster are required': 'Bitte Cluster und Dienst auswählen.',
+  'New password must be at least 8 characters': 'Das neue Passwort muss mindestens 8 Zeichen lang sein.',
   'Account temporarily locked. Try again later.': 'Konto vorübergehend gesperrt. Bitte später erneut versuchen.',
   'Too many login attempts. Please try again later.': 'Zu viele Anmeldeversuche. Bitte später erneut versuchen.',
   'Rate limit exceeded.': 'Zu viele Anfragen. Bitte kurz warten.',
@@ -180,8 +175,8 @@ const MESSAGE_TRANSLATIONS = {
   'Maintenance window deleted': 'Wartungsfenster wurde gelöscht.',
   'Notification preferences updated': 'Benachrichtigungseinstellungen gespeichert.',
   'Test email sent': 'Test-E-Mail wurde versendet.',
-  'The admin password must be at least 10 characters long': 'Das Admin-Passwort muss mindestens 10 Zeichen lang sein.',
-  'The password must be at least 10 characters long.': 'Das Passwort muss mindestens 10 Zeichen lang sein.',
+  'Admin password must be at least 8 characters': 'Das Admin-Passwort muss mindestens 8 Zeichen lang sein.',
+  'Password must be at least 8 characters': 'Das Passwort muss mindestens 8 Zeichen lang sein.',
   'Please select a valid location from the search results': 'Bitte einen gültigen Standort aus den Suchergebnissen auswählen.',
   'Location search failed': 'Standortsuche fehlgeschlagen.',
   'Invalid token purpose': 'Ungültiger Token-Zweck.',
@@ -356,10 +351,6 @@ export const adminApi = {
 };
 
 export const userApi = {
-  // Profile picture of the signed-in account (users and admins alike)
-  getAvatar: () => apiClient.get('/user/avatar'),
-  updateAvatar: (avatar) => apiClient.put('/user/avatar', { avatar }),
-  deleteAvatar: () => apiClient.delete('/user/avatar'),
   getResources: () => apiClient.get('/user/resources'),
   getResourceDetails: (resourceId) => apiClient.get(`/user/resources/${resourceId}`),
   getPublishingOptions: (resourceId) => apiClient.get(`/user/publishing/options${resourceId ? `?resourceId=${encodeURIComponent(resourceId)}` : ''}`),

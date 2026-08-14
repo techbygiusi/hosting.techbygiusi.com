@@ -16,7 +16,6 @@ const { decrypt } = require('./cryptoService');
 const { getClusterResources } = require('./proxmoxService');
 const { sendEmail } = require('./emailService');
 const { resourceDownTemplate, resourceRecoveredTemplate } = require('./emailTemplates');
-const { safeIdentifier } = require('../middleware/validate');
 
 const INTERVAL_MS = Math.max(15, parseInt(process.env.MONITOR_INTERVAL_SECONDS || '60', 10)) * 1000;
 const DEBOUNCE_CHECKS = Math.max(1, parseInt(process.env.MONITOR_DEBOUNCE_CHECKS || '2', 10));
@@ -36,24 +35,14 @@ function isDown(status) {
  * the owner plus members of the shared group (deduplicated),
  * filtered by their notification preference column.
  */
-/**
- * The preference column is the one place in the codebase where an SQL
- * identifier is chosen at runtime. Identifiers cannot be bound as `?`
- * parameters, so it is resolved through an explicit allowlist: only the two
- * literal strings below can ever reach the query text.
- */
-const NOTIFICATION_COLUMNS = ['notify_resource_down', 'notify_resource_recovered'];
-
 async function getRecipients(clusterId, containerId, prefColumn) {
-  const column = safeIdentifier(prefColumn, NOTIFICATION_COLUMNS, 'notification preference');
-
   return all(
     `
     SELECT DISTINCT u.id, u.email, u.name, u.preferred_language
     FROM resources r
     LEFT JOIN user_groups ug ON ug.group_id = r.group_id
     JOIN users u ON u.id = r.user_id OR u.id = ug.user_id
-    WHERE r.cluster_id = ? AND r.container_id = ? AND u.${column} = 1
+    WHERE r.cluster_id = ? AND r.container_id = ? AND u.${prefColumn} = 1
     `,
     [clusterId, String(containerId)]
   );
