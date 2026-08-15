@@ -102,6 +102,8 @@ const USER_TRANSLATIONS = {
     saving: 'Saving...',
     cancel: 'Cancel',
     cluster: 'Cluster',
+    user: 'User',
+    group: 'Group',
     node: 'Node',
     unknown: 'Unknown',
     counts: {
@@ -182,6 +184,8 @@ const USER_TRANSLATIONS = {
     saving: 'Wird gespeichert...',
     cancel: 'Abbrechen',
     cluster: 'Cluster',
+    user: 'Benutzer',
+    group: 'Gruppe',
     node: 'Node',
     unknown: 'Unbekannt',
     counts: {
@@ -342,6 +346,7 @@ export default function UserDashboard() {
       <header className="site-header">
         <div className="site-header-inner">
           <div className="site-brand">
+            <span className="site-brand-mark" aria-hidden="true"><span className="site-brand-mark-inner"></span></span>
             <h1>Hosting by TechByGiusi</h1>
           </div>
           <div className="site-actions">
@@ -655,18 +660,15 @@ function ResourceCard({ resource, onOpenDetails, onManagePublicPage, labels }) {
     <article className="resource-card compact-resource-card">
       <div className="resource-card-header">
         <div>
-          <span className="resource-id">
-            {renderType(resource.type)} · {resource.containerId}
-            {resource.groupName && <span className="group-chip">{resource.groupName}</span>}
-          </span>
+          <span className="resource-id">{renderType(resource.type)} · {resource.containerId}</span>
           <h2>{resource.name}</h2>
         </div>
         <span className={`status-badge status-${resource.status || 'unknown'}`}>{renderUserStatus(resource.status || 'unknown', labels)}</span>
       </div>
 
       <div className="resource-summary">
+        <div><span>{resource.userName || resource.userEmail ? labels.user : labels.group}</span><strong>{resource.userName || resource.userEmail || resource.groupName || labels.unknown}</strong></div>
         <div><span>{labels.cluster}</span><strong>{resource.clusterName || labels.unknown}</strong></div>
-        <div><span>{labels.node}</span><strong>{resource.node || labels.unknown}</strong></div>
       </div>
 
       <Metric label="CPU" percent={cpuPercent} detail={`${cpuPercent.toFixed(1)} %`} />

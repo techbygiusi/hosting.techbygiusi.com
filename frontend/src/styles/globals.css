@@ -8411,3 +8411,352 @@ body.theme-dark .panel-card, body.theme-dark .list-card, body.theme-dark .metric
   .dashboard-hero-card { align-items: flex-start; flex-direction: column; }
   .account-menu-panel { position: fixed; left: 14px; right: 14px; top: auto; bottom: 14px; width: auto; }
 }
+
+
+/* -------------------------------------------------------------
+   vNext correction pass: remove legacy blue dark-mode surfaces
+   and align cards more closely with the dark bento reference.
+---------------------------------------------------------------- */
+body.theme-dark {
+  --site-bg: #070a08;
+  --site-surface: #0d120f;
+  --site-inset: #111712;
+  --site-text: #edf2eb;
+  --site-muted: #9aa49c;
+  --site-accent: #dae3d7;
+  --site-accent-strong: #edf4e9;
+  --site-border: rgba(218, 227, 215, 0.10);
+  --color-bg: #070a08;
+  --color-surface: #0d120f;
+  --color-bg-alt: #111712;
+  --color-card: #0d120f;
+  --color-border: rgba(218, 227, 215, 0.10);
+  --color-text: #edf2eb;
+  --color-text-light: #9aa49c;
+  --portal-surface-1: rgba(11, 16, 13, 0.92);
+  --portal-surface-2: rgba(14, 20, 16, 0.96);
+  --portal-surface-3: rgba(17, 24, 19, 0.98);
+  --portal-text-strong: #edf2eb;
+  --portal-text-soft: #9aa49c;
+  --portal-border-strong: rgba(218, 227, 215, 0.10);
+  --portal-shadow-strong: 0 28px 72px rgba(0, 0, 0, 0.46);
+}
+
+body.theme-dark,
+body.theme-dark .app-page,
+body.theme-dark .app-loader,
+body.theme-dark .admin-page,
+body.theme-dark .user-page {
+  background: radial-gradient(circle at top left, rgba(218, 227, 215, 0.08), transparent 24%), linear-gradient(180deg, #070a08 0%, #090d0a 100%) !important;
+}
+
+body.theme-dark .site-header,
+body.theme-dark .site-header-inner,
+body.theme-dark .app-container,
+body.theme-dark .admin-shell {
+  background: transparent !important;
+}
+
+body.theme-dark .panel-card,
+body.theme-dark .metric-card,
+body.theme-dark .resource-card,
+body.theme-dark .list-card,
+body.theme-dark .soft-box,
+body.theme-dark .modal-card,
+body.theme-dark .auth-card,
+body.theme-dark .setup-card,
+body.theme-dark .app-error-card,
+body.theme-dark .settings-avatar-card,
+body.theme-dark .settings-language-card,
+body.theme-dark .settings-notification-card,
+body.theme-dark .admin-settings-language-card,
+body.theme-dark .cluster-stats-card,
+body.theme-dark .provisioning-job-card,
+body.theme-dark .provisioning-event,
+body.theme-dark .empty-state,
+body.theme-dark .wiki-browser-layout,
+body.theme-dark .wiki-card-shell,
+body.theme-dark .console-sidebar-card,
+body.theme-dark .dashboard-hero-card,
+body.theme-dark .audit-filter-card,
+body.theme-dark .cluster-map-card,
+body.theme-dark .cluster-map-summary-item,
+body.theme-dark .setup-content {
+  background: linear-gradient(180deg, rgba(13, 18, 15, 0.98), rgba(12, 16, 14, 0.98)) !important;
+  border-color: rgba(218, 227, 215, 0.10) !important;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.34) !important;
+}
+
+body.theme-dark .resource-card {
+  border-radius: 32px !important;
+  padding: 28px !important;
+  background: linear-gradient(180deg, rgba(11, 16, 13, 0.98), rgba(13, 19, 15, 0.98)) !important;
+}
+
+body.theme-dark .resource-card-header h2,
+body.theme-dark .panel-card h2,
+body.theme-dark .panel-card h3,
+body.theme-dark .list-card h2,
+body.theme-dark .metric-card h2,
+body.theme-dark .metric-card strong,
+body.theme-dark .console-sidebar-card h2,
+body.theme-dark .dashboard-hero-card h2 {
+  color: #f1f5ef !important;
+}
+
+body.theme-dark .panel-card p,
+body.theme-dark .panel-card small,
+body.theme-dark .list-card p,
+body.theme-dark .metric-line small,
+body.theme-dark .hint-text,
+body.theme-dark .resource-summary span,
+body.theme-dark .resource-meta span:nth-child(odd),
+body.theme-dark .form-group > span,
+body.theme-dark .form-group > small {
+  color: #98a39b !important;
+}
+
+body.theme-dark .resource-summary > div,
+body.theme-dark .resource-meta,
+body.theme-dark .disk-row,
+body.theme-dark .select-list,
+body.theme-dark .select-list-head,
+body.theme-dark .select-list-item,
+body.theme-dark .setup-check-row,
+body.theme-dark .setup-check-test,
+body.theme-dark .cluster-node-row,
+body.theme-dark .service-credential-card,
+body.theme-dark .settings-toggle-card,
+body.theme-dark .publishing-service-links a,
+body.theme-dark .publishing-service-links button {
+  background: rgba(16, 22, 18, 0.95) !important;
+  border-color: rgba(218, 227, 215, 0.08) !important;
+}
+
+body.theme-dark input,
+body.theme-dark select,
+body.theme-dark textarea,
+body.theme-dark .modal-card input,
+body.theme-dark .modal-card select,
+body.theme-dark .modal-card textarea,
+body.theme-dark .wiki-search-input,
+body.theme-dark .search-input {
+  background: rgba(28, 34, 30, 0.95) !important;
+  color: #eef3ed !important;
+  border-color: rgba(218, 227, 215, 0.10) !important;
+  box-shadow: none !important;
+}
+
+body.theme-dark input::placeholder,
+body.theme-dark textarea::placeholder {
+  color: #7f8b83 !important;
+}
+
+body.theme-dark .btn-secondary,
+body.theme-dark .btn-outline,
+body.theme-dark .service-detail-toggle,
+body.theme-dark .account-menu-item,
+body.theme-dark .account-menu-theme-switch button,
+body.theme-dark .mobile-admin-menu-close,
+body.theme-dark .mobile-admin-menu-logout {
+  background: rgba(12, 17, 14, 0.95) !important;
+  color: #edf2eb !important;
+  border-color: rgba(218, 227, 215, 0.10) !important;
+}
+
+body.theme-dark .btn-secondary:hover,
+body.theme-dark .btn-outline:hover,
+body.theme-dark .service-detail-toggle:hover,
+body.theme-dark .account-menu-item:hover,
+body.theme-dark .account-menu-theme-switch button:hover {
+  background: rgba(18, 24, 20, 0.98) !important;
+}
+
+body.theme-dark .btn-primary,
+body.theme-dark .admin-shell .console-nav-tabs button.active,
+body.theme-dark .mobile-admin-language-switch button.active,
+body.theme-dark .settings-language-buttons button.active,
+body.theme-dark .account-menu-theme-switch button.active {
+  background: #dae3d7 !important;
+  color: #101511 !important;
+  border-color: rgba(16, 21, 17, 0.12) !important;
+}
+
+body.theme-dark .progress-bar {
+  background: rgba(255,255,255,0.10) !important;
+  border-color: rgba(218, 227, 215, 0.10) !important;
+}
+body.theme-dark .progress-bar span {
+  background: linear-gradient(90deg, #d5ded0, #edf4e9) !important;
+}
+
+body.theme-dark .status-badge {
+  background: rgba(255,255,255,0.07) !important;
+  color: #d8dfd4 !important;
+  border: 1px solid rgba(218, 227, 215, 0.10) !important;
+}
+body.theme-dark .status-badge.status-running {
+  background: rgba(218, 227, 215, 0.12) !important;
+  color: #e7efe2 !important;
+}
+
+body.theme-dark .resource-id {
+  color: #cdd8c8 !important;
+}
+
+body.theme-dark .group-chip {
+  background: rgba(218, 227, 215, 0.10) !important;
+  color: #e5ece0 !important;
+}
+
+body.theme-dark .resource-summary {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+body.theme-dark .resource-summary > div {
+  min-height: 84px;
+  padding: 16px 18px;
+  border-radius: 18px;
+}
+
+body.theme-dark .dashboard-hero-card,
+body.theme-dark .console-sidebar-card {
+  background: linear-gradient(135deg, rgba(14, 19, 16, 0.98), rgba(11, 16, 13, 0.98), rgba(20, 29, 23, 0.98)) !important;
+}
+
+body.theme-dark .site-header::after {
+  background: linear-gradient(90deg, transparent, rgba(218, 227, 215, 0.12), transparent) !important;
+}
+
+@media (max-width: 720px) {
+  body.theme-dark .resource-card {
+    padding: 22px !important;
+    border-radius: 28px !important;
+  }
+  body.theme-dark .resource-summary {
+    grid-template-columns: 1fr;
+  }
+}
+
+
+/* -------------------------------------------------------------
+   Follow-up polish: visible header logo, friendlier settings icon
+   context, and calmer dark-mode glow treatment.
+---------------------------------------------------------------- */
+.site-brand::before, .site-brand::after,
+.site-brand-button::before, .site-brand-button::after {
+  content: none !important;
+}
+
+.site-brand, .site-brand-button {
+  gap: 16px;
+}
+
+.site-brand-mark {
+  width: 44px;
+  height: 44px;
+  border-radius: 15px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--portal-border-strong);
+  background: linear-gradient(145deg, rgba(255,255,255,0.95), rgba(232,237,229,0.92));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.85), 0 8px 18px rgba(17, 24, 18, 0.08);
+}
+
+.site-brand-mark::before,
+.site-brand-mark::after {
+  content: '';
+  position: absolute;
+  width: 17px;
+  height: 22px;
+  border-radius: 9px;
+  background: #dae3d7;
+  top: 50%;
+  transform: translateY(-50%) skewX(-18deg);
+}
+
+.site-brand-mark::before {
+  left: 9px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.5);
+}
+
+.site-brand-mark::after {
+  left: 19px;
+  opacity: 0.72;
+}
+
+.site-brand-mark-inner {
+  position: absolute;
+  inset: 7px;
+  border-radius: 12px;
+  border: 1px solid rgba(18, 26, 19, 0.04);
+}
+
+body.theme-light .site-brand-mark {
+  background: linear-gradient(145deg, rgba(250,252,248,0.98), rgba(234,239,231,0.98));
+  border-color: rgba(18, 26, 19, 0.08);
+}
+body.theme-light .site-brand-mark::before { background: #ccd8c8; }
+body.theme-light .site-brand-mark::after { background: #dfe7db; }
+
+body.theme-dark .site-brand-mark {
+  background: linear-gradient(145deg, rgba(18, 24, 20, 0.98), rgba(13, 18, 15, 0.98));
+  border-color: rgba(218, 227, 215, 0.10);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 10px 22px rgba(0,0,0,0.28);
+}
+body.theme-dark .site-brand-mark::before { background: #e4ebe0; }
+body.theme-dark .site-brand-mark::after { background: rgba(228, 235, 224, 0.62); }
+body.theme-dark .site-brand-mark-inner { border-color: rgba(218, 227, 215, 0.06); }
+
+body.theme-dark {
+  --portal-glow: rgba(218,227,215,0.06);
+  --portal-shadow-strong: 0 20px 44px rgba(0,0,0,0.28);
+}
+
+body.theme-dark .dashboard-hero-card {
+  background: linear-gradient(135deg, rgba(13, 18, 15, 0.98) 0%, rgba(12, 17, 14, 0.98) 56%, rgba(26, 33, 28, 0.72) 100%) !important;
+}
+
+body.theme-dark .dashboard-hero-card::after {
+  inset: auto -12% -50% auto !important;
+  width: 260px !important;
+  height: 260px !important;
+  background: radial-gradient(circle, rgba(218,227,215,0.14), transparent 70%) !important;
+  opacity: 0.55 !important;
+}
+
+body.theme-dark .console-sidebar-card {
+  background: linear-gradient(135deg, rgba(13, 18, 15, 0.98), rgba(11, 16, 13, 0.98), rgba(17, 23, 19, 0.94)) !important;
+}
+
+body.theme-dark .panel-card,
+body.theme-dark .list-card,
+body.theme-dark .metric-card,
+body.theme-dark .resource-card,
+body.theme-dark .settings-avatar-card,
+body.theme-dark .settings-language-card,
+body.theme-dark .settings-notification-card,
+body.theme-dark .dashboard-hero-card,
+body.theme-dark .audit-filter-card,
+body.theme-dark .console-sidebar-card,
+body.theme-dark .soft-box,
+body.theme-dark .modal-card {
+  box-shadow: 0 18px 38px rgba(0, 0, 0, 0.24) !important;
+}
+
+body.theme-dark .site-header {
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+@media (max-width: 720px) {
+  .site-brand-mark {
+    width: 40px;
+    height: 40px;
+    border-radius: 14px;
+  }
+}

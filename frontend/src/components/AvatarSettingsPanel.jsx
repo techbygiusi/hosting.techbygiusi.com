@@ -11,7 +11,7 @@ const OUTPUT_QUALITY = 0.86;
 const TEXT = {
   en: {
     title: 'Profile picture',
-    intro: 'Upload a profile picture for your account. It is stored now and ready to be used across the portal in a later UI update.',
+    intro: '',
     choose: 'Upload picture',
     replace: 'Replace picture',
     remove: 'Remove',
@@ -27,7 +27,7 @@ const TEXT = {
   },
   de: {
     title: 'Profilbild',
-    intro: 'Lade ein Profilbild für dein Konto hoch. Es wird jetzt gespeichert und kann in einem späteren UI-Update im Portal verwendet werden.',
+    intro: '',
     choose: 'Bild hochladen',
     replace: 'Bild ersetzen',
     remove: 'Entfernen',
@@ -151,7 +151,7 @@ export default function AvatarSettingsPanel({ language = 'en' }) {
       <div className="settings-section-header">
         <div>
           <h3>{text.title}</h3>
-          <p>{text.intro}</p>
+          {text.intro ? <p>{text.intro}</p> : null}
         </div>
       </div>
 

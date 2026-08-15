@@ -1213,7 +1213,7 @@ export default function AdminDashboard() {
       <MaintenanceBanner />
       <header className="site-header">
         <div className="site-header-inner">
-          <button type="button" className="site-brand site-brand-button" onClick={() => handleSelectTab('overview')} aria-label="Zum Dashboard"><h1>Hosting by TechByGiusi</h1></button>
+          <button type="button" className="site-brand site-brand-button" onClick={() => handleSelectTab('overview')} aria-label="Zum Dashboard"><span className="site-brand-mark" aria-hidden="true"><span className="site-brand-mark-inner"></span></span><h1>Hosting by TechByGiusi</h1></button>
           <div className="site-actions">
             <button type="button" className="btn-secondary admin-mobile-menu-toggle" onClick={() => setMobileMenuOpen(true)} aria-label={mobileMenuText.openMenu}><MenuIcon /><span>{mobileMenuText.menu}</span></button>
             <AccountMenu user={user} language={mobileMenuLanguage} onOpenSettings={() => handleSelectTab('settings')} onLogout={logout} />
@@ -2347,9 +2347,8 @@ function ResourceCard({ resource, onEdit, onDelete, onManageCredentials, actionL
       </div>
 
       <div className="resource-summary">
-        <div><span>Benutzer</span><strong>{resource.userName || resource.userEmail || 'Nicht gesetzt'}</strong></div>
+        <div><span>{resource.userName || resource.userEmail ? 'Benutzer' : 'Gruppe'}</span><strong>{resource.userName || resource.userEmail || resource.groupName || 'Nicht gesetzt'}</strong></div>
         <div><span>Cluster</span><strong>{resource.clusterName || 'Unbekannt'}</strong></div>
-        {resource.groupName && <div><span>Gruppe</span><strong>{resource.groupName}</strong></div>}
       </div>
 
       <Metric label="CPU" percent={cpuPercent} detail={`${cpuPercent.toFixed(1)} %`} />
@@ -2370,7 +2369,7 @@ function ResourceCard({ resource, onEdit, onDelete, onManageCredentials, actionL
         <Modal title={`Details · ${resource.name}`} onClose={() => setDetailsOpen(false)} className="detail-modal-card">
           <div className="resource-details detail-modal-content">
             <div className="resource-meta">
-              <span>Benutzer</span><span>{resource.userName || resource.userEmail || 'Nicht gesetzt'}</span>
+              <span>{resource.userName || resource.userEmail ? 'Benutzer' : 'Gruppe'}</span><span>{resource.userName || resource.userEmail || resource.groupName || 'Nicht gesetzt'}</span>
               <span>Cluster</span><span>{resource.clusterName || 'Unbekannt'}</span>
               <span>Node</span><span>{resource.node || 'Unbekannt'}</span>
               <span>Typ</span><span>{renderType(resource.type)}</span>
