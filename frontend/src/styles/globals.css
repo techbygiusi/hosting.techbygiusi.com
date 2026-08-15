@@ -9039,3 +9039,131 @@ body.theme-dark .publishing-service-links button:disabled {
 .site-brand-button {
   gap: 0 !important;
 }
+
+/* -------------------------------------------------------------
+   Mobile account menu positioning fix.
+   Keep the profile menu anchored below the profile trigger instead
+   of using a fixed bottom sheet inside the blurred sticky header.
+---------------------------------------------------------------- */
+@media (max-width: 960px) {
+  .account-menu {
+    position: relative !important;
+  }
+
+  .account-menu-panel {
+    position: absolute !important;
+    top: calc(100% + 10px) !important;
+    right: 0 !important;
+    bottom: auto !important;
+    left: auto !important;
+    width: min(360px, calc(100vw - 24px)) !important;
+    max-width: calc(100vw - 24px) !important;
+    max-height: calc(100dvh - 92px - env(safe-area-inset-bottom, 0px)) !important;
+    margin: 0 !important;
+    padding: 14px !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    box-sizing: border-box !important;
+    z-index: 260 !important;
+  }
+
+  .account-menu-head,
+  .account-menu-theme,
+  .account-menu-theme-switch,
+  .account-menu-item {
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
+
+  .account-menu-head > div {
+    min-width: 0 !important;
+  }
+
+  .account-menu-head strong,
+  .account-menu-head small {
+    display: block;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+@media (max-width: 420px) {
+  .account-menu-panel {
+    width: calc(100vw - 16px) !important;
+    max-width: calc(100vw - 16px) !important;
+    right: -4px !important;
+    padding: 12px !important;
+    border-radius: 20px !important;
+  }
+}
+
+
+/* -------------------------------------------------------------
+   Dark mode surface audit: admin settings sections + cluster map.
+   Keep these final overrides last to win over legacy blue styles.
+---------------------------------------------------------------- */
+body.theme-dark .settings-card > .settings-section-card,
+body.theme-dark .settings-language-section,
+body.theme-dark .settings-smtp-section,
+body.theme-dark .settings-setup-section {
+  background: linear-gradient(180deg, #0d120f 0%, #0c110e 100%) !important;
+  border-color: rgba(218, 227, 215, 0.10) !important;
+  box-shadow: 0 18px 38px rgba(0, 0, 0, 0.22) !important;
+}
+
+body.theme-dark .settings-section-card .setup-check-row,
+body.theme-dark .settings-section-card .setup-check-test {
+  background: #101611 !important;
+  border-color: rgba(218, 227, 215, 0.08) !important;
+}
+
+body.theme-dark .settings-section-card input,
+body.theme-dark .settings-section-card select,
+body.theme-dark .settings-section-card textarea {
+  background-color: #1a211c !important;
+  border-color: rgba(218, 227, 215, 0.10) !important;
+}
+
+body.theme-dark .cluster-map-card {
+  background: linear-gradient(180deg, #0d120f 0%, #0c110e 100%) !important;
+  border-color: rgba(218, 227, 215, 0.10) !important;
+}
+
+body.theme-dark .cluster-map-canvas {
+  background: #080d0a !important;
+  border-color: rgba(218, 227, 215, 0.10) !important;
+  box-shadow: inset 0 0 0 1px rgba(218, 227, 215, 0.015) !important;
+}
+
+body.theme-dark .cluster-map-canvas .leaflet-container,
+body.theme-dark .cluster-map-widget {
+  background: #080d0a !important;
+  filter: saturate(0.68) brightness(0.88) contrast(1.02) !important;
+}
+
+body.theme-dark .cluster-map-canvas::after {
+  background:
+    radial-gradient(circle at top left, rgba(218, 227, 215, 0.035), transparent 44%),
+    linear-gradient(180deg, rgba(8, 13, 10, 0.02), rgba(5, 9, 7, 0.13)) !important;
+}
+
+body.theme-dark .cluster-map-summary-item {
+  background: #101611 !important;
+  border-color: rgba(218, 227, 215, 0.08) !important;
+}
+
+body.theme-dark .cluster-map-canvas .leaflet-control-zoom a {
+  background: #0d120f !important;
+  color: #edf2eb !important;
+  border-color: rgba(218, 227, 215, 0.10) !important;
+}
+
+body.theme-dark .cluster-map-canvas .leaflet-popup-content-wrapper,
+body.theme-dark .cluster-map-canvas .leaflet-popup-tip {
+  background: #101611 !important;
+  color: #edf2eb !important;
+}

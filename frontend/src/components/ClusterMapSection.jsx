@@ -62,10 +62,10 @@ export default function ClusterMapSection({ clusters = [], mappedCount = 0, onOp
 
   const isDark = theme === 'dark';
   const countryStyle = isDark
-    ? { color: 'rgba(194, 206, 167, 0.28)', weight: 0.8, fillColor: '#11161d', fillOpacity: 1 }
+    ? { color: 'rgba(218, 227, 215, 0.22)', weight: 0.8, fillColor: '#0b100d', fillOpacity: 1 }
     : { color: 'rgba(122, 135, 111, 0.34)', weight: 0.8, fillColor: '#f6f7f4', fillOpacity: 1 };
   const markerStyle = isDark
-    ? { color: '#101419', weight: 2, fillColor: '#c2cea7', fillOpacity: 0.95 }
+    ? { color: '#080c09', weight: 2, fillColor: '#dae3d7', fillOpacity: 0.96 }
     : { color: '#ffffff', weight: 2, fillColor: '#7a876f', fillOpacity: 0.95 };
 
   const points = useMemo(() => (
