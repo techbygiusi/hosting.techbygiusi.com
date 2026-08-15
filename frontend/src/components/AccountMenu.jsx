@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import Avatar from './Avatar';
-import { ChevronDownIcon, LogoutIcon, SettingsIcon, SunIcon, MoonIcon } from './Icons';
+import { ChevronDownIcon, LogoutIcon, HomeIcon, SunIcon, MoonIcon } from './Icons';
 import { useTheme } from './ThemeButton';
 
 const TEXT = {
@@ -114,7 +114,7 @@ export default function AccountMenu({ user, language = 'en', onOpenSettings, onL
               role="menuitem"
               onClick={() => { setOpen(false); onOpenSettings(); }}
             >
-              <SettingsIcon size={18} />{text.settings}
+              <HomeIcon size={18} />{text.settings}
             </button>
           )}
           <button

@@ -8760,3 +8760,282 @@ body.theme-dark .site-header {
     border-radius: 14px;
   }
 }
+
+
+/* -------------------------------------------------------------
+   Dark mode follow-up: ensure all button labels remain visible.
+---------------------------------------------------------------- */
+body.theme-dark .btn-primary,
+body.theme-dark a.btn-primary,
+body.theme-dark .btn-primary:link,
+body.theme-dark .btn-primary:visited {
+  background: #dae3d7 !important;
+  color: #101511 !important;
+  -webkit-text-fill-color: #101511 !important;
+  border-color: rgba(16, 21, 17, 0.12) !important;
+}
+
+body.theme-dark .btn-secondary,
+body.theme-dark a.btn-secondary,
+body.theme-dark .btn-secondary:link,
+body.theme-dark .btn-secondary:visited,
+body.theme-dark .btn-outline,
+body.theme-dark a.btn-outline,
+body.theme-dark .btn-outline:link,
+body.theme-dark .btn-outline:visited,
+body.theme-dark .service-detail-toggle,
+body.theme-dark .publishing-service-links a,
+body.theme-dark .publishing-service-links button,
+body.theme-dark .resource-card-footer .btn-secondary,
+body.theme-dark .resource-card-footer .btn-outline {
+  color: #edf2eb !important;
+  -webkit-text-fill-color: #edf2eb !important;
+}
+
+body.theme-dark .btn-primary *,
+body.theme-dark .btn-secondary *,
+body.theme-dark .btn-outline *,
+body.theme-dark .service-detail-toggle *,
+body.theme-dark .publishing-service-links a *,
+body.theme-dark .publishing-service-links button *,
+body.theme-dark .resource-card-footer button *,
+body.theme-dark .resource-card-footer a * {
+  color: inherit !important;
+  -webkit-text-fill-color: inherit !important;
+}
+
+body.theme-dark .btn-primary svg,
+body.theme-dark .btn-secondary svg,
+body.theme-dark .btn-outline svg,
+body.theme-dark .service-detail-toggle svg {
+  stroke: currentColor !important;
+  fill: none;
+}
+
+body.theme-dark .btn-primary:hover:not(:disabled),
+body.theme-dark a.btn-primary:hover {
+  background: #e6eee2 !important;
+  color: #0f1411 !important;
+  -webkit-text-fill-color: #0f1411 !important;
+}
+
+body.theme-dark .btn-secondary:hover:not(:disabled),
+body.theme-dark a.btn-secondary:hover,
+body.theme-dark .btn-outline:hover:not(:disabled),
+body.theme-dark a.btn-outline:hover,
+body.theme-dark .service-detail-toggle:hover,
+body.theme-dark .publishing-service-links a:hover,
+body.theme-dark .publishing-service-links button:hover {
+  color: #f3f7f1 !important;
+  -webkit-text-fill-color: #f3f7f1 !important;
+}
+
+body.theme-dark .btn-primary:disabled,
+body.theme-dark .btn-secondary:disabled,
+body.theme-dark .btn-outline:disabled,
+body.theme-dark .service-detail-toggle:disabled,
+body.theme-dark .publishing-service-links button:disabled {
+  opacity: 0.72 !important;
+}
+
+
+/* -------------------------------------------------------------
+   Mobile navigation cleanup: one full-width, viewport-safe layout.
+---------------------------------------------------------------- */
+@media (max-width: 960px) {
+  .mobile-admin-menu-overlay,
+  .user-fullscreen-menu-overlay {
+    position: fixed !important;
+    display: flex !important;
+    inset: 0 !important;
+    width: 100vw !important;
+    height: 100dvh !important;
+    max-width: none !important;
+    max-height: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    align-items: stretch !important;
+    justify-content: stretch !important;
+    overflow: hidden !important;
+    z-index: 220 !important;
+    background: color-mix(in srgb, var(--color-bg) 88%, rgba(0,0,0,.24)) !important;
+  }
+
+  .mobile-admin-menu-panel,
+  .user-fullscreen-menu-panel {
+    position: relative !important;
+    width: 100vw !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    height: 100dvh !important;
+    min-height: 0 !important;
+    max-height: 100dvh !important;
+    margin: 0 !important;
+    padding:
+      calc(14px + env(safe-area-inset-top, 0px) + var(--maintenance-banner-offset, 0px))
+      14px
+      calc(14px + env(safe-area-inset-bottom, 0px)) !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 12px !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    background: var(--color-bg) !important;
+  }
+
+  .mobile-admin-menu-header,
+  .user-fullscreen-menu-overlay .mobile-admin-menu-header,
+  .mobile-admin-menu-nav,
+  .user-fullscreen-menu-overlay .mobile-admin-menu-nav,
+  .mobile-admin-menu-footer,
+  .user-fullscreen-menu-overlay .mobile-admin-menu-footer,
+  .mobile-admin-language-switch,
+  .user-fullscreen-menu-overlay .user-menu-language-switch {
+    width: 100% !important;
+    max-width: none !important;
+    min-width: 0 !important;
+    margin: 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  .mobile-admin-menu-header,
+  .user-fullscreen-menu-overlay .mobile-admin-menu-header {
+    flex: 0 0 auto !important;
+    padding: 18px !important;
+    border-radius: 22px !important;
+    align-items: flex-start !important;
+  }
+
+  .mobile-admin-menu-header > div,
+  .user-fullscreen-menu-overlay .mobile-admin-menu-header > div {
+    min-width: 0 !important;
+    flex: 1 1 auto !important;
+  }
+
+  .mobile-admin-menu-header h2,
+  .mobile-admin-menu-header p,
+  .user-fullscreen-menu-overlay .mobile-admin-menu-header h2,
+  .user-fullscreen-menu-overlay .mobile-admin-menu-header p {
+    overflow-wrap: anywhere;
+  }
+
+  .mobile-admin-menu-close {
+    flex: 0 0 auto !important;
+    min-width: 84px !important;
+  }
+
+  .mobile-admin-language-switch,
+  .user-fullscreen-menu-overlay .user-menu-language-switch {
+    flex: 0 0 auto !important;
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+    padding: 8px !important;
+    border: 1px solid var(--color-border) !important;
+    border-radius: 22px !important;
+    background: var(--color-card) !important;
+  }
+
+  .mobile-admin-language-switch button,
+  .user-fullscreen-menu-overlay .user-menu-language-switch button {
+    width: 100% !important;
+    min-width: 0 !important;
+    min-height: 48px !important;
+    margin: 0 !important;
+    padding: 11px 12px !important;
+    border-radius: 15px !important;
+  }
+
+  .mobile-admin-menu-nav,
+  .user-fullscreen-menu-overlay .mobile-admin-menu-nav {
+    flex: 0 0 auto !important;
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 8px !important;
+    padding: 10px !important;
+    border-radius: 22px !important;
+  }
+
+  .mobile-admin-menu-nav button,
+  .user-fullscreen-menu-overlay .mobile-admin-menu-nav button {
+    width: 100% !important;
+    min-width: 0 !important;
+    min-height: 52px !important;
+    margin: 0 !important;
+    padding: 13px 16px !important;
+    border-radius: 15px !important;
+    text-align: left !important;
+    justify-content: flex-start !important;
+    overflow: visible !important;
+    white-space: normal !important;
+  }
+
+  .mobile-admin-menu-footer,
+  .user-fullscreen-menu-overlay .mobile-admin-menu-footer {
+    flex: 0 0 auto !important;
+    margin-top: 0 !important;
+    padding: 10px !important;
+    border-radius: 22px !important;
+  }
+
+  .mobile-admin-menu-logout,
+  .user-fullscreen-menu-overlay .mobile-admin-menu-logout {
+    width: 100% !important;
+    min-height: 52px !important;
+    justify-content: flex-start !important;
+  }
+
+  /* Account dropdown stays completely inside the mobile viewport. */
+  .account-menu-panel {
+    position: fixed !important;
+    left: 12px !important;
+    right: 12px !important;
+    top: auto !important;
+    bottom: calc(12px + env(safe-area-inset-bottom, 0px)) !important;
+    width: auto !important;
+    max-width: none !important;
+    max-height: calc(100dvh - 24px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)) !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain;
+    z-index: 240 !important;
+    box-sizing: border-box !important;
+  }
+
+  .account-menu-theme-switch,
+  .account-menu-item {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+}
+
+@media (max-width: 560px) {
+  .mobile-admin-menu-panel,
+  .user-fullscreen-menu-panel {
+    padding-left: 10px !important;
+    padding-right: 10px !important;
+  }
+
+  .mobile-admin-menu-header,
+  .user-fullscreen-menu-overlay .mobile-admin-menu-header {
+    padding: 16px !important;
+    gap: 10px !important;
+  }
+
+  .mobile-admin-menu-close {
+    min-width: 74px !important;
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+  }
+}
+
+
+/* Header is text-only by design. */
+.site-brand,
+.site-brand-button {
+  gap: 0 !important;
+}

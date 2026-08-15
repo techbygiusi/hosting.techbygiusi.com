@@ -346,7 +346,6 @@ export default function UserDashboard() {
       <header className="site-header">
         <div className="site-header-inner">
           <div className="site-brand">
-            <span className="site-brand-mark" aria-hidden="true"><span className="site-brand-mark-inner"></span></span>
             <h1>Hosting by TechByGiusi</h1>
           </div>
           <div className="site-actions">

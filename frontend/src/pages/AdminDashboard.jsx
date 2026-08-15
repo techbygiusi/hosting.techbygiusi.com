@@ -1213,7 +1213,7 @@ export default function AdminDashboard() {
       <MaintenanceBanner />
       <header className="site-header">
         <div className="site-header-inner">
-          <button type="button" className="site-brand site-brand-button" onClick={() => handleSelectTab('overview')} aria-label="Zum Dashboard"><span className="site-brand-mark" aria-hidden="true"><span className="site-brand-mark-inner"></span></span><h1>Hosting by TechByGiusi</h1></button>
+          <button type="button" className="site-brand site-brand-button" onClick={() => handleSelectTab('overview')} aria-label="Zum Dashboard"><h1>Hosting by TechByGiusi</h1></button>
           <div className="site-actions">
             <button type="button" className="btn-secondary admin-mobile-menu-toggle" onClick={() => setMobileMenuOpen(true)} aria-label={mobileMenuText.openMenu}><MenuIcon /><span>{mobileMenuText.menu}</span></button>
             <AccountMenu user={user} language={mobileMenuLanguage} onOpenSettings={() => handleSelectTab('settings')} onLogout={logout} />
