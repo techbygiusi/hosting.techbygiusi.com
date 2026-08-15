@@ -333,6 +333,7 @@ function serializeProfileUser(user, groups) {
     name: user.name,
     role: user.role,
     preferredLanguage: user.preferred_language || 'en',
+    preferredTheme: user.preferred_theme || 'light',
     avatarUrl: buildAvatarUrl(user),
     avatarUpdatedAt: user.avatar_updated_at || null,
     created_at: user.created_at,
@@ -346,7 +347,7 @@ function serializeProfileUser(user, groups) {
 router.get('/profile', async (req, res, next) => {
   try {
     const user = await get(
-      'SELECT id, email, name, role, preferred_language, avatar_mime, avatar_data, avatar_updated_at, created_at, updated_at FROM users WHERE id = ?',
+      'SELECT id, email, name, role, preferred_language, preferred_theme, avatar_mime, avatar_data, avatar_updated_at, created_at, updated_at FROM users WHERE id = ?',
       [req.user.id]
     );
     if (!user) throw new AppError('User not found', HTTP_STATUS.NOT_FOUND);
@@ -374,7 +375,7 @@ router.put('/profile', async (req, res, next) => {
     );
 
     const user = await get(
-      'SELECT id, email, name, role, preferred_language, avatar_mime, avatar_data, avatar_updated_at, created_at, updated_at FROM users WHERE id = ?',
+      'SELECT id, email, name, role, preferred_language, preferred_theme, avatar_mime, avatar_data, avatar_updated_at, created_at, updated_at FROM users WHERE id = ?',
       [req.user.id]
     );
     res.json({ user: serializeProfileUser(user) });
@@ -420,6 +421,26 @@ router.put('/language', async (req, res, next) => {
     );
 
     res.json({ preferredLanguage: language });
+  } catch (err) {
+    next(err);
+  }
+});
+
+
+/* ----------------------------------------------------------- THEME ---- */
+router.put('/theme', async (req, res, next) => {
+  try {
+    const theme = String(req.body?.theme || '').trim().toLowerCase();
+    if (!['light', 'dark'].includes(theme)) {
+      throw new AppError('Unsupported theme', HTTP_STATUS.BAD_REQUEST);
+    }
+
+    await run(
+      'UPDATE users SET preferred_theme = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+      [theme, req.user.id]
+    );
+
+    res.json({ preferredTheme: theme });
   } catch (err) {
     next(err);
   }

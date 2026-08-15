@@ -109,6 +109,7 @@ function migrateUserAvatarColumns(database, callback) {
     if (!existing.has('avatar_mime')) statements.push('ALTER TABLE users ADD COLUMN avatar_mime TEXT');
     if (!existing.has('avatar_data')) statements.push('ALTER TABLE users ADD COLUMN avatar_data TEXT');
     if (!existing.has('avatar_updated_at')) statements.push('ALTER TABLE users ADD COLUMN avatar_updated_at DATETIME');
+    if (!existing.has('preferred_theme')) statements.push("ALTER TABLE users ADD COLUMN preferred_theme TEXT DEFAULT 'light'");
     if (!statements.length) return callback();
     database.exec(statements.join(';') + ';', callback);
   });
@@ -156,6 +157,7 @@ async function initDatabase() {
           password_hash TEXT NOT NULL,
           role TEXT DEFAULT 'user' CHECK(role IN ('admin', 'user')),
           preferred_language TEXT DEFAULT 'en',
+          preferred_theme TEXT DEFAULT 'light',
           avatar_mime TEXT,
           avatar_data TEXT,
           avatar_updated_at DATETIME,
@@ -516,6 +518,8 @@ async function initDatabase() {
       database.run(`ALTER TABLE users ADD COLUMN notify_maintenance INTEGER DEFAULT 1`, () => {});
       // v3.1.23: persisted portal/e-mail language per user
       database.run(`ALTER TABLE users ADD COLUMN preferred_language TEXT`, () => {});
+      // v3.1.99: persisted portal/e-mail appearance per user
+      database.run(`ALTER TABLE users ADD COLUMN preferred_theme TEXT DEFAULT 'light'`, () => {});
 
       // v3.0: scheduled maintenance windows / announcements
       database.run(`

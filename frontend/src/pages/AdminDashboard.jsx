@@ -3,13 +3,13 @@ import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { authApi, adminApi, getErrorMessage, translateMessage } from '../services/api';
 import '../styles/globals.css';
-import ThemeButton from '../components/ThemeButton';
 import WikiAdminPanel from '../components/WikiAdminPanel';
 import Modal from '../components/Modal';
 import MaintenanceBanner from '../components/MaintenanceBanner';
 import ClusterMapSection from '../components/ClusterMapSection';
 import PangolinSettingsPanel from '../components/PangolinSettingsPanel';
 import AvatarSettingsPanel from '../components/AvatarSettingsPanel';
+import AccountMenu from '../components/AccountMenu';
 import { readStoredLanguage, storeLanguage } from '../components/LanguageSwitch';
 import { translatePortalText } from '../i18n';
 
@@ -1215,9 +1215,8 @@ export default function AdminDashboard() {
         <div className="site-header-inner">
           <button type="button" className="site-brand site-brand-button" onClick={() => handleSelectTab('overview')} aria-label="Zum Dashboard"><h1>Hosting by TechByGiusi</h1></button>
           <div className="site-actions">
-            <ThemeButton />
             <button type="button" className="btn-secondary admin-mobile-menu-toggle" onClick={() => setMobileMenuOpen(true)} aria-label={mobileMenuText.openMenu}><MenuIcon /><span>{mobileMenuText.menu}</span></button>
-            <button type="button" className="btn-secondary logout-button" onClick={logout} aria-label={mobileMenuText.logout}><LogoutIcon /><span className="logout-label">{mobileMenuText.logout}</span></button>
+            <AccountMenu user={user} language={mobileMenuLanguage} onOpenSettings={() => handleSelectTab('settings')} onLogout={logout} />
           </div>
         </div>
       </header>

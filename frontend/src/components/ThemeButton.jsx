@@ -1,17 +1,46 @@
 import React, { useEffect, useState } from 'react';
 
-function setDocumentTheme(theme) {
+const STORAGE_KEY = 'site_theme';
+const EVENT_NAME = 'portal-theme-change';
+
+export function setDocumentTheme(theme) {
+  if (typeof document === 'undefined') return;
+  const nextTheme = theme === 'dark' ? 'dark' : 'light';
   document.body.classList.remove('theme-light', 'theme-dark');
-  document.body.classList.add(`theme-${theme}`);
-  localStorage.setItem('site_theme', theme);
-  document.cookie = `site_theme=${theme}; max-age=31536000; path=/`;
+  document.body.classList.add(`theme-${nextTheme}`);
+  localStorage.setItem(STORAGE_KEY, nextTheme);
+  document.cookie = `site_theme=${nextTheme}; max-age=31536000; path=/`;
+  window.dispatchEvent(new CustomEvent(EVENT_NAME, { detail: { theme: nextTheme } }));
 }
 
-function getSavedTheme() {
-  const saved = localStorage.getItem('site_theme');
+export function getSavedTheme() {
+  if (typeof window === 'undefined') return 'light';
+  const saved = localStorage.getItem(STORAGE_KEY);
   if (saved === 'dark' || saved === 'light') return saved;
+  return 'light';
+}
 
-  return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+export function useDocumentTheme() {
+  useEffect(() => {
+    setDocumentTheme(getSavedTheme());
+  }, []);
+}
+
+export function useTheme() {
+  const [theme, setThemeState] = useState(getSavedTheme);
+
+  useEffect(() => {
+    const handleChange = (event) => {
+      const nextTheme = event?.detail?.theme || getSavedTheme();
+      setThemeState(nextTheme);
+    };
+    window.addEventListener(EVENT_NAME, handleChange);
+    return () => window.removeEventListener(EVENT_NAME, handleChange);
+  }, []);
+
+  const setTheme = (nextTheme) => setDocumentTheme(nextTheme);
+
+  return { theme, setTheme };
 }
 
 function SunIcon() {
@@ -38,19 +67,11 @@ function MoonIcon() {
   );
 }
 
-export function useDocumentTheme() {
-  useEffect(() => {
-    setDocumentTheme(getSavedTheme());
-  }, []);
-}
-
 export default function ThemeButton() {
-  const [theme, setTheme] = useState(getSavedTheme);
+  const { theme, setTheme } = useTheme();
 
   const toggleTheme = () => {
-    const nextTheme = theme === 'dark' ? 'light' : 'dark';
-    setTheme(nextTheme);
-    setDocumentTheme(nextTheme);
+    setTheme(theme === 'dark' ? 'light' : 'dark');
   };
 
   return (

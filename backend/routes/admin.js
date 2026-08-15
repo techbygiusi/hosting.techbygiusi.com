@@ -236,7 +236,7 @@ async function getResourceRows(resourceId = null) {
 
 router.get('/users', async (req, res, next) => {
   try {
-    const users = await all('SELECT id, email, name, role, preferred_language, created_at FROM users ORDER BY created_at DESC');
+    const users = await all('SELECT id, email, name, role, preferred_language, preferred_theme, created_at FROM users ORDER BY created_at DESC');
     res.json({ users });
   } catch (err) {
     next(err);
@@ -245,7 +245,7 @@ router.get('/users', async (req, res, next) => {
 
 router.post('/users', async (req, res, next) => {
   try {
-    const { email, name, password, role = ROLES.USER, sendWelcome = false, preferredLanguage = 'en' } = req.body;
+    const { email, name, password, role = ROLES.USER, sendWelcome = false, preferredLanguage = 'en', preferredTheme = 'light' } = req.body;
     const normalizedEmail = normalizeEmail(email);
 
     if (!normalizedEmail || !name) {
@@ -257,8 +257,8 @@ router.post('/users', async (req, res, next) => {
 
     const passwordHash = await bcryptjs.hash(password, 12);
     const result = await run(
-      'INSERT INTO users (email, name, password_hash, role, preferred_language) VALUES (?, ?, ?, ?, ?)',
-      [normalizedEmail, String(name).trim(), passwordHash, role, ['de', 'en'].includes(String(preferredLanguage).toLowerCase()) ? String(preferredLanguage).toLowerCase() : 'en']
+      'INSERT INTO users (email, name, password_hash, role, preferred_language, preferred_theme) VALUES (?, ?, ?, ?, ?, ?)',
+      [normalizedEmail, String(name).trim(), passwordHash, role, ['de', 'en'].includes(String(preferredLanguage).toLowerCase()) ? String(preferredLanguage).toLowerCase() : 'en', ['light', 'dark'].includes(String(preferredTheme).toLowerCase()) ? String(preferredTheme).toLowerCase() : 'light']
     );
 
     await logAudit(req, 'admin.user_created', normalizedEmail);
@@ -268,7 +268,8 @@ router.post('/users', async (req, res, next) => {
         name: String(name).trim(),
         email: normalizedEmail,
         loginUrl: getPublicFrontendUrl(req),
-        language: ['de', 'en'].includes(String(preferredLanguage).toLowerCase()) ? String(preferredLanguage).toLowerCase() : 'en'
+        language: ['de', 'en'].includes(String(preferredLanguage).toLowerCase()) ? String(preferredLanguage).toLowerCase() : 'en',
+        theme: ['light', 'dark'].includes(String(preferredTheme).toLowerCase()) ? String(preferredTheme).toLowerCase() : 'light'
       });
       sendEmail(normalizedEmail, template.subject, template.text, template.html)
         .catch(err => console.error('Welcome mail failed:', err.message));
@@ -280,7 +281,8 @@ router.post('/users', async (req, res, next) => {
         email: normalizedEmail,
         name: String(name).trim(),
         role,
-        preferredLanguage: ['de', 'en'].includes(String(preferredLanguage).toLowerCase()) ? String(preferredLanguage).toLowerCase() : 'en'
+        preferredLanguage: ['de', 'en'].includes(String(preferredLanguage).toLowerCase()) ? String(preferredLanguage).toLowerCase() : 'en',
+        preferredTheme: ['light', 'dark'].includes(String(preferredTheme).toLowerCase()) ? String(preferredTheme).toLowerCase() : 'light'
       }
     });
   } catch (err) {
@@ -1685,7 +1687,7 @@ function validateMaintenanceInput({ title, startsAt, endsAt, severity }) {
 }
 
 async function notifyMaintenance(windowRow) {
-  const users = await all('SELECT id, email, name, preferred_language FROM users WHERE notify_maintenance = 1');
+  const users = await all('SELECT id, email, name, preferred_language, preferred_theme FROM users WHERE notify_maintenance = 1');
   for (const user of users) {
     const template = maintenanceTemplate({
       name: user.name,
@@ -1694,7 +1696,8 @@ async function notifyMaintenance(windowRow) {
       startsAt: windowRow.starts_at,
       endsAt: windowRow.ends_at,
       severity: windowRow.severity,
-      language: user.preferred_language || 'en'
+      language: user.preferred_language || 'en',
+      theme: user.preferred_theme || 'light'
     });
     try {
       await sendEmail(user.email, template.subject, template.text, template.html);
@@ -1821,8 +1824,8 @@ router.get('/status-events', async (req, res, next) => {
 
 router.post('/settings/send-test-mail', async (req, res, next) => {
   try {
-    const admin = await get('SELECT email, name, preferred_language FROM users WHERE id = ?', [req.user.id]);
-    const template = testMailTemplate({ name: admin?.name || 'Admin', language: admin?.preferred_language || 'en' });
+    const admin = await get('SELECT email, name, preferred_language, preferred_theme FROM users WHERE id = ?', [req.user.id]);
+    const template = testMailTemplate({ name: admin?.name || 'Admin', language: admin?.preferred_language || 'en', theme: admin?.preferred_theme || 'light' });
     const result = await sendEmail(admin.email, template.subject, template.text, template.html);
     if (!result.success) {
       throw new AppError(result.message || 'Email service not configured', HTTP_STATUS.BAD_REQUEST);

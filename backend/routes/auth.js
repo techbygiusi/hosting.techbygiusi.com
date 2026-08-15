@@ -55,7 +55,8 @@ async function getSetupState() {
       email: adminUser.email,
       name: adminUser.name,
       role: adminUser.role,
-      preferredLanguage: adminUser.preferred_language || 'en'
+      preferredLanguage: adminUser.preferred_language || 'en',
+      preferredTheme: adminUser.preferred_theme || 'light'
     } : null
   };
 }
@@ -169,8 +170,8 @@ router.post('/setup', async (req, res, next) => {
 
       const passwordHash = await bcryptjs.hash(adminPassword, 12);
       const result = await run(
-        'INSERT INTO users (email, name, password_hash, role, preferred_language) VALUES (?, ?, ?, ?, ?)',
-        [adminEmail.trim().toLowerCase(), adminName.trim(), passwordHash, ROLES.ADMIN, ['de', 'en'].includes(String(preferredLanguage || '').toLowerCase()) ? String(preferredLanguage).toLowerCase() : 'en']
+        'INSERT INTO users (email, name, password_hash, role, preferred_language, preferred_theme) VALUES (?, ?, ?, ?, ?, ?)',
+        [adminEmail.trim().toLowerCase(), adminName.trim(), passwordHash, ROLES.ADMIN, ['de', 'en'].includes(String(preferredLanguage || '').toLowerCase()) ? String(preferredLanguage).toLowerCase() : 'en', 'light']
       );
 
       adminUser = {
@@ -178,7 +179,8 @@ router.post('/setup', async (req, res, next) => {
         email: adminEmail.trim().toLowerCase(),
         name: adminName.trim(),
         role: ROLES.ADMIN,
-        preferredLanguage: ['de', 'en'].includes(String(preferredLanguage || '').toLowerCase()) ? String(preferredLanguage).toLowerCase() : 'en'
+        preferredLanguage: ['de', 'en'].includes(String(preferredLanguage || '').toLowerCase()) ? String(preferredLanguage).toLowerCase() : 'en',
+        preferredTheme: 'light'
       };
     }
 
@@ -315,6 +317,7 @@ router.post('/login', async (req, res, next) => {
         name: user.name,
         role: user.role,
         preferredLanguage: user.preferred_language || 'en',
+        preferredTheme: user.preferred_theme || 'light',
         avatarUrl: buildAvatarUrl(user),
         avatarUpdatedAt: user.avatar_updated_at || null
       }
@@ -327,7 +330,7 @@ router.post('/login', async (req, res, next) => {
 router.get('/verify', authMiddleware, async (req, res, next) => {
   try {
     const setupState = await getSetupState();
-    const storedUser = await get('SELECT id, email, name, role, preferred_language, avatar_mime, avatar_data, avatar_updated_at FROM users WHERE id = ?', [req.user.id]);
+    const storedUser = await get('SELECT id, email, name, role, preferred_language, preferred_theme, avatar_mime, avatar_data, avatar_updated_at FROM users WHERE id = ?', [req.user.id]);
     res.json({
       valid: true,
       user: storedUser ? {
@@ -336,6 +339,7 @@ router.get('/verify', authMiddleware, async (req, res, next) => {
         name: storedUser.name,
         role: storedUser.role,
         preferredLanguage: storedUser.preferred_language || null,
+        preferredTheme: storedUser.preferred_theme || 'light',
         avatarUrl: buildAvatarUrl(storedUser),
         avatarUpdatedAt: storedUser.avatar_updated_at || null
       } : req.user,
@@ -409,7 +413,7 @@ router.post('/forgot-password', async (req, res, next) => {
     const resetToken = generateResetToken(user.id, user.email);
     const resetLink = `${getPublicFrontendUrl(req)}/reset-password?token=${encodeURIComponent(resetToken)}`;
 
-    const template = passwordResetTemplate({ name: user.name, resetLink, language: user.preferred_language || 'en' });
+    const template = passwordResetTemplate({ name: user.name, resetLink, language: user.preferred_language || 'en', theme: user.preferred_theme || 'light' });
     await sendEmail(user.email, template.subject, template.text, template.html);
     await logAudit(req, 'auth.password_reset_requested', user.email);
 

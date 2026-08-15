@@ -11,6 +11,7 @@ const MESSAGE_TRANSLATIONS = {
   'User not found': 'Benutzer wurde nicht gefunden.',
   'Unauthorized': 'Nicht angemeldet.',
   'Forbidden': 'Keine Berechtigung.',
+  'Unsupported theme': 'Nicht unterstütztes Design.',
   'Setup has already been completed': 'Die Erstkonfiguration wurde bereits abgeschlossen.',
   'Setup wizard is required': 'Die Erstkonfiguration ist erforderlich.',
   'Invalid or expired token': 'Die Sitzung ist ungültig oder abgelaufen.',
@@ -373,6 +374,7 @@ export const userApi = {
   updateAvatar: (avatar) => apiClient.put('/user/avatar', { avatar }),
   deleteAvatar: () => apiClient.delete('/user/avatar'),
   updateLanguage: (language) => apiClient.put('/user/language', { language }),
+  updateTheme: (theme) => apiClient.put('/user/theme', { theme }),
   // v2.0
   powerAction: (resourceId, action) => apiClient.post(`/user/resources/${resourceId}/power`, { action }),
   getTasks: (resourceId) => apiClient.get(`/user/resources/${resourceId}/tasks`),

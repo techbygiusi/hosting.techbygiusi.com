@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { authApi, userApi, getErrorMessage } from '../services/api';
 import { readStoredLanguage, storeLanguage } from '../components/LanguageSwitch';
+import { getSavedTheme, setDocumentTheme } from '../components/ThemeButton';
 
 const AuthContext = createContext();
 
@@ -30,6 +31,7 @@ export function AuthProvider({ children }) {
           setToken(storedToken);
           setUser(parsedUser);
           if (parsedUser?.preferredLanguage) storeLanguage(parsedUser.preferredLanguage);
+          if (parsedUser?.preferredTheme) setDocumentTheme(parsedUser.preferredTheme);
         }
 
         const setupState = await refreshSetupStatus();
@@ -44,6 +46,7 @@ export function AuthProvider({ children }) {
               localStorage.setItem('user', JSON.stringify(verifiedUser));
               setUser(verifiedUser);
               storeLanguage(preferredLanguage);
+              setDocumentTheme(serverUser.preferredTheme || 'light');
               if (!serverUser.preferredLanguage) {
                 await userApi.updateLanguage(preferredLanguage);
               }
@@ -96,6 +99,30 @@ export function AuthProvider({ children }) {
     return () => window.removeEventListener('portal-language-change', handleLanguageChange);
   }, [token, user?.id]);
 
+
+  useEffect(() => {
+    const handleThemeChange = async (event) => {
+      const theme = event.detail?.theme || getSavedTheme();
+      if (!['light', 'dark'].includes(theme)) return;
+      if (!user?.id) return;
+      try {
+        const response = await userApi.updateTheme(theme);
+        const preferredTheme = response.data?.preferredTheme || theme;
+        setUser(current => {
+          if (!current) return current;
+          const next = { ...current, preferredTheme };
+          localStorage.setItem('user', JSON.stringify(next));
+          return next;
+        });
+      } catch (_) {
+        // Keep the visual theme even when persistence temporarily fails.
+      }
+    };
+
+    window.addEventListener('portal-theme-change', handleThemeChange);
+    return () => window.removeEventListener('portal-theme-change', handleThemeChange);
+  }, [user?.id]);
+
   const login = async (email, password) => {
     try {
       setError(null);
@@ -114,6 +141,7 @@ export function AuthProvider({ children }) {
       setToken(newToken);
       setUser(userData);
       storeLanguage(userData.preferredLanguage || 'en');
+      setDocumentTheme(userData.preferredTheme || 'light');
       setSetupRequired(false);
       return userData;
     } catch (err) {
@@ -148,6 +176,7 @@ export function AuthProvider({ children }) {
       setToken(newToken);
       setUser(userData);
       storeLanguage(userData.preferredLanguage || readStoredLanguage());
+      setDocumentTheme(userData.preferredTheme || 'light');
       await refreshSetupStatus();
       return userData;
     } catch (err) {

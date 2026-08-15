@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { userApi, getErrorMessage, translateMessage } from '../services/api';
 import '../styles/globals.css';
-import ThemeButton from '../components/ThemeButton';
 import { readStoredLanguage, storeLanguage } from '../components/LanguageSwitch';
 import ResourceDetail, { getPercent, formatBytes, renderType } from '../components/ResourceDetail';
 import CreateMachineModal from '../components/CreateMachineModal';
@@ -11,6 +10,7 @@ import NotificationSettingsPanel from '../components/NotificationSettingsPanel';
 import WikiBrowser from '../components/WikiBrowser';
 import PublicPageModal from '../components/PublicPageModal';
 import AvatarSettingsPanel from '../components/AvatarSettingsPanel';
+import AccountMenu from '../components/AccountMenu';
 
 const USER_LANGUAGE_OPTIONS = [
   { code: 'en', label: 'English' },
@@ -345,9 +345,8 @@ export default function UserDashboard() {
             <h1>Hosting by TechByGiusi</h1>
           </div>
           <div className="site-actions">
-            <ThemeButton />
             <button type="button" className="btn-secondary admin-mobile-menu-toggle user-menu-toggle-icon-only" onClick={() => setMenuOpen(true)} aria-label={labels.openMenu} title={labels.menu}><MenuIcon /></button>
-            <button type="button" className="btn-secondary logout-button" onClick={logout} aria-label={labels.logout}><LogoutIcon /><span className="logout-label">{labels.logout}</span></button>
+            <AccountMenu user={user} language={language} onOpenSettings={() => selectTab('settings')} onLogout={logout} />
           </div>
         </div>
       </header>
