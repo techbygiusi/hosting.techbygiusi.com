@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 
 /**
  * Shared modal. Desktop: centered dialog with pop-in.
@@ -28,7 +29,7 @@ export default function Modal({ title, children, onClose, className = '', disabl
     if (event.target === event.currentTarget) onClose?.();
   };
 
-  return (
+  const modal = (
     <div className="modal-overlay active" role="dialog" aria-modal="true" onMouseDown={handleBackdrop}>
       <div className={`modal-card ${className}`.trim()}>
         <div className="sheet-handle" aria-hidden="true"></div>
@@ -40,4 +41,8 @@ export default function Modal({ title, children, onClose, className = '', disabl
       </div>
     </div>
   );
+
+  // Render dialogs at document level so fixed positioning cannot be trapped by
+  // card-level backdrop filters, transforms or stacking contexts.
+  return typeof document !== 'undefined' ? createPortal(modal, document.body) : modal;
 }
