@@ -11,7 +11,7 @@ const OUTPUT_QUALITY = 0.86;
 const TEXT = {
   en: {
     title: 'Profile picture',
-    intro: 'Your picture appears in the top-right corner of the portal after signing in. It is stored with your account only.',
+    intro: 'Upload a profile picture for your account. It is stored now and ready to be used across the portal in a later UI update.',
     choose: 'Upload picture',
     replace: 'Replace picture',
     remove: 'Remove',
@@ -27,7 +27,7 @@ const TEXT = {
   },
   de: {
     title: 'Profilbild',
-    intro: 'Dein Bild erscheint nach der Anmeldung oben rechts im Portal. Es wird ausschließlich bei deinem Konto gespeichert.',
+    intro: 'Lade ein Profilbild für dein Konto hoch. Es wird jetzt gespeichert und kann in einem späteren UI-Update im Portal verwendet werden.',
     choose: 'Bild hochladen',
     replace: 'Bild ersetzen',
     remove: 'Entfernen',

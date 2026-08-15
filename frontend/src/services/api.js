@@ -370,6 +370,8 @@ export const userApi = {
   getContainerDetails: (containerId) => apiClient.get(`/user/containers/${containerId}`),
   getProfile: () => apiClient.get('/user/profile'),
   updateProfile: (data) => apiClient.put('/user/profile', data),
+  updateAvatar: (avatar) => apiClient.put('/user/avatar', { avatar }),
+  deleteAvatar: () => apiClient.delete('/user/avatar'),
   updateLanguage: (language) => apiClient.put('/user/language', { language }),
   // v2.0
   powerAction: (resourceId, action) => apiClient.post(`/user/resources/${resourceId}/power`, { action }),

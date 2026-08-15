@@ -12,6 +12,7 @@ const { testConnection } = require('../services/proxmoxService');
 const { passwordResetTemplate } = require('../services/emailTemplates');
 const { logAudit } = require('../services/auditService');
 const { getPublicFrontendUrl } = require('../utils/publicUrl');
+const { buildAvatarUrl } = require('../services/avatarService');
 
 const SETUP_KEYS = ['smtp_host', 'smtp_port', 'smtp_user', 'smtp_password'];
 
@@ -313,7 +314,9 @@ router.post('/login', async (req, res, next) => {
         email: user.email,
         name: user.name,
         role: user.role,
-        preferredLanguage: user.preferred_language || 'en'
+        preferredLanguage: user.preferred_language || 'en',
+        avatarUrl: buildAvatarUrl(user),
+        avatarUpdatedAt: user.avatar_updated_at || null
       }
     });
   } catch (err) {
@@ -324,7 +327,7 @@ router.post('/login', async (req, res, next) => {
 router.get('/verify', authMiddleware, async (req, res, next) => {
   try {
     const setupState = await getSetupState();
-    const storedUser = await get('SELECT id, email, name, role, preferred_language FROM users WHERE id = ?', [req.user.id]);
+    const storedUser = await get('SELECT id, email, name, role, preferred_language, avatar_mime, avatar_data, avatar_updated_at FROM users WHERE id = ?', [req.user.id]);
     res.json({
       valid: true,
       user: storedUser ? {
@@ -332,7 +335,9 @@ router.get('/verify', authMiddleware, async (req, res, next) => {
         email: storedUser.email,
         name: storedUser.name,
         role: storedUser.role,
-        preferredLanguage: storedUser.preferred_language || null
+        preferredLanguage: storedUser.preferred_language || null,
+        avatarUrl: buildAvatarUrl(storedUser),
+        avatarUpdatedAt: storedUser.avatar_updated_at || null
       } : req.user,
       setupRequired: setupState.setupRequired
     });

@@ -2,6 +2,8 @@ const express = require('express');
 const net = require('net');
 const bcryptjs = require('bcryptjs');
 const router = express.Router();
+const { registerIdParams } = require('../middleware/validate');
+registerIdParams(router);
 
 const { get, run, all } = require('../config/database');
 const { adminMiddleware } = require('../middleware/auth');
@@ -206,7 +208,9 @@ async function assertResourceEditableByAdmin(resourceId, action = 'bearbeitet') 
   return ownership;
 }
 
-async function getResourceRows(where = '', params = []) {
+async function getResourceRows(resourceId = null) {
+  const where = resourceId === null ? '' : 'WHERE r.id = ?';
+  const params = resourceId === null ? [] : [resourceId];
   return all(`
     SELECT
       r.*,
@@ -222,7 +226,7 @@ async function getResourceRows(where = '', params = []) {
       pm.user_id as provisioned_user_id
     FROM resources r
     JOIN proxmox_clusters pc ON r.cluster_id = pc.id
-    JOIN users u ON r.user_id = u.id
+    LEFT JOIN users u ON r.user_id = u.id
     LEFT JOIN customer_groups cg ON r.group_id = cg.id
     LEFT JOIN provisioned_machines pm ON pm.cluster_id = r.cluster_id AND CAST(pm.vmid AS TEXT) = CAST(r.container_id AS TEXT)
     ${where}
@@ -1229,8 +1233,14 @@ router.post('/resources', async (req, res, next) => {
   try {
     const { name, containerId, clusterId, userId, groupId, adminUrl } = req.body;
 
-    if (!containerId || !clusterId || !userId) {
-      throw new AppError('Resource, cluster, and user are required', HTTP_STATUS.BAD_REQUEST);
+    const cleanUserId = userId || null;
+    const requestedGroupId = groupId || null;
+
+    if (!containerId || !clusterId || (!cleanUserId && !requestedGroupId)) {
+      throw new AppError('Resource, cluster, and either user or group are required', HTTP_STATUS.BAD_REQUEST);
+    }
+    if (cleanUserId && requestedGroupId) {
+      throw new AppError('Choose either a user or a group, not both', HTTP_STATUS.BAD_REQUEST);
     }
 
     const cluster = await get('SELECT * FROM proxmox_clusters WHERE id = ?', [clusterId]);
@@ -1238,14 +1248,16 @@ router.post('/resources', async (req, res, next) => {
       throw new AppError('Cluster not found', HTTP_STATUS.NOT_FOUND);
     }
 
-    const user = await get('SELECT id FROM users WHERE id = ?', [userId]);
-    if (!user) {
-      throw new AppError('User not found', HTTP_STATUS.NOT_FOUND);
+    if (cleanUserId) {
+      const user = await get('SELECT id FROM users WHERE id = ?', [cleanUserId]);
+      if (!user) {
+        throw new AppError('User not found', HTTP_STATUS.NOT_FOUND);
+      }
     }
 
     let cleanGroupId = null;
-    if (groupId) {
-      const group = await get('SELECT id FROM customer_groups WHERE id = ?', [groupId]);
+    if (requestedGroupId) {
+      const group = await get('SELECT id FROM customer_groups WHERE id = ?', [requestedGroupId]);
       if (!group) throw new AppError('Group not found', HTTP_STATUS.NOT_FOUND);
       cleanGroupId = group.id;
     }
@@ -1276,12 +1288,12 @@ router.post('/resources', async (req, res, next) => {
 
     const result = await run(
       'INSERT INTO resources (name, container_id, cluster_id, user_id, group_id, web_url, public_url, admin_url, manual_ip, ssh_port, resource_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [resourceName, String(containerId), clusterId, userId, cleanGroupId, cleanPublicUrl, cleanPublicUrl, cleanAdminUrl, cleanManualIp || null, cleanSshPort, resourceType || null]
+      [resourceName, String(containerId), clusterId, cleanUserId, cleanGroupId, cleanPublicUrl, cleanPublicUrl, cleanAdminUrl, cleanManualIp || null, cleanSshPort, resourceType || null]
     );
 
     await logAudit(req, 'resource.create', `resource:${result.lastID}`, resourceName);
 
-    const rows = await getResourceRows('WHERE r.id = ?', [result.lastID]);
+    const rows = await getResourceRows(result.lastID);
     const resources = await enrichResources(rows);
     res.status(HTTP_STATUS.CREATED).json({ resource: resources[0] });
   } catch (err) {
@@ -1303,7 +1315,7 @@ router.put('/resources/:id', async (req, res, next) => {
 
     const nextClusterId = clusterId || resource.cluster_id;
     const nextContainerId = String(containerId || resource.container_id);
-    const nextUserId = userId || resource.user_id;
+    const nextUserId = userId !== undefined ? (userId || null) : resource.user_id;
 
     let nextGroupId = resource.group_id;
     if (groupId !== undefined) {
@@ -1316,11 +1328,20 @@ router.put('/resources/:id', async (req, res, next) => {
       }
     }
 
+    if (!nextUserId && !nextGroupId) {
+      throw new AppError('Either a user or a group is required', HTTP_STATUS.BAD_REQUEST);
+    }
+    if (nextUserId && nextGroupId) {
+      throw new AppError('Choose either a user or a group, not both', HTTP_STATUS.BAD_REQUEST);
+    }
+
     const cluster = await get('SELECT * FROM proxmox_clusters WHERE id = ?', [nextClusterId]);
     if (!cluster) throw new AppError('Cluster not found', HTTP_STATUS.NOT_FOUND);
 
-    const user = await get('SELECT id FROM users WHERE id = ?', [nextUserId]);
-    if (!user) throw new AppError('User not found', HTTP_STATUS.NOT_FOUND);
+    if (nextUserId) {
+      const user = await get('SELECT id FROM users WHERE id = ?', [nextUserId]);
+      if (!user) throw new AppError('User not found', HTTP_STATUS.NOT_FOUND);
+    }
 
     let nextName = String(name || resource.name || '').trim();
     if (!nextName) nextName = `Ressource ${nextContainerId}`;
@@ -1359,7 +1380,7 @@ router.put('/resources/:id', async (req, res, next) => {
 
     await logAudit(req, 'resource.update', `resource:${resourceId}`, nextName);
 
-    const rows = await getResourceRows('WHERE r.id = ?', [resourceId]);
+    const rows = await getResourceRows(resourceId);
     const resources = await enrichResources(rows);
     res.json({ resource: resources[0] });
   } catch (err) {
@@ -1480,7 +1501,7 @@ router.get('/pangolin-publications', async (req, res, next) => {
         pc.name AS cluster_name
       FROM resource_publications rp
       JOIN resources r ON r.id = rp.resource_id
-      JOIN users u ON u.id = r.user_id
+      LEFT JOIN users u ON u.id = r.user_id
       JOIN proxmox_clusters pc ON pc.id = r.cluster_id
       ORDER BY rp.updated_at DESC
     `);

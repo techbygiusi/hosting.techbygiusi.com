@@ -25,10 +25,118 @@ function getDatabase() {
       }
     });
     
-    // Enable foreign keys
-    db.run('PRAGMA foreign_keys = ON');
+    // Keep SQLite responsive under concurrent API/monitoring traffic. WAL lets
+    // readers continue while a writer commits; busy_timeout avoids transient
+    // "database is locked" failures during short write bursts.
+    db.configure('busyTimeout', 5000);
+    db.serialize(() => {
+      db.run('PRAGMA foreign_keys = ON');
+      db.run('PRAGMA journal_mode = WAL');
+      db.run('PRAGMA synchronous = NORMAL');
+    });
   }
   return db;
+}
+
+/**
+ * Allow administrator-created resources to be assigned to either one user or
+ * one customer group. Older databases created resources.user_id as NOT NULL,
+ * so rebuild that table once while preserving all rows and IDs.
+ */
+function migrateResourceUserAssignment(database, callback) {
+  database.get(`SELECT "notnull" AS is_not_null FROM pragma_table_info('resources') WHERE name = 'user_id'`, (schemaError, row) => {
+    if (schemaError) return callback(schemaError);
+    if (!row || Number(row.is_not_null) !== 1) return callback();
+
+    database.exec(`
+      PRAGMA foreign_keys = OFF;
+      BEGIN TRANSACTION;
+      CREATE TABLE resources_assignment_migration (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT,
+        container_id TEXT NOT NULL,
+        cluster_id INTEGER NOT NULL,
+        user_id INTEGER,
+        web_url TEXT,
+        public_url TEXT,
+        admin_url TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        manual_public_url TEXT,
+        manual_ip TEXT,
+        ssh_port INTEGER DEFAULT 22,
+        resource_type TEXT,
+        group_id INTEGER,
+        FOREIGN KEY (cluster_id) REFERENCES proxmox_clusters(id) ON DELETE CASCADE,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
+        FOREIGN KEY (group_id) REFERENCES customer_groups(id) ON DELETE SET NULL
+      );
+      INSERT INTO resources_assignment_migration (
+        id, name, container_id, cluster_id, user_id, web_url, public_url,
+        admin_url, created_at, updated_at, manual_public_url, manual_ip,
+        ssh_port, resource_type, group_id
+      )
+      SELECT
+        id, name, container_id, cluster_id, user_id, web_url, public_url,
+        admin_url, created_at, updated_at, manual_public_url, manual_ip,
+        ssh_port, resource_type, group_id
+      FROM resources;
+      DROP TABLE resources;
+      ALTER TABLE resources_assignment_migration RENAME TO resources;
+      COMMIT;
+      PRAGMA foreign_keys = ON;
+    `, (migrationError) => {
+      if (migrationError) {
+        database.exec('ROLLBACK; PRAGMA foreign_keys = ON;', () => callback(migrationError));
+        return;
+      }
+      callback();
+    });
+  });
+}
+
+
+/**
+ * Add profile-picture fields to existing user tables. SQLite can add nullable
+ * columns in place, so this migration is intentionally small and preserves all
+ * existing accounts unchanged.
+ */
+function migrateUserAvatarColumns(database, callback) {
+  database.all(`PRAGMA table_info('users')`, (schemaError, columns) => {
+    if (schemaError) return callback(schemaError);
+    const existing = new Set((columns || []).map(column => column.name));
+    const statements = [];
+    if (!existing.has('avatar_mime')) statements.push('ALTER TABLE users ADD COLUMN avatar_mime TEXT');
+    if (!existing.has('avatar_data')) statements.push('ALTER TABLE users ADD COLUMN avatar_data TEXT');
+    if (!existing.has('avatar_updated_at')) statements.push('ALTER TABLE users ADD COLUMN avatar_updated_at DATETIME');
+    if (!statements.length) return callback();
+    database.exec(statements.join(';') + ';', callback);
+  });
+}
+
+/**
+ * Index the columns used by the portal's hottest joins and ownership lookups.
+ * CREATE INDEX IF NOT EXISTS is safe for both fresh and existing databases.
+ */
+function ensurePerformanceIndexes(database, callback) {
+  database.exec(`
+    CREATE INDEX IF NOT EXISTS idx_resources_cluster_container
+      ON resources(cluster_id, container_id);
+    CREATE INDEX IF NOT EXISTS idx_resources_user
+      ON resources(user_id) WHERE user_id IS NOT NULL;
+    CREATE INDEX IF NOT EXISTS idx_resources_group
+      ON resources(group_id) WHERE group_id IS NOT NULL;
+    CREATE INDEX IF NOT EXISTS idx_user_groups_group_user
+      ON user_groups(group_id, user_id);
+    CREATE INDEX IF NOT EXISTS idx_resource_credentials_resource
+      ON resource_credentials(resource_id, id);
+    CREATE INDEX IF NOT EXISTS idx_admin_credentials_user
+      ON admin_credentials(user_id) WHERE user_id IS NOT NULL;
+    CREATE INDEX IF NOT EXISTS idx_provisioned_machines_cluster_vmid
+      ON provisioned_machines(cluster_id, vmid);
+    CREATE INDEX IF NOT EXISTS idx_audit_log_created
+      ON audit_log(created_at DESC);
+  `, callback);
 }
 
 /**
@@ -48,6 +156,9 @@ async function initDatabase() {
           password_hash TEXT NOT NULL,
           role TEXT DEFAULT 'user' CHECK(role IN ('admin', 'user')),
           preferred_language TEXT DEFAULT 'en',
+          avatar_mime TEXT,
+          avatar_data TEXT,
+          avatar_updated_at DATETIME,
           created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
           updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
@@ -189,14 +300,14 @@ async function initDatabase() {
           name TEXT,
           container_id TEXT NOT NULL,
           cluster_id INTEGER NOT NULL,
-          user_id INTEGER NOT NULL,
+          user_id INTEGER,
           web_url TEXT,
           public_url TEXT,
           admin_url TEXT,
           created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
           updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
           FOREIGN KEY (cluster_id) REFERENCES proxmox_clusters(id) ON DELETE CASCADE,
-          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
         )
       `);
 
@@ -511,21 +622,44 @@ async function initDatabase() {
                   return;
                 }
 
-                // Settings (key-value store)
-                database.run(`
-                  CREATE TABLE IF NOT EXISTS settings (
-                    key TEXT PRIMARY KEY,
-                    value TEXT,
-                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-                  )
-                `, (settingsError) => {
-                  if (settingsError) {
-                    reject(settingsError);
-                  } else {
-                    console.log('✓ All tables initialized');
-                    resolve();
+                migrateUserAvatarColumns(database, (avatarMigrationError) => {
+                  if (avatarMigrationError) {
+                    reject(avatarMigrationError);
+                    return;
                   }
+
+                  migrateResourceUserAssignment(database, (resourceMigrationError) => {
+                    if (resourceMigrationError) {
+                      reject(resourceMigrationError);
+                      return;
+                    }
+
+                    // Resource migrations rebuild the resources table on older
+                    // installations, so create performance indexes afterwards.
+                    ensurePerformanceIndexes(database, (indexError) => {
+                      if (indexError) {
+                        reject(indexError);
+                        return;
+                      }
+
+                      // Settings (key-value store)
+                      database.run(`
+                      CREATE TABLE IF NOT EXISTS settings (
+                        key TEXT PRIMARY KEY,
+                        value TEXT,
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                      )
+                      `, (settingsError) => {
+                        if (settingsError) {
+                          reject(settingsError);
+                        } else {
+                          console.log('✓ All tables initialized');
+                          resolve();
+                        }
+                      });
+                    });
+                  });
                 });
               });
             });

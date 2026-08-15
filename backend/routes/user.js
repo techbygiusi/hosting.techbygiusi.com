@@ -2,6 +2,8 @@ const express = require('express');
 const net = require('net');
 const bcryptjs = require('bcryptjs');
 const router = express.Router();
+const { registerIdParams } = require('../middleware/validate');
+registerIdParams(router);
 
 const { get, run, all } = require('../config/database');
 const { HTTP_STATUS } = require('../config/constants');
@@ -39,6 +41,7 @@ const {
 } = require('../services/pangolinService');
 const { ensureClusterTemplates, syncClusterTemplates } = require('../services/templateService');
 const { createJob, getJob: getProvisioningJob, listJobsForUser } = require('../services/provisioningJobService');
+const { buildAvatarUrl, saveAvatarForUser, deleteAvatarForUser } = require('../services/avatarService');
 
 /* ------------------------------------------------------------ ACCESS ---- */
 /**
@@ -93,7 +96,7 @@ async function getResourceRowsForUser(userId, resourceId = null) {
       pm.user_id as provisioned_user_id
     FROM resources r
     JOIN proxmox_clusters pc ON r.cluster_id = pc.id
-    JOIN users u ON r.user_id = u.id
+    LEFT JOIN users u ON r.user_id = u.id
     LEFT JOIN customer_groups cg ON r.group_id = cg.id
     LEFT JOIN provisioned_machines pm ON pm.cluster_id = r.cluster_id AND CAST(pm.vmid AS TEXT) = CAST(r.container_id AS TEXT)
     ${filter}
@@ -321,11 +324,29 @@ function normalizePublishingProtocol(value) {
   return protocol;
 }
 
+
+function serializeProfileUser(user, groups) {
+  if (!user) return null;
+  const profile = {
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    role: user.role,
+    preferredLanguage: user.preferred_language || 'en',
+    avatarUrl: buildAvatarUrl(user),
+    avatarUpdatedAt: user.avatar_updated_at || null,
+    created_at: user.created_at,
+    updated_at: user.updated_at
+  };
+  if (groups !== undefined) profile.groups = groups;
+  return profile;
+}
+
 /* ----------------------------------------------------------- PROFILE ---- */
 router.get('/profile', async (req, res, next) => {
   try {
     const user = await get(
-      'SELECT id, email, name, role, preferred_language, created_at, updated_at FROM users WHERE id = ?',
+      'SELECT id, email, name, role, preferred_language, avatar_mime, avatar_data, avatar_updated_at, created_at, updated_at FROM users WHERE id = ?',
       [req.user.id]
     );
     if (!user) throw new AppError('User not found', HTTP_STATUS.NOT_FOUND);
@@ -336,7 +357,7 @@ router.get('/profile', async (req, res, next) => {
       WHERE ug.user_id = ?
     `, [req.user.id]);
 
-    res.json({ user: { ...user, preferredLanguage: user.preferred_language || 'en', groups } });
+    res.json({ user: serializeProfileUser(user, groups) });
   } catch (err) {
     next(err);
   }
@@ -353,10 +374,32 @@ router.put('/profile', async (req, res, next) => {
     );
 
     const user = await get(
-      'SELECT id, email, name, role, preferred_language, created_at, updated_at FROM users WHERE id = ?',
+      'SELECT id, email, name, role, preferred_language, avatar_mime, avatar_data, avatar_updated_at, created_at, updated_at FROM users WHERE id = ?',
       [req.user.id]
     );
-    res.json({ user: { ...user, preferredLanguage: user.preferred_language || 'en' } });
+    res.json({ user: serializeProfileUser(user) });
+  } catch (err) {
+    next(err);
+  }
+});
+
+
+/* ----------------------------------------------------------- AVATAR ---- */
+router.put('/avatar', async (req, res, next) => {
+  try {
+    const avatar = await saveAvatarForUser(req.user.id, req.body?.avatar);
+    await logAudit(req, 'profile.avatar.update', `user:${req.user.id}`);
+    res.json(avatar);
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.delete('/avatar', async (req, res, next) => {
+  try {
+    const avatar = await deleteAvatarForUser(req.user.id);
+    await logAudit(req, 'profile.avatar.delete', `user:${req.user.id}`);
+    res.json(avatar);
   } catch (err) {
     next(err);
   }

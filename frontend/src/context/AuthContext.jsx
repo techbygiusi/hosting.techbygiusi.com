@@ -170,6 +170,15 @@ export function AuthProvider({ children }) {
     }
   };
 
+  const applyUserPatch = (patch) => {
+    setUser(current => {
+      if (!current) return current;
+      const next = { ...current, ...patch };
+      localStorage.setItem('user', JSON.stringify(next));
+      return next;
+    });
+  };
+
   const changePassword = async (currentPassword, newPassword) => {
     try {
       setError(null);
@@ -194,6 +203,7 @@ export function AuthProvider({ children }) {
     setup,
     logout,
     changePassword,
+    applyUserPatch,
     isAdmin: user?.role === 'admin',
     isAuthenticated: !!token
   };

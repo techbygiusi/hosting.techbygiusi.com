@@ -4,11 +4,14 @@ const wikiService = require('../services/wikiService');
 const { logAudit } = require('../services/auditService');
 
 const router = express.Router();
+const { registerIdParams } = require('../middleware/validate');
+registerIdParams(router, ['id']);
 
 function handleError(res, err, fallback) {
-  const status = err?.statusCode || 500;
+  const status = err?.status || err?.statusCode || 500;
   if (status >= 500) console.error(fallback, err);
-  res.status(status).json({ error: fallback, message: err?.message || fallback });
+  const message = status >= 500 ? fallback : (err?.message || fallback);
+  res.status(status).json({ error: fallback, message });
 }
 
 async function writeAudit(req, action, target) {

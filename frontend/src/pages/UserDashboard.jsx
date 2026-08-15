@@ -10,6 +10,7 @@ import MaintenanceBanner from '../components/MaintenanceBanner';
 import NotificationSettingsPanel from '../components/NotificationSettingsPanel';
 import WikiBrowser from '../components/WikiBrowser';
 import PublicPageModal from '../components/PublicPageModal';
+import AvatarSettingsPanel from '../components/AvatarSettingsPanel';
 
 const USER_LANGUAGE_OPTIONS = [
   { code: 'en', label: 'English' },
@@ -489,6 +490,7 @@ export default function UserDashboard() {
                   ))}
                 </div>
               </div>
+              <AvatarSettingsPanel language={language} />
               <PasswordSettingsPanel labels={labels} onChangePassword={changePassword} />
               <div className="settings-notification-card">
                 <div className="settings-section-header">

@@ -19,6 +19,7 @@ Hosting Portal is a self-hosted customer portal for Proxmox environments. It com
 - Start, stop, restart and delete services according to the assigned permissions.
 - Open service details, task progress and a full-page browser console with a softer Nord Frost accent, secure server-side SSH password paste, start controls and SSH-ready reconnect checks after starts or reboots.
 - Store service credentials, select one credential explicitly for the SSH console and manage management-page access information.
+- Upload, replace and remove a profile picture from the Settings page.
 - Change the portal account password from the Settings page.
 - Use a responsive interface with English and German translations and light or dark themes.
 

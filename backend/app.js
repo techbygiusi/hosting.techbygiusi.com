@@ -14,6 +14,7 @@ const announcementRoutes = require('./routes/announcements');
 const wikiRoutes = require('./routes/wiki');
 const { authMiddleware } = require('./middleware/auth');
 const { errorHandler } = require('./middleware/errorHandler');
+const { sanitizeRequest } = require('./middleware/validate');
 const { attachConsoleProxy } = require('./services/consoleService');
 const { startMonitoring } = require('./services/monitoringService');
 const { resumeProvisioningJobs } = require('./services/provisioningJobService');
@@ -47,6 +48,9 @@ app.use(cors({
 
 app.use(bodyParser.json({ limit: '1mb' }));
 app.use(bodyParser.urlencoded({ limit: '1mb', extended: true }));
+
+// Reject structurally hostile or excessively complex input before it reaches routes.
+app.use(sanitizeRequest);
 
 // Rate limiting: strict on auth (brute force), generous on the rest of the API
 const authLimiter = rateLimit({

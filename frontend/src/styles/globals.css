@@ -8074,3 +8074,141 @@ small,
 }
 
 /* v3.1.98 - SSH-ready console reconnect and password-paste feedback */
+
+
+/* Profile picture settings */
+.settings-avatar-card {
+  display: grid;
+  gap: 18px;
+  padding: 22px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+
+.settings-avatar-card .settings-section-header h3,
+.settings-avatar-card .settings-section-header p {
+  margin: 0;
+}
+
+.settings-avatar-card .settings-section-header p {
+  margin-top: 6px;
+  color: var(--color-text-light);
+  line-height: 1.55;
+}
+
+.avatar-dropzone {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  min-height: 132px;
+  padding: 20px;
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-background);
+  transition: border-color 0.18s ease, background 0.18s ease, opacity 0.18s ease;
+}
+
+.avatar-dropzone.dragging {
+  border-color: var(--color-primary);
+}
+
+.avatar-dropzone.busy {
+  opacity: 0.72;
+}
+
+.avatar {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 50%;
+  font-weight: 700;
+  line-height: 1;
+  user-select: none;
+}
+
+.avatar-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.avatar-initials {
+  background: color-mix(in srgb, var(--color-primary) 16%, var(--color-surface));
+  color: var(--color-primary);
+}
+
+.avatar-dropzone-preview {
+  box-shadow: 0 0 0 1px var(--color-border);
+}
+
+.avatar-dropzone-body {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.avatar-dropzone-hint,
+.avatar-dropzone-note {
+  margin: 0;
+  color: var(--color-text-light);
+}
+
+.avatar-dropzone-hint {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.avatar-dropzone-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.avatar-dropzone-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.visually-hidden-input {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+body.theme-light .settings-avatar-card {
+  background: #ffffff;
+  border-color: rgba(17, 17, 17, 0.08);
+}
+
+body.theme-dark .settings-avatar-card {
+  background: #111418;
+  border-color: #2a2f36;
+}
+
+@media (max-width: 767px) {
+  .settings-avatar-card {
+    padding: 16px;
+  }
+
+  .avatar-dropzone {
+    display: grid;
+    justify-items: center;
+    text-align: center;
+  }
+
+  .avatar-dropzone-hint,
+  .avatar-dropzone-actions {
+    justify-content: center;
+  }
+}

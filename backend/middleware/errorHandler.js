@@ -22,7 +22,10 @@ function errorHandler(err, req, res, next) {
   }
 
   if (err.code === 'SQLITE_ERROR') {
-    status = HTTP_STATUS.BAD_REQUEST;
+    // Never expose SQLite parser/schema details to clients. They can reveal
+    // table/column names and make probing an application much easier.
+    status = HTTP_STATUS.INTERNAL_SERVER_ERROR;
+    message = ERROR_MESSAGES.SERVER_ERROR;
     error = 'Database Error';
   }
 

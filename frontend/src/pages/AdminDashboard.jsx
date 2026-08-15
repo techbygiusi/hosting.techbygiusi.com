@@ -9,6 +9,7 @@ import Modal from '../components/Modal';
 import MaintenanceBanner from '../components/MaintenanceBanner';
 import ClusterMapSection from '../components/ClusterMapSection';
 import PangolinSettingsPanel from '../components/PangolinSettingsPanel';
+import AvatarSettingsPanel from '../components/AvatarSettingsPanel';
 import { readStoredLanguage, storeLanguage } from '../components/LanguageSwitch';
 import { translatePortalText } from '../i18n';
 
@@ -964,8 +965,8 @@ export default function AdminDashboard() {
 
   const handleSaveResource = async (e) => {
     e.preventDefault();
-    if (!newResource.clusterId || !newResource.containerId || !newResource.userId) {
-      setError('Bitte Cluster, Dienst und Benutzer auswählen.');
+    if (!newResource.clusterId || !newResource.containerId || (!newResource.userId && !newResource.groupId)) {
+      setError('Bitte Cluster, Dienst und entweder Benutzer oder Gruppe auswählen.');
       return;
     }
 
@@ -1482,6 +1483,8 @@ export default function AdminDashboard() {
           <section className="panel-card settings-card">
             <PanelHeader title="Einstellungen" />
 
+            <AvatarSettingsPanel language={mobileMenuLanguage} />
+
             <section className="settings-section-card settings-language-section" aria-labelledby="settings-language-title">
               <div className="settings-section-heading">
                 <h3 id="settings-language-title">{mobileMenuText.language}</h3>
@@ -1707,8 +1710,8 @@ export default function AdminDashboard() {
                 <label className="form-group service-ip-port"><span>SSH-Port</span><input type="number" min="1" max="65535" value={newResource.sshPort} onChange={e => setNewResource(prev => ({ ...prev, sshPort: e.target.value }))} /></label>
               </div>
             )}
-            <label className="form-group"><span>Benutzer</span><select value={newResource.userId} onChange={e => setNewResource(prev => ({ ...prev, userId: e.target.value }))}><option value="">Bitte auswählen</option>{users.map(item => <option key={item.id} value={item.id}>{item.name} · {item.email}</option>)}</select></label>
-            <label className="form-group"><span>Gruppe (geteilter Zugriff)</span><select value={newResource.groupId} onChange={e => setNewResource(prev => ({ ...prev, groupId: e.target.value }))}><option value="">Keine Gruppe</option>{groups.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+            <label className="form-group"><span>Benutzer</span><select value={newResource.userId} onChange={e => setNewResource(prev => ({ ...prev, userId: e.target.value, groupId: e.target.value ? '' : prev.groupId }))}><option value="">Kein Benutzer</option>{users.map(item => <option key={item.id} value={item.id}>{item.name} · {item.email}</option>)}</select></label>
+            <label className="form-group"><span>Gruppe</span><select value={newResource.groupId} onChange={e => setNewResource(prev => ({ ...prev, groupId: e.target.value, userId: e.target.value ? '' : prev.userId }))}><option value="">Keine Gruppe</option>{groups.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
             <label className="form-group"><span>Verwaltungsseite</span><input type="url" value={newResource.adminUrl} onChange={e => setNewResource(prev => ({ ...prev, adminUrl: e.target.value }))} placeholder="https://admin.example.com" /></label>
             <div className="form-actions"><button type="button" className="btn-secondary" onClick={closeResourceModal}>Abbrechen</button><button type="submit" className="btn-primary" disabled={actionLoading}>{editResourceId ? 'Speichern' : 'Anlegen'}</button></div>
           </form>
