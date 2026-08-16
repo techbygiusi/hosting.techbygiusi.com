@@ -11,6 +11,8 @@ import WikiBrowser from '../components/WikiBrowser';
 import PublicPageModal from '../components/PublicPageModal';
 import AvatarSettingsPanel from '../components/AvatarSettingsPanel';
 import AccountMenu from '../components/AccountMenu';
+import AccountEmailSettingsPanel from '../components/AccountEmailSettingsPanel';
+import AccountPasswordSettingsPanel from '../components/AccountPasswordSettingsPanel';
 
 const USER_LANGUAGE_OPTIONS = [
   { code: 'en', label: 'English' },
@@ -230,7 +232,7 @@ function LogoutIcon() {
 }
 
 export default function UserDashboard() {
-  const { user, logout, changePassword } = useAuth();
+  const { user, logout } = useAuth();
   const [resources, setResources] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -475,6 +477,9 @@ export default function UserDashboard() {
           {activeTab === 'settings' && (
             <section className="panel-card user-settings-card">
               <div className="panel-header"><h2>{labels.settings}</h2></div>
+              <AvatarSettingsPanel language={language} />
+              <AccountEmailSettingsPanel language={language} />
+              <AccountPasswordSettingsPanel language={language} />
               <div className="settings-language-card language-settings-block">
                 <div>
                   <h3>{labels.language}</h3>
@@ -493,8 +498,6 @@ export default function UserDashboard() {
                   ))}
                 </div>
               </div>
-              <AvatarSettingsPanel language={language} />
-              <PasswordSettingsPanel labels={labels} onChangePassword={changePassword} />
               <div className="settings-notification-card">
                 <div className="settings-section-header">
                   <h3>{labels.notifications}</h3>
@@ -549,103 +552,6 @@ export default function UserDashboard() {
   );
 }
 
-
-function PasswordSettingsPanel({ labels, onChangePassword }) {
-  const [form, setForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-
-  const updateField = (field, value) => {
-    setForm(prev => ({ ...prev, [field]: value }));
-    if (error) setError('');
-    if (success) setSuccess('');
-  };
-
-  const submit = async (event) => {
-    event.preventDefault();
-    setError('');
-    setSuccess('');
-
-    if (!form.currentPassword || !form.newPassword || !form.confirmPassword) {
-      setError(labels.passwordRequired);
-      return;
-    }
-    if (form.newPassword.length < 8) {
-      setError(labels.passwordTooShort);
-      return;
-    }
-    if (form.newPassword !== form.confirmPassword) {
-      setError(labels.passwordMismatch);
-      return;
-    }
-
-    try {
-      setBusy(true);
-      await onChangePassword(form.currentPassword, form.newPassword);
-      setForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
-      setSuccess(labels.passwordChanged);
-    } catch (changeError) {
-      setError(changeError?.message || labels.passwordChangeFailed);
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <div className="settings-password-card">
-      <div className="settings-section-header">
-        <div>
-          <h3>{labels.password}</h3>
-          <p>{labels.passwordText}</p>
-        </div>
-      </div>
-      <form className="settings-password-form" onSubmit={submit}>
-        <div className="settings-password-grid">
-          <label className="form-group">
-            <span>{labels.currentPassword}</span>
-            <input
-              type="password"
-              value={form.currentPassword}
-              onChange={event => updateField('currentPassword', event.target.value)}
-              autoComplete="current-password"
-              disabled={busy}
-            />
-          </label>
-          <label className="form-group">
-            <span>{labels.newPassword}</span>
-            <input
-              type="password"
-              value={form.newPassword}
-              onChange={event => updateField('newPassword', event.target.value)}
-              autoComplete="new-password"
-              minLength="8"
-              disabled={busy}
-            />
-          </label>
-          <label className="form-group">
-            <span>{labels.confirmPassword}</span>
-            <input
-              type="password"
-              value={form.confirmPassword}
-              onChange={event => updateField('confirmPassword', event.target.value)}
-              autoComplete="new-password"
-              minLength="8"
-              disabled={busy}
-            />
-          </label>
-        </div>
-        {error && <div className="alert alert-danger settings-password-message">{error}</div>}
-        {success && <div className="alert alert-success settings-password-message">{success}</div>}
-        <div className="settings-password-actions">
-          <button type="submit" className="btn-primary" disabled={busy}>
-            {busy ? labels.changingPassword : labels.changePassword}
-          </button>
-        </div>
-      </form>
-    </div>
-  );
-}
 
 function ResourceCard({ resource, onOpenDetails, onManagePublicPage, labels }) {
   const cpuPercent = getCpuPercent(resource);

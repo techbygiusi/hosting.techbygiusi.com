@@ -34,8 +34,12 @@ export default function Modal({ title, children, onClose, className = '', disabl
       <div className={`modal-card ${className}`.trim()}>
         <div className="sheet-handle" aria-hidden="true"></div>
         <div className="modal-header">
-          <h2>{title}</h2>
-          <button type="button" className="icon-button" onClick={onClose} aria-label={closeLabel}>×</button>
+          <div className="modal-title-block">
+            <h2>{title}</h2>
+          </div>
+          <button type="button" className="icon-button" onClick={onClose} aria-label={closeLabel}>
+            <span className="modal-close-icon" aria-hidden="true"></span>
+          </button>
         </div>
         {children}
       </div>

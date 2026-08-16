@@ -208,6 +208,27 @@ export function AuthProvider({ children }) {
     });
   };
 
+
+  const changeEmail = async (email) => {
+    try {
+      setError(null);
+      const response = await userApi.updateEmail(email);
+      const nextEmail = response.data?.email || email;
+      const nextToken = response.data?.token;
+
+      if (nextToken) {
+        localStorage.setItem('token', nextToken);
+        setToken(nextToken);
+      }
+      applyUserPatch({ email: nextEmail });
+      return nextEmail;
+    } catch (err) {
+      const message = getErrorMessage(err, 'E-Mail-Adresse konnte nicht geändert werden.');
+      setError(message);
+      throw new Error(message);
+    }
+  };
+
   const changePassword = async (currentPassword, newPassword) => {
     try {
       setError(null);
@@ -231,6 +252,7 @@ export function AuthProvider({ children }) {
     login,
     setup,
     logout,
+    changeEmail,
     changePassword,
     applyUserPatch,
     isAdmin: user?.role === 'admin',

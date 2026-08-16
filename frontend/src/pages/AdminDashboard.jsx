@@ -10,6 +10,8 @@ import ClusterMapSection from '../components/ClusterMapSection';
 import PangolinSettingsPanel from '../components/PangolinSettingsPanel';
 import AvatarSettingsPanel from '../components/AvatarSettingsPanel';
 import AccountMenu from '../components/AccountMenu';
+import AccountEmailSettingsPanel from '../components/AccountEmailSettingsPanel';
+import AccountPasswordSettingsPanel from '../components/AccountPasswordSettingsPanel';
 import { readStoredLanguage, storeLanguage } from '../components/LanguageSwitch';
 import { translatePortalText } from '../i18n';
 
@@ -1483,6 +1485,8 @@ export default function AdminDashboard() {
             <PanelHeader title="Einstellungen" />
 
             <AvatarSettingsPanel language={mobileMenuLanguage} />
+            <AccountEmailSettingsPanel language={mobileMenuLanguage} />
+            <AccountPasswordSettingsPanel language={mobileMenuLanguage} />
 
             <section className="settings-section-card settings-language-section" aria-labelledby="settings-language-title">
               <div className="settings-section-heading">

@@ -6875,14 +6875,14 @@ body.theme-light {
 }
 
 body.theme-dark {
-  --wiki-hover:            rgba(255, 255, 255, 0.06);
-  --wiki-active:           rgba(194, 206, 167, 0.18);
-  --wiki-inline-code-bg:   rgba(255, 255, 255, 0.10);
-  --wiki-code-bg:          #0f1216;
-  --wiki-code-text:        #e6edf3;
-  --wiki-code-border:      #2c3138;
-  --wiki-copy-bg:          rgba(23, 26, 31, 0.92);
-  --wiki-copy-text:        #c9d1d9;
+  --wiki-hover:            rgba(218, 227, 215, 0.06);
+  --wiki-active:           rgba(218, 227, 215, 0.16);
+  --wiki-inline-code-bg:   rgba(218, 227, 215, 0.10);
+  --wiki-code-bg:          rgba(14, 20, 16, 0.98);
+  --wiki-code-text:        #eef3ed;
+  --wiki-code-border:      rgba(218, 227, 215, 0.10);
+  --wiki-copy-bg:          rgba(18, 24, 20, 0.96);
+  --wiki-copy-text:        #d8e0d5;
   --wiki-notice-bg:        rgba(255, 214, 102, 0.12);
   --wiki-notice-border:    rgba(255, 214, 102, 0.40);
   --wiki-notice-text:      #ffd666;
@@ -9166,4 +9166,594 @@ body.theme-dark .cluster-map-canvas .leaflet-popup-content-wrapper,
 body.theme-dark .cluster-map-canvas .leaflet-popup-tip {
   background: #101611 !important;
   color: #edf2eb !important;
+}
+
+
+/* Follow-up: align wiki code blocks with the portal dark palette */
+body.theme-dark .markdown-body pre,
+body.theme-dark .markdown-code-block pre {
+  background: linear-gradient(180deg, rgba(14, 20, 16, 0.98), rgba(12, 17, 14, 0.98)) !important;
+  color: #eef3ed !important;
+  border-color: rgba(218, 227, 215, 0.10) !important;
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.22) !important;
+}
+
+body.theme-dark .markdown-body code {
+  background: rgba(218, 227, 215, 0.10) !important;
+  color: #eef3ed !important;
+}
+
+body.theme-dark .markdown-body pre code {
+  background: transparent !important;
+  color: inherit !important;
+}
+
+body.theme-dark .markdown-copy-btn {
+  background: rgba(18, 24, 20, 0.96) !important;
+  color: #d8e0d5 !important;
+  border-color: rgba(218, 227, 215, 0.10) !important;
+}
+
+body.theme-dark .markdown-code-lang {
+  color: #aeb9aa !important;
+}
+
+body.theme-dark .markdown-copy-btn:hover,
+body.theme-dark .markdown-copy-btn:focus-visible {
+  background: rgba(24, 31, 26, 0.98) !important;
+  color: #edf3ea !important;
+  border-color: rgba(218, 227, 215, 0.18) !important;
+}
+
+body.theme-dark .markdown-copy-btn.copied {
+  background: #dae3d7 !important;
+  color: #101511 !important;
+  border-color: rgba(16, 21, 17, 0.12) !important;
+}
+
+
+/* Account email settings */
+.settings-email-form,
+.settings-email-grid {
+  display: grid;
+  gap: 14px;
+}
+
+.settings-email-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.settings-email-card .settings-password-actions {
+  margin-top: 2px;
+}
+
+.settings-section-card.settings-password-card {
+  padding: 22px;
+  background: var(--color-surface);
+}
+
+body.theme-light .settings-section-card.settings-password-card,
+body.theme-light .settings-section-card.settings-email-card {
+  background: #ffffff;
+  border-color: rgba(17, 17, 17, 0.08);
+}
+
+body.theme-dark .settings-section-card.settings-password-card,
+body.theme-dark .settings-section-card.settings-email-card {
+  background: linear-gradient(180deg, rgba(13, 18, 15, 0.98), rgba(12, 16, 14, 0.98)) !important;
+  border-color: rgba(218, 227, 215, 0.10) !important;
+}
+
+@media (max-width: 900px) {
+  .settings-email-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 767px) {
+  .settings-section-card.settings-password-card {
+    padding: 16px;
+  }
+}
+
+
+/* -------------------------------------------------------------
+   Final polish: normalize card and inner-box shadows across
+   light and dark mode so equal surfaces feel equally elevated.
+---------------------------------------------------------------- */
+body.theme-light {
+  --portal-card-shadow-unified: 0 14px 34px rgba(17, 17, 17, 0.06);
+  --portal-inner-shadow-unified: 0 1px 0 rgba(17, 17, 17, 0.025);
+}
+
+body.theme-dark {
+  --portal-card-shadow-unified: 0 18px 38px rgba(0, 0, 0, 0.22);
+  --portal-inner-shadow-unified: inset 0 1px 0 rgba(255, 255, 255, 0.02);
+}
+
+.panel-card,
+.list-card,
+.metric-card,
+.resource-card,
+.soft-box,
+.modal-card,
+.auth-card,
+.setup-card,
+.setup-content,
+.dashboard-hero-card,
+.console-sidebar-card,
+.audit-filter-card,
+.cluster-map-card,
+.wiki-browser-layout,
+.wiki-card-shell,
+.settings-section-card,
+.settings-avatar-card,
+.settings-language-card,
+.settings-notification-card,
+.settings-password-card,
+.settings-email-card,
+.admin-settings-language-card,
+.user-settings-card > .panel-card,
+.settings-card > .settings-section-card {
+  box-shadow: var(--portal-card-shadow-unified) !important;
+}
+
+.resource-summary > div,
+.resource-meta,
+.disk-row,
+.select-list,
+.select-list-head,
+.select-list-item,
+.settings-toggle-card,
+.pangolin-protocol-toggle,
+.setup-check-row,
+.setup-check-test,
+.cluster-map-summary-item,
+.avatar-dropzone,
+.template-profile-card,
+.template-selection-description,
+.provisioning-event,
+.provisioning-job-card,
+.service-credential-card,
+.notification-settings-inline,
+.notification-toggle-stack > *,
+.settings-inline-check-grid > *,
+.markdown-body pre,
+.markdown-code-block pre {
+  box-shadow: var(--portal-inner-shadow-unified) !important;
+}
+
+body.theme-light .settings-section-card,
+body.theme-light .settings-avatar-card,
+body.theme-light .settings-language-card,
+body.theme-light .settings-notification-card,
+body.theme-light .settings-password-card,
+body.theme-light .settings-email-card,
+body.theme-light .panel-card,
+body.theme-light .list-card,
+body.theme-light .metric-card,
+body.theme-light .resource-card,
+body.theme-light .soft-box,
+body.theme-light .cluster-map-card,
+body.theme-light .wiki-browser-layout,
+body.theme-light .wiki-card-shell {
+  border-color: rgba(17, 17, 17, 0.08) !important;
+}
+
+body.theme-dark .settings-section-card,
+body.theme-dark .settings-avatar-card,
+body.theme-dark .settings-language-card,
+body.theme-dark .settings-notification-card,
+body.theme-dark .settings-password-card,
+body.theme-dark .settings-email-card,
+body.theme-dark .panel-card,
+body.theme-dark .list-card,
+body.theme-dark .metric-card,
+body.theme-dark .resource-card,
+body.theme-dark .soft-box,
+body.theme-dark .cluster-map-card,
+body.theme-dark .wiki-browser-layout,
+body.theme-dark .wiki-card-shell {
+  border-color: rgba(218, 227, 215, 0.10) !important;
+}
+
+
+/* -------------------------------------------------------------
+   Final polish: elevated modal/dialog design + refined console shell.
+   The terminal itself keeps the Nord palette; the surrounding UI gains
+   stronger depth, hierarchy and better tab/header presentation.
+---------------------------------------------------------------- */
+body.theme-light {
+  --portal-modal-shadow: 0 38px 90px rgba(17, 17, 17, 0.18), 0 14px 32px rgba(17, 17, 17, 0.08);
+  --portal-modal-shell: linear-gradient(180deg, #f4f5f1 0%, #e9ebe6 100%);
+  --portal-modal-top-glow: radial-gradient(circle at top right, rgba(218, 227, 215, 0.88), transparent 38%);
+  --portal-modal-inner-surface: #ffffff;
+  --portal-modal-inner-surface-alt: #f6f7f3;
+  --portal-modal-border: rgba(17, 17, 17, 0.11);
+  --portal-modal-tab-rail: rgba(17, 17, 17, 0.04);
+  --portal-modal-toolbar: rgba(255, 255, 255, 0.74);
+}
+
+body.theme-dark {
+  --portal-modal-shadow: 0 44px 120px rgba(0, 0, 0, 0.46), 0 16px 38px rgba(0, 0, 0, 0.26);
+  --portal-modal-shell: linear-gradient(180deg, #131914 0%, #0d120f 100%);
+  --portal-modal-top-glow: radial-gradient(circle at top right, rgba(218, 227, 215, 0.08), transparent 42%);
+  --portal-modal-inner-surface: #121914;
+  --portal-modal-inner-surface-alt: #0f1511;
+  --portal-modal-border: rgba(218, 227, 215, 0.10);
+  --portal-modal-tab-rail: rgba(218, 227, 215, 0.05);
+  --portal-modal-toolbar: rgba(17, 24, 20, 0.88);
+}
+
+.modal-overlay {
+  background: rgba(11, 14, 12, 0.42) !important;
+  backdrop-filter: blur(12px) saturate(112%) !important;
+}
+
+.modal-card {
+  position: relative;
+  width: min(620px, calc(100vw - 40px));
+  padding: 28px;
+  border-radius: 28px !important;
+  border: 1px solid var(--portal-modal-border) !important;
+  background: var(--portal-modal-shell) !important;
+  box-shadow: var(--portal-modal-shadow) !important;
+  overflow: hidden;
+}
+
+.modal-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: var(--portal-modal-top-glow);
+  opacity: 1;
+}
+
+.modal-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+.detail-modal-card {
+  width: min(980px, calc(100vw - 56px));
+  height: min(82dvh, 860px);
+  max-height: calc(100dvh - 56px);
+  border-radius: 30px !important;
+}
+
+.public-page-modal-card {
+  width: min(720px, calc(100vw - 40px)) !important;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 18px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--portal-modal-border);
+}
+
+.modal-title-block {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.modal-header h2 {
+  font-size: clamp(1.65rem, 1.25rem + 0.8vw, 2rem);
+  font-weight: 600;
+  line-height: 1.12;
+  letter-spacing: -0.025em;
+}
+
+.modal-header .icon-button {
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  border-radius: 14px;
+  border: 1px solid var(--portal-modal-border);
+  background: var(--portal-modal-toolbar);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 10px 24px rgba(17, 17, 17, 0.08);
+}
+
+body.theme-dark .modal-header .icon-button {
+  background: rgba(17, 24, 20, 0.88);
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.24);
+}
+
+.modal-header .icon-button:hover,
+.modal-header .icon-button:focus-visible {
+  background: #dae3d7 !important;
+  border-color: rgba(16, 21, 17, 0.12) !important;
+  color: #101511 !important;
+  box-shadow: 0 14px 28px rgba(17, 17, 17, 0.12);
+}
+
+.detail-modal-card .modal-tabs {
+  margin-bottom: 18px;
+}
+
+.modal-tabs {
+  gap: 8px;
+  padding: 6px;
+  border: 1px solid var(--portal-modal-border);
+  border-radius: 18px;
+  background: var(--portal-modal-tab-rail);
+  overflow-x: auto;
+}
+
+.modal-tabs button {
+  padding: 10px 16px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  border-bottom: 0 !important;
+}
+
+.modal-tabs button.active {
+  background: var(--portal-modal-inner-surface);
+  border-color: color-mix(in srgb, var(--color-primary) 18%, var(--portal-modal-border));
+  box-shadow: 0 10px 22px rgba(17, 17, 17, 0.08);
+}
+
+body.theme-dark .modal-tabs button.active {
+  background: rgba(218, 227, 215, 0.08);
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.22);
+}
+
+.detail-tab-body {
+  padding-right: 8px;
+  margin-right: -8px;
+}
+
+.detail-tab-body::-webkit-scrollbar {
+  width: 10px;
+}
+
+.detail-tab-body::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--color-primary) 20%, var(--color-border));
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+.modal-card .resource-meta,
+.modal-card .disk-row,
+.modal-card .task-row,
+.modal-card .service-ip-control,
+.modal-card .credential-card,
+.modal-card .service-credential-card,
+.modal-card .publishing-existing-card,
+.modal-card .publishing-domain-card,
+.modal-card .publishing-runtime-card,
+.modal-card .publishing-visibility-card,
+.modal-card .publishing-protocol-card,
+.modal-card .publishing-target-card,
+.modal-card .publishing-advanced-card,
+.modal-card .create-result,
+.modal-card .setup-check-row,
+.modal-card .setup-check-test {
+  background: var(--portal-modal-inner-surface) !important;
+  border: 1px solid color-mix(in srgb, var(--portal-modal-border) 92%, transparent) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 10px 22px rgba(17, 17, 17, 0.05) !important;
+}
+
+body.theme-dark .modal-card .resource-meta,
+body.theme-dark .modal-card .disk-row,
+body.theme-dark .modal-card .task-row,
+body.theme-dark .modal-card .service-ip-control,
+body.theme-dark .modal-card .credential-card,
+body.theme-dark .modal-card .service-credential-card,
+body.theme-dark .modal-card .publishing-existing-card,
+body.theme-dark .modal-card .publishing-domain-card,
+body.theme-dark .modal-card .publishing-runtime-card,
+body.theme-dark .modal-card .publishing-visibility-card,
+body.theme-dark .modal-card .publishing-protocol-card,
+body.theme-dark .modal-card .publishing-target-card,
+body.theme-dark .modal-card .publishing-advanced-card,
+body.theme-dark .modal-card .create-result,
+body.theme-dark .modal-card .setup-check-row,
+body.theme-dark .modal-card .setup-check-test {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.025), 0 16px 30px rgba(0, 0, 0, 0.20) !important;
+}
+
+.modal-card .service-link-row a,
+.modal-card .power-row button,
+.modal-card .card-power-row button,
+.modal-card .detail-console-action button,
+.modal-card .service-ip-actions button,
+.modal-card .form-actions button {
+  box-shadow: 0 8px 20px rgba(17, 17, 17, 0.06);
+}
+
+body.theme-dark .modal-card .service-link-row a,
+body.theme-dark .modal-card .power-row button,
+body.theme-dark .modal-card .card-power-row button,
+body.theme-dark .modal-card .detail-console-action button,
+body.theme-dark .modal-card .service-ip-actions button,
+body.theme-dark .modal-card .form-actions button {
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+}
+
+.modal-card input,
+.modal-card select,
+.modal-card textarea {
+  min-height: 48px;
+}
+
+.console-page {
+  background:
+    radial-gradient(circle at top left, rgba(218, 227, 215, 0.10), transparent 26%),
+    linear-gradient(180deg, color-mix(in srgb, var(--color-bg) 96%, #000000 4%) 0%, var(--color-bg) 100%);
+}
+
+.console-page-header {
+  width: min(1480px, calc(100vw - 32px));
+  margin: 18px auto 0;
+  padding: 18px 22px;
+  border: 1px solid var(--portal-modal-border);
+  border-radius: 24px 24px 0 0;
+  background: color-mix(in srgb, var(--portal-modal-shell) 72%, transparent);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 20px 40px rgba(17, 17, 17, 0.08);
+}
+
+body.theme-dark .console-page-header {
+  box-shadow: 0 24px 44px rgba(0, 0, 0, 0.20);
+}
+
+.console-page-main {
+  width: min(1480px, calc(100vw - 32px));
+  margin: 0 auto;
+  padding: 0 0 18px;
+}
+
+.console-page-card,
+.console-page-message {
+  border-radius: 0 0 26px 26px;
+  border: 1px solid var(--portal-modal-border);
+  background: var(--portal-modal-shell) !important;
+  box-shadow: var(--portal-modal-shadow) !important;
+}
+
+.console-page-card {
+  padding: 20px;
+}
+
+.console-page-message {
+  padding: 24px;
+}
+
+.console-page-meta {
+  padding: 12px;
+  border: 1px solid var(--portal-modal-border);
+  border-radius: 18px;
+  background: var(--portal-modal-inner-surface);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.console-page-meta span {
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--portal-modal-border);
+  background: var(--portal-modal-inner-surface-alt);
+}
+
+.terminal-wrapper {
+  gap: 14px;
+  padding: 14px;
+  border: 1px solid var(--portal-modal-border);
+  border-radius: 22px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--portal-modal-inner-surface) 92%, transparent), color-mix(in srgb, var(--portal-modal-inner-surface-alt) 94%, transparent));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.terminal-toolbar {
+  padding: 0 2px 8px;
+  border-bottom: 1px solid color-mix(in srgb, var(--portal-modal-border) 85%, transparent);
+}
+
+.terminal-container {
+  border-radius: 18px;
+  border-color: rgba(67, 76, 94, 0.82) !important;
+  box-shadow: 0 18px 34px rgba(17, 17, 17, 0.10), inset 0 1px 0 rgba(255, 255, 255, 0.02);
+}
+
+@media (max-width: 767px) {
+  .modal-overlay {
+    background: rgba(11, 14, 12, 0.34) !important;
+  }
+
+  .modal-card {
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: 92dvh;
+    padding: 16px 16px calc(18px + env(safe-area-inset-bottom));
+    border-radius: 24px 24px 0 0 !important;
+    border-left: 0 !important;
+    border-right: 0 !important;
+    border-bottom: 0 !important;
+  }
+
+  .sheet-handle {
+    width: 46px;
+    height: 5px;
+    margin: 2px auto 14px;
+    background: color-mix(in srgb, var(--color-primary) 28%, var(--color-border));
+  }
+
+  .detail-modal-card {
+    width: 100% !important;
+    max-width: 100% !important;
+    height: 90dvh;
+    max-height: 90dvh;
+  }
+
+  .modal-header {
+    position: sticky;
+    top: 0;
+    z-index: 3;
+    padding-top: 2px;
+    background: inherit;
+  }
+
+  .modal-tabs {
+    border-radius: 16px;
+  }
+
+  .console-page-header,
+  .console-page-main {
+    width: 100%;
+  }
+
+  .console-page-header {
+    margin-top: 0;
+    border-left: 0;
+    border-right: 0;
+    border-top: 0;
+    border-radius: 0 0 20px 20px;
+    padding: 18px 16px;
+  }
+
+  .console-page-main {
+    padding: 12px 16px 18px;
+  }
+
+  .console-page-card,
+  .console-page-message {
+    border-radius: 22px;
+  }
+
+  .terminal-wrapper {
+    padding: 12px;
+    border-radius: 18px;
+  }
+
+  .terminal-container {
+    border-radius: 16px;
+  }
+}
+
+
+/* User notification actions: test mail next to save */
+.notification-settings-actions {
+  align-items: center;
+  gap: 10px;
+}
+.notification-settings-actions .btn-secondary,
+.notification-settings-actions .btn-primary {
+  min-width: 140px;
+}
+@media (max-width: 767px) {
+  .notification-settings-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+  .notification-settings-actions .btn-secondary,
+  .notification-settings-actions .btn-primary {
+    width: 100%;
+  }
 }

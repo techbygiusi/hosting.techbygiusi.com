@@ -7,6 +7,7 @@ const API_URL = configuredApiUrl.trim() || '/api';
 
 const MESSAGE_TRANSLATIONS = {
   'Invalid email or password': 'E-Mail-Adresse oder Passwort ist falsch.',
+  'Invalid email address': 'Bitte eine gültige E-Mail-Adresse eingeben.',
   'User with this email already exists': 'Ein Benutzer mit dieser E-Mail-Adresse existiert bereits.',
   'User not found': 'Benutzer wurde nicht gefunden.',
   'Unauthorized': 'Nicht angemeldet.',
@@ -372,6 +373,7 @@ export const userApi = {
   getProfile: () => apiClient.get('/user/profile'),
   updateProfile: (data) => apiClient.put('/user/profile', data),
   updateAvatar: (avatar) => apiClient.put('/user/avatar', { avatar }),
+  updateEmail: (email) => apiClient.put('/user/email', { email }),
   deleteAvatar: () => apiClient.delete('/user/avatar'),
   updateLanguage: (language) => apiClient.put('/user/language', { language }),
   updateTheme: (theme) => apiClient.put('/user/theme', { theme }),
@@ -394,7 +396,8 @@ export const userApi = {
   deleteMachine: (resourceId) => apiClient.delete(`/user/resources/${resourceId}`),
   // v3.0: notification preferences
   getNotificationPreferences: () => apiClient.get('/user/notifications'),
-  updateNotificationPreferences: (data) => apiClient.put('/user/notifications', data)
+  updateNotificationPreferences: (data) => apiClient.put('/user/notifications', data),
+  sendNotificationTestMail: () => apiClient.post('/user/notifications/send-test-mail')
 };
 
 // v3.1.80: wiki - published articles for users, full management for admins

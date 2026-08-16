@@ -42,6 +42,9 @@ const {
 const { ensureClusterTemplates, syncClusterTemplates } = require('../services/templateService');
 const { createJob, getJob: getProvisioningJob, listJobsForUser } = require('../services/provisioningJobService');
 const { buildAvatarUrl, saveAvatarForUser, deleteAvatarForUser } = require('../services/avatarService');
+const { generateToken } = require('../middleware/auth');
+const { sendEmail } = require('../services/emailService');
+const { testMailTemplate } = require('../services/emailTemplates');
 
 /* ------------------------------------------------------------ ACCESS ---- */
 /**
@@ -407,6 +410,45 @@ router.delete('/avatar', async (req, res, next) => {
 });
 
 
+
+/* ------------------------------------------------------------ EMAIL ---- */
+router.put('/email', async (req, res, next) => {
+  try {
+    const email = String(req.body?.email || '').trim().toLowerCase();
+    const validEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && email.length <= 254;
+    if (!validEmail) {
+      throw new AppError('Invalid email address', HTTP_STATUS.BAD_REQUEST);
+    }
+
+    const currentUser = await get('SELECT id, email, role FROM users WHERE id = ?', [req.user.id]);
+    if (!currentUser) {
+      throw new AppError('User not found', HTTP_STATUS.NOT_FOUND);
+    }
+
+    const duplicate = await get(
+      'SELECT id FROM users WHERE LOWER(email) = LOWER(?) AND id <> ?',
+      [email, req.user.id]
+    );
+    if (duplicate) {
+      throw new AppError('User with this email already exists', HTTP_STATUS.CONFLICT);
+    }
+
+    if (String(currentUser.email || '').toLowerCase() !== email) {
+      await run(
+        'UPDATE users SET email = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+        [email, req.user.id]
+      );
+      await logAudit(req, 'profile.email.update', `user:${req.user.id}`, `${currentUser.email} -> ${email}`);
+    }
+
+    // Issue a fresh session token so the JWT carries the new e-mail address too.
+    const token = generateToken(currentUser.id, email, currentUser.role);
+    res.json({ email, token });
+  } catch (err) {
+    next(err);
+  }
+});
+
 /* --------------------------------------------------------- LANGUAGE ---- */
 router.put('/language', async (req, res, next) => {
   try {
@@ -486,6 +528,32 @@ router.put('/notifications', async (req, res, next) => {
         notifyMaintenance: !!notifyMaintenance
       }
     });
+  } catch (err) {
+    next(err);
+  }
+});
+
+
+router.post('/notifications/send-test-mail', async (req, res, next) => {
+  try {
+    const user = await get(
+      'SELECT email, name, preferred_language, preferred_theme FROM users WHERE id = ?',
+      [req.user.id]
+    );
+    if (!user) throw new AppError('User not found', HTTP_STATUS.NOT_FOUND);
+
+    const template = testMailTemplate({
+      name: user.name || user.email,
+      language: user.preferred_language || 'en',
+      theme: user.preferred_theme || 'light'
+    });
+    const result = await sendEmail(user.email, template.subject, template.text, template.html);
+    if (!result.success) {
+      throw new AppError(result.message || 'Email service not configured', HTTP_STATUS.BAD_REQUEST);
+    }
+
+    await logAudit(req, 'user.test_mail_sent', user.email);
+    res.json({ success: true, message: 'Test email sent', to: user.email });
   } catch (err) {
     next(err);
   }

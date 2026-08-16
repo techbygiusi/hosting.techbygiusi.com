@@ -11,6 +11,10 @@ const NOTIFICATION_TRANSLATIONS = {
     loading: 'Loading...',
     saving: 'Saving...',
     save: 'Save',
+    testMail: 'Send test email',
+    testSending: 'Sending...',
+    testSent: 'Test email sent.',
+    testError: 'Test email could not be sent.',
     resourceDown: 'Service offline',
     resourceDownText: 'Send an e-mail when one of your services stops running.',
     resourceRecovered: 'Service online again',
@@ -27,6 +31,10 @@ const NOTIFICATION_TRANSLATIONS = {
     loading: 'Lädt...',
     saving: 'Speichert...',
     save: 'Speichern',
+    testMail: 'Test-E-Mail senden',
+    testSending: 'Wird gesendet...',
+    testSent: 'Test-E-Mail wurde gesendet.',
+    testError: 'Test-E-Mail konnte nicht gesendet werden.',
     resourceDown: 'Dienst offline',
     resourceDownText: 'Sende eine E-Mail, wenn einer deiner Dienste nicht mehr läuft.',
     resourceRecovered: 'Dienst wieder online',
@@ -63,6 +71,8 @@ export default function NotificationSettingsPanel({ language = 'en' }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [saved, setSaved] = useState(false);
+  const [testSending, setTestSending] = useState(false);
+  const [testSent, setTestSent] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -87,6 +97,7 @@ export default function NotificationSettingsPanel({ language = 'en' }) {
 
   const setPref = (key, value) => {
     setSaved(false);
+    setTestSent(false);
     setPrefs(previous => ({ ...previous, [key]: value }));
   };
 
@@ -103,12 +114,27 @@ export default function NotificationSettingsPanel({ language = 'en' }) {
     }
   };
 
+  const handleTestMail = async () => {
+    try {
+      setTestSending(true);
+      setError('');
+      setTestSent(false);
+      await userApi.sendNotificationTestMail();
+      setTestSent(true);
+    } catch (err) {
+      setError(getErrorMessage(err, labels.testError));
+    } finally {
+      setTestSending(false);
+    }
+  };
+
   return (
     <div className="notification-settings-inline">
       <p className="notification-settings-intro">{labels.intro}</p>
 
       {error && <div className="alert alert-danger">{error}</div>}
       {saved && <div className="alert alert-success">{labels.saved}</div>}
+      {testSent && <div className="alert alert-success">{labels.testSent}</div>}
 
       {loading || !prefs ? (
         <div className="loading inline-loading"><span className="spinner" /><span>{labels.loading}</span></div>
@@ -119,27 +145,30 @@ export default function NotificationSettingsPanel({ language = 'en' }) {
             description={labels.resourceDownText}
             checked={prefs.notifyResourceDown}
             onChange={(value) => setPref('notifyResourceDown', value)}
-            disabled={saving}
+            disabled={saving || testSending}
           />
           <ToggleRow
             label={labels.resourceRecovered}
             description={labels.resourceRecoveredText}
             checked={prefs.notifyResourceRecovered}
             onChange={(value) => setPref('notifyResourceRecovered', value)}
-            disabled={saving}
+            disabled={saving || testSending}
           />
           <ToggleRow
             label={labels.maintenance}
             description={labels.maintenanceText}
             checked={prefs.notifyMaintenance}
             onChange={(value) => setPref('notifyMaintenance', value)}
-            disabled={saving}
+            disabled={saving || testSending}
           />
         </div>
       )}
 
       <div className="notification-settings-actions">
-        <button type="button" className="btn-primary" onClick={handleSave} disabled={saving || loading || !prefs}>
+        <button type="button" className="btn-secondary" onClick={handleTestMail} disabled={testSending || saving || loading}>
+          {testSending ? labels.testSending : labels.testMail}
+        </button>
+        <button type="button" className="btn-primary" onClick={handleSave} disabled={saving || testSending || loading || !prefs}>
           {saving ? labels.saving : labels.save}
         </button>
       </div>
