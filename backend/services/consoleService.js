@@ -83,18 +83,46 @@ function bridgeToProxmox(clientWs, session) {
   };
 
   const pendingClientMessages = [];
+  const sendClientControl = (name) => {
+    if (clientWs.readyState === WebSocket.OPEN) clientWs.send(`\x1ePORTAL:${name}`);
+  };
+  const frameConsoleInput = (value) => {
+    const payload = String(value || '');
+    return `0:${Buffer.byteLength(payload, 'utf8')}:${payload}`;
+  };
 
   clientWs.on('message', (data) => {
+    const text = Buffer.isBuffer(data) ? data.toString('utf8') : String(data || '');
+
+    // Paste a stored LXC/root password server-side. The browser sends only the
+    // control command; the plaintext password stays inside the one-time console
+    // session and is framed like regular Proxmox terminal input.
+    if (text === '3:paste-user-password') {
+      const password = String(session.pastePassword || '');
+      if (!password) return;
+      const framed = frameConsoleInput(`${password}\r`);
+      if (upstream.readyState === WebSocket.OPEN) {
+        upstream.send(framed, () => sendClientControl('password-pasted'));
+      } else {
+        pendingClientMessages.push({ data: framed, acknowledgePasswordPaste: true });
+      }
+      return;
+    }
+
     if (upstream.readyState === WebSocket.OPEN) {
       upstream.send(data);
       return;
     }
-    pendingClientMessages.push(data);
+    pendingClientMessages.push({ data, acknowledgePasswordPaste: false });
   });
 
   upstream.on('open', () => {
     while (pendingClientMessages.length > 0 && upstream.readyState === WebSocket.OPEN) {
-      upstream.send(pendingClientMessages.shift());
+      const pending = pendingClientMessages.shift();
+      const payload = pending && Object.prototype.hasOwnProperty.call(pending, 'data') ? pending.data : pending;
+      upstream.send(payload, () => {
+        if (pending?.acknowledgePasswordPaste) sendClientControl('password-pasted');
+      });
     }
   });
 

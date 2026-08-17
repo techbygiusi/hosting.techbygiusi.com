@@ -75,9 +75,11 @@ export default function AccountEmailSettingsPanel({ language = 'en' }) {
 
   return (
     <section className="settings-section-card settings-email-card" aria-labelledby="account-email-settings-title">
-      <div className="settings-section-heading">
-        <h3 id="account-email-settings-title">{text.title}</h3>
-        <p>{text.intro}</p>
+      <div className="settings-section-header">
+        <div>
+          <h3 id="account-email-settings-title">{text.title}</h3>
+          <p>{text.intro}</p>
+        </div>
       </div>
       <form className="settings-email-form" onSubmit={submit}>
         <div className="settings-email-grid">

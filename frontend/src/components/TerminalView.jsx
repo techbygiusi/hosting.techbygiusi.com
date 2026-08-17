@@ -137,7 +137,7 @@ export default function TerminalView({ resourceId, resourceName, fullscreen = fa
         if (disposed) return;
 
         const { wsPath, user, ticket, autoLogin, mode = 'proxmox', canPasteUserPassword: canPasteStoredPassword = false } = res.data;
-        setCanPasteUserPassword(mode === 'ssh' && !!canPasteStoredPassword);
+        setCanPasteUserPassword(!!canPasteStoredPassword);
         const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
         ws = new WebSocket(`${protocol}://${window.location.host}${wsPath}`);
         ws.binaryType = 'arraybuffer';

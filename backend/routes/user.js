@@ -1287,7 +1287,8 @@ router.post('/resources/:id/console', async (req, res, next) => {
       vmid: target.vmid,
       port: term.port,
       ticket: term.ticket,
-      language
+      language,
+      pastePassword: autoLogin?.secret || ''
     });
 
     await logAudit(req, 'console.open', `resource:${req.params.id}`, `${target.name} (VMID ${target.vmid})`);
@@ -1298,7 +1299,8 @@ router.post('/resources/:id/console', async (req, res, next) => {
       user: term.user,
       ticket: term.ticket,
       wsPath: `/api/console/ws?token=${sessionToken}`,
-      autoLogin
+      autoLogin,
+      canPasteUserPassword: !!autoLogin?.secret
     });
   } catch (err) {
     next(err);
