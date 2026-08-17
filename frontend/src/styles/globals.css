@@ -10322,3 +10322,225 @@ body.theme-dark .admin-settings-tabs button.active::after {
     align-items: flex-start;
   }
 }
+
+
+/* -------------------------------------------------------------
+   Follow-up polish: align inner hosting/settings cards with the
+   neutral dark-mode surface so no stray greenish backgrounds remain.
+---------------------------------------------------------------- */
+body.theme-dark .settings-section-card .settings-toggle-card,
+body.theme-dark .settings-section-card .pangolin-protocol-toggle,
+body.theme-dark .settings-section-card .notification-toggle-stack > *,
+body.theme-dark .settings-section-card .settings-inline-check-grid > * {
+  background: rgba(14, 20, 16, 0.88) !important;
+  border-color: rgba(218, 227, 215, 0.08) !important;
+}
+
+body.theme-dark .settings-section-card .settings-toggle-card:hover,
+body.theme-dark .settings-section-card .pangolin-protocol-toggle:hover {
+  background: rgba(16, 22, 18, 0.92) !important;
+}
+
+
+/* -------------------------------------------------------------
+   Follow-up polish: keep settings error/result messages content-sized.
+   They should span the available width but never grow unnaturally tall.
+---------------------------------------------------------------- */
+.settings-testmail-row {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  justify-content: flex-start !important;
+  gap: 14px !important;
+  flex-wrap: nowrap !important;
+}
+
+.settings-testmail-row > .btn-secondary {
+  align-self: flex-start !important;
+}
+
+.settings-testmail-row .test-result,
+.settings-section-card .alert,
+.settings-section-card .test-result,
+.notification-settings-inline .alert,
+.notification-settings-inline .test-result {
+  flex: 0 0 auto !important;
+  width: 100% !important;
+  min-height: 0 !important;
+  height: auto !important;
+  align-self: stretch !important;
+  text-align: left !important;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 767px) {
+  .settings-testmail-row > .btn-secondary {
+    width: 100% !important;
+    align-self: stretch !important;
+  }
+}
+
+
+/* -------------------------------------------------------------
+   Follow-up polish: unify real tab interfaces across the portal.
+   Use the same underline-tab language as the admin settings tabs
+   for modal/detail tabs, wiki language tabs and other horizontal tabs.
+   Intentionally excludes console/sidebar navigation menus.
+---------------------------------------------------------------- */
+:root {
+  --portal-underline-tab-gap: 28px;
+  --portal-underline-tab-min-height: 48px;
+  --portal-underline-tab-pad-bottom: 14px;
+}
+
+.app-tabs:not(.console-nav-tabs),
+.modal-tabs,
+.wiki-language-tabs,
+.admin-settings-tabs {
+  display: flex !important;
+  align-items: flex-end;
+  gap: var(--portal-underline-tab-gap);
+  min-height: var(--portal-underline-tab-min-height);
+  padding: 0 2px !important;
+  margin-bottom: 20px;
+  border: 0 !important;
+  border-bottom: 1px solid var(--portal-border-strong) !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  box-shadow: none !important;
+}
+
+.app-tabs:not(.console-nav-tabs)::-webkit-scrollbar,
+.modal-tabs::-webkit-scrollbar,
+.wiki-language-tabs::-webkit-scrollbar,
+.admin-settings-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.app-tabs:not(.console-nav-tabs) button,
+.modal-tabs button,
+.wiki-language-tab,
+.admin-settings-tabs button {
+  position: relative;
+  flex: 0 0 auto;
+  min-height: var(--portal-underline-tab-min-height);
+  padding: 0 0 var(--portal-underline-tab-pad-bottom) !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  color: var(--portal-text-soft) !important;
+  font: inherit;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow: none !important;
+  transition: color .18s ease;
+}
+
+.wiki-language-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.app-tabs:not(.console-nav-tabs) button::after,
+.modal-tabs button::after,
+.wiki-language-tab::after,
+.admin-settings-tabs button::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 3px;
+  border-radius: 999px 999px 0 0;
+  background: transparent;
+  transform: scaleX(.65);
+  transform-origin: center;
+  transition: background .18s ease, transform .18s ease;
+}
+
+.app-tabs:not(.console-nav-tabs) button:hover,
+.modal-tabs button:hover,
+.wiki-language-tab:hover,
+.admin-settings-tabs button:hover {
+  color: var(--portal-text-strong) !important;
+  background: transparent !important;
+}
+
+.app-tabs:not(.console-nav-tabs) button.active,
+.modal-tabs button.active,
+.wiki-language-tab.active,
+.admin-settings-tabs button.active {
+  color: var(--portal-text-strong) !important;
+  font-weight: 700;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+.app-tabs:not(.console-nav-tabs) button.active::after,
+.modal-tabs button.active::after,
+.wiki-language-tab.active::after,
+.admin-settings-tabs button.active::after {
+  background: #aebda8;
+  transform: scaleX(1);
+}
+
+body.theme-dark .app-tabs:not(.console-nav-tabs) button.active::after,
+body.theme-dark .modal-tabs button.active::after,
+body.theme-dark .wiki-language-tab.active::after,
+body.theme-dark .admin-settings-tabs button.active::after {
+  background: #dae3d7;
+}
+
+.wiki-language-flag {
+  color: var(--portal-text-soft);
+}
+
+.wiki-language-tab.active .wiki-language-flag:not(.published) {
+  color: var(--portal-text-soft);
+}
+
+.detail-modal-card .modal-tabs {
+  margin-bottom: 18px;
+}
+
+@media (max-width: 767px) {
+  .app-tabs:not(.console-nav-tabs),
+  .modal-tabs,
+  .wiki-language-tabs,
+  .admin-settings-tabs {
+    gap: 24px;
+    min-height: 46px;
+  }
+
+  .app-tabs:not(.console-nav-tabs) button,
+  .modal-tabs button,
+  .wiki-language-tab,
+  .admin-settings-tabs button {
+    min-height: 46px;
+    padding-bottom: 13px !important;
+  }
+}
+
+
+/* -------------------------------------------------------------
+   Follow-up polish: align admin log and account menu dark surfaces
+   with the rest of the portal tab/panel surfaces.
+---------------------------------------------------------------- */
+body.theme-dark .audit-panel,
+body.theme-dark .account-menu-panel {
+  background: linear-gradient(180deg, rgba(13, 18, 15, 0.98), rgba(12, 16, 14, 0.98)) !important;
+  border-color: rgba(218, 227, 215, 0.10) !important;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.34) !important;
+}
+
+body.theme-dark .audit-row {
+  background: rgba(14, 20, 16, 0.88) !important;
+  border-color: rgba(218, 227, 215, 0.08) !important;
+}
