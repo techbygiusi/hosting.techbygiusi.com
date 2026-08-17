@@ -10544,3 +10544,45 @@ body.theme-dark .audit-row {
   background: rgba(14, 20, 16, 0.88) !important;
   border-color: rgba(218, 227, 215, 0.08) !important;
 }
+
+
+/* -------------------------------------------------------------
+   Follow-up polish: align the text-only portal header with the card
+   grid below so the brand starts on the same vertical line.
+---------------------------------------------------------------- */
+@media (min-width: 721px) {
+  .site-header-inner {
+    padding-left: calc(clamp(18px, 4vw, 38px) + 28px) !important;
+  }
+
+  .site-header::after {
+    left: 52px !important;
+  }
+}
+
+
+/* -------------------------------------------------------------
+   Follow-up polish: remove remaining bluish admin settings/log dark
+   surfaces and align them with the neutral portal dark background.
+---------------------------------------------------------------- */
+body.theme-dark .settings-card.admin-settings-shell,
+body.theme-dark .admin-settings-shell,
+body.theme-dark .admin-settings-tab-content,
+body.theme-dark .settings-section-card,
+body.theme-dark .settings-section-card.settings-smtp-section,
+body.theme-dark .settings-section-card.settings-setup-section,
+body.theme-dark .settings-section-card.admin-infrastructure-notifications {
+  background: linear-gradient(180deg, rgba(13, 18, 15, 0.98), rgba(12, 16, 14, 0.98)) !important;
+}
+
+body.theme-dark .audit-filter-card,
+body.theme-dark .audit-row {
+  background: linear-gradient(180deg, rgba(13, 18, 15, 0.96), rgba(12, 16, 14, 0.96)) !important;
+}
+
+body.theme-dark .audit-search-field,
+body.theme-dark .audit-filter-card input,
+body.theme-dark .audit-filter-card select {
+  background: rgba(14, 20, 16, 0.88) !important;
+  border-color: rgba(218, 227, 215, 0.08) !important;
+}
