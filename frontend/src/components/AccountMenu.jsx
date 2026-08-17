@@ -88,7 +88,6 @@ export default function AccountMenu({ user, language = 'en', onOpenSettings, onL
           </div>
 
           <div className="account-menu-theme" role="group" aria-label={text.theme}>
-            <span className="account-menu-label">{text.theme}</span>
             <div className="account-menu-theme-switch">
               <button
                 type="button"

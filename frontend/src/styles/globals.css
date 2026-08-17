@@ -9935,3 +9935,55 @@ body.theme-dark .console-page-header {
     padding: 8px 4px calc(14px + env(safe-area-inset-bottom)) !important;
   }
 }
+
+
+/* -------------------------------------------------------------
+   Follow-up polish: unify regular portal popups to one shared size.
+   The account dropdown/menu in the top right is excluded because it
+   is not part of the modal system and should stay compact.
+---------------------------------------------------------------- */
+:root {
+  --portal-unified-popup-width: min(980px, calc(100vw - 56px));
+  --portal-unified-popup-height: min(82dvh, 860px);
+}
+
+.modal-card,
+.detail-modal-card,
+.public-page-modal-card,
+.publishing-modal-card,
+.publishing-manager-modal-card {
+  width: var(--portal-unified-popup-width) !important;
+  max-width: var(--portal-unified-popup-width) !important;
+  height: var(--portal-unified-popup-height) !important;
+  min-height: var(--portal-unified-popup-height) !important;
+  max-height: calc(100dvh - 56px) !important;
+}
+
+.modal-card {
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-card > form,
+.modal-card > .provisioning-live-view,
+.modal-card > .publishing-manager-content,
+.modal-card > .modal-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+@media (max-width: 767px) {
+  .modal-card,
+  .detail-modal-card,
+  .public-page-modal-card,
+  .publishing-modal-card,
+  .publishing-manager-modal-card {
+    width: 100% !important;
+    max-width: 100% !important;
+    height: 90dvh !important;
+    min-height: 90dvh !important;
+    max-height: 90dvh !important;
+  }
+}
