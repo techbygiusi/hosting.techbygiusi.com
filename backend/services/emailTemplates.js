@@ -282,6 +282,54 @@ Portal: ${BRAND_URL}`;
   return { subject, text, html };
 }
 
+
+function infrastructureDownTemplate({ name, kind = 'cluster', serviceName, clusterName = '', detail = '', language = 'en', theme = 'light' }) {
+  const lang = normalizeLanguage(language);
+  const de = lang === 'de';
+  const palette = THEMES[normalizeTheme(theme)];
+  const labels = {
+    cluster: de ? 'Cluster' : 'Cluster',
+    node: de ? 'Node' : 'Node',
+    pangolin: 'Pangolin'
+  };
+  const typeLabel = labels[kind] || labels.cluster;
+  const displayName = serviceName || typeLabel;
+  const subject = de ? `⚠ ${typeLabel} nicht erreichbar: ${displayName}` : `⚠ ${typeLabel} unavailable: ${displayName}`;
+  const title = de ? `${typeLabel} nicht erreichbar` : `${typeLabel} unavailable`;
+  const rows = [
+    infoRow(de ? 'Typ' : 'Type', typeLabel, theme),
+    infoRow(de ? 'Name' : 'Name', displayName, theme)
+  ];
+  if (clusterName && kind !== 'cluster') rows.push(infoRow('Cluster', clusterName, theme));
+  rows.push(infoRow(de ? 'Erkannt am' : 'Detected at', formatDateTime(new Date(), lang), theme));
+
+  const html = baseLayout({ language: lang, theme, preheader: subject, title, eyebrow: de ? 'Infrastruktur' : 'Infrastructure', bodyHtml: `
+    <div style="margin:0 0 16px;">${statusPill('OFFLINE', palette.danger)}</div>
+    ${paragraph(hello(name, lang), theme)}
+    ${paragraph(de ? 'Das Hosting Portal kann die folgende Infrastruktur-Komponente derzeit nicht erreichen:' : 'The Hosting Portal cannot currently reach the following infrastructure component:', theme)}
+    ${infoTable(rows, theme)}
+    ${detail ? paragraph(`<strong>${de ? 'Details' : 'Details'}:</strong> ${escapeHtml(detail)}`, theme) : ''}
+    ${button(BRAND_URL, de ? 'Portal öffnen' : 'Open portal', theme)}` });
+
+  const text = de
+    ? `Hallo ${name || ''},
+
+${typeLabel} nicht erreichbar: ${displayName}${clusterName && kind !== 'cluster' ? `
+Cluster: ${clusterName}` : ''}${detail ? `
+Details: ${detail}` : ''}
+
+Portal: ${BRAND_URL}`
+    : `Hello ${name || ''},
+
+${typeLabel} unavailable: ${displayName}${clusterName && kind !== 'cluster' ? `
+Cluster: ${clusterName}` : ''}${detail ? `
+Details: ${detail}` : ''}
+
+Portal: ${BRAND_URL}`;
+
+  return { subject, text, html };
+}
+
 function testMailTemplate({ name, language = 'en', theme = 'light' }) {
   const lang = normalizeLanguage(language); const de = lang === 'de'; const palette = THEMES[normalizeTheme(theme)];
   const subject = de ? `${BRAND_NAME} - Test-E-Mail` : `${BRAND_NAME} - Test email`;
@@ -302,4 +350,4 @@ ${BRAND_NAME}`;
   return { subject, text, html };
 }
 
-module.exports = { passwordResetTemplate, welcomeTemplate, resourceDownTemplate, resourceRecoveredTemplate, maintenanceTemplate, testMailTemplate };
+module.exports = { passwordResetTemplate, welcomeTemplate, resourceDownTemplate, resourceRecoveredTemplate, maintenanceTemplate, infrastructureDownTemplate, testMailTemplate };

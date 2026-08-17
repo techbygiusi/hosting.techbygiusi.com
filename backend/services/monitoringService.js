@@ -1,21 +1,17 @@
 /**
- * monitoringService.js - Polls all Proxmox clusters, detects status
- * transitions of managed resources, records them in status_events and
- * notifies opted-in users by e-mail (down / recovered).
+ * monitoringService.js - Polls Proxmox and Pangolin, detects status
+ * transitions, records managed resource events and sends opted-in alerts.
  *
- * Design decisions:
- * - Debounce: a transition is only reported after DEBOUNCE_CHECKS
- *   consecutive polls with the new status (avoids flapping/reboot noise).
- * - Only resources that are managed in the portal (resources table)
- *   trigger e-mails; raw cluster changes are still recorded as events.
- * - Never throws: monitoring must not take down the API.
+ * Infrastructure alerts (cluster / node / Pangolin) reuse the same interval
+ * and debounce rules as resource monitoring so there is only one scheduler.
  */
 
 const { all, run } = require('../config/database');
 const { decrypt } = require('./cryptoService');
-const { getClusterResources } = require('./proxmoxService');
+const { getClusterResources, getClusterNodes } = require('./proxmoxService');
+const { getPangolinConfig, testPangolinConnection } = require('./pangolinService');
 const { sendEmail } = require('./emailService');
-const { resourceDownTemplate, resourceRecoveredTemplate } = require('./emailTemplates');
+const { resourceDownTemplate, resourceRecoveredTemplate, infrastructureDownTemplate } = require('./emailTemplates');
 const { safeIdentifier } = require('../middleware/validate');
 
 const INTERVAL_MS = Math.max(15, parseInt(process.env.MONITOR_INTERVAL_SECONDS || '60', 10)) * 1000;
@@ -24,6 +20,10 @@ const EVENT_RETENTION_DAYS = Math.max(1, parseInt(process.env.MONITOR_EVENT_RETE
 
 // clusterId -> Map<containerId, { status, pendingStatus, pendingCount }>
 const stateByCluster = new Map();
+// Infrastructure health uses the same debounced state shape.
+const clusterHealthState = new Map();
+const nodeHealthState = new Map(); // `${clusterId}:${node}` -> state
+const pangolinHealthState = new Map(); // single key: pangolin
 let timer = null;
 let running = false;
 
@@ -31,10 +31,60 @@ function isDown(status) {
   return status !== 'running';
 }
 
+function isInfraDown(status) {
+  return status !== 'online';
+}
+
+/**
+ * Debounce infrastructure transitions. If monitoring starts while a component
+ * is already down, treat the healthy state as the implicit baseline and alert
+ * only after the configured number of consecutive failed checks.
+ */
+function observeInfraState(store, key, currentStatus) {
+  const current = currentStatus === 'online' ? 'online' : 'offline';
+  let entry = store.get(key);
+
+  if (!entry) {
+    if (current === 'online') {
+      store.set(key, { status: 'online', pendingStatus: null, pendingCount: 0 });
+      return null;
+    }
+    entry = { status: 'online', pendingStatus: 'offline', pendingCount: 1 };
+    store.set(key, entry);
+    if (DEBOUNCE_CHECKS <= 1) {
+      entry.status = 'offline';
+      entry.pendingStatus = null;
+      entry.pendingCount = 0;
+      return { oldStatus: 'online', newStatus: 'offline' };
+    }
+    return null;
+  }
+
+  if (current === entry.status) {
+    entry.pendingStatus = null;
+    entry.pendingCount = 0;
+    return null;
+  }
+
+  if (entry.pendingStatus === current) entry.pendingCount += 1;
+  else {
+    entry.pendingStatus = current;
+    entry.pendingCount = 1;
+  }
+
+  if (entry.pendingCount < DEBOUNCE_CHECKS) return null;
+
+  const transition = { oldStatus: entry.status, newStatus: current };
+  entry.status = current;
+  entry.pendingStatus = null;
+  entry.pendingCount = 0;
+  return transition;
+}
+
 /**
  * All portal users that should be notified for a given managed resource:
- * the owner plus members of the shared group (deduplicated),
- * filtered by their notification preference column.
+ * the owner plus members of the shared group (deduplicated), filtered by
+ * their notification preference column.
  */
 async function getRecipients(clusterId, containerId, prefColumn) {
   const preferenceColumn = safeIdentifier(
@@ -51,6 +101,19 @@ async function getRecipients(clusterId, containerId, prefColumn) {
     WHERE r.cluster_id = ? AND r.container_id = ? AND u.${preferenceColumn} = 1
     `,
     [clusterId, String(containerId)]
+  );
+}
+
+async function getAdminRecipients(prefColumn) {
+  const preferenceColumn = safeIdentifier(
+    prefColumn,
+    ['notify_cluster_down', 'notify_node_down', 'notify_pangolin_down'],
+    'administrator infrastructure notification preference'
+  );
+  return all(
+    `SELECT id, email, name, preferred_language, preferred_theme
+     FROM users
+     WHERE role = 'admin' AND ${preferenceColumn} = 1`
   );
 }
 
@@ -83,8 +146,6 @@ async function notifyTransition(cluster, resource, oldStatus, newStatus) {
 
   await recordEvent(cluster.id, resource.id, displayName, oldStatus, newStatus);
 
-  // E-mails go only to users of resources managed in the portal -
-  // the recipients query returns nothing for unmanaged cluster resources.
   const prefColumn = wentDown ? 'notify_resource_down' : 'notify_resource_recovered';
   let recipients = [];
   try {
@@ -123,19 +184,94 @@ async function notifyTransition(cluster, resource, oldStatus, newStatus) {
 
   console.log(
     `Monitoring: ${cluster.name} / ${resource.id} (${displayName}) ${oldStatus} -> ${newStatus}` +
-    (recipients.length ? ` - ${recipients.length} Benachrichtigung(en) versendet` : '')
+    (recipients.length ? ` - ${recipients.length} notification(s) sent` : '')
   );
 }
 
+async function notifyInfrastructureDown({ kind, serviceName, clusterName = '', detail = '', prefColumn }) {
+  let recipients = [];
+  try {
+    recipients = await getAdminRecipients(prefColumn);
+  } catch (err) {
+    console.error('Monitoring: admin recipient lookup failed:', err.message);
+    return;
+  }
+
+  for (const user of recipients) {
+    const template = infrastructureDownTemplate({
+      name: user.name,
+      kind,
+      serviceName,
+      clusterName,
+      detail,
+      language: user.preferred_language || 'en',
+      theme: user.preferred_theme || 'light'
+    });
+    try {
+      await sendEmail(user.email, template.subject, template.text, template.html);
+    } catch (err) {
+      console.error(`Monitoring: infrastructure mail to ${user.email} failed:`, err.message);
+    }
+  }
+
+  if (recipients.length) {
+    console.log(`Monitoring: ${kind} "${serviceName}" unavailable - ${recipients.length} admin notification(s) sent`);
+  }
+}
+
+async function processNodeHealth(cluster, apiToken) {
+  let nodes;
+  try {
+    nodes = await getClusterNodes(cluster.url, apiToken);
+  } catch (err) {
+    console.error(`Monitoring: node status for cluster "${cluster.name}" unavailable:`, err.message);
+    return;
+  }
+
+  const seen = new Set();
+  for (const node of nodes) {
+    const key = `${cluster.id}:${node.node}`;
+    seen.add(key);
+    const transition = observeInfraState(nodeHealthState, key, node.status === 'online' ? 'online' : 'offline');
+    if (transition && !isInfraDown(transition.oldStatus) && isInfraDown(transition.newStatus)) {
+      await notifyInfrastructureDown({
+        kind: 'node',
+        serviceName: node.node,
+        clusterName: cluster.name,
+        detail: `Node status: ${node.status || 'unknown'}`,
+        prefColumn: 'notify_node_down'
+      });
+    }
+  }
+
+  // Nodes intentionally removed from the cluster are forgotten silently.
+  for (const key of [...nodeHealthState.keys()]) {
+    if (key.startsWith(`${cluster.id}:`) && !seen.has(key)) nodeHealthState.delete(key);
+  }
+}
+
 async function pollCluster(cluster) {
+  const apiToken = decrypt(cluster.api_token);
   let resources;
   try {
-    resources = await getClusterResources(cluster.url, decrypt(cluster.api_token));
+    resources = await getClusterResources(cluster.url, apiToken);
+    observeInfraState(clusterHealthState, String(cluster.id), 'online');
   } catch (err) {
-    // Cluster unreachable - do not flap all resources to "down"; skip this round.
+    const transition = observeInfraState(clusterHealthState, String(cluster.id), 'offline');
+    if (transition && !isInfraDown(transition.oldStatus) && isInfraDown(transition.newStatus)) {
+      await notifyInfrastructureDown({
+        kind: 'cluster',
+        serviceName: cluster.name,
+        detail: String(err.message || 'Proxmox API unavailable').slice(0, 500),
+        prefColumn: 'notify_cluster_down'
+      });
+    }
+    // Cluster unreachable - do not flap all resources or nodes to "down".
     console.error(`Monitoring: cluster "${cluster.name}" unreachable:`, err.message);
     return;
   }
+
+  await processNodeHealth(cluster, apiToken);
 
   let state = stateByCluster.get(cluster.id);
   const firstRun = !state;
@@ -153,7 +289,7 @@ async function pollCluster(cluster) {
     const entry = state.get(key);
 
     if (!entry) {
-      // Baseline - never alert on the very first observation
+      // Baseline - never alert on the very first resource observation.
       state.set(key, { status: current, pendingStatus: null, pendingCount: 0 });
       continue;
     }
@@ -164,10 +300,8 @@ async function pollCluster(cluster) {
       continue;
     }
 
-    // Status differs from confirmed state → debounce
-    if (entry.pendingStatus === current) {
-      entry.pendingCount += 1;
-    } else {
+    if (entry.pendingStatus === current) entry.pendingCount += 1;
+    else {
       entry.pendingStatus = current;
       entry.pendingCount = 1;
     }
@@ -181,9 +315,40 @@ async function pollCluster(cluster) {
     }
   }
 
-  // Resources removed from the cluster: drop state silently
+  // Resources removed from the cluster: drop state silently.
   for (const key of [...state.keys()]) {
     if (!seen.has(key)) state.delete(key);
+  }
+}
+
+async function pollPangolin() {
+  let config;
+  try {
+    config = await getPangolinConfig();
+  } catch (err) {
+    console.error('Monitoring: Pangolin configuration could not be read:', err.message);
+    return;
+  }
+
+  if (!config?.enabled) {
+    pangolinHealthState.delete('pangolin');
+    return;
+  }
+
+  try {
+    await testPangolinConnection({});
+    observeInfraState(pangolinHealthState, 'pangolin', 'online');
+  } catch (err) {
+    const transition = observeInfraState(pangolinHealthState, 'pangolin', 'offline');
+    if (transition && !isInfraDown(transition.oldStatus) && isInfraDown(transition.newStatus)) {
+      await notifyInfrastructureDown({
+        kind: 'pangolin',
+        serviceName: config.apiUrl || 'Pangolin',
+        detail: String(err.message || 'Pangolin API unavailable').slice(0, 500),
+        prefColumn: 'notify_pangolin_down'
+      });
+    }
+    console.error('Monitoring: Pangolin unreachable:', err.message);
   }
 }
 
@@ -192,10 +357,18 @@ async function pollAll() {
   running = true;
   try {
     const clusters = await all('SELECT id, name, url, api_token FROM proxmox_clusters');
-    for (const cluster of clusters) {
-      await pollCluster(cluster);
+    const activeClusterIds = new Set(clusters.map(cluster => String(cluster.id)));
+
+    for (const cluster of clusters) await pollCluster(cluster);
+    await pollPangolin();
+
+    for (const key of [...clusterHealthState.keys()]) {
+      if (!activeClusterIds.has(String(key))) clusterHealthState.delete(key);
     }
-    // Housekeeping: prune old events roughly once per ~100 polls
+    for (const key of [...nodeHealthState.keys()]) {
+      if (!activeClusterIds.has(String(key).split(':')[0])) nodeHealthState.delete(key);
+    }
+
     if (Math.random() < 0.01) {
       await run(`DELETE FROM status_events WHERE created_at < datetime('now', ?)`, [`-${EVENT_RETENTION_DAYS} days`]);
     }
@@ -210,9 +383,8 @@ function startMonitoring() {
   if (timer) return;
   timer = setInterval(pollAll, INTERVAL_MS);
   timer.unref?.();
-  // First poll shortly after boot so the baseline is established early
   setTimeout(pollAll, 10 * 1000).unref?.();
-  console.log(`✓ Monitoring gestartet (Intervall ${INTERVAL_MS / 1000}s, Debounce ${DEBOUNCE_CHECKS} Checks)`);
+  console.log(`✓ Monitoring started (interval ${INTERVAL_MS / 1000}s, debounce ${DEBOUNCE_CHECKS} checks)`);
 }
 
 function stopMonitoring() {

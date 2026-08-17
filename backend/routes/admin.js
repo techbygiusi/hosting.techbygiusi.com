@@ -1638,6 +1638,55 @@ router.put('/settings', async (req, res, next) => {
   }
 });
 
+router.get('/settings/infrastructure-notifications', async (req, res, next) => {
+  try {
+    const row = await get(
+      `SELECT notify_cluster_down, notify_node_down, notify_pangolin_down
+       FROM users WHERE id = ? AND role = 'admin'`,
+      [req.user.id]
+    );
+    if (!row) throw new AppError('Administrator not found', HTTP_STATUS.NOT_FOUND);
+    res.json({
+      preferences: {
+        notifyClusterDown: !!row.notify_cluster_down,
+        notifyNodeDown: !!row.notify_node_down,
+        notifyPangolinDown: !!row.notify_pangolin_down
+      }
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.put('/settings/infrastructure-notifications', async (req, res, next) => {
+  try {
+    const notifyClusterDown = req.body?.notifyClusterDown === true;
+    const notifyNodeDown = req.body?.notifyNodeDown === true;
+    const notifyPangolinDown = req.body?.notifyPangolinDown === true;
+
+    await run(
+      `UPDATE users
+       SET notify_cluster_down = ?, notify_node_down = ?, notify_pangolin_down = ?, updated_at = CURRENT_TIMESTAMP
+       WHERE id = ? AND role = 'admin'`,
+      [notifyClusterDown ? 1 : 0, notifyNodeDown ? 1 : 0, notifyPangolinDown ? 1 : 0, req.user.id]
+    );
+
+    await logAudit(
+      req,
+      'admin.infrastructure_notifications_updated',
+      req.user.email || String(req.user.id),
+      `cluster=${notifyClusterDown}; node=${notifyNodeDown}; pangolin=${notifyPangolinDown}`
+    );
+
+    res.json({
+      message: 'Infrastructure notification settings updated',
+      preferences: { notifyClusterDown, notifyNodeDown, notifyPangolinDown }
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.post('/settings/test-smtp', async (req, res, next) => {
   try {
     const storedSmtp = await getStoredSmtpSettings();

@@ -11,6 +11,8 @@ Hosting Portal is a self-hosted customer portal for Proxmox environments. It com
 - Assign existing virtual machines and containers to users or groups.
 - Configure service names, descriptions, tags and access permissions.
 - Manage SMTP settings, password resets, maintenance tasks and audit logs.
+- Organize administrator settings into separate account and hosting sections.
+- Enable per-administrator email alerts for unavailable Proxmox clusters, nodes and Pangolin.
 - Validate required Proxmox API token permissions directly from the portal.
 
 ### User Portal

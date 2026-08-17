@@ -555,6 +555,22 @@ async function getOnlineNodes(clusterUrl, apiToken) {
 }
 
 
+/**
+ * Lightweight node health list used by the background monitoring loop.
+ * Unlike getClusterDashboardStats this intentionally avoids per-node sensor,
+ * storage and status requests so infrastructure checks stay inexpensive.
+ */
+async function getClusterNodes(clusterUrl, apiToken) {
+  const client = createProxmoxClient(clusterUrl, apiToken);
+  const response = await client.get('/api2/json/cluster/resources?type=node');
+  ensureSuccess(response, 'Proxmox Node-Abfrage fehlgeschlagen:');
+  return (response.data?.data || [])
+    .filter(item => item.type === 'node' && item.node)
+    .map(item => ({ node: String(item.node), status: String(item.status || 'unknown') }))
+    .sort((a, b) => a.node.localeCompare(b.node, undefined, { numeric: true }));
+}
+
+
 function safeNumber(value, fallback = 0) {
   const number = Number(value);
   return Number.isFinite(number) ? number : fallback;
@@ -1594,6 +1610,7 @@ module.exports = {
   getClusterNodeAddresses,
   createTermProxy,
   getOnlineNodes,
+  getClusterNodes,
   getClusterDashboardStats,
   getNodeTemplates,
   getPreparedLxcTemplates,

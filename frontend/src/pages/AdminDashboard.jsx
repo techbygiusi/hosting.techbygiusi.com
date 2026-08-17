@@ -348,6 +348,13 @@ export default function AdminDashboard() {
   const [newMaintenance, setNewMaintenance] = useState(emptyMaintenance());
   const [statusEvents, setStatusEvents] = useState([]);
   const [testMailResult, setTestMailResult] = useState(null);
+  const [settingsSection, setSettingsSection] = useState('account');
+  const [infrastructureNotifications, setInfrastructureNotifications] = useState({
+    notifyClusterDown: false,
+    notifyNodeDown: false,
+    notifyPangolinDown: false
+  });
+  const [infrastructureNotificationsSaving, setInfrastructureNotificationsSaving] = useState(false);
   const [locationResults, setLocationResults] = useState([]);
   const [locationSearchLoading, setLocationSearchLoading] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -370,6 +377,23 @@ export default function AdminDashboard() {
   const mobileMenuTabs = tabs.map(([key]) => [key, mobileMenuText.tabs[key] || key]);
   const dashboardText = mobileMenuText.dashboard;
   const clusterText = CLUSTER_UI_TEXT[mobileMenuLanguage] || CLUSTER_UI_TEXT.en;
+  const settingsText = mobileMenuLanguage === 'de' ? {
+    title: 'Einstellungen', account: 'Kontoeinstellungen', hosting: 'Hosting-Einstellungen',
+    infrastructureTitle: 'Infrastruktur-Benachrichtigungen',
+    infrastructureIntro: 'E-Mail-Warnungen für dieses Administratorkonto bei Ausfällen zentraler Hosting-Komponenten.',
+    clusterDown: 'Cluster nicht erreichbar', clusterDownHint: 'E-Mail senden, wenn die Proxmox API eines Clusters nach mehreren Prüfungen nicht erreichbar ist.',
+    nodeDown: 'Node nicht erreichbar', nodeDownHint: 'E-Mail senden, wenn eine Node eines erreichbaren Proxmox-Clusters als offline gemeldet wird.',
+    pangolinDown: 'Pangolin nicht erreichbar', pangolinDownHint: 'E-Mail senden, wenn die aktivierte Pangolin Integration API nicht erreichbar ist.',
+    saveNotifications: 'Benachrichtigungen speichern', savingNotifications: 'Speichert…'
+  } : {
+    title: 'Settings', account: 'Account Settings', hosting: 'Hosting Settings',
+    infrastructureTitle: 'Infrastructure notifications',
+    infrastructureIntro: 'Email alerts for this administrator account when central hosting components become unavailable.',
+    clusterDown: 'Cluster unavailable', clusterDownHint: 'Send an email when a cluster Proxmox API stays unreachable for multiple checks.',
+    nodeDown: 'Node unavailable', nodeDownHint: 'Send an email when a node in a reachable Proxmox cluster is reported offline.',
+    pangolinDown: 'Pangolin unavailable', pangolinDownHint: 'Send an email when the enabled Pangolin Integration API becomes unreachable.',
+    saveNotifications: 'Save notifications', savingNotifications: 'Saving…'
+  };
 
   const adminCount = users.filter(item => item.role === 'admin').length;
   const userCount = users.filter(item => item.role === 'user').length;
@@ -460,10 +484,11 @@ export default function AdminDashboard() {
       if (needsClusterStats) requests.push(adminApi.getClusterStats().then(res => setClusterStats(res.data.clusters || [])).catch(() => setClusterStats([])));
       if (needsSettings) {
         requests.push(loadSettings());
+        requests.push(loadInfrastructureNotificationPreferences());
         requests.push(loadSetupCheck());
       }
       if (needsMaintenance) requests.push(adminApi.getMaintenanceWindows().then(res => setMaintenanceWindows(res.data.windows || [])));
-      if (needsEvents) requests.push(adminApi.getStatusEvents(15).then(res => setStatusEvents(res.data.events || [])).catch(() => setStatusEvents([])));
+      if (needsEvents) requests.push(adminApi.getStatusEvents(5).then(res => setStatusEvents((res.data.events || []).slice(0, 5))).catch(() => setStatusEvents([])));
 
       await Promise.all(requests);
     } catch (err) {
@@ -527,6 +552,33 @@ export default function AdminDashboard() {
       smtpPassword: ''
     });
     setSmtpTestResult(null);
+  };
+
+  const loadInfrastructureNotificationPreferences = async () => {
+    const res = await adminApi.getInfrastructureNotificationPreferences();
+    setInfrastructureNotifications({
+      notifyClusterDown: !!res.data?.preferences?.notifyClusterDown,
+      notifyNodeDown: !!res.data?.preferences?.notifyNodeDown,
+      notifyPangolinDown: !!res.data?.preferences?.notifyPangolinDown
+    });
+  };
+
+  const handleInfrastructureNotificationChange = (key, value) => {
+    setInfrastructureNotifications(prev => ({ ...prev, [key]: value }));
+  };
+
+  const handleSaveInfrastructureNotifications = async () => {
+    try {
+      setInfrastructureNotificationsSaving(true);
+      setError('');
+      const res = await adminApi.updateInfrastructureNotificationPreferences(infrastructureNotifications);
+      setInfrastructureNotifications(res.data.preferences || infrastructureNotifications);
+      showSuccess(mobileMenuLanguage === 'de' ? 'Infrastruktur-Benachrichtigungen gespeichert.' : 'Infrastructure notifications saved.');
+    } catch (err) {
+      setError(getErrorMessage(err, mobileMenuLanguage === 'de' ? 'Infrastruktur-Benachrichtigungen konnten nicht gespeichert werden.' : 'Infrastructure notifications could not be saved.'));
+    } finally {
+      setInfrastructureNotificationsSaving(false);
+    }
   };
 
   const showSuccess = (message) => {
@@ -1218,7 +1270,7 @@ export default function AdminDashboard() {
           <button type="button" className="site-brand site-brand-button" onClick={() => handleSelectTab('overview')} aria-label="Zum Dashboard"><h1>Hosting by TechByGiusi</h1></button>
           <div className="site-actions">
             <button type="button" className="btn-secondary admin-mobile-menu-toggle" onClick={() => setMobileMenuOpen(true)} aria-label={mobileMenuText.openMenu}><MenuIcon /><span>{mobileMenuText.menu}</span></button>
-            <AccountMenu user={user} language={mobileMenuLanguage} onOpenSettings={() => handleSelectTab('settings')} onLogout={logout} />
+            <AccountMenu user={user} language={mobileMenuLanguage} onOpenSettings={() => { setSettingsSection('account'); handleSelectTab('settings'); }} onLogout={logout} />
           </div>
         </div>
       </header>
@@ -1391,8 +1443,19 @@ export default function AdminDashboard() {
             {resources.length === 0 ? (
               <div className="empty-state soft-box"><h2>Keine Dienste</h2></div>
             ) : (
-              <div className="resource-grid admin-resource-grid">
-                {resources.map(item => <ResourceCard key={item.id} resource={item} onEdit={openEditResource} onDelete={handleDeleteResource} onManageCredentials={openResourceCreds} actionLoading={actionLoading} />)}
+              <div className="admin-service-list" role="table" aria-label="Dienste">
+                <div className="admin-service-list-head" role="row">
+                  <span role="columnheader">Dienst</span>
+                  <span role="columnheader">Zuweisung</span>
+                  <span role="columnheader">Cluster / Node</span>
+                  <span role="columnheader">CPU</span>
+                  <span role="columnheader">RAM</span>
+                  <span role="columnheader">Status</span>
+                  <span role="columnheader">Aktionen</span>
+                </div>
+                <div className="admin-service-list-body">
+                  {resources.map(item => <ResourceListRow key={item.id} resource={item} onEdit={openEditResource} onDelete={handleDeleteResource} onManageCredentials={openResourceCreds} actionLoading={actionLoading} />)}
+                </div>
               </div>
             )}
           </section>
@@ -1481,117 +1544,167 @@ export default function AdminDashboard() {
         {!loading && activeTab === 'wiki' && <WikiAdminPanel language={mobileMenuLanguage} />}
 
         {!loading && activeTab === 'settings' && (
-          <section className="panel-card settings-card">
-            <PanelHeader title="Einstellungen" />
+          <>
+            <section className="panel-card settings-card admin-settings-shell">
+              <PanelHeader title={settingsText.title} />
 
-            <AvatarSettingsPanel language={mobileMenuLanguage} />
-            <AccountEmailSettingsPanel language={mobileMenuLanguage} />
-            <AccountPasswordSettingsPanel language={mobileMenuLanguage} />
+              <nav className="admin-settings-tabs" aria-label={settingsText.title}>
+                <button type="button" className={settingsSection === 'account' ? 'active' : ''} onClick={() => setSettingsSection('account')}>{settingsText.account}</button>
+                <button type="button" className={settingsSection === 'hosting' ? 'active' : ''} onClick={() => setSettingsSection('hosting')}>{settingsText.hosting}</button>
+              </nav>
 
-            <section className="settings-section-card settings-language-section" aria-labelledby="settings-language-title">
-              <div className="settings-section-heading">
-                <h3 id="settings-language-title">{mobileMenuText.language}</h3>
-                <p>{mobileMenuText.languageText}</p>
-              </div>
-              <div className="mobile-admin-language-switch settings-language-buttons" role="group" aria-label={mobileMenuText.language}>
-                {OVERLAY_LANGUAGE_OPTIONS.map(option => (
-                  <button
-                    key={option.code}
-                    type="button"
-                    className={mobileMenuLanguage === option.code ? 'active' : ''}
-                    onClick={() => handleOverlayLanguageChange(option.code)}
-                  >
-                    {option.label}
-                  </button>
-                ))}
-              </div>
-            </section>
+              {settingsSection === 'account' && (
+                <div className="admin-settings-tab-content">
+                  <AvatarSettingsPanel language={mobileMenuLanguage} />
+                  <AccountEmailSettingsPanel language={mobileMenuLanguage} />
+                  <AccountPasswordSettingsPanel language={mobileMenuLanguage} />
 
-            <section className="settings-section-card settings-smtp-section" aria-labelledby="settings-smtp-title">
-              <div className="settings-section-heading">
-                <h3 id="settings-smtp-title">SMTP-Einstellungen</h3>
-                <p>Konfiguriere den Mailversand für Tests, Benachrichtigungen und Passwort-Zurücksetzungen.</p>
-              </div>
-              <form className="form-grid" onSubmit={handleSaveSettings}>
-                <label className="form-group"><span>SMTP-Host</span><input type="text" name="smtpHost" value={settings.smtpHost} onChange={handleSettingsChange} placeholder="smtp.example.com" /></label>
-                <label className="form-group"><span>SMTP-Port</span><input type="text" name="smtpPort" value={settings.smtpPort} onChange={handleSettingsChange} placeholder="587" /></label>
-                <label className="form-group"><span>SMTP-Benutzer</span><input type="email" name="smtpUser" value={settings.smtpUser} onChange={handleSettingsChange} placeholder="noreply@example.com" /></label>
-                <label className="form-group"><span>SMTP-Passwort</span><input type="password" name="smtpPassword" value={settings.smtpPassword} onChange={handleSettingsChange} placeholder="Leer lassen, vorhandenes Passwort verwenden" /></label>
-                <div className="form-actions full-width"><button type="button" className="btn-secondary" onClick={handleTestSmtp} disabled={actionLoading}>SMTP testen</button><button type="submit" className="btn-primary" disabled={actionLoading}>Speichern</button></div>
-              </form>
-              {smtpTestResult && <div className={`test-result ${smtpTestResult.success ? 'success' : 'error'}`}>{translateMessage(smtpTestResult.message)}</div>}
-              <div className="settings-testmail-row">
-                <button type="button" className="btn-secondary" onClick={handleSendTestMail} disabled={actionLoading}>Test-E-Mail an mich senden</button>
-                {testMailResult && <div className={`test-result ${testMailResult.success ? 'success' : 'error'}`}>{translateMessage(testMailResult.message)}</div>}
-              </div>
-            </section>
-
-            <section className="settings-section-card settings-setup-section" aria-labelledby="settings-setup-title">
-              <div className="settings-section-header">
-                <div className="settings-section-heading">
-                  <h3 id="settings-setup-title">Einrichtung prüfen</h3>
-                  <p>Prüfe Administrator, Proxmox und SMTP direkt in den Einstellungen.</p>
+                  <section className="settings-section-card settings-language-section" aria-labelledby="settings-language-title">
+                    <div className="settings-section-heading">
+                      <h3 id="settings-language-title">{mobileMenuText.language}</h3>
+                      <p>{mobileMenuText.languageText}</p>
+                    </div>
+                    <div className="mobile-admin-language-switch settings-language-buttons" role="group" aria-label={mobileMenuText.language}>
+                      {OVERLAY_LANGUAGE_OPTIONS.map(option => (
+                        <button
+                          key={option.code}
+                          type="button"
+                          className={mobileMenuLanguage === option.code ? 'active' : ''}
+                          onClick={() => handleOverlayLanguageChange(option.code)}
+                        >
+                          {option.label}
+                        </button>
+                      ))}
+                    </div>
+                  </section>
                 </div>
-                <button type="button" className="btn-secondary" onClick={() => loadSetupCheck()} disabled={setupCheckLoading || actionLoading}>
-                  {setupCheckLoading ? 'Prüfe…' : 'Aktualisieren'}
-                </button>
-              </div>
+              )}
 
-              {setupCheckLoading ? (
-                <div className="loading inline-loading"><span className="spinner"></span><span>Prüfung läuft...</span></div>
-              ) : setupCheck?.error ? (
-                <div className="alert alert-danger">{setupCheck.error}</div>
-              ) : (
-                <div className="setup-check-grid settings-inline-check-grid">
-                  <SetupCheckRow label="Administrator" ok={setupCheck?.adminConfigured} detail={setupAdminDetail} />
-                  <SetupCheckRow label="Proxmox" ok={setupCheck?.proxmoxConfigured} detail={setupClusterDetail} />
-                  <SetupCheckRow label="SMTP" ok={setupCheck?.smtpConfigured} detail={setupCheck?.settings?.smtp_user || 'Nicht hinterlegt'} />
+              {settingsSection === 'hosting' && (
+                <div className="admin-settings-tab-content">
+                  <section className="settings-section-card admin-infrastructure-notifications" aria-labelledby="settings-infrastructure-notifications-title">
+                    <div className="settings-section-heading">
+                      <h3 id="settings-infrastructure-notifications-title">{settingsText.infrastructureTitle}</h3>
+                      <p>{settingsText.infrastructureIntro}</p>
+                    </div>
+                    <div className="admin-infrastructure-notification-list">
+                      <label className="settings-toggle-card admin-infrastructure-notification-row">
+                        <span><strong>{settingsText.clusterDown}</strong><small>{settingsText.clusterDownHint}</small></span>
+                        <span className={`toggle-switch ${infrastructureNotifications.notifyClusterDown ? 'is-on' : ''}`}>
+                          <input type="checkbox" checked={infrastructureNotifications.notifyClusterDown} onChange={e => handleInfrastructureNotificationChange('notifyClusterDown', e.target.checked)} disabled={infrastructureNotificationsSaving} />
+                          <span className="toggle-knob" aria-hidden="true" />
+                        </span>
+                      </label>
+                      <label className="settings-toggle-card admin-infrastructure-notification-row">
+                        <span><strong>{settingsText.nodeDown}</strong><small>{settingsText.nodeDownHint}</small></span>
+                        <span className={`toggle-switch ${infrastructureNotifications.notifyNodeDown ? 'is-on' : ''}`}>
+                          <input type="checkbox" checked={infrastructureNotifications.notifyNodeDown} onChange={e => handleInfrastructureNotificationChange('notifyNodeDown', e.target.checked)} disabled={infrastructureNotificationsSaving} />
+                          <span className="toggle-knob" aria-hidden="true" />
+                        </span>
+                      </label>
+                      <label className="settings-toggle-card admin-infrastructure-notification-row">
+                        <span><strong>{settingsText.pangolinDown}</strong><small>{settingsText.pangolinDownHint}</small></span>
+                        <span className={`toggle-switch ${infrastructureNotifications.notifyPangolinDown ? 'is-on' : ''}`}>
+                          <input type="checkbox" checked={infrastructureNotifications.notifyPangolinDown} onChange={e => handleInfrastructureNotificationChange('notifyPangolinDown', e.target.checked)} disabled={infrastructureNotificationsSaving} />
+                          <span className="toggle-knob" aria-hidden="true" />
+                        </span>
+                      </label>
+                    </div>
+                    <div className="form-actions">
+                      <button type="button" className="btn-primary" onClick={handleSaveInfrastructureNotifications} disabled={infrastructureNotificationsSaving}>
+                        {infrastructureNotificationsSaving ? settingsText.savingNotifications : settingsText.saveNotifications}
+                      </button>
+                    </div>
+                  </section>
 
-                  <div className="settings-setup-tests">
-                    <div className="setup-check-test">
-                      <h3>Proxmox-Verbindung</h3>
-                      <div className="setup-check-actions">
-                        <select value={selectedSetupClusterId} onChange={e => { setSelectedSetupClusterId(e.target.value); setSetupClusterTestResult(null); }}>
-                          <option value="">Cluster auswählen</option>
-                          {(setupCheck?.clusters || []).map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
-                        </select>
-                        <button type="button" className="btn-secondary" onClick={handleTestSetupCluster} disabled={actionLoading || !selectedSetupClusterId}>Testen</button>
+                  <section className="settings-section-card settings-smtp-section" aria-labelledby="settings-smtp-title">
+                    <div className="settings-section-heading">
+                      <h3 id="settings-smtp-title">SMTP-Einstellungen</h3>
+                      <p>Konfiguriere den Mailversand für Tests, Benachrichtigungen und Passwort-Zurücksetzungen.</p>
+                    </div>
+                    <form className="form-grid" onSubmit={handleSaveSettings}>
+                      <label className="form-group"><span>SMTP-Host</span><input type="text" name="smtpHost" value={settings.smtpHost} onChange={handleSettingsChange} placeholder="smtp.example.com" /></label>
+                      <label className="form-group"><span>SMTP-Port</span><input type="text" name="smtpPort" value={settings.smtpPort} onChange={handleSettingsChange} placeholder="587" /></label>
+                      <label className="form-group"><span>SMTP-Benutzer</span><input type="email" name="smtpUser" value={settings.smtpUser} onChange={handleSettingsChange} placeholder="noreply@example.com" /></label>
+                      <label className="form-group"><span>SMTP-Passwort</span><input type="password" name="smtpPassword" value={settings.smtpPassword} onChange={handleSettingsChange} placeholder="Leer lassen, vorhandenes Passwort verwenden" /></label>
+                      <div className="form-actions full-width"><button type="button" className="btn-secondary" onClick={handleTestSmtp} disabled={actionLoading}>SMTP testen</button><button type="submit" className="btn-primary" disabled={actionLoading}>Speichern</button></div>
+                    </form>
+                    {smtpTestResult && <div className={`test-result ${smtpTestResult.success ? 'success' : 'error'}`}>{translateMessage(smtpTestResult.message)}</div>}
+                    <div className="settings-testmail-row">
+                      <button type="button" className="btn-secondary" onClick={handleSendTestMail} disabled={actionLoading}>Test-E-Mail an mich senden</button>
+                      {testMailResult && <div className={`test-result ${testMailResult.success ? 'success' : 'error'}`}>{translateMessage(testMailResult.message)}</div>}
+                    </div>
+                  </section>
+
+                  <section className="settings-section-card settings-setup-section" aria-labelledby="settings-setup-title">
+                    <div className="settings-section-header">
+                      <div className="settings-section-heading">
+                        <h3 id="settings-setup-title">Einrichtung prüfen</h3>
+                        <p>Prüfe Administrator, Proxmox und SMTP direkt in den Einstellungen.</p>
                       </div>
-                      {setupClusterTestResult && <div className={`test-result ${setupClusterTestResult.success ? 'success' : 'error'}`}>{translateMessage(setupClusterTestResult.message)}</div>}
+                      <button type="button" className="btn-secondary" onClick={() => loadSetupCheck()} disabled={setupCheckLoading || actionLoading}>
+                        {setupCheckLoading ? 'Prüfe…' : 'Aktualisieren'}
+                      </button>
                     </div>
 
-                    <div className="setup-check-test">
-                      <h3>SMTP-Verbindung</h3>
-                      <p className="settings-section-note">Prüft die aktuell gespeicherte SMTP-Konfiguration.</p>
-                      <button type="button" className="btn-secondary" onClick={handleTestSetupSmtp} disabled={actionLoading}>SMTP testen</button>
-                      {setupSmtpTestResult && <div className={`test-result ${setupSmtpTestResult.success ? 'success' : 'error'}`}>{translateMessage(setupSmtpTestResult.message)}</div>}
-                    </div>
-                  </div>
+                    {setupCheckLoading ? (
+                      <div className="loading inline-loading"><span className="spinner"></span><span>Prüfung läuft...</span></div>
+                    ) : setupCheck?.error ? (
+                      <div className="alert alert-danger">{setupCheck.error}</div>
+                    ) : (
+                      <div className="setup-check-grid settings-inline-check-grid">
+                        <SetupCheckRow label="Administrator" ok={setupCheck?.adminConfigured} detail={setupAdminDetail} />
+                        <SetupCheckRow label="Proxmox" ok={setupCheck?.proxmoxConfigured} detail={setupClusterDetail} />
+                        <SetupCheckRow label="SMTP" ok={setupCheck?.smtpConfigured} detail={setupCheck?.settings?.smtp_user || 'Nicht hinterlegt'} />
 
-                  {setupCheck?.setupRequired && (
-                    <button type="button" className="btn-primary full-button" onClick={() => { window.location.href = '/setup'; }}>Setup öffnen</button>
-                  )}
+                        <div className="settings-setup-tests">
+                          <div className="setup-check-test">
+                            <h3>Proxmox-Verbindung</h3>
+                            <div className="setup-check-actions">
+                              <select value={selectedSetupClusterId} onChange={e => { setSelectedSetupClusterId(e.target.value); setSetupClusterTestResult(null); }}>
+                                <option value="">Cluster auswählen</option>
+                                {(setupCheck?.clusters || []).map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
+                              </select>
+                              <button type="button" className="btn-secondary" onClick={handleTestSetupCluster} disabled={actionLoading || !selectedSetupClusterId}>Testen</button>
+                            </div>
+                            {setupClusterTestResult && <div className={`test-result ${setupClusterTestResult.success ? 'success' : 'error'}`}>{translateMessage(setupClusterTestResult.message)}</div>}
+                          </div>
+
+                          <div className="setup-check-test">
+                            <h3>SMTP-Verbindung</h3>
+                            <p className="settings-section-note">Prüft die aktuell gespeicherte SMTP-Konfiguration.</p>
+                            <button type="button" className="btn-secondary" onClick={handleTestSetupSmtp} disabled={actionLoading}>SMTP testen</button>
+                            {setupSmtpTestResult && <div className={`test-result ${setupSmtpTestResult.success ? 'success' : 'error'}`}>{translateMessage(setupSmtpTestResult.message)}</div>}
+                          </div>
+                        </div>
+
+                        {setupCheck?.setupRequired && (
+                          <button type="button" className="btn-primary full-button" onClick={() => { window.location.href = '/setup'; }}>Setup öffnen</button>
+                        )}
+                      </div>
+                    )}
+                  </section>
                 </div>
               )}
             </section>
-          </section>
-        )}
 
-        {!loading && activeTab === 'settings' && (
-          <PangolinSettingsPanel
-            language={mobileMenuLanguage}
-            onSuccess={showSuccess}
-            onError={(msg) => setError(msg)}
-          />
-        )}
+            {settingsSection === 'hosting' && (
+              <PangolinSettingsPanel
+                language={mobileMenuLanguage}
+                onSuccess={showSuccess}
+                onError={(msg) => setError(msg)}
+              />
+            )}
 
-        {!loading && activeTab === 'settings' && (
-          <ProvisioningSettings
-            clusters={clusters}
-            onSaved={() => loadData('settings')}
-            onError={(msg) => setError(msg)}
-            onSuccess={showSuccess}
-          />
+            {settingsSection === 'hosting' && (
+              <ProvisioningSettings
+                clusters={clusters}
+                onSaved={() => loadData('settings')}
+                onError={(msg) => setError(msg)}
+                onSuccess={showSuccess}
+              />
+            )}
+          </>
         )}
 
         </section>
@@ -2187,7 +2300,8 @@ function renderAuditAction(action) {
     'admin.credential.reveal': 'Passwort angezeigt (Vault)',
     'resource.create': 'Dienst angelegt',
     'resource.update': 'Dienst geändert',
-    'password.change': 'Passwort geändert'
+    'password.change': 'Passwort geändert',
+    'admin.infrastructure_notifications_updated': 'Infrastruktur-Benachrichtigungen geändert'
   };
   return map[action] || action;
 }
@@ -2297,7 +2411,7 @@ function StatusEventsSection({ events }) {
     <section className="panel-card status-events-card">
       <PanelHeader title="Letzte Statusereignisse" />
       <div className="status-events-list">
-        {events.map(event => {
+        {events.slice(0, 5).map(event => {
           const wentDown = event.new_status !== 'running';
           return (
             <div key={event.id} className="status-event-row">
@@ -2331,49 +2445,66 @@ function SetupCheckRow({ label, ok, detail }) {
   );
 }
 
-function ResourceCard({ resource, onEdit, onDelete, onManageCredentials, actionLoading }) {
+function ResourceListRow({ resource, onEdit, onDelete, onManageCredentials, actionLoading }) {
   const [detailsOpen, setDetailsOpen] = useState(false);
   const cpuPercent = getCpuPercent(resource);
   const memPercent = getPercent(resource.mem, resource.maxmem);
   const publicUrl = resource.publicUrl || resource.webUrl;
   const ipAddress = getPrimaryIp(resource);
   const adminReadOnly = !!resource.adminReadOnly || !!resource.isSelfService;
+  const assignmentLabel = resource.userName || resource.userEmail ? 'Benutzer' : 'Gruppe';
+  const assignmentValue = resource.userName || resource.userEmail || resource.groupName || 'Nicht gesetzt';
 
   return (
-    <article className="resource-card compact-resource-card">
-      <div className="resource-card-header">
-        <div>
-          <span className="resource-id">{renderType(resource.type)} · {resource.containerId}</span>
-          <h2>{resource.name}</h2>
+    <article className="admin-service-list-row" role="row">
+      <div className="admin-service-cell admin-service-main" role="cell" data-label="Dienst">
+        <div className="admin-service-name-line">
+          <strong>{resource.name}</strong>
           {adminReadOnly && <span className="credential-badge user-managed-badge">Benutzerverwaltet</span>}
         </div>
+        <small>{renderType(resource.type)} · ID {resource.containerId || '—'}{ipAddress ? ` · ${ipAddress}` : ''}</small>
+      </div>
+
+      <div className="admin-service-cell" role="cell" data-label="Zuweisung">
+        <small>{assignmentLabel}</small>
+        <strong>{assignmentValue}</strong>
+      </div>
+
+      <div className="admin-service-cell" role="cell" data-label="Cluster / Node">
+        <strong>{resource.clusterName || 'Unbekannt'}</strong>
+        <small>{resource.node || 'Node unbekannt'}</small>
+      </div>
+
+      <div className="admin-service-cell admin-service-metric" role="cell" data-label="CPU">
+        <strong>{cpuPercent.toFixed(1)}%</strong>
+      </div>
+
+      <div className="admin-service-cell admin-service-metric" role="cell" data-label="RAM">
+        <strong>{memPercent.toFixed(1)}%</strong>
+        <small>{formatBytes(resource.mem)} / {formatBytes(resource.maxmem)}</small>
+      </div>
+
+      <div className="admin-service-cell admin-service-status" role="cell" data-label="Status">
         <span className={`status-badge status-${resource.status || 'unknown'}`}>{renderStatus(resource.status)}</span>
       </div>
 
-      <div className="resource-summary">
-        <div><span>{resource.userName || resource.userEmail ? 'Benutzer' : 'Gruppe'}</span><strong>{resource.userName || resource.userEmail || resource.groupName || 'Nicht gesetzt'}</strong></div>
-        <div><span>Cluster</span><strong>{resource.clusterName || 'Unbekannt'}</strong></div>
+      <div className="admin-service-cell admin-service-actions" role="cell" data-label="Aktionen">
+        {publicUrl && <a className="btn-secondary btn-small" href={publicUrl} target="_blank" rel="noreferrer">Public</a>}
+        {resource.adminUrl && <a className="btn-secondary btn-small" href={resource.adminUrl} target="_blank" rel="noreferrer">Management</a>}
+        <button type="button" className="btn-secondary btn-small" onClick={() => setDetailsOpen(true)}>Details</button>
       </div>
-
-      <Metric label="CPU" percent={cpuPercent} detail={`${cpuPercent.toFixed(1)} %`} />
-      <Metric label="RAM" percent={memPercent} detail={`${formatBytes(resource.mem)} / ${formatBytes(resource.maxmem)}`} />
-
-      {(publicUrl || resource.adminUrl) && (
-        <div className={`service-link-row ${(publicUrl && resource.adminUrl) ? 'dual-links' : ''}`}>
-          {publicUrl && <a className="btn-secondary full-button" href={publicUrl} target="_blank" rel="noreferrer">Öffentliche Seite</a>}
-          {resource.adminUrl && <a className="btn-secondary full-button" href={resource.adminUrl} target="_blank" rel="noreferrer">Verwaltungsseite</a>}
-        </div>
-      )}
-
-      <button type="button" className="btn-secondary full-button service-detail-toggle" onClick={() => setDetailsOpen(true)}>
-        Details anzeigen
-      </button>
 
       {detailsOpen && (
         <Modal title={`Details · ${resource.name}`} onClose={() => setDetailsOpen(false)} className="detail-modal-card">
           <div className="resource-details detail-modal-content">
+            {(publicUrl || resource.adminUrl) && (
+              <div className={`service-link-row ${(publicUrl && resource.adminUrl) ? 'dual-links' : ''}`}>
+                {publicUrl && <a className="btn-secondary full-button" href={publicUrl} target="_blank" rel="noreferrer">Öffentliche Seite</a>}
+                {resource.adminUrl && <a className="btn-secondary full-button" href={resource.adminUrl} target="_blank" rel="noreferrer">Verwaltungsseite</a>}
+              </div>
+            )}
             <div className="resource-meta">
-              <span>{resource.userName || resource.userEmail ? 'Benutzer' : 'Gruppe'}</span><span>{resource.userName || resource.userEmail || resource.groupName || 'Nicht gesetzt'}</span>
+              <span>{assignmentLabel}</span><span>{assignmentValue}</span>
               <span>Cluster</span><span>{resource.clusterName || 'Unbekannt'}</span>
               <span>Node</span><span>{resource.node || 'Unbekannt'}</span>
               <span>Typ</span><span>{renderType(resource.type)}</span>

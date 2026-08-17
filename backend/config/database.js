@@ -161,6 +161,12 @@ async function initDatabase() {
           avatar_mime TEXT,
           avatar_data TEXT,
           avatar_updated_at DATETIME,
+          notify_resource_down INTEGER DEFAULT 0,
+          notify_resource_recovered INTEGER DEFAULT 0,
+          notify_maintenance INTEGER DEFAULT 1,
+          notify_cluster_down INTEGER DEFAULT 0,
+          notify_node_down INTEGER DEFAULT 0,
+          notify_pangolin_down INTEGER DEFAULT 0,
           created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
           updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
@@ -516,6 +522,9 @@ async function initDatabase() {
       database.run(`ALTER TABLE users ADD COLUMN notify_resource_down INTEGER DEFAULT 0`, () => {});
       database.run(`ALTER TABLE users ADD COLUMN notify_resource_recovered INTEGER DEFAULT 0`, () => {});
       database.run(`ALTER TABLE users ADD COLUMN notify_maintenance INTEGER DEFAULT 1`, () => {});
+      database.run(`ALTER TABLE users ADD COLUMN notify_cluster_down INTEGER DEFAULT 0`, () => {});
+      database.run(`ALTER TABLE users ADD COLUMN notify_node_down INTEGER DEFAULT 0`, () => {});
+      database.run(`ALTER TABLE users ADD COLUMN notify_pangolin_down INTEGER DEFAULT 0`, () => {});
       // v3.1.23: persisted portal/e-mail language per user
       database.run(`ALTER TABLE users ADD COLUMN preferred_language TEXT`, () => {});
       // v3.1.99: persisted portal/e-mail appearance per user
