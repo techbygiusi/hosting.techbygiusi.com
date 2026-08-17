@@ -10004,13 +10004,11 @@ body.theme-dark .console-page-header {
 .admin-service-list-row {
   display: grid;
   grid-template-columns:
-    minmax(190px, 1.8fr)
-    minmax(125px, 1.05fr)
-    minmax(125px, 1.05fr)
-    minmax(64px, 0.55fr)
-    minmax(120px, 0.9fr)
-    minmax(86px, 0.65fr)
-    minmax(210px, auto);
+    minmax(220px, 2.2fr)
+    minmax(150px, 1.25fr)
+    minmax(170px, 1.35fr)
+    minmax(92px, 0.7fr)
+    minmax(92px, auto);
   gap: 16px;
   align-items: center;
 }
@@ -10095,10 +10093,6 @@ body.theme-dark .console-page-header {
   font-size: 0.65rem;
 }
 
-.admin-service-metric {
-  font-variant-numeric: tabular-nums;
-}
-
 .admin-service-status {
   justify-items: start;
 }
@@ -10107,7 +10101,7 @@ body.theme-dark .console-page-header {
   display: flex;
   justify-content: flex-end;
   align-items: center;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 7px;
 }
 
@@ -10134,18 +10128,12 @@ body.theme-dark .admin-service-list-row:hover {
   .admin-service-list-head,
   .admin-service-list-row {
     grid-template-columns:
-      minmax(170px, 1.65fr)
-      minmax(115px, 1fr)
-      minmax(115px, 1fr)
-      62px
-      minmax(105px, 0.85fr)
-      82px
-      minmax(118px, 0.8fr);
+      minmax(190px, 1.9fr)
+      minmax(130px, 1.1fr)
+      minmax(140px, 1.2fr)
+      86px
+      92px;
     gap: 12px;
-  }
-
-  .admin-service-actions {
-    justify-content: flex-start;
   }
 
 }
@@ -10215,36 +10203,74 @@ body.theme-dark .admin-service-list-row:hover {
 }
 
 .admin-settings-tabs {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-  padding: 6px;
-  border: 1px solid var(--portal-border-strong);
-  border-radius: 18px;
-  background: var(--portal-surface-3);
+  display: flex;
+  align-items: flex-end;
+  gap: 30px;
+  min-height: 48px;
+  padding: 0 2px;
+  border: 0;
+  border-bottom: 1px solid var(--portal-border-strong);
+  border-radius: 0;
+  background: transparent;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.admin-settings-tabs::-webkit-scrollbar {
+  display: none;
 }
 
 .admin-settings-tabs button {
+  position: relative;
+  flex: 0 0 auto;
   min-height: 48px;
-  border: 1px solid transparent;
-  border-radius: 13px;
-  background: transparent;
+  padding: 0 0 14px;
+  border: 0;
+  border-radius: 0;
+  background: transparent !important;
   color: var(--portal-text-soft);
   font: inherit;
-  font-weight: 600;
+  font-weight: 500;
+  white-space: nowrap;
   cursor: pointer;
+  box-shadow: none !important;
+  transition: color .18s ease;
+}
+
+.admin-settings-tabs button::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 3px;
+  border-radius: 999px 999px 0 0;
+  background: transparent;
+  transform: scaleX(.65);
+  transform-origin: center;
+  transition: background .18s ease, transform .18s ease;
 }
 
 .admin-settings-tabs button:hover {
   color: var(--portal-text-strong);
-  background: rgba(218, 227, 215, 0.10);
+  background: transparent !important;
 }
 
 .admin-settings-tabs button.active {
+  background: transparent !important;
+  color: var(--portal-text-strong);
+  border: 0;
+  font-weight: 700;
+  box-shadow: none !important;
+}
+
+.admin-settings-tabs button.active::after {
+  background: #aebda8;
+  transform: scaleX(1);
+}
+
+body.theme-dark .admin-settings-tabs button.active::after {
   background: #dae3d7;
-  color: #101511;
-  border-color: rgba(16, 21, 17, 0.10);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.42);
 }
 
 .admin-settings-tab-content {
@@ -10283,7 +10309,13 @@ body.theme-dark .admin-service-list-row:hover {
 
 @media (max-width: 720px) {
   .admin-settings-tabs {
-    grid-template-columns: 1fr;
+    gap: 24px;
+    min-height: 46px;
+  }
+
+  .admin-settings-tabs button {
+    min-height: 46px;
+    padding-bottom: 13px;
   }
 
   .admin-infrastructure-notification-row {

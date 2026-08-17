@@ -1448,10 +1448,8 @@ export default function AdminDashboard() {
                   <span role="columnheader">Dienst</span>
                   <span role="columnheader">Zuweisung</span>
                   <span role="columnheader">Cluster / Node</span>
-                  <span role="columnheader">CPU</span>
-                  <span role="columnheader">RAM</span>
                   <span role="columnheader">Status</span>
-                  <span role="columnheader">Aktionen</span>
+                  <span role="columnheader">Aktion</span>
                 </div>
                 <div className="admin-service-list-body">
                   {resources.map(item => <ResourceListRow key={item.id} resource={item} onEdit={openEditResource} onDelete={handleDeleteResource} onManageCredentials={openResourceCreds} actionLoading={actionLoading} />)}
@@ -2475,22 +2473,11 @@ function ResourceListRow({ resource, onEdit, onDelete, onManageCredentials, acti
         <small>{resource.node || 'Node unbekannt'}</small>
       </div>
 
-      <div className="admin-service-cell admin-service-metric" role="cell" data-label="CPU">
-        <strong>{cpuPercent.toFixed(1)}%</strong>
-      </div>
-
-      <div className="admin-service-cell admin-service-metric" role="cell" data-label="RAM">
-        <strong>{memPercent.toFixed(1)}%</strong>
-        <small>{formatBytes(resource.mem)} / {formatBytes(resource.maxmem)}</small>
-      </div>
-
       <div className="admin-service-cell admin-service-status" role="cell" data-label="Status">
         <span className={`status-badge status-${resource.status || 'unknown'}`}>{renderStatus(resource.status)}</span>
       </div>
 
-      <div className="admin-service-cell admin-service-actions" role="cell" data-label="Aktionen">
-        {publicUrl && <a className="btn-secondary btn-small" href={publicUrl} target="_blank" rel="noreferrer">Public</a>}
-        {resource.adminUrl && <a className="btn-secondary btn-small" href={resource.adminUrl} target="_blank" rel="noreferrer">Management</a>}
+      <div className="admin-service-cell admin-service-actions" role="cell" data-label="Aktion">
         <button type="button" className="btn-secondary btn-small" onClick={() => setDetailsOpen(true)}>Details</button>
       </div>
 
@@ -2510,6 +2497,8 @@ function ResourceListRow({ resource, onEdit, onDelete, onManageCredentials, acti
               <span>Typ</span><span>{renderType(resource.type)}</span>
               <span>ID</span><span>{resource.containerId || 'Unbekannt'}</span>
               <span>IP-Adresse</span><span>{ipAddress || 'Nicht bekannt'}</span>
+              <span>CPU-Auslastung</span><span>{cpuPercent.toFixed(1)}%</span>
+              <span>RAM-Auslastung</span><span>{memPercent.toFixed(1)}% · {formatBytes(resource.mem)} / {formatBytes(resource.maxmem)}</span>
               <span>Status</span><span>{renderStatus(resource.status)}</span>
             </div>
             <DiskDetails resource={resource} />
