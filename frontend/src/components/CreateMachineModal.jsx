@@ -96,10 +96,10 @@ export default function CreateMachineModal({ options = [], onClose, onCreated, i
   }
 
   return <Modal title={t.title} onClose={onClose} className="create-machine-modal">
-    <form className="form-stack" onSubmit={submit}>
+    <form className="form-stack create-machine-form" onSubmit={submit}>
       {error && <div className="alert alert-danger">{translateMessage(error)}</div>}
       <label className="form-group"><span>{t.cluster}</span><select value={clusterId} onChange={e => { setClusterId(e.target.value); setField('templateProfileId', ''); }}><option value="">{t.select}</option>{options.map(item => <option key={item.clusterId} value={item.clusterId} disabled={item.available === false}>{item.clusterName}{item.available === false ? ` · ${t.unavailable}` : ''}</option>)}</select></label>
-      {cluster && cluster.available !== false && <div className="provisioning-source-card"><div className="provisioning-mode-content">
+      {cluster && cluster.available !== false && <div className="provisioning-source-card create-machine-source-card"><div className="provisioning-mode-content">
         <label className="form-group"><span>{t.hostname}</span><input value={form.hostname} onChange={e => setField('hostname', e.target.value.toLowerCase())} placeholder="my-app" autoComplete="off" /></label>
         <label className="form-group"><span>{t.template}</span><select value={form.templateProfileId} onChange={e => setField('templateProfileId', e.target.value)} disabled={!cluster.templates?.length}><option value="" disabled hidden>{t.selectTemplate}</option>{(cluster.templates || []).map(item => <option key={item.id} value={item.id}>{item.displayName || item.name} · {item.sourceType === 'lxc-template' ? t.prepared : t.archive}</option>)}</select>{!cluster.templates?.length && <small className="hint-text">{t.noTemplates}</small>}</label>{selectedTemplate?.description && <div className="template-selection-description">{selectedTemplate.description}</div>}
         {form.templateProfileId && <>
