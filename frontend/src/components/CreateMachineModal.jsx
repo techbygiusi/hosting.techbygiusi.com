@@ -79,7 +79,7 @@ export default function CreateMachineModal({ options = [], onClose, onCreated, i
 
   if (job) {
     const events = job.events || [];
-    return <Modal title={t.queued} onClose={onClose}>
+    return <Modal title={t.queued} onClose={onClose} className="create-machine-modal">
       <div className="provisioning-live-view">
         <div className="provisioning-progress-head"><strong>{job.hostname}</strong><span>{job.progress || 0}%</span></div>
         <div className="progress-bar provisioning-progress"><span style={{ width: `${job.progress || 0}%` }} /></div>
@@ -95,7 +95,7 @@ export default function CreateMachineModal({ options = [], onClose, onCreated, i
     </Modal>;
   }
 
-  return <Modal title={t.title} onClose={onClose}>
+  return <Modal title={t.title} onClose={onClose} className="create-machine-modal">
     <form className="form-stack" onSubmit={submit}>
       {error && <div className="alert alert-danger">{translateMessage(error)}</div>}
       <label className="form-group"><span>{t.cluster}</span><select value={clusterId} onChange={e => { setClusterId(e.target.value); setField('templateProfileId', ''); }}><option value="">{t.select}</option>{options.map(item => <option key={item.clusterId} value={item.clusterId} disabled={item.available === false}>{item.clusterName}{item.available === false ? ` · ${t.unavailable}` : ''}</option>)}</select></label>

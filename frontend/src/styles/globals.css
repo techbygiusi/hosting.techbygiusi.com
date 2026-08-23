@@ -11019,3 +11019,72 @@ textarea,
 .account-menu-trigger {
   border-radius: var(--portal-radius-pill) !important;
 }
+
+
+/* -------------------------------------------------------------
+   Follow-up polish: compact create-container modal spacing.
+   Keeps the dialog visually tighter without affecting other popups.
+---------------------------------------------------------------- */
+.create-machine-modal {
+  width: min(760px, calc(100vw - 56px)) !important;
+  padding: 24px !important;
+  gap: 14px !important;
+}
+
+.create-machine-modal .modal-header {
+  gap: 14px;
+  margin-bottom: 8px;
+  padding-bottom: 12px;
+}
+
+.create-machine-modal .form-stack {
+  gap: 14px !important;
+}
+
+.create-machine-modal .form-group {
+  gap: 6px !important;
+}
+
+.create-machine-modal .form-group > span {
+  margin: 0;
+}
+
+.create-machine-modal .provisioning-source-card {
+  gap: 14px;
+  padding: 18px;
+}
+
+.create-machine-modal .provisioning-mode-content,
+.create-machine-modal .slider-grid {
+  gap: 14px;
+}
+
+.create-machine-modal input,
+.create-machine-modal select,
+.create-machine-modal textarea {
+  min-height: 46px;
+}
+
+.create-machine-modal .form-actions {
+  padding-top: 2px;
+  margin-top: 2px;
+}
+
+@media (max-width: 767px) {
+  .create-machine-modal {
+    width: 100dvw !important;
+    padding: var(--portal-mobile-gap) var(--portal-mobile-gap) calc(var(--portal-mobile-gap) + env(safe-area-inset-bottom, 0px)) !important;
+    gap: 12px !important;
+  }
+
+  .create-machine-modal .form-stack,
+  .create-machine-modal .provisioning-source-card,
+  .create-machine-modal .provisioning-mode-content,
+  .create-machine-modal .slider-grid {
+    gap: 12px !important;
+  }
+
+  .create-machine-modal .provisioning-source-card {
+    padding: 14px;
+  }
+}
