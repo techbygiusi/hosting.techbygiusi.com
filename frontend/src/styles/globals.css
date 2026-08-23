@@ -10836,3 +10836,50 @@ body.theme-dark .mobile-menu-theme-switch button.active {
     color: #ffb2ab !important;
   }
 }
+
+
+/* -------------------------------------------------------------
+   Mobile theme card spacing correction: keep heading, description
+   and theme buttons visibly inside the same rounded menu card.
+---------------------------------------------------------------- */
+@media (max-width: 960px) {
+  .mobile-menu-theme-card {
+    width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+    flex: 0 0 auto !important;
+    padding: 18px !important;
+    gap: 16px !important;
+  }
+
+  .mobile-menu-theme-copy {
+    display: grid;
+    gap: 5px;
+    min-width: 0;
+  }
+
+  .mobile-menu-theme-copy h3 {
+    margin: 0 !important;
+    font-size: 1rem !important;
+    line-height: 1.25 !important;
+    font-weight: 600 !important;
+  }
+
+  .mobile-menu-theme-copy p {
+    margin: 0 !important;
+    font-size: 0.86rem !important;
+    line-height: 1.4 !important;
+  }
+
+  .mobile-menu-theme-switch {
+    width: 100% !important;
+    min-width: 0 !important;
+    gap: 10px !important;
+  }
+
+  .mobile-menu-theme-switch button {
+    width: 100% !important;
+    min-width: 0 !important;
+    min-height: 52px !important;
+  }
+}
