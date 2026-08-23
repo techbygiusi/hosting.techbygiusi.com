@@ -30,16 +30,35 @@ const TEXT = {
 
 /**
  * Account chip in the top-right corner: profile picture, display name and role,
- * with a dropdown for appearance, settings and sign-out. On touch layouts the
- * dropdown becomes a bottom sheet so it stays reachable with one thumb.
+ * with a dropdown for appearance, settings and sign-out.
+ * On mobile layouts only the profile picture is shown and the dropdown is disabled,
+ * because settings/logout already live in the full mobile menu.
  */
 export default function AccountMenu({ user, language = 'en', onOpenSettings, onLogout }) {
   const [open, setOpen] = useState(false);
+  const [mobileOnlyAvatar, setMobileOnlyAvatar] = useState(false);
   const containerRef = useRef(null);
   const { theme, setTheme } = useTheme();
   const text = TEXT[language] || TEXT.en;
   const roleLabel = user?.role === 'admin' ? text.administrator : text.user;
   const displayName = user?.name || user?.email || text.account;
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+    const media = window.matchMedia('(max-width: 767px)');
+    const apply = () => setMobileOnlyAvatar(media.matches);
+    apply();
+    if (typeof media.addEventListener === 'function') {
+      media.addEventListener('change', apply);
+      return () => media.removeEventListener('change', apply);
+    }
+    media.addListener(apply);
+    return () => media.removeListener(apply);
+  }, []);
+
+  useEffect(() => {
+    if (mobileOnlyAvatar && open) setOpen(false);
+  }, [mobileOnlyAvatar, open]);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -58,6 +77,16 @@ export default function AccountMenu({ user, language = 'en', onOpenSettings, onL
       document.removeEventListener('keydown', handleKey);
     };
   }, [open]);
+
+  if (mobileOnlyAvatar) {
+    return (
+      <div className="account-menu account-menu-mobile-static" ref={containerRef} aria-hidden="true">
+        <div className="account-menu-mobile-avatar">
+          <Avatar src={user?.avatarUrl} name={user?.name} email={user?.email} size={44} />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`account-menu ${open ? 'open' : ''}`} ref={containerRef}>
