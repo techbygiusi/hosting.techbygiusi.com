@@ -11313,3 +11313,113 @@ textarea,
     max-height: 44px !important;
   }
 }
+
+
+/* -------------------------------------------------------------
+   Follow-up polish: compact admin form modals, denser audit rows,
+   and split user settings into account vs portal tabs.
+---------------------------------------------------------------- */
+.compact-form-modal {
+  width: min(720px, calc(100vw - 40px));
+  max-height: min(calc(100dvh - 64px), 820px);
+}
+
+.compact-form-modal .form-stack {
+  gap: 14px;
+}
+
+.compact-form-modal .form-group {
+  gap: 6px;
+}
+
+.compact-form-modal input,
+.compact-form-modal select,
+.compact-form-modal textarea {
+  min-height: 40px;
+}
+
+.compact-form-modal .checkbox-row {
+  padding: 2px 0;
+}
+
+.compact-form-modal .form-actions {
+  padding-top: 6px;
+}
+
+.compact-checklist-modal .member-checklist {
+  max-height: 240px;
+  padding: 10px;
+  gap: 8px;
+}
+
+.compact-checklist-modal .checkbox-row {
+  padding: 6px 0;
+}
+
+.audit-panel .audit-list {
+  gap: 12px;
+}
+
+.audit-panel .audit-row {
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 18px;
+  border-radius: 18px;
+}
+
+.audit-panel .audit-main {
+  gap: 4px;
+}
+
+.audit-panel .audit-main strong {
+  line-height: 1.25;
+}
+
+.audit-panel .audit-main span {
+  line-height: 1.45;
+}
+
+.audit-panel .audit-meta {
+  gap: 6px;
+}
+
+.user-settings-shell {
+  display: grid;
+  gap: 20px;
+}
+
+.user-settings-tabs {
+  margin-bottom: 0;
+}
+
+.user-settings-tab-content {
+  display: grid;
+  gap: 18px;
+}
+
+.user-settings-tab-content > * {
+  margin: 0;
+}
+
+.settings-appearance-card {
+  display: grid;
+  gap: 16px;
+}
+
+@media (max-width: 767px) {
+  .compact-form-modal {
+    width: 100%;
+    max-width: 100%;
+    max-height: 92dvh;
+  }
+
+  .compact-form-modal input,
+  .compact-form-modal select,
+  .compact-form-modal textarea {
+    min-height: 44px;
+  }
+
+  .audit-panel .audit-row {
+    padding: 14px 16px;
+  }
+}

@@ -1738,7 +1738,7 @@ export default function AdminDashboard() {
       )}
 
       {showMaintenanceModal && (
-        <Modal title={editMaintenanceId ? 'Wartung bearbeiten' : 'Wartung planen'} onClose={closeMaintenanceModal}>
+        <Modal title={editMaintenanceId ? 'Wartung bearbeiten' : 'Wartung planen'} onClose={closeMaintenanceModal} className="compact-form-modal">
           <form className="form-stack" onSubmit={handleSaveMaintenance}>
             <label className="form-group"><span>Titel</span><input type="text" value={newMaintenance.title} onChange={e => setNewMaintenance(prev => ({ ...prev, title: e.target.value }))} placeholder="z. B. Proxmox Cluster Update" /></label>
             <label className="form-group"><span>Beschreibung (optional)</span><textarea rows="3" value={newMaintenance.message} onChange={e => setNewMaintenance(prev => ({ ...prev, message: e.target.value }))} placeholder="Was wird gewartet? Welche Dienste sind betroffen?" /></label>
@@ -1763,7 +1763,7 @@ export default function AdminDashboard() {
       )}
 
       {showUserModal && (
-        <Modal title={editUserId ? 'Benutzer bearbeiten' : 'Benutzer anlegen'} onClose={closeUserModal}>
+        <Modal title={editUserId ? 'Benutzer bearbeiten' : 'Benutzer anlegen'} onClose={closeUserModal} className="compact-form-modal">
           <form className="form-stack" onSubmit={handleSaveUser} autoComplete="off">
             <label className="form-group"><span>Name</span><input type="text" value={newUser.name} onChange={e => setNewUser(prev => ({ ...prev, name: e.target.value }))} placeholder="Max Mustermann" autoComplete="off" /></label>
             <label className="form-group"><span>E-Mail-Adresse</span><input type="email" value={newUser.email} onChange={e => setNewUser(prev => ({ ...prev, email: e.target.value }))} placeholder="max@example.com" autoComplete="off" /></label>
@@ -1781,7 +1781,7 @@ export default function AdminDashboard() {
       )}
 
       {showClusterModal && (
-        <Modal title={editClusterId ? clusterText.editTitle : clusterText.addTitle} onClose={closeClusterModal}>
+        <Modal title={editClusterId ? clusterText.editTitle : clusterText.addTitle} onClose={closeClusterModal} className="compact-form-modal">
           <form className="form-stack" onSubmit={handleSaveCluster}>
             <label className="form-group"><span>{clusterText.name}</span><input type="text" value={newCluster.name} onChange={e => handleClusterChange('name', e.target.value)} placeholder="Home Lab" /></label>
             <label className="form-group"><span>{clusterText.url}</span><input type="text" value={newCluster.url} onChange={e => handleClusterChange('url', e.target.value)} placeholder="https://10.10.0.10:8006" /></label>
@@ -1832,7 +1832,7 @@ export default function AdminDashboard() {
       )}
 
       {showResourceModal && (
-        <Modal title={editResourceId ? 'Dienst bearbeiten' : 'Dienst anlegen'} onClose={closeResourceModal}>
+        <Modal title={editResourceId ? 'Dienst bearbeiten' : 'Dienst anlegen'} onClose={closeResourceModal} className="compact-form-modal">
           <form className="form-stack" onSubmit={handleSaveResource}>
             <label className="form-group"><span>Cluster</span><select value={newResource.clusterId} onChange={e => { setNewResource(prev => ({ ...prev, clusterId: e.target.value, containerId: '', name: editResourceId ? prev.name : '', resourceType: '', manualIp: '', sshPort: '22' })); setClusterContainers([]); }}><option value="">Bitte auswählen</option>{clusters.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
             <button type="button" className="btn-secondary" onClick={handleLoadClusterContainers} disabled={actionLoading || !newResource.clusterId}>{currentClusterName ? `Dienste von ${currentClusterName} laden` : 'Dienste laden'}</button>
@@ -1852,7 +1852,7 @@ export default function AdminDashboard() {
         </Modal>
       )}
       {showGroupModal && (
-        <Modal title={editGroupId ? 'Gruppe bearbeiten' : 'Gruppe anlegen'} onClose={closeGroupModal}>
+        <Modal title={editGroupId ? 'Gruppe bearbeiten' : 'Gruppe anlegen'} onClose={closeGroupModal} className="compact-form-modal compact-checklist-modal">
           <form className="form-stack" onSubmit={handleSaveGroup}>
             <label className="form-group"><span>Name</span><input type="text" value={newGroup.name} onChange={e => setNewGroup(prev => ({ ...prev, name: e.target.value }))} placeholder="z. B. Minecraft-Team" /></label>
             <div className="form-group">

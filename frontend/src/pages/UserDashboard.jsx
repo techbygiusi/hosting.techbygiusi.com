@@ -48,6 +48,8 @@ const USER_TRANSLATIONS = {
     dashboard: 'Dashboard',
     wiki: 'Wiki',
     settings: 'Settings',
+    accountSettings: 'Account Settings',
+    portalSettings: 'Portal Settings',
     menu: 'Menu',
     openMenu: 'Open menu',
     closeMenu: 'Close menu',
@@ -134,6 +136,8 @@ const USER_TRANSLATIONS = {
     dashboard: 'Dashboard',
     wiki: 'Wiki',
     settings: 'Einstellungen',
+    accountSettings: 'Account Settings',
+    portalSettings: 'Portal Settings',
     menu: 'Menü',
     openMenu: 'Menü öffnen',
     closeMenu: 'Menü schließen',
@@ -253,6 +257,7 @@ export default function UserDashboard() {
   const [publicPageResource, setPublicPageResource] = useState(null);
   const [language, setLanguage] = useState(readStoredLanguage);
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [settingsSection, setSettingsSection] = useState('account');
   const [menuOpen, setMenuOpen] = useState(false);
 
   const fetchResources = useCallback(async (withSpinner = true) => {
@@ -496,35 +501,74 @@ export default function UserDashboard() {
           {activeTab === 'wiki' && <WikiBrowser language={language} />}
 
           {activeTab === 'settings' && (
-            <section className="panel-card user-settings-card">
+            <section className="panel-card user-settings-card user-settings-shell">
               <div className="panel-header"><h2>{labels.settings}</h2></div>
-              <AvatarSettingsPanel language={language} />
-              <AccountEmailSettingsPanel language={language} />
-              <AccountPasswordSettingsPanel language={language} />
-              <div className="settings-language-card language-settings-block">
-                <div>
-                  <h3>{labels.language}</h3>
-                  <p>{labels.languageText}</p>
+
+              <nav className="admin-settings-tabs user-settings-tabs" aria-label={labels.settings}>
+                <button type="button" className={settingsSection === 'account' ? 'active' : ''} onClick={() => setSettingsSection('account')}>{labels.accountSettings}</button>
+                <button type="button" className={settingsSection === 'portal' ? 'active' : ''} onClick={() => setSettingsSection('portal')}>{labels.portalSettings}</button>
+              </nav>
+
+              {settingsSection === 'account' && (
+                <div className="settings-tab-content user-settings-tab-content">
+                  <AvatarSettingsPanel language={language} />
+                  <AccountEmailSettingsPanel language={language} />
+                  <AccountPasswordSettingsPanel language={language} />
                 </div>
-                <div className="mobile-admin-language-switch settings-language-buttons" role="group" aria-label={labels.language}>
-                  {USER_LANGUAGE_OPTIONS.map(option => (
-                    <button
-                      key={option.code}
-                      type="button"
-                      className={language === option.code ? 'active' : ''}
-                      onClick={() => selectLanguage(option.code)}
-                    >
-                      {option.label}
-                    </button>
-                  ))}
+              )}
+
+              {settingsSection === 'portal' && (
+                <div className="settings-tab-content user-settings-tab-content">
+                  <section className="settings-language-card settings-appearance-card">
+                    <div>
+                      <h3>{labels.appearance}</h3>
+                      <p>{labels.appearanceText}</p>
+                    </div>
+                    <div className="mobile-admin-language-switch settings-language-buttons" role="group" aria-label={labels.appearance}>
+                      <button
+                        type="button"
+                        className={theme === 'light' ? 'active' : ''}
+                        onClick={() => setTheme('light')}
+                      >
+                        {labels.light}
+                      </button>
+                      <button
+                        type="button"
+                        className={theme === 'dark' ? 'active' : ''}
+                        onClick={() => setTheme('dark')}
+                      >
+                        {labels.dark}
+                      </button>
+                    </div>
+                  </section>
+
+                  <div className="settings-language-card language-settings-block">
+                    <div>
+                      <h3>{labels.language}</h3>
+                      <p>{labels.languageText}</p>
+                    </div>
+                    <div className="mobile-admin-language-switch settings-language-buttons" role="group" aria-label={labels.language}>
+                      {USER_LANGUAGE_OPTIONS.map(option => (
+                        <button
+                          key={option.code}
+                          type="button"
+                          className={language === option.code ? 'active' : ''}
+                          onClick={() => selectLanguage(option.code)}
+                        >
+                          {option.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="settings-notification-card">
+                    <div className="settings-section-header">
+                      <h3>{labels.notifications}</h3>
+                    </div>
+                    <NotificationSettingsPanel language={language} />
+                  </div>
                 </div>
-              </div>
-              <div className="settings-notification-card">
-                <div className="settings-section-header">
-                  <h3>{labels.notifications}</h3>
-                </div>
-                <NotificationSettingsPanel language={language} />
-              </div>
+              )}
             </section>
           )}
         </section>
