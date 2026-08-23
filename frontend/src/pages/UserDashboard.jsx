@@ -13,6 +13,7 @@ import AvatarSettingsPanel from '../components/AvatarSettingsPanel';
 import AccountMenu from '../components/AccountMenu';
 import AccountEmailSettingsPanel from '../components/AccountEmailSettingsPanel';
 import AccountPasswordSettingsPanel from '../components/AccountPasswordSettingsPanel';
+import { useTheme } from '../components/ThemeButton';
 
 const USER_LANGUAGE_OPTIONS = [
   { code: 'en', label: 'English' },
@@ -52,6 +53,10 @@ const USER_TRANSLATIONS = {
     closeMenu: 'Close menu',
     close: 'Close',
     language: 'Language',
+    appearance: 'Appearance',
+    appearanceText: 'Choose the portal theme used on this device.',
+    light: 'Light',
+    dark: 'Dark',
     languageText: 'Choose the language used by the portal, menus, placeholders and maintenance banners.',
     notificationsText: 'Manage e-mail notifications for outages, recoveries and maintenance.',
     notificationSettings: 'Notification settings',
@@ -134,6 +139,10 @@ const USER_TRANSLATIONS = {
     closeMenu: 'Menü schließen',
     close: 'Schließen',
     language: 'Sprache',
+    appearance: 'Darstellung',
+    appearanceText: 'Wähle das Portal-Design für dieses Gerät.',
+    light: 'Hell',
+    dark: 'Dunkel',
     languageText: 'Wähle die Sprache für Portal, Menüs, Platzhalter und Wartungsbanner.',
     notificationsText: 'Verwalte E-Mail-Benachrichtigungen für Ausfälle, Wiederherstellungen und Wartungen.',
     notificationSettings: 'Benachrichtigungseinstellungen',
@@ -337,6 +346,8 @@ export default function UserDashboard() {
     setMenuOpen(false);
   };
 
+  const { theme, setTheme } = useTheme();
+
   const selectLanguage = (nextLanguage) => {
     setLanguage(nextLanguage);
     storeLanguage(nextLanguage);
@@ -367,18 +378,28 @@ export default function UserDashboard() {
             </div>
             <button type="button" className="btn-secondary mobile-admin-menu-close" onClick={() => setMenuOpen(false)} aria-label={labels.closeMenu}>{labels.close}</button>
           </div>
-          <div className="mobile-admin-language-switch user-menu-language-switch" role="group" aria-label={labels.language}>
-            {USER_LANGUAGE_OPTIONS.map(option => (
+          <section className="mobile-menu-theme-card" aria-labelledby="user-mobile-theme-title">
+            <div className="mobile-menu-theme-copy">
+              <h3 id="user-mobile-theme-title">{labels.appearance}</h3>
+              <p>{labels.appearanceText}</p>
+            </div>
+            <div className="mobile-menu-theme-switch" role="group" aria-label={labels.appearance}>
               <button
-                key={option.code}
                 type="button"
-                className={language === option.code ? 'active' : ''}
-                onClick={() => selectLanguage(option.code)}
+                className={theme === 'light' ? 'active' : ''}
+                onClick={() => setTheme('light')}
               >
-                {option.label}
+                {labels.light}
               </button>
-            ))}
-          </div>
+              <button
+                type="button"
+                className={theme === 'dark' ? 'active' : ''}
+                onClick={() => setTheme('dark')}
+              >
+                {labels.dark}
+              </button>
+            </div>
+          </section>
           <nav className="console-nav-tabs mobile-admin-menu-nav" aria-label={labels.menu}>
             <button type="button" className={activeTab === 'dashboard' ? 'active' : ''} onClick={() => selectTab('dashboard')}>{labels.dashboard}</button>
             <button type="button" className={activeTab === 'wiki' ? 'active' : ''} onClick={() => selectTab('wiki')}>{labels.wiki}</button>

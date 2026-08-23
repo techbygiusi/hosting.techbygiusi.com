@@ -10644,3 +10644,195 @@ body.theme-dark .audit-filter-card select {
     border-radius: 999px;
   }
 }
+
+
+/* -------------------------------------------------------------
+   Follow-up polish: redesign the mobile fullscreen menus.
+   - remove the old language strip from the mobile menu flow
+   - add an in-menu theme switcher
+   - use a lighter, more modern glass treatment in light mode
+   - keep a refined dark variant for dark mode
+---------------------------------------------------------------- */
+.mobile-menu-theme-card {
+  display: grid;
+  gap: 12px;
+}
+
+.mobile-menu-theme-copy h3 {
+  margin: 0 0 4px;
+  color: var(--portal-text-strong, var(--color-text));
+  font-size: 1rem;
+}
+
+.mobile-menu-theme-copy p {
+  margin: 0;
+  color: var(--portal-text-soft, var(--color-text-light));
+  font-size: 0.95rem;
+  line-height: 1.45;
+}
+
+.mobile-menu-theme-switch {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.mobile-menu-theme-switch button {
+  min-height: 50px;
+  border-radius: 18px;
+  border: 1px solid rgba(13, 20, 16, 0.10);
+  background: rgba(255, 255, 255, 0.86);
+  color: #182019;
+  font-weight: 600;
+  transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.mobile-menu-theme-switch button.active {
+  background: #dae3d7;
+  border-color: rgba(13, 20, 16, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(13, 20, 16, 0.04);
+}
+
+@media (max-width: 960px) {
+  .mobile-admin-menu-overlay,
+  .user-fullscreen-menu-overlay {
+    background: linear-gradient(180deg, rgba(241, 244, 239, 0.72), rgba(228, 234, 227, 0.82)) !important;
+    backdrop-filter: blur(22px) saturate(1.05) !important;
+    -webkit-backdrop-filter: blur(22px) saturate(1.05) !important;
+  }
+
+  .mobile-admin-menu-panel,
+  .user-fullscreen-menu-panel {
+    background: transparent !important;
+  }
+
+  .mobile-admin-menu-header,
+  .user-fullscreen-menu-overlay .mobile-admin-menu-header,
+  .mobile-admin-menu-nav,
+  .user-fullscreen-menu-overlay .mobile-admin-menu-nav,
+  .mobile-admin-menu-footer,
+  .user-fullscreen-menu-overlay .mobile-admin-menu-footer,
+  .mobile-menu-theme-card {
+    background: rgba(255, 255, 255, 0.76) !important;
+    border: 1px solid rgba(15, 22, 17, 0.08) !important;
+    border-radius: 28px !important;
+    box-shadow: 0 18px 48px rgba(75, 90, 76, 0.10), inset 0 1px 0 rgba(255,255,255,0.46) !important;
+  }
+
+  .mobile-admin-menu-header,
+  .user-fullscreen-menu-overlay .mobile-admin-menu-header {
+    align-items: center !important;
+  }
+
+  .mobile-admin-menu-nav,
+  .user-fullscreen-menu-overlay .mobile-admin-menu-nav {
+    align-content: start !important;
+  }
+
+  .mobile-admin-menu-nav button,
+  .user-fullscreen-menu-overlay .mobile-admin-menu-nav button {
+    min-height: 56px !important;
+    border-radius: 18px !important;
+    border: 1px solid transparent !important;
+    background: rgba(255, 255, 255, 0.58) !important;
+    color: #182019 !important;
+    font-weight: 500 !important;
+  }
+
+  .mobile-admin-menu-nav button.active,
+  .user-fullscreen-menu-overlay .mobile-admin-menu-nav button.active {
+    background: rgba(218, 227, 215, 0.94) !important;
+    border-color: rgba(15, 22, 17, 0.08) !important;
+    box-shadow: inset 0 0 0 1px rgba(15, 22, 17, 0.03) !important;
+  }
+
+  .mobile-admin-menu-close,
+  .mobile-admin-menu-logout,
+  .user-fullscreen-menu-overlay .mobile-admin-menu-logout {
+    border-radius: 18px !important;
+  }
+
+  .mobile-admin-menu-close {
+    background: rgba(255, 255, 255, 0.82) !important;
+  }
+
+  .mobile-admin-menu-footer,
+  .user-fullscreen-menu-overlay .mobile-admin-menu-footer {
+    padding: 12px !important;
+  }
+
+  .mobile-admin-menu-logout,
+  .user-fullscreen-menu-overlay .mobile-admin-menu-logout {
+    background: rgba(255, 255, 255, 0.74) !important;
+    color: #b53a31 !important;
+    border: 1px solid rgba(181, 58, 49, 0.14) !important;
+  }
+}
+
+body.theme-dark .mobile-menu-theme-copy h3 {
+  color: #f2f4ee;
+}
+
+body.theme-dark .mobile-menu-theme-copy p {
+  color: rgba(233, 238, 232, 0.72);
+}
+
+body.theme-dark .mobile-menu-theme-switch button {
+  background: rgba(13, 18, 15, 0.84);
+  border-color: rgba(218, 227, 215, 0.10);
+  color: #eef2ea;
+}
+
+body.theme-dark .mobile-menu-theme-switch button.active {
+  background: rgba(218, 227, 215, 0.92);
+  color: #0f1410;
+  border-color: rgba(218, 227, 215, 0.16);
+}
+
+@media (max-width: 960px) {
+  body.theme-dark .mobile-admin-menu-overlay,
+  body.theme-dark .user-fullscreen-menu-overlay {
+    background: linear-gradient(180deg, rgba(5, 8, 6, 0.70), rgba(8, 12, 10, 0.82)) !important;
+    backdrop-filter: blur(22px) saturate(1.05) !important;
+    -webkit-backdrop-filter: blur(22px) saturate(1.05) !important;
+  }
+
+  body.theme-dark .mobile-admin-menu-header,
+  body.theme-dark .user-fullscreen-menu-overlay .mobile-admin-menu-header,
+  body.theme-dark .mobile-admin-menu-nav,
+  body.theme-dark .user-fullscreen-menu-overlay .mobile-admin-menu-nav,
+  body.theme-dark .mobile-admin-menu-footer,
+  body.theme-dark .user-fullscreen-menu-overlay .mobile-admin-menu-footer,
+  body.theme-dark .mobile-menu-theme-card {
+    background: rgba(11, 16, 13, 0.78) !important;
+    border-color: rgba(218, 227, 215, 0.10) !important;
+    box-shadow: 0 18px 48px rgba(0, 0, 0, 0.24), inset 0 1px 0 rgba(255,255,255,0.03) !important;
+  }
+
+  body.theme-dark .mobile-admin-menu-nav button,
+  body.theme-dark .user-fullscreen-menu-overlay .mobile-admin-menu-nav button {
+    background: rgba(15, 21, 17, 0.84) !important;
+    color: #eef2ea !important;
+    border-color: rgba(218, 227, 215, 0.06) !important;
+  }
+
+  body.theme-dark .mobile-admin-menu-nav button.active,
+  body.theme-dark .user-fullscreen-menu-overlay .mobile-admin-menu-nav button.active {
+    background: rgba(218, 227, 215, 0.14) !important;
+    border-color: rgba(218, 227, 215, 0.16) !important;
+    color: #f5f7f2 !important;
+  }
+
+  body.theme-dark .mobile-admin-menu-close {
+    background: rgba(15, 21, 17, 0.82) !important;
+    border-color: rgba(218, 227, 215, 0.10) !important;
+    color: #eef2ea !important;
+  }
+
+  body.theme-dark .mobile-admin-menu-logout,
+  body.theme-dark .user-fullscreen-menu-overlay .mobile-admin-menu-logout {
+    background: rgba(15, 21, 17, 0.82) !important;
+    border-color: rgba(201, 72, 62, 0.24) !important;
+    color: #ffb2ab !important;
+  }
+}

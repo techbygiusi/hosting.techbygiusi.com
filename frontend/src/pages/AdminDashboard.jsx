@@ -13,6 +13,7 @@ import AccountMenu from '../components/AccountMenu';
 import AccountEmailSettingsPanel from '../components/AccountEmailSettingsPanel';
 import AccountPasswordSettingsPanel from '../components/AccountPasswordSettingsPanel';
 import { readStoredLanguage, storeLanguage } from '../components/LanguageSwitch';
+import { useTheme } from '../components/ThemeButton';
 import { translatePortalText } from '../i18n';
 
 function LogoutIcon() {
@@ -184,6 +185,10 @@ const MOBILE_MENU_TRANSLATIONS = {
     closeMenu: 'Close menu',
     language: 'Language',
     languageText: 'Choose the language used by the portal, menus, placeholders and maintenance banners.',
+    appearance: 'Appearance',
+    appearanceText: 'Choose the portal theme used on this device.',
+    light: 'Light',
+    dark: 'Dark',
     logout: 'Log out',
     adminConsole: 'Admin Console',
     loading: 'Loading data...',
@@ -240,6 +245,10 @@ const MOBILE_MENU_TRANSLATIONS = {
     closeMenu: 'Menü schließen',
     language: 'Sprache',
     languageText: 'Wähle die Sprache für Portal, Menüs, Platzhalter und Wartungsbanner.',
+    appearance: 'Darstellung',
+    appearanceText: 'Wähle das Portal-Design für dieses Gerät.',
+    light: 'Hell',
+    dark: 'Dunkel',
     logout: 'Abmelden',
     adminConsole: 'Admin-Konsole',
     loading: 'Daten werden geladen...',
@@ -376,6 +385,7 @@ export default function AdminDashboard() {
   const mobileMenuText = MOBILE_MENU_TRANSLATIONS[mobileMenuLanguage] || MOBILE_MENU_TRANSLATIONS.en;
   const mobileMenuTabs = tabs.map(([key]) => [key, mobileMenuText.tabs[key] || key]);
   const dashboardText = mobileMenuText.dashboard;
+  const { theme, setTheme } = useTheme();
   const clusterText = CLUSTER_UI_TEXT[mobileMenuLanguage] || CLUSTER_UI_TEXT.en;
   const settingsText = mobileMenuLanguage === 'de' ? {
     title: 'Einstellungen', account: 'Kontoeinstellungen', hosting: 'Hosting-Einstellungen',
@@ -1285,18 +1295,28 @@ export default function AdminDashboard() {
             </div>
             <button type="button" className="btn-secondary mobile-admin-menu-close" onClick={() => setMobileMenuOpen(false)} aria-label={mobileMenuText.closeMenu}>{mobileMenuText.close}</button>
           </div>
-          <div className="mobile-admin-language-switch" role="group" aria-label="Language">
-            {OVERLAY_LANGUAGE_OPTIONS.map(option => (
+          <section className="mobile-menu-theme-card" aria-labelledby="admin-mobile-theme-title">
+            <div className="mobile-menu-theme-copy">
+              <h3 id="admin-mobile-theme-title">{mobileMenuText.appearance}</h3>
+              <p>{mobileMenuText.appearanceText}</p>
+            </div>
+            <div className="mobile-menu-theme-switch" role="group" aria-label={mobileMenuText.appearance}>
               <button
-                key={option.code}
                 type="button"
-                className={mobileMenuLanguage === option.code ? 'active' : ''}
-                onClick={() => handleOverlayLanguageChange(option.code)}
+                className={theme === 'light' ? 'active' : ''}
+                onClick={() => setTheme('light')}
               >
-                {option.label}
+                {mobileMenuText.light}
               </button>
-            ))}
-          </div>
+              <button
+                type="button"
+                className={theme === 'dark' ? 'active' : ''}
+                onClick={() => setTheme('dark')}
+              >
+                {mobileMenuText.dark}
+              </button>
+            </div>
+          </section>
           <nav className="console-nav-tabs mobile-admin-menu-nav" aria-label={mobileMenuText.menu}>
             {mobileMenuTabs.map(([key, label]) => (
               <button key={key} type="button" className={activeTab === key ? 'active' : ''} onClick={() => handleSelectTab(key)}>{label}</button>
