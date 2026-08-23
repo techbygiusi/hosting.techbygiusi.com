@@ -10883,3 +10883,139 @@ body.theme-dark .mobile-menu-theme-switch button.active {
     min-height: 52px !important;
   }
 }
+
+
+/* -------------------------------------------------------------
+   Follow-up polish: unify portal border radii systemwide.
+   One shared radius system for cards, sheets and controls so
+   settings, menus, popups and forms feel visually consistent.
+---------------------------------------------------------------- */
+:root,
+body.theme-light,
+body.theme-dark {
+  --portal-radius-card: 28px;
+  --portal-radius-sheet: 28px;
+  --portal-radius-panel: 24px;
+  --portal-radius-control: 18px;
+  --portal-radius-control-sm: 16px;
+  --portal-radius-pill: 999px;
+}
+
+.panel-card,
+.list-card,
+.metric-card,
+.resource-card,
+.settings-avatar-card,
+.settings-language-card,
+.settings-notification-card,
+.dashboard-hero-card,
+.audit-filter-card,
+.console-sidebar-card,
+.soft-box,
+.modal-card,
+.wiki-browser-layout,
+.wiki-card-shell,
+.cluster-map-card,
+.settings-section-card,
+.settings-card.admin-settings-shell,
+.admin-settings-tab-content,
+.account-menu-panel,
+.mobile-admin-menu-header,
+.mobile-admin-menu-nav,
+.mobile-admin-menu-footer,
+.mobile-menu-theme-card,
+.auth-card,
+.setup-card,
+.intro-card,
+.app-error-card,
+.template-profile-card,
+.template-card,
+.provisioning-job-card,
+.provisioning-event,
+.service-status-board,
+.service-status-card,
+.settings-card {
+  border-radius: var(--portal-radius-card) !important;
+}
+
+.user-fullscreen-menu-panel,
+.mobile-admin-menu-panel,
+.modal-card.sheet,
+.modal-card.mobile-sheet {
+  border-radius: var(--portal-radius-sheet) var(--portal-radius-sheet) 0 0 !important;
+}
+
+.account-menu-panel,
+.detail-modal-card,
+.publishing-modal-card,
+.wiki-editor-modal,
+.wiki-preview-modal {
+  border-radius: var(--portal-radius-panel) !important;
+}
+
+
+.btn-primary,
+.btn-secondary,
+.btn-danger,
+.btn-outline,
+.btn-small,
+input,
+select,
+textarea,
+.account-menu-theme-switch button,
+.account-menu-item,
+.mobile-admin-menu-nav button,
+.mobile-menu-theme-switch button,
+.mobile-admin-menu-close,
+.mobile-admin-menu-logout,
+.user-fullscreen-menu-overlay .mobile-admin-menu-logout,
+.settings-language-buttons button,
+.settings-notification-row,
+.settings-avatar-dropzone,
+.select-list,
+.select-list-head,
+.select-list-item,
+.password-field,
+.alert,
+.test-result,
+.audit-search-field,
+.provisioning-summary-chips span {
+  border-radius: var(--portal-radius-control) !important;
+}
+
+.app-tabs.console-nav-tabs,
+.settings-language-buttons,
+.account-menu-trigger,
+.status-chip,
+.resource-status,
+.badge,
+.chip,
+.pill,
+.account-menu-mobile-avatar {
+  border-radius: var(--portal-radius-card) !important;
+}
+
+.admin-shell .console-nav-tabs button,
+.account-menu-theme-switch button,
+.account-menu-item,
+.btn-small,
+.mobile-admin-menu-close,
+.mobile-admin-menu-logout,
+.user-fullscreen-menu-overlay .mobile-admin-menu-logout,
+.mobile-admin-menu-nav button,
+.mobile-menu-theme-switch button,
+.settings-language-buttons button,
+.select-list-actions button {
+  border-radius: var(--portal-radius-control-sm) !important;
+}
+
+.toggle-track,
+.progress-bar,
+.progress-track,
+.status-pill,
+.cluster-badge,
+.resource-id-badge,
+.provisioning-summary-chips span,
+.account-menu-trigger {
+  border-radius: var(--portal-radius-pill) !important;
+}
