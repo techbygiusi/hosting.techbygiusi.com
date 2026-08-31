@@ -5,6 +5,12 @@ WORKDIR /app
 ARG REACT_APP_API_URL=/api
 ENV REACT_APP_API_URL=${REACT_APP_API_URL}
 
+# Keep Create React App production builds lean on small hosting VMs/LXCs.
+# Source maps and the webpack ESLint plugin are not required at runtime and
+# noticeably increase build memory usage.
+ENV GENERATE_SOURCEMAP=false
+ENV DISABLE_ESLINT_PLUGIN=true
+
 COPY package*.json ./
 # Configure resilient retries so a transient registry reset (ECONNRESET /
 # network aborted) retries instead of failing the build.

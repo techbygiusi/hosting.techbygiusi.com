@@ -11524,3 +11524,316 @@ textarea,
     max-height: 44px !important;
   }
 }
+
+/* -------------------------------------------------------------
+   Follow-up polish: global density pass.
+   Reduce unnecessary whitespace across pages, tabs and popups,
+   keep admin edit dialogs content-sized, and keep the user
+   Appearance selector compact instead of full-width.
+---------------------------------------------------------------- */
+:root,
+body.theme-light,
+body.theme-dark {
+  --layout-gap: 14px;
+  --layout-gap-sm: 8px;
+  --layout-padding: 14px;
+  --ui-gap: 14px;
+  --ui-gap-sm: 6px;
+  --ui-padding: 14px;
+  --portal-density-gap: 12px;
+  --portal-density-gap-sm: 6px;
+  --portal-density-card-padding: 18px;
+  --portal-density-modal-padding: 20px;
+}
+
+.panel-card,
+.resource-card,
+.list-card,
+.metric-card,
+.soft-box,
+.settings-avatar-card,
+.settings-language-card,
+.settings-notification-card,
+.settings-section-card,
+.dashboard-hero-card,
+.audit-filter-card,
+.console-sidebar-card,
+.service-status-card,
+.service-status-board,
+.settings-card,
+.admin-settings-tab-content,
+.user-settings-card,
+.wiki-card-shell,
+.cluster-map-card,
+.console-page-card {
+  gap: var(--portal-density-gap) !important;
+  padding: var(--portal-density-card-padding) !important;
+}
+
+.modal-card,
+.detail-modal-card,
+.public-page-modal-card,
+.publishing-modal-card,
+.publishing-manager-modal-card,
+.wiki-editor-modal,
+.wiki-preview-modal {
+  gap: var(--portal-density-gap) !important;
+  padding: var(--portal-density-modal-padding) !important;
+}
+
+.modal-header,
+.detail-modal-card .modal-header,
+.create-machine-modal .modal-header,
+.compact-form-modal .modal-header {
+  gap: 12px !important;
+  margin-bottom: 0 !important;
+  padding-bottom: 10px !important;
+}
+
+.modal-tabs,
+.admin-settings-tabs,
+.user-settings-tabs,
+.app-tabs.console-nav-tabs {
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+}
+
+.admin-settings-tabs,
+.user-settings-tabs,
+.app-tabs.console-nav-tabs {
+  min-height: 42px !important;
+  gap: 22px !important;
+}
+
+.admin-settings-tabs button,
+.user-settings-tabs button,
+.app-tabs.console-nav-tabs button {
+  min-height: 42px !important;
+  padding-bottom: 12px !important;
+}
+
+.detail-tab-body {
+  padding: 8px 10px 18px 4px !important;
+  margin: 0 -6px 0 -4px !important;
+}
+
+.detail-tab-body > * {
+  padding-inline: 4px !important;
+}
+
+.detail-modal-content,
+.tasks-tab,
+.credentials-tab,
+.provisioning-fields,
+.storage-picker,
+.select-list,
+.settings-tab-content,
+.user-settings-tab-content,
+.admin-settings-shell,
+.user-settings-shell,
+.audit-list,
+.create-result {
+  gap: var(--portal-density-gap) !important;
+}
+
+.form-stack,
+.form-grid,
+.form-row-2,
+.form-row-3,
+.modal-card .form-stack,
+.modal-card .form-grid,
+.modal-card .form-row-2,
+.modal-card .form-row-3,
+.create-machine-form,
+.compact-form-modal > form,
+.compact-form-modal .form-stack {
+  gap: 12px !important;
+}
+
+.form-group,
+.modal-card .form-group,
+.compact-form-modal .form-group,
+.create-machine-form .form-group {
+  gap: 5px !important;
+  min-height: 0 !important;
+}
+
+.form-actions,
+.setup-actions,
+.card-actions,
+.button-stack,
+.power-controls,
+.power-row,
+.card-power-row,
+.credential-actions,
+.dashboard-actions,
+.dashboard-toolbar,
+.panel-header,
+.notification-settings-actions,
+.settings-password-actions {
+  gap: 10px !important;
+}
+
+.compact-form-modal {
+  width: min(700px, calc(100vw - 40px)) !important;
+  max-width: min(700px, calc(100vw - 40px)) !important;
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: min(calc(100dvh - 64px), 760px) !important;
+  padding: 20px !important;
+  gap: 12px !important;
+  overflow-y: auto !important;
+}
+
+.compact-form-modal input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+.compact-form-modal select,
+.create-machine-form input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+.create-machine-form select {
+  height: 40px !important;
+  min-height: 40px !important;
+  max-height: 40px !important;
+  padding-top: 7px !important;
+  padding-bottom: 7px !important;
+}
+
+.compact-form-modal textarea,
+.create-machine-form textarea {
+  min-height: 84px !important;
+}
+
+.compact-form-modal .form-actions,
+.create-machine-form .form-actions {
+  margin-top: 2px !important;
+  padding-top: 2px !important;
+}
+
+.compact-checklist-modal .member-checklist {
+  max-height: 200px !important;
+  padding: 8px 10px !important;
+  gap: 4px !important;
+}
+
+.compact-checklist-modal .member-checklist .checkbox-row {
+  min-height: 32px !important;
+  padding: 3px 2px !important;
+}
+
+.audit-panel .audit-list {
+  gap: 10px !important;
+}
+
+.audit-panel .audit-row {
+  min-height: 0 !important;
+  gap: 10px !important;
+  padding: 12px 16px !important;
+}
+
+.settings-appearance-card {
+  grid-template-columns: minmax(0, 1fr) !important;
+  align-items: start !important;
+  justify-items: start !important;
+}
+
+.settings-appearance-card .settings-language-buttons,
+.settings-appearance-card .mobile-admin-language-switch {
+  width: min(380px, 100%) !important;
+  max-width: min(380px, 100%) !important;
+  min-width: 0 !important;
+  justify-self: start !important;
+  align-self: start !important;
+}
+
+.language-settings-block .settings-language-buttons,
+.language-settings-block .mobile-admin-language-switch,
+.settings-notification-card .settings-language-buttons,
+.settings-notification-card .mobile-admin-language-switch {
+  width: 100% !important;
+  max-width: none !important;
+  justify-self: stretch !important;
+}
+
+@media (max-width: 767px) {
+  :root,
+  body.theme-light,
+  body.theme-dark {
+    --layout-gap: 12px;
+    --layout-gap-sm: 8px;
+    --layout-padding: 12px;
+    --ui-gap: 12px;
+    --ui-gap-sm: 6px;
+    --ui-padding: 12px;
+    --portal-density-card-padding: 16px;
+    --portal-density-modal-padding: 16px;
+  }
+
+  .panel-card,
+  .resource-card,
+  .list-card,
+  .metric-card,
+  .soft-box,
+  .settings-avatar-card,
+  .settings-language-card,
+  .settings-notification-card,
+  .settings-section-card,
+  .dashboard-hero-card,
+  .audit-filter-card,
+  .console-sidebar-card,
+  .service-status-card,
+  .settings-card,
+  .admin-settings-tab-content,
+  .user-settings-card,
+  .console-page-card {
+    padding: var(--portal-density-card-padding) !important;
+  }
+
+  .modal-card,
+  .detail-modal-card,
+  .public-page-modal-card,
+  .publishing-modal-card,
+  .publishing-manager-modal-card,
+  .wiki-editor-modal,
+  .wiki-preview-modal,
+  .compact-form-modal {
+    padding: var(--portal-density-modal-padding) !important;
+  }
+
+  .admin-settings-tabs,
+  .user-settings-tabs,
+  .app-tabs.console-nav-tabs {
+    gap: 18px !important;
+  }
+
+  .admin-settings-tabs button,
+  .user-settings-tabs button,
+  .app-tabs.console-nav-tabs button {
+    min-height: 40px !important;
+    padding-bottom: 10px !important;
+  }
+
+  .detail-tab-body {
+    padding: 6px 6px calc(14px + env(safe-area-inset-bottom)) 2px !important;
+    margin: 0 -2px 0 -2px !important;
+  }
+
+  .compact-form-modal {
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: 92dvh !important;
+  }
+
+  .compact-form-modal input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  .compact-form-modal select,
+  .create-machine-form input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  .create-machine-form select {
+    height: 42px !important;
+    min-height: 42px !important;
+    max-height: 42px !important;
+  }
+
+  .settings-appearance-card .settings-language-buttons,
+  .settings-appearance-card .mobile-admin-language-switch {
+    width: 100% !important;
+    max-width: none !important;
+    justify-self: stretch !important;
+  }
+}
