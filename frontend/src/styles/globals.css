@@ -11736,11 +11736,11 @@ body.theme-dark {
 
 .settings-appearance-card .settings-language-buttons,
 .settings-appearance-card .mobile-admin-language-switch {
-  width: min(380px, 100%) !important;
-  max-width: min(380px, 100%) !important;
+  width: 100% !important;
+  max-width: none !important;
   min-width: 0 !important;
-  justify-self: start !important;
-  align-self: start !important;
+  justify-self: stretch !important;
+  align-self: stretch !important;
 }
 
 .language-settings-block .settings-language-buttons,
