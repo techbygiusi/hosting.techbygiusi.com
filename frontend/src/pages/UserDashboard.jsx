@@ -658,7 +658,7 @@ function ResourceCard({ resource, onOpenDetails, onManagePublicPage, labels }) {
               {labels.publicPage}
             </a>
           )}
-          {resource.canManagePublicPage && (
+          {resource.canManagePublicPage && !(publicUrl && adminUrl) && (
             <button
               type="button"
               className={publicUrl ? 'btn-secondary full-button' : 'btn-primary full-button'}
