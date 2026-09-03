@@ -47,7 +47,7 @@ function getTerminalTheme() {
   return { ...NORD_TERMINAL_BASE };
 }
 
-export default function TerminalView({ resourceId, resourceName, fullscreen = false, onRebootDetected, onConnectionClosed, toolbarTarget = null }) {
+export default function TerminalView({ resourceId, resourceName, fullscreen = false, onRebootDetected, onConnectionClosed, toolbarTarget = null, onSessionCloserReady }) {
   const containerRef = useRef(null);
   const [status, setStatus] = useState('connecting');
   const [message, setMessage] = useState('');
@@ -142,6 +142,13 @@ export default function TerminalView({ resourceId, resourceName, fullscreen = fa
         const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
         ws = new WebSocket(`${protocol}://${window.location.host}${wsPath}`);
         ws.binaryType = 'arraybuffer';
+        onSessionCloserReady?.(() => {
+          try {
+            if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
+              ws.close(1000, 'portal-console-closed');
+            }
+          } catch (_) { /* noop */ }
+        });
 
         const sendConsoleInput = (input) => {
           if (ws && ws.readyState === WebSocket.OPEN) {
@@ -347,6 +354,7 @@ export default function TerminalView({ resourceId, resourceName, fullscreen = fa
         };
 
         ws.onclose = () => {
+          onSessionCloserReady?.(null);
           setStatus('closed');
           setCanPasteUserPassword(false);
           setPasswordPasteState('idle');
@@ -460,10 +468,11 @@ export default function TerminalView({ resourceId, resourceName, fullscreen = fa
       if (pasteTarget && onContextMenu) pasteTarget.removeEventListener('contextmenu', onContextMenu);
       autoLoginWakeTimers.forEach(timer => clearTimeout(timer));
       consoleControlRef.current = null;
-      try { ws?.close(); } catch (_) { /* noop */ }
+      onSessionCloserReady?.(null);
+      try { ws?.close(1000, 'portal-console-unmounted'); } catch (_) { /* noop */ }
       term.dispose();
     };
-  }, [resourceId, reconnectKey, fullscreen, onRebootDetected, onConnectionClosed]);
+  }, [resourceId, reconnectKey, fullscreen, onRebootDetected, onConnectionClosed, onSessionCloserReady]);
 
   const toolbar = (
     <div className={`terminal-toolbar ${toolbarTarget ? 'terminal-toolbar-external' : ''}`}>

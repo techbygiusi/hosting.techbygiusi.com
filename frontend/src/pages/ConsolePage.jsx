@@ -17,6 +17,8 @@ export default function ConsolePage() {
   const [transitionPhase, setTransitionPhase] = useState('power');
   const [consoleGeneration, setConsoleGeneration] = useState(0);
   const closeCheckTimer = useRef(null);
+  const closeConsoleSessionRef = useRef(null);
+  const closingTabRef = useRef(false);
   const [consoleToolbarTarget, setConsoleToolbarTarget] = useState(null);
 
   useEffect(() => {
@@ -111,7 +113,33 @@ export default function ConsolePage() {
     };
   }, [machineTransition, transitionSawOffline, fetchResource, resourceId]);
 
-  const closeTab = () => window.close();
+  const registerConsoleSessionCloser = useCallback((closer) => {
+    closeConsoleSessionRef.current = typeof closer === 'function' ? closer : null;
+  }, []);
+
+  useEffect(() => {
+    const closeSession = () => {
+      try { closeConsoleSessionRef.current?.(); } catch (_) { /* noop */ }
+    };
+    window.addEventListener('pagehide', closeSession);
+    return () => window.removeEventListener('pagehide', closeSession);
+  }, []);
+
+  const closeTab = useCallback(() => {
+    closingTabRef.current = true;
+    try { closeConsoleSessionRef.current?.(); } catch (_) { /* noop */ }
+
+    // Give the WebSocket close handshake a brief head start so the backend can
+    // end the Proxmox/SSH upstream cleanly before the browser tab disappears.
+    window.setTimeout(() => {
+      window.close();
+      // Browsers refuse window.close() for tabs that were not script-opened.
+      // In that case, leave the closed console page and return to the portal.
+      window.setTimeout(() => {
+        if (!window.closed) window.location.assign('/dashboard');
+      }, 160);
+    }, 50);
+  }, []);
 
   const startMachine = async () => {
     if (!resource?.capabilities?.canPower) return;
@@ -133,7 +161,7 @@ export default function ConsolePage() {
   }, [beginTransition]);
 
   const handleConsoleClosed = useCallback(({ rebootRequested } = {}) => {
-    if (rebootRequested || machineTransition) return;
+    if (closingTabRef.current || rebootRequested || machineTransition) return;
     let attempts = 0;
     const inspect = async () => {
       attempts += 1;
@@ -236,6 +264,7 @@ export default function ConsolePage() {
               toolbarTarget={consoleToolbarTarget}
               onRebootDetected={handleRebootDetected}
               onConnectionClosed={handleConsoleClosed}
+              onSessionCloserReady={registerConsoleSessionCloser}
             />
           </section>
         )}
