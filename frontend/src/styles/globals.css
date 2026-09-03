@@ -11837,3 +11837,244 @@ body.theme-dark {
     justify-self: stretch !important;
   }
 }
+
+/* -------------------------------------------------------------
+   Console: one unified header, then terminal.
+   Metadata, connection state and console actions live in the top bar;
+   the former metadata and terminal toolbars no longer consume rows.
+---------------------------------------------------------------- */
+.console-page-header-unified {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 18px !important;
+  min-height: 76px;
+  padding-top: 12px !important;
+  padding-bottom: 12px !important;
+}
+
+.console-header-identity {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex: 1 1 auto;
+}
+
+.console-header-title {
+  flex: 0 0 auto;
+  min-width: 160px;
+}
+
+.console-header-title .eyebrow {
+  margin: 0 0 2px;
+  font-size: 0.66rem;
+}
+
+.console-header-title h1 {
+  margin: 0;
+  font-size: clamp(1rem, 1.25vw, 1.25rem);
+}
+
+.console-header-meta {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+
+.console-header-meta span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 5px 10px;
+  border: 1px solid var(--portal-modal-border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--portal-text-soft);
+  font-size: 0.75rem;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.console-header-controls {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.console-header-terminal-controls:empty {
+  display: none;
+}
+
+.console-header-terminal-controls,
+.console-header-terminal-controls .terminal-toolbar-external {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.terminal-toolbar-external {
+  padding: 0 !important;
+  margin: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  min-height: 0 !important;
+}
+
+.terminal-toolbar-external .terminal-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 5px 10px;
+  border: 1px solid var(--portal-modal-border);
+  border-radius: 999px;
+  background: transparent;
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+.terminal-toolbar-external .terminal-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.console-page-header-unified .console-page-actions {
+  display: flex;
+  align-items: center;
+  gap: 7px !important;
+}
+
+.console-page-header-unified .console-page-actions .btn-primary,
+.console-page-header-unified .console-page-actions .btn-secondary,
+.terminal-toolbar-external .btn-small {
+  min-height: 34px !important;
+  padding: 7px 11px !important;
+}
+
+.console-page-card-terminal-only {
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.terminal-wrapper-external-toolbar {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  gap: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.terminal-wrapper-external-toolbar .terminal-container {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  border-radius: 18px;
+}
+
+@media (min-width: 768px) {
+  .console-page-header-unified {
+    height: 76px;
+    min-height: 76px;
+  }
+
+  .console-page-main {
+    padding: 10px 12px 12px !important;
+  }
+
+  .console-page-card-terminal-only,
+  .terminal-wrapper-external-toolbar {
+    height: 100% !important;
+  }
+
+  .terminal-wrapper-external-toolbar .terminal-container {
+    flex: 1 1 auto !important;
+    height: 100% !important;
+    padding: 10px !important;
+  }
+}
+
+@media (max-width: 980px) {
+  .console-page-header-unified {
+    align-items: flex-start !important;
+    flex-wrap: wrap;
+  }
+
+  .console-header-identity {
+    flex: 1 1 100%;
+  }
+
+  .console-header-controls {
+    width: 100%;
+    justify-content: space-between;
+  }
+}
+
+@media (max-width: 767px) {
+  .console-page-header-unified {
+    min-height: 0;
+    padding: 12px 14px !important;
+    gap: 10px !important;
+  }
+
+  .console-header-identity {
+    align-items: flex-start;
+    gap: 10px;
+    flex-direction: column;
+  }
+
+  .console-header-title {
+    min-width: 0;
+  }
+
+  .console-header-meta {
+    gap: 6px;
+  }
+
+  .console-header-meta span {
+    min-height: 28px;
+    padding: 5px 9px;
+    font-size: 0.7rem;
+  }
+
+  .console-header-controls {
+    align-items: flex-start;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .console-header-terminal-controls,
+  .console-header-terminal-controls .terminal-toolbar-external {
+    flex-wrap: wrap;
+  }
+
+  .console-page-header-unified .console-page-actions {
+    margin-left: auto;
+  }
+
+  .console-page-main {
+    padding: 8px 10px 10px !important;
+  }
+
+  .terminal-wrapper-external-toolbar .terminal-container {
+    min-height: 58dvh;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 980px) {
+  .console-page-header-unified {
+    height: auto !important;
+    min-height: 76px !important;
+  }
+}

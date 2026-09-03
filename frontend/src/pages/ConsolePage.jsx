@@ -17,6 +17,7 @@ export default function ConsolePage() {
   const [transitionPhase, setTransitionPhase] = useState('power');
   const [consoleGeneration, setConsoleGeneration] = useState(0);
   const closeCheckTimer = useRef(null);
+  const [consoleToolbarTarget, setConsoleToolbarTarget] = useState(null);
 
   useEffect(() => {
     document.documentElement.classList.add('console-route-active');
@@ -161,14 +162,26 @@ export default function ConsolePage() {
 
   return (
     <div className="app-page console-page">
-      <header className="console-page-header">
-        <div>
-          <p className="eyebrow">{consoleTitle}</p>
-          <h1>{resource?.name || text('Konsole')}</h1>
+      <header className="console-page-header console-page-header-unified">
+        <div className="console-header-identity">
+          <div className="console-header-title">
+            <p className="eyebrow">{consoleTitle}</p>
+            <h1>{resource?.name || text('Konsole')}</h1>
+          </div>
+          {resource && (
+            <div className="console-header-meta" aria-label={text('Konsoleninformationen')}>
+              <span>{resource.clusterName || text('Unbekannter Cluster')}</span>
+              <span>{isSshConsole ? `${text('SSH-Ziel')} ${consoleTarget}` : consoleTarget}</span>
+              <span>ID {resource.containerId || resource.id}</span>
+            </div>
+          )}
         </div>
-        <div className="console-page-actions">
-          <Link className="btn-secondary" to="/dashboard">{text('Zurück')}</Link>
-          <button type="button" className="btn-primary" onClick={closeTab}>{text('Tab schließen')}</button>
+        <div className="console-header-controls">
+          <div className="console-header-terminal-controls" ref={setConsoleToolbarTarget} />
+          <div className="console-page-actions">
+            <Link className="btn-secondary" to="/dashboard">{text('Zurück')}</Link>
+            <button type="button" className="btn-primary" onClick={closeTab}>{text('Tab schließen')}</button>
+          </div>
         </div>
       </header>
 
@@ -214,17 +227,13 @@ export default function ConsolePage() {
         )}
 
         {!loading && !error && resource && canUseConsole && isRunning && !waitingForMachine && (
-          <section className="console-page-card">
-            <div className="console-page-meta">
-              <span>{resource.clusterName || text('Unbekannter Cluster')}</span>
-              <span>{isSshConsole ? `${text('SSH-Ziel')} ${consoleTarget}` : consoleTarget}</span>
-              <span>ID {resource.containerId || resource.id}</span>
-            </div>
+          <section className="console-page-card console-page-card-terminal-only">
             <TerminalView
               key={`${resource.id}-${consoleGeneration}`}
               resourceId={resource.id}
               resourceName={resource.name}
               fullscreen
+              toolbarTarget={consoleToolbarTarget}
               onRebootDetected={handleRebootDetected}
               onConnectionClosed={handleConsoleClosed}
             />

@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import '@xterm/xterm/css/xterm.css';
@@ -46,7 +47,7 @@ function getTerminalTheme() {
   return { ...NORD_TERMINAL_BASE };
 }
 
-export default function TerminalView({ resourceId, resourceName, fullscreen = false, onRebootDetected, onConnectionClosed }) {
+export default function TerminalView({ resourceId, resourceName, fullscreen = false, onRebootDetected, onConnectionClosed, toolbarTarget = null }) {
   const containerRef = useRef(null);
   const [status, setStatus] = useState('connecting');
   const [message, setMessage] = useState('');
@@ -464,38 +465,42 @@ export default function TerminalView({ resourceId, resourceName, fullscreen = fa
     };
   }, [resourceId, reconnectKey, fullscreen, onRebootDetected, onConnectionClosed]);
 
-  return (
-    <div className={fullscreen ? 'terminal-wrapper terminal-wrapper-fullscreen' : 'terminal-wrapper'}>
-      <div className="terminal-toolbar">
-        <span className={`terminal-status terminal-status-${status}`}>
-          {status === 'connecting' && terminalText('Verbinden...')}
-          {status === 'open' && `${terminalText('Verbunden')} · ${resourceName}`}
-          {status === 'closed' && terminalText('Getrennt')}
-          {status === 'error' && (message || terminalText('Fehler'))}
-        </span>
-        <div className="terminal-toolbar-actions">
-          {status === 'open' && canPasteUserPassword && (
-            <button
-              type="button"
-              className="btn-secondary btn-small"
-              disabled={passwordPasteState === 'sending'}
-              onClick={() => {
-                setPasswordPasteState('sending');
-                consoleControlRef.current?.('3:paste-user-password');
-              }}
-            >
-              {passwordPasteState === 'pasted'
-                ? terminalText('Passwort eingefügt')
-                : terminalText('Benutzer-Passwort einfügen')}
-            </button>
-          )}
-          {(status === 'closed' || status === 'error') && (
-            <button type="button" className="btn-secondary btn-small" onClick={() => { setStatus('connecting'); setMessage(''); setReconnectKey(key => key + 1); }}>
-              {terminalText('Neu verbinden')}
-            </button>
-          )}
-        </div>
+  const toolbar = (
+    <div className={`terminal-toolbar ${toolbarTarget ? 'terminal-toolbar-external' : ''}`}>
+      <span className={`terminal-status terminal-status-${status}`}>
+        {status === 'connecting' && terminalText('Verbinden...')}
+        {status === 'open' && (toolbarTarget ? terminalText('Verbunden') : `${terminalText('Verbunden')} · ${resourceName}`)}
+        {status === 'closed' && terminalText('Getrennt')}
+        {status === 'error' && (message || terminalText('Fehler'))}
+      </span>
+      <div className="terminal-toolbar-actions">
+        {status === 'open' && canPasteUserPassword && (
+          <button
+            type="button"
+            className="btn-secondary btn-small"
+            disabled={passwordPasteState === 'sending'}
+            onClick={() => {
+              setPasswordPasteState('sending');
+              consoleControlRef.current?.('3:paste-user-password');
+            }}
+          >
+            {passwordPasteState === 'pasted'
+              ? terminalText('Passwort eingefügt')
+              : terminalText('Benutzer-Passwort einfügen')}
+          </button>
+        )}
+        {(status === 'closed' || status === 'error') && (
+          <button type="button" className="btn-secondary btn-small" onClick={() => { setStatus('connecting'); setMessage(''); setReconnectKey(key => key + 1); }}>
+            {terminalText('Neu verbinden')}
+          </button>
+        )}
       </div>
+    </div>
+  );
+
+  return (
+    <div className={`${fullscreen ? 'terminal-wrapper terminal-wrapper-fullscreen' : 'terminal-wrapper'} ${toolbarTarget ? 'terminal-wrapper-external-toolbar' : ''}`}>
+      {toolbarTarget ? createPortal(toolbar, toolbarTarget) : toolbar}
       <div ref={containerRef} className="terminal-container"></div>
     </div>
   );
