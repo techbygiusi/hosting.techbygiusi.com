@@ -299,11 +299,11 @@ export default function PangolinSettingsPanel({ onSuccess, onError, language: la
   };
 
   if (loading) {
-    return <section className="panel-card pangolin-settings-panel"><p className="loading">{text.loadSettings}</p></section>;
+    return <section className="panel-card settings-section-card pangolin-settings-panel unified-settings-panel"><p className="loading">{text.loadSettings}</p></section>;
   }
 
   return (
-    <section className="panel-card pangolin-settings-panel">
+    <section className="panel-card settings-section-card pangolin-settings-panel unified-settings-panel">
       <div className="panel-header pangolin-panel-header">
         <div>
           <p className="section-eyebrow">{text.eyebrow}</p>

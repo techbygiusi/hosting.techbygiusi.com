@@ -12233,3 +12233,137 @@ body.theme-dark {
 .app-tabs.console-nav-tabs button {
   box-shadow: none !important;
 }
+
+/* -------------------------------------------------------------
+   Follow-up polish: keep desktop sidebar navigation compact.
+   The global horizontal-tab spacing must not inflate vertical menus.
+---------------------------------------------------------------- */
+.admin-shell .app-tabs.console-nav-tabs {
+  min-height: 0 !important;
+  gap: 6px !important;
+  padding: 10px !important;
+  align-content: start !important;
+}
+
+.admin-shell .app-tabs.console-nav-tabs button {
+  min-height: 44px !important;
+  padding: 10px 14px !important;
+  margin: 0 !important;
+}
+
+@media (max-width: 1180px) and (min-width: 961px) {
+  .admin-shell .app-tabs.console-nav-tabs {
+    gap: 5px !important;
+    padding: 9px !important;
+  }
+
+  .admin-shell .app-tabs.console-nav-tabs button {
+    min-height: 42px !important;
+    padding: 9px 12px !important;
+  }
+}
+
+
+/* -------------------------------------------------------------
+   Follow-up polish: unify the full Hosting Settings look.
+   Pangolin and Self-Service now use the same visual language as
+   the other settings cards, with consistent surfaces, borders
+   and inner blocks.
+---------------------------------------------------------------- */
+.settings-card.admin-settings-shell .admin-settings-tab-content {
+  padding: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+.unified-settings-panel {
+  background: var(--color-surface) !important;
+  border: 1px solid var(--color-border) !important;
+  border-radius: var(--radius-xl) !important;
+  box-shadow: var(--portal-card-shadow-unified) !important;
+  padding: var(--portal-density-card-padding) !important;
+  gap: var(--portal-density-gap) !important;
+}
+
+body.theme-light .unified-settings-panel {
+  background: #ffffff !important;
+  border-color: rgba(17, 17, 17, 0.08) !important;
+}
+
+body.theme-dark .unified-settings-panel {
+  background: #111418 !important;
+  border-color: rgba(218, 227, 215, 0.10) !important;
+}
+
+.unified-settings-panel > .form-group,
+.unified-settings-panel > .alert,
+.unified-settings-panel .provisioning-form {
+  margin-top: 0 !important;
+}
+
+.unified-settings-panel .pangolin-settings-form,
+.unified-settings-panel .provisioning-form {
+  gap: 14px !important;
+}
+
+.unified-settings-panel .panel-header,
+.unified-settings-panel .pangolin-panel-header,
+.unified-settings-panel .settings-section-header {
+  margin: 0 !important;
+}
+
+.unified-settings-panel .settings-toggle-card,
+.unified-settings-panel .pangolin-protocol-card,
+.unified-settings-panel .pangolin-publication-card,
+.unified-settings-panel .toggle-row,
+.unified-settings-panel .setup-check-row,
+.unified-settings-panel .setup-check-test,
+.unified-settings-panel .notification-toggle-stack > * {
+  background: var(--color-bg-alt) !important;
+  border: 1px solid var(--color-border) !important;
+  border-radius: var(--radius-lg) !important;
+  box-shadow: var(--portal-inner-shadow-unified) !important;
+}
+
+.unified-settings-panel .pangolin-protocol-card {
+  padding: 16px !important;
+  gap: 12px !important;
+}
+
+.unified-settings-panel .toggle-row {
+  min-height: 54px !important;
+  padding: 14px 16px !important;
+}
+
+.unified-settings-panel .pangolin-publication-admin-list {
+  padding-top: 14px !important;
+  margin-top: 2px !important;
+  border-top: 1px solid var(--color-border) !important;
+  gap: 16px !important;
+}
+
+.unified-settings-panel .pangolin-publication-grid,
+.unified-settings-panel .pangolin-settings-grid,
+.unified-settings-panel .pangolin-protocol-grid,
+.unified-settings-panel .form-row-2,
+.unified-settings-panel .form-row-3 {
+  gap: 14px !important;
+}
+
+.unified-settings-panel .form-actions,
+.unified-settings-panel .pangolin-settings-footer .form-actions,
+.unified-settings-panel .settings-testmail-row {
+  margin-top: 2px !important;
+}
+
+@media (max-width: 767px) {
+  .unified-settings-panel {
+    padding: 16px !important;
+  }
+
+  .unified-settings-panel .pangolin-settings-footer,
+  .unified-settings-panel .settings-section-header {
+    gap: 12px !important;
+  }
+}

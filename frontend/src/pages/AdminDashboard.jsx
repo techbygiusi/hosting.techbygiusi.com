@@ -2137,7 +2137,7 @@ function ProvisioningSettings({ clusters, onSaved, onError, onSuccess }) {
   const storageNames = storages.map(s => s.storage);
 
   return (
-    <section className="panel-card provisioning-settings-panel">
+    <section className="panel-card settings-section-card provisioning-settings-panel unified-settings-panel">
       <PanelHeader title="Self-Service" />
 
       <label className="form-group">
