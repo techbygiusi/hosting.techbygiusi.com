@@ -12859,3 +12859,296 @@ body.theme-dark .site-header {
 body.theme-dark .site-header::after {
   background: rgba(229, 219, 255, 0.10) !important;
 }
+
+
+/* -------------------------------------------------------------
+   v3.2.9 - Admin dashboard redesign: new overview composition
+---------------------------------------------------------------- */
+.admin-overview-dashboard {
+  display: grid;
+  gap: 22px;
+}
+
+.admin-overview-hero-card {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1.25fr) minmax(320px, 0.75fr);
+  gap: 22px;
+  align-items: stretch;
+  padding: 30px !important;
+}
+
+.admin-overview-hero-main {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+}
+
+.admin-overview-hero-main p {
+  max-width: 66ch;
+  margin: 0;
+}
+
+.admin-overview-hero-side {
+  display: grid;
+  gap: 14px;
+  align-content: start;
+}
+
+.admin-overview-inline-summary {
+  display: grid;
+  gap: 6px;
+  padding: 18px 20px;
+  border-radius: 22px;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-alt);
+  box-shadow: var(--portal-inner-shadow-unified);
+}
+
+.admin-overview-inline-summary span,
+.admin-overview-inline-summary small {
+  color: var(--color-text-light);
+}
+
+.admin-overview-inline-summary strong {
+  color: var(--color-text);
+  font-size: 1.05rem;
+  line-height: 1.35;
+}
+
+.admin-overview-feature-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.admin-overview-feature-card {
+  display: grid;
+  gap: 18px;
+  padding: 24px !important;
+}
+
+.admin-overview-feature-button {
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
+}
+
+.admin-overview-feature-button:hover,
+.admin-overview-feature-button:focus-visible {
+  transform: translateY(-1px);
+  border-color: rgba(140, 111, 240, 0.28) !important;
+}
+
+.admin-overview-feature-head {
+  display: grid;
+  gap: 8px;
+}
+
+.admin-overview-feature-head h3,
+.admin-overview-feature-head p {
+  margin: 0;
+}
+
+.admin-overview-feature-value {
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 3vw, 3rem);
+  font-weight: 600;
+  line-height: 1;
+  color: var(--color-text);
+}
+
+.admin-overview-feature-list {
+  display: grid;
+  gap: 10px;
+}
+
+.admin-overview-feature-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--color-border);
+}
+
+.admin-overview-feature-item span {
+  color: var(--color-text-light);
+}
+
+.admin-overview-feature-item strong {
+  color: var(--color-text);
+}
+
+.admin-overview-primary-grid,
+.admin-overview-secondary-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+  gap: 22px;
+  align-items: start;
+}
+
+.admin-overview-actions-card,
+.admin-overview-health-card {
+  display: grid;
+  gap: 18px;
+}
+
+.admin-overview-actions-header,
+.admin-overview-health-header {
+  align-items: start;
+}
+
+.admin-overview-actions-header p,
+.admin-overview-health-header p {
+  margin: 6px 0 0;
+}
+
+.admin-overview-actions-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.admin-overview-action-tile {
+  display: grid;
+  gap: 8px;
+  padding: 18px;
+  border-radius: 22px;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-alt);
+  color: var(--color-text);
+  text-align: left;
+  cursor: pointer;
+  transition: transform 0.16s ease, border-color 0.16s ease, background 0.16s ease;
+}
+
+.admin-overview-action-tile:hover,
+.admin-overview-action-tile:focus-visible {
+  transform: translateY(-1px);
+  border-color: rgba(140, 111, 240, 0.28);
+  background: color-mix(in srgb, var(--color-bg-alt) 88%, var(--color-primary) 12%);
+}
+
+.admin-overview-action-tile strong {
+  font-size: 1rem;
+  color: var(--color-text);
+}
+
+.admin-overview-action-tile span {
+  color: var(--color-text-light);
+  line-height: 1.45;
+}
+
+.admin-overview-health-list {
+  display: grid;
+  gap: 12px;
+}
+
+.admin-overview-health-row {
+  padding: 16px 18px;
+  border-radius: 22px;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-alt);
+}
+
+.admin-overview-health-main,
+.admin-overview-health-title {
+  display: grid;
+  gap: 10px;
+}
+
+.admin-overview-health-title {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.admin-overview-health-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  color: var(--color-text-light);
+  font-size: var(--font-size-sm);
+}
+
+.admin-overview-secondary-grid .status-events-card,
+.admin-overview-secondary-grid .cluster-stats-section {
+  margin-top: 0;
+}
+
+body.theme-dark .admin-overview-inline-summary,
+body.theme-dark .admin-overview-action-tile,
+body.theme-dark .admin-overview-health-row {
+  background: rgba(37, 31, 66, 0.96) !important;
+  border-color: rgba(229, 219, 255, 0.10) !important;
+}
+
+body.theme-dark .admin-overview-feature-button:hover,
+body.theme-dark .admin-overview-feature-button:focus-visible,
+body.theme-dark .admin-overview-action-tile:hover,
+body.theme-dark .admin-overview-action-tile:focus-visible {
+  border-color: rgba(229, 219, 255, 0.20) !important;
+}
+
+@media (max-width: 1180px) {
+  .admin-overview-hero-card,
+  .admin-overview-primary-grid,
+  .admin-overview-secondary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-overview-feature-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .admin-overview-feature-grid,
+  .admin-overview-actions-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-overview-hero-card {
+    padding: 22px !important;
+  }
+
+  .admin-overview-health-title {
+    grid-template-columns: 1fr;
+    align-items: start;
+  }
+}
+
+
+/* -------------------------------------------------------------
+   v3.3.0 - Seamless dashboard header background
+---------------------------------------------------------------- */
+.site-header,
+body.theme-light .site-header,
+body.theme-dark .site-header {
+  background: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  box-shadow: none !important;
+}
+
+.site-header::after,
+body.theme-light .site-header::after,
+body.theme-dark .site-header::after {
+  display: none !important;
+}
+
+.site-header-inner {
+  background: transparent !important;
+}
+
+body.theme-light .app-page.admin-page,
+body.theme-light .app-page.user-page,
+body.theme-light .app-page {
+  background: radial-gradient(circle at top left, rgba(140, 111, 240, 0.06), transparent 24%), linear-gradient(180deg, #F4F1FB 0%, #F4F1FB 100%) !important;
+}
+
+body.theme-dark .app-page.admin-page,
+body.theme-dark .app-page.user-page,
+body.theme-dark .app-page {
+  background: radial-gradient(circle at top left, rgba(229, 219, 255, 0.08), transparent 24%), linear-gradient(180deg, #171331 0%, #171331 100%) !important;
+}

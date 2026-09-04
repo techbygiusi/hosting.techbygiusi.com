@@ -12,20 +12,39 @@ function MapBounds({ points }) {
   const map = useMap();
 
   React.useEffect(() => {
-    if (!points.length) return;
+    if (!points.length || !map) return undefined;
 
-    const bounds = L.latLngBounds(points.map(point => [point.lat, point.lon]));
-    const center = bounds.getCenter();
-    const latSpan = Math.abs(bounds.getNorth() - bounds.getSouth());
-    const lonSpan = Math.abs(bounds.getEast() - bounds.getWest());
+    let cancelled = false;
+    let resizeTimer;
 
-    if (points.length === 1 || (latSpan < 8 && lonSpan < 12)) {
-      map.setView([center.lat, center.lng], 4, { animate: false });
-    } else {
-      map.fitBounds(bounds, { padding: [30, 30], maxZoom: 4, animate: false });
+    try {
+      const bounds = L.latLngBounds(points.map(point => [point.lat, point.lon]));
+      const center = bounds.getCenter();
+      const latSpan = Math.abs(bounds.getNorth() - bounds.getSouth());
+      const lonSpan = Math.abs(bounds.getEast() - bounds.getWest());
+
+      if (points.length === 1 || (latSpan < 8 && lonSpan < 12)) {
+        map.setView([center.lat, center.lng], 4, { animate: false });
+      } else {
+        map.fitBounds(bounds, { padding: [30, 30], maxZoom: 4, animate: false });
+      }
+
+      resizeTimer = window.setTimeout(() => {
+        if (cancelled || !map?._container) return;
+        try {
+          map.invalidateSize(false);
+        } catch (_) {
+          // Ignore transient Leaflet sizing errors while the dashboard mounts/unmounts.
+        }
+      }, 80);
+    } catch (_) {
+      // Ignore transient Leaflet layout errors while the dashboard mounts/unmounts.
     }
 
-    setTimeout(() => map.invalidateSize(), 50);
+    return () => {
+      cancelled = true;
+      if (resizeTimer) window.clearTimeout(resizeTimer);
+    };
   }, [map, points]);
 
   return null;

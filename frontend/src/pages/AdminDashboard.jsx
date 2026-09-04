@@ -408,7 +408,59 @@ export default function AdminDashboard() {
   const adminCount = users.filter(item => item.role === 'admin').length;
   const userCount = users.filter(item => item.role === 'user').length;
   const onlineCount = resources.filter(item => item.status === 'running').length;
+  const offlineCount = Math.max(resources.length - onlineCount, 0);
   const mappedClusterCount = clusterStats.filter(item => Number.isFinite(Number(item.location_lat)) && Number.isFinite(Number(item.location_lon))).length;
+  const overviewText = mobileMenuLanguage === 'de'
+    ? {
+        heroText: 'Behalte Benutzer, Infrastruktur und Dienststatus in einer kompakten Übersicht im Blick.',
+        summaryTitle: 'Systemübersicht',
+        accountsEyebrow: 'Accounts',
+        accountsHint: 'Benutzer, Administratoren und Gruppen verwalten.',
+        infrastructureEyebrow: 'Infrastruktur',
+        infrastructureHint: 'Cluster, Dienste und Standorte zentral überwachen.',
+        availabilityEyebrow: 'Verfügbarkeit',
+        availabilityHint: 'Status, letzte Änderungen und Erreichbarkeit im Blick behalten.',
+        mappedLocations: 'Mit Standort',
+        offline: 'Offline',
+        recentChanges: 'Letzte Änderungen',
+        quickActions: 'Schnellzugriffe',
+        quickActionsText: 'Direkte Einstiege in die wichtigsten Verwaltungsbereiche.',
+        manageUsers: 'Benutzer verwalten',
+        manageUsersText: 'Konten und Rollen pflegen',
+        manageGroups: 'Gruppen verwalten',
+        manageGroupsText: 'Zuweisungen und Mitgliedschaften',
+        manageLog: 'Protokoll öffnen',
+        manageLogText: 'Anmeldungen und Aktionen prüfen',
+        manageSettings: 'Einstellungen öffnen',
+        manageSettingsText: 'Portal- und Hosting-Konfiguration',
+        infrastructureHealth: 'Infrastrukturstatus',
+        infrastructureHealthText: 'Schnelle Sicht auf jeden Cluster und seine aktuelle Erreichbarkeit.'
+      }
+    : {
+        heroText: 'Keep users, infrastructure and service availability in one compact overview.',
+        summaryTitle: 'System summary',
+        accountsEyebrow: 'Accounts',
+        accountsHint: 'Manage users, administrators and groups.',
+        infrastructureEyebrow: 'Infrastructure',
+        infrastructureHint: 'Monitor clusters, services and locations from one place.',
+        availabilityEyebrow: 'Availability',
+        availabilityHint: 'Track status, recent changes and reachability at a glance.',
+        mappedLocations: 'With location',
+        offline: 'Offline',
+        recentChanges: 'Recent changes',
+        quickActions: 'Quick actions',
+        quickActionsText: 'Direct entry points into the most important admin areas.',
+        manageUsers: 'Manage users',
+        manageUsersText: 'Maintain accounts and roles',
+        manageGroups: 'Manage groups',
+        manageGroupsText: 'Assignments and memberships',
+        manageLog: 'Open log',
+        manageLogText: 'Review logins and actions',
+        manageSettings: 'Open settings',
+        manageSettingsText: 'Portal and hosting configuration',
+        infrastructureHealth: 'Infrastructure health',
+        infrastructureHealthText: 'Quick view of each cluster and its current reachability.'
+      };
   const currentClusterName = useMemo(() => {
     const cluster = clusters.find(item => String(item.id) === String(newResource.clusterId));
     return cluster?.name || '';
@@ -1349,34 +1401,99 @@ export default function AdminDashboard() {
           {loading && <div className="loading"><span className="spinner"></span><span>{mobileMenuText.loading}</span></div>}
 
           {!loading && activeTab === 'overview' && (
-            <>
-              <section className="panel-card dashboard-hero-card">
-                <div>
+            <div className="admin-overview-dashboard">
+              <section className="panel-card admin-overview-hero-card">
+                <div className="admin-overview-hero-main">
                   <span className="resource-id">Hosting by TechByGiusi</span>
                   <h2>Dashboard</h2>
-                  
+                  <p>{overviewText.heroText}</p>
                 </div>
-                <div className="dashboard-hero-actions">
-                  <button type="button" className="btn-secondary" onClick={() => handleSelectTab('clusters')}>{dashboardText.manageClusters}</button>
-                  <button type="button" className="btn-primary" onClick={() => handleSelectTab('resources')}>{dashboardText.manageServices}</button>
+                <div className="admin-overview-hero-side">
+                  <div className="admin-overview-inline-summary">
+                    <span>{overviewText.summaryTitle}</span>
+                    <strong>{clusters.length} {mobileMenuText.counts.clusters} · {resources.length} {mobileMenuText.counts.services} · {users.length} {mobileMenuText.counts.users}</strong>
+                    <small>{onlineCount} {dashboardText.metrics.online} · {statusEvents.length} {overviewText.recentChanges}</small>
+                  </div>
+                  <div className="dashboard-hero-actions">
+                    <button type="button" className="btn-secondary" onClick={() => handleSelectTab('clusters')}>{dashboardText.manageClusters}</button>
+                    <button type="button" className="btn-primary" onClick={() => handleSelectTab('resources')}>{dashboardText.manageServices}</button>
+                  </div>
                 </div>
               </section>
 
-              <section className="dashboard-grid console-metric-grid">
-                <MetricCard label={dashboardText.metrics.users} value={userCount} onClick={() => handleSelectTab('users')} />
-                <MetricCard label={dashboardText.metrics.admins} value={adminCount} onClick={() => handleSelectTab('users')} />
-                <MetricCard label={dashboardText.metrics.groups} value={groups.length} onClick={() => handleSelectTab('groups')} />
-                <MetricCard label={dashboardText.metrics.clusters} value={clusters.length} onClick={() => handleSelectTab('clusters')} />
-                <MetricCard label={dashboardText.metrics.services} value={resources.length} onClick={() => handleSelectTab('resources')} />
-                <MetricCard label={dashboardText.metrics.online} value={onlineCount} onClick={() => handleSelectTab('resources')} />
+              <section className="admin-overview-feature-grid">
+                <OverviewFeatureCard
+                  eyebrow={overviewText.accountsEyebrow}
+                  title={userCount + adminCount}
+                  subtitle={mobileMenuLanguage === 'de' ? 'Gesamte Konten' : 'Total accounts'}
+                  hint={overviewText.accountsHint}
+                  onClick={() => handleSelectTab('users')}
+                  items={[
+                    { label: dashboardText.metrics.users, value: userCount },
+                    { label: dashboardText.metrics.admins, value: adminCount },
+                    { label: dashboardText.metrics.groups, value: groups.length }
+                  ]}
+                />
+                <OverviewFeatureCard
+                  eyebrow={overviewText.infrastructureEyebrow}
+                  title={clusters.length}
+                  subtitle={dashboardText.metrics.clusters}
+                  hint={overviewText.infrastructureHint}
+                  onClick={() => handleSelectTab('clusters')}
+                  items={[
+                    { label: dashboardText.metrics.services, value: resources.length },
+                    { label: overviewText.mappedLocations, value: mappedClusterCount },
+                    { label: mobileMenuText.clusterMap.nodes, value: clusterStats.reduce((sum, cluster) => sum + Number(cluster?.totals?.nodes || (Array.isArray(cluster?.nodes) ? cluster.nodes.length : 0)), 0) }
+                  ]}
+                />
+                <OverviewFeatureCard
+                  eyebrow={overviewText.availabilityEyebrow}
+                  title={onlineCount}
+                  subtitle={dashboardText.metrics.online}
+                  hint={overviewText.availabilityHint}
+                  onClick={() => handleSelectTab('resources')}
+                  items={[
+                    { label: overviewText.offline, value: offlineCount },
+                    { label: overviewText.recentChanges, value: statusEvents.length },
+                    { label: mobileMenuText.clusterStatus.unavailable, value: clusterStats.filter(cluster => !!cluster.error).length }
+                  ]}
+                />
               </section>
 
-              <div className="admin-overview-stack">
+              <div className="admin-overview-primary-grid">
+                <section className="panel-card admin-overview-actions-card">
+                  <div className="panel-header admin-overview-actions-header">
+                    <div>
+                      <h2>{overviewText.quickActions}</h2>
+                      <p>{overviewText.quickActionsText}</p>
+                    </div>
+                  </div>
+                  <div className="admin-overview-actions-grid">
+                    <OverviewActionTile title={overviewText.manageUsers} detail={overviewText.manageUsersText} onClick={() => handleSelectTab('users')} />
+                    <OverviewActionTile title={overviewText.manageGroups} detail={overviewText.manageGroupsText} onClick={() => handleSelectTab('groups')} />
+                    <OverviewActionTile title={dashboardText.manageClusters} detail={clusterText.title || 'Manage Proxmox clusters'} onClick={() => handleSelectTab('clusters')} />
+                    <OverviewActionTile title={dashboardText.manageServices} detail={mobileMenuLanguage === 'de' ? 'Dienste, Vorlagen und Zuweisungen verwalten' : 'Manage services, templates and assignments'} onClick={() => handleSelectTab('resources')} />
+                    <OverviewActionTile title={overviewText.manageLog} detail={overviewText.manageLogText} onClick={() => handleSelectTab('audit')} />
+                    <OverviewActionTile title={overviewText.manageSettings} detail={overviewText.manageSettingsText} onClick={() => handleSelectTab('settings')} />
+                  </div>
+                </section>
+
                 <ClusterMapSection clusters={clusterStats} mappedCount={mappedClusterCount} onOpenClusters={() => handleSelectTab('clusters')} labels={mobileMenuText.clusterMap} />
-                <StatusEventsSection events={statusEvents} />
-                <ClusterStatsSection clusters={clusterStats} labels={mobileMenuText.clusterStatus} />
               </div>
-            </>
+
+              <div className="admin-overview-secondary-grid">
+                <StatusEventsSection events={statusEvents} />
+                <AdminOverviewHealthCard
+                  title={overviewText.infrastructureHealth}
+                  text={overviewText.infrastructureHealthText}
+                  clusters={clusterStats}
+                  labels={mobileMenuText.clusterStatus}
+                  onOpenClusters={() => handleSelectTab('clusters')}
+                />
+              </div>
+
+              <ClusterStatsSection clusters={clusterStats} labels={mobileMenuText.clusterStatus} />
+            </div>
           )}
 
         {!loading && activeTab === 'users' && (
@@ -2330,6 +2447,86 @@ function PanelHeader({ title, action, onAction }) {
   return <div className="panel-header"><h2>{title}</h2>{action && <button type="button" className="btn-primary" onClick={onAction}>{action}</button>}</div>;
 }
 
+
+function OverviewFeatureCard({ eyebrow, title, subtitle, hint, items = [], onClick }) {
+  const content = (
+    <>
+      <div className="admin-overview-feature-head">
+        <span className="resource-id">{eyebrow}</span>
+        <div className="admin-overview-feature-value">{title}</div>
+        <h3>{subtitle}</h3>
+        <p>{hint}</p>
+      </div>
+      <div className="admin-overview-feature-list">
+        {items.map(item => (
+          <div key={item.label} className="admin-overview-feature-item">
+            <span>{item.label}</span>
+            <strong>{item.value}</strong>
+          </div>
+        ))}
+      </div>
+    </>
+  );
+
+  if (onClick) {
+    return (
+      <button type="button" className="panel-card admin-overview-feature-card admin-overview-feature-button" onClick={onClick}>
+        {content}
+      </button>
+    );
+  }
+
+  return <article className="panel-card admin-overview-feature-card">{content}</article>;
+}
+
+function OverviewActionTile({ title, detail, onClick }) {
+  return (
+    <button type="button" className="admin-overview-action-tile" onClick={onClick}>
+      <strong>{title}</strong>
+      <span>{detail}</span>
+    </button>
+  );
+}
+
+function AdminOverviewHealthCard({ title, text, clusters, labels, onOpenClusters }) {
+  return (
+    <section className="panel-card admin-overview-health-card">
+      <div className="panel-header admin-overview-health-header">
+        <div>
+          <h2>{title}</h2>
+          <p>{text}</p>
+        </div>
+        <button type="button" className="btn-secondary btn-small" onClick={onOpenClusters}>{labels?.title || 'Cluster status'}</button>
+      </div>
+      <div className="admin-overview-health-list">
+        {(clusters || []).map(cluster => {
+          const totals = cluster.totals || {};
+          const nodes = Array.isArray(cluster.nodes) ? cluster.nodes : [];
+          const nodeCount = totals.nodes || nodes.length || 0;
+          const online = totals.online || 0;
+          const unavailable = !!cluster.error;
+          return (
+            <article key={cluster.id} className="admin-overview-health-row">
+              <div className="admin-overview-health-main">
+                <div className="admin-overview-health-title">
+                  <strong>{cluster.name}</strong>
+                  <span className={`status-badge ${unavailable ? 'status-stopped' : 'status-running'}`}>
+                    {unavailable ? (labels?.unavailable || 'Unavailable') : `${online}/${nodeCount} ${labels?.nodes || 'Nodes'}`}
+                  </span>
+                </div>
+                <div className="admin-overview-health-metrics">
+                  <span>CPU {formatFixed(totals.cpuPercent)}%</span>
+                  <span>RAM {formatFixed(totals.memPercent)}%</span>
+                  <span>{labels?.storage || 'Storage'} {formatFixed(totals.storageTotal ? totals.storagePercent : totals.rootPercent)}%</span>
+                </div>
+              </div>
+            </article>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
 
 function ClusterStatsSection({ clusters, labels }) {
   if (!clusters || clusters.length === 0) return null;
