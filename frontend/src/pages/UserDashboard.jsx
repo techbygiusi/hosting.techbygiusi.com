@@ -106,6 +106,9 @@ const USER_TRANSLATIONS = {
     removePublicPageConfirm: 'Remove the public page from this service?',
     managementPage: 'Admin',
     managementPageTitle: 'Open management page',
+    console: 'Console',
+    consoleTitle: 'Open console',
+    sshConsoleTitle: 'Open SSH console',
     details: 'Show details',
     save: 'Save',
     saving: 'Saving...',
@@ -194,6 +197,9 @@ const USER_TRANSLATIONS = {
     removePublicPageConfirm: 'Die öffentliche Seite von diesem Dienst entfernen?',
     managementPage: 'Admin',
     managementPageTitle: 'Verwaltungsseite öffnen',
+    console: 'Konsole',
+    consoleTitle: 'Konsole öffnen',
+    sshConsoleTitle: 'SSH-Konsole öffnen',
     details: 'Details anzeigen',
     save: 'Speichern',
     saving: 'Wird gespeichert...',
@@ -240,6 +246,17 @@ function LogoutIcon() {
       <path d="M10 6H5v12h5" />
       <path d="M14 8l4 4-4 4" />
       <path d="M8 12h10" />
+    </svg>
+  );
+}
+
+function ConsoleIcon() {
+  return (
+    <svg className="console-launch-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M4 6.5h16" />
+      <rect x="3" y="5" width="18" height="14" rx="2.5" />
+      <path d="M7.5 10.5l2.5 2-2.5 2" />
+      <path d="M12.5 14.5h4" />
     </svg>
   );
 }
@@ -625,6 +642,8 @@ function ResourceCard({ resource, onOpenDetails, onManagePublicPage, labels }) {
   const adminUrl = resource.adminUrl || '';
   const managePublicPageLabel = `${labels.managePublicAccess}${Number(resource.publicationCount || 0) > 0 ? ` (${resource.publicationCount})` : ''}`;
   const managePublicPageTitle = labels.editPublicPage;
+  const canOpenConsole = !!resource?.capabilities?.canConsole;
+  const consoleTitle = resource?.consoleMode === 'ssh' ? labels.sshConsoleTitle : labels.consoleTitle;
 
   return (
     <article className="resource-card compact-resource-card">
@@ -633,7 +652,19 @@ function ResourceCard({ resource, onOpenDetails, onManagePublicPage, labels }) {
           <span className="resource-id">{renderType(resource.type)} · {resource.containerId}</span>
           <h2>{resource.name}</h2>
         </div>
-        <span className={`status-badge status-${resource.status || 'unknown'}`}>{renderUserStatus(resource.status || 'unknown', labels)}</span>
+        <div className="resource-card-header-actions">
+          {canOpenConsole && (
+            <a
+              className="resource-console-button"
+              href={`/console/${resource.id}`}
+              title={consoleTitle}
+              aria-label={consoleTitle}
+            >
+              <ConsoleIcon />
+            </a>
+          )}
+          <span className={`status-badge status-${resource.status || 'unknown'}`}>{renderUserStatus(resource.status || 'unknown', labels)}</span>
+        </div>
       </div>
 
       <div className="resource-summary">

@@ -306,7 +306,6 @@ export default function PangolinSettingsPanel({ onSuccess, onError, language: la
     <section className="panel-card settings-section-card pangolin-settings-panel unified-settings-panel">
       <div className="panel-header pangolin-panel-header">
         <div>
-          <p className="section-eyebrow">{text.eyebrow}</p>
           <h2>{text.title}</h2>
         </div>
         <span className={`status-badge ${form.enabled ? 'status-running' : 'status-stopped'}`}>{form.enabled ? text.active : text.inactive}</span>

@@ -1563,7 +1563,7 @@ export default function AdminDashboard() {
 
         {!loading && activeTab === 'settings' && (
           <>
-            <section className="panel-card settings-card admin-settings-shell">
+            <section className="panel-card settings-card admin-settings-shell admin-settings-navigation-card">
               <PanelHeader title={settingsText.title} />
 
               <nav className="admin-settings-tabs" aria-label={settingsText.title}>
@@ -1597,130 +1597,126 @@ export default function AdminDashboard() {
                   </section>
                 </div>
               )}
-
-              {settingsSection === 'hosting' && (
-                <div className="admin-settings-tab-content">
-                  <section className="settings-section-card admin-infrastructure-notifications" aria-labelledby="settings-infrastructure-notifications-title">
-                    <div className="settings-section-heading">
-                      <h3 id="settings-infrastructure-notifications-title">{settingsText.infrastructureTitle}</h3>
-                      <p>{settingsText.infrastructureIntro}</p>
-                    </div>
-                    <div className="admin-infrastructure-notification-list">
-                      <label className="settings-toggle-card admin-infrastructure-notification-row">
-                        <span><strong>{settingsText.clusterDown}</strong><small>{settingsText.clusterDownHint}</small></span>
-                        <span className={`toggle-switch ${infrastructureNotifications.notifyClusterDown ? 'is-on' : ''}`}>
-                          <input type="checkbox" checked={infrastructureNotifications.notifyClusterDown} onChange={e => handleInfrastructureNotificationChange('notifyClusterDown', e.target.checked)} disabled={infrastructureNotificationsSaving} />
-                          <span className="toggle-knob" aria-hidden="true" />
-                        </span>
-                      </label>
-                      <label className="settings-toggle-card admin-infrastructure-notification-row">
-                        <span><strong>{settingsText.nodeDown}</strong><small>{settingsText.nodeDownHint}</small></span>
-                        <span className={`toggle-switch ${infrastructureNotifications.notifyNodeDown ? 'is-on' : ''}`}>
-                          <input type="checkbox" checked={infrastructureNotifications.notifyNodeDown} onChange={e => handleInfrastructureNotificationChange('notifyNodeDown', e.target.checked)} disabled={infrastructureNotificationsSaving} />
-                          <span className="toggle-knob" aria-hidden="true" />
-                        </span>
-                      </label>
-                      <label className="settings-toggle-card admin-infrastructure-notification-row">
-                        <span><strong>{settingsText.pangolinDown}</strong><small>{settingsText.pangolinDownHint}</small></span>
-                        <span className={`toggle-switch ${infrastructureNotifications.notifyPangolinDown ? 'is-on' : ''}`}>
-                          <input type="checkbox" checked={infrastructureNotifications.notifyPangolinDown} onChange={e => handleInfrastructureNotificationChange('notifyPangolinDown', e.target.checked)} disabled={infrastructureNotificationsSaving} />
-                          <span className="toggle-knob" aria-hidden="true" />
-                        </span>
-                      </label>
-                    </div>
-                    <div className="form-actions">
-                      <button type="button" className="btn-primary" onClick={handleSaveInfrastructureNotifications} disabled={infrastructureNotificationsSaving}>
-                        {infrastructureNotificationsSaving ? settingsText.savingNotifications : settingsText.saveNotifications}
-                      </button>
-                    </div>
-                  </section>
-
-                  <section className="settings-section-card settings-smtp-section" aria-labelledby="settings-smtp-title">
-                    <div className="settings-section-heading">
-                      <h3 id="settings-smtp-title">SMTP-Einstellungen</h3>
-                      <p>Konfiguriere den Mailversand für Tests, Benachrichtigungen und Passwort-Zurücksetzungen.</p>
-                    </div>
-                    <form className="form-grid" onSubmit={handleSaveSettings}>
-                      <label className="form-group"><span>SMTP-Host</span><input type="text" name="smtpHost" value={settings.smtpHost} onChange={handleSettingsChange} placeholder="smtp.example.com" /></label>
-                      <label className="form-group"><span>SMTP-Port</span><input type="text" name="smtpPort" value={settings.smtpPort} onChange={handleSettingsChange} placeholder="587" /></label>
-                      <label className="form-group"><span>SMTP-Benutzer</span><input type="email" name="smtpUser" value={settings.smtpUser} onChange={handleSettingsChange} placeholder="noreply@example.com" /></label>
-                      <label className="form-group"><span>SMTP-Passwort</span><input type="password" name="smtpPassword" value={settings.smtpPassword} onChange={handleSettingsChange} placeholder="Leer lassen, vorhandenes Passwort verwenden" /></label>
-                      <div className="form-actions full-width"><button type="button" className="btn-secondary" onClick={handleTestSmtp} disabled={actionLoading}>SMTP testen</button><button type="submit" className="btn-primary" disabled={actionLoading}>Speichern</button></div>
-                    </form>
-                    {smtpTestResult && <div className={`test-result ${smtpTestResult.success ? 'success' : 'error'}`}>{translateMessage(smtpTestResult.message)}</div>}
-                    <div className="settings-testmail-row">
-                      <button type="button" className="btn-secondary" onClick={handleSendTestMail} disabled={actionLoading}>Test-E-Mail an mich senden</button>
-                      {testMailResult && <div className={`test-result ${testMailResult.success ? 'success' : 'error'}`}>{translateMessage(testMailResult.message)}</div>}
-                    </div>
-                  </section>
-
-                  <section className="settings-section-card settings-setup-section" aria-labelledby="settings-setup-title">
-                    <div className="settings-section-header">
-                      <div className="settings-section-heading">
-                        <h3 id="settings-setup-title">Einrichtung prüfen</h3>
-                        <p>Prüfe Administrator, Proxmox und SMTP direkt in den Einstellungen.</p>
-                      </div>
-                      <button type="button" className="btn-secondary" onClick={() => loadSetupCheck()} disabled={setupCheckLoading || actionLoading}>
-                        {setupCheckLoading ? 'Prüfe…' : 'Aktualisieren'}
-                      </button>
-                    </div>
-
-                    {setupCheckLoading ? (
-                      <div className="loading inline-loading"><span className="spinner"></span><span>Prüfung läuft...</span></div>
-                    ) : setupCheck?.error ? (
-                      <div className="alert alert-danger">{setupCheck.error}</div>
-                    ) : (
-                      <div className="setup-check-grid settings-inline-check-grid">
-                        <SetupCheckRow label="Administrator" ok={setupCheck?.adminConfigured} detail={setupAdminDetail} />
-                        <SetupCheckRow label="Proxmox" ok={setupCheck?.proxmoxConfigured} detail={setupClusterDetail} />
-                        <SetupCheckRow label="SMTP" ok={setupCheck?.smtpConfigured} detail={setupCheck?.settings?.smtp_user || 'Nicht hinterlegt'} />
-
-                        <div className="settings-setup-tests">
-                          <div className="setup-check-test">
-                            <h3>Proxmox-Verbindung</h3>
-                            <div className="setup-check-actions">
-                              <select value={selectedSetupClusterId} onChange={e => { setSelectedSetupClusterId(e.target.value); setSetupClusterTestResult(null); }}>
-                                <option value="">Cluster auswählen</option>
-                                {(setupCheck?.clusters || []).map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
-                              </select>
-                              <button type="button" className="btn-secondary" onClick={handleTestSetupCluster} disabled={actionLoading || !selectedSetupClusterId}>Testen</button>
-                            </div>
-                            {setupClusterTestResult && <div className={`test-result ${setupClusterTestResult.success ? 'success' : 'error'}`}>{translateMessage(setupClusterTestResult.message)}</div>}
-                          </div>
-
-                          <div className="setup-check-test">
-                            <h3>SMTP-Verbindung</h3>
-                            <p className="settings-section-note">Prüft die aktuell gespeicherte SMTP-Konfiguration.</p>
-                            <button type="button" className="btn-secondary" onClick={handleTestSetupSmtp} disabled={actionLoading}>SMTP testen</button>
-                            {setupSmtpTestResult && <div className={`test-result ${setupSmtpTestResult.success ? 'success' : 'error'}`}>{translateMessage(setupSmtpTestResult.message)}</div>}
-                          </div>
-                        </div>
-
-                        {setupCheck?.setupRequired && (
-                          <button type="button" className="btn-primary full-button" onClick={() => { window.location.href = '/setup'; }}>Setup öffnen</button>
-                        )}
-                      </div>
-                    )}
-                  </section>
-                </div>
-              )}
             </section>
 
             {settingsSection === 'hosting' && (
-              <PangolinSettingsPanel
-                language={mobileMenuLanguage}
-                onSuccess={showSuccess}
-                onError={(msg) => setError(msg)}
-              />
-            )}
+              <div className="hosting-settings-stack">
+                <section className="panel-card settings-section-card unified-settings-panel settings-setup-section" aria-labelledby="settings-setup-title">
+                  <div className="settings-section-header">
+                    <div className="settings-section-heading">
+                      <h3 id="settings-setup-title">Einrichtung prüfen</h3>
+                      <p>Prüfe Administrator, Proxmox und SMTP direkt in den Einstellungen.</p>
+                    </div>
+                    <button type="button" className="btn-secondary" onClick={() => loadSetupCheck()} disabled={setupCheckLoading || actionLoading}>
+                      {setupCheckLoading ? 'Prüfe…' : 'Aktualisieren'}
+                    </button>
+                  </div>
 
-            {settingsSection === 'hosting' && (
-              <ProvisioningSettings
-                clusters={clusters}
-                onSaved={() => loadData('settings')}
-                onError={(msg) => setError(msg)}
-                onSuccess={showSuccess}
-              />
+                  {setupCheckLoading ? (
+                    <div className="loading inline-loading"><span className="spinner"></span><span>Prüfung läuft...</span></div>
+                  ) : setupCheck?.error ? (
+                    <div className="alert alert-danger">{setupCheck.error}</div>
+                  ) : (
+                    <div className="setup-check-grid settings-inline-check-grid">
+                      <SetupCheckRow label="Administrator" ok={setupCheck?.adminConfigured} detail={setupAdminDetail} />
+                      <SetupCheckRow label="Proxmox" ok={setupCheck?.proxmoxConfigured} detail={setupClusterDetail} />
+                      <SetupCheckRow label="SMTP" ok={setupCheck?.smtpConfigured} detail={setupCheck?.settings?.smtp_user || 'Nicht hinterlegt'} />
+
+                      <div className="settings-setup-tests">
+                        <div className="setup-check-test">
+                          <h3>Proxmox-Verbindung</h3>
+                          <div className="setup-check-actions">
+                            <select value={selectedSetupClusterId} onChange={e => { setSelectedSetupClusterId(e.target.value); setSetupClusterTestResult(null); }}>
+                              <option value="">Cluster auswählen</option>
+                              {(setupCheck?.clusters || []).map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
+                            </select>
+                            <button type="button" className="btn-secondary" onClick={handleTestSetupCluster} disabled={actionLoading || !selectedSetupClusterId}>Testen</button>
+                          </div>
+                          {setupClusterTestResult && <div className={`test-result ${setupClusterTestResult.success ? 'success' : 'error'}`}>{translateMessage(setupClusterTestResult.message)}</div>}
+                        </div>
+
+                        <div className="setup-check-test">
+                          <h3>SMTP-Verbindung</h3>
+                          <p className="settings-section-note">Prüft die aktuell gespeicherte SMTP-Konfiguration.</p>
+                          <button type="button" className="btn-secondary" onClick={handleTestSetupSmtp} disabled={actionLoading}>SMTP testen</button>
+                          {setupSmtpTestResult && <div className={`test-result ${setupSmtpTestResult.success ? 'success' : 'error'}`}>{translateMessage(setupSmtpTestResult.message)}</div>}
+                        </div>
+                      </div>
+
+                      {setupCheck?.setupRequired && (
+                        <button type="button" className="btn-primary full-button" onClick={() => { window.location.href = '/setup'; }}>Setup öffnen</button>
+                      )}
+                    </div>
+                  )}
+                </section>
+
+                <section className="panel-card settings-section-card unified-settings-panel admin-infrastructure-notifications" aria-labelledby="settings-infrastructure-notifications-title">
+                  <div className="settings-section-heading">
+                    <h3 id="settings-infrastructure-notifications-title">{settingsText.infrastructureTitle}</h3>
+                    <p>{settingsText.infrastructureIntro}</p>
+                  </div>
+                  <div className="admin-infrastructure-notification-list">
+                    <label className="settings-toggle-card admin-infrastructure-notification-row">
+                      <span><strong>{settingsText.clusterDown}</strong><small>{settingsText.clusterDownHint}</small></span>
+                      <span className={`toggle-switch ${infrastructureNotifications.notifyClusterDown ? 'is-on' : ''}`}>
+                        <input type="checkbox" checked={infrastructureNotifications.notifyClusterDown} onChange={e => handleInfrastructureNotificationChange('notifyClusterDown', e.target.checked)} disabled={infrastructureNotificationsSaving} />
+                        <span className="toggle-knob" aria-hidden="true" />
+                      </span>
+                    </label>
+                    <label className="settings-toggle-card admin-infrastructure-notification-row">
+                      <span><strong>{settingsText.nodeDown}</strong><small>{settingsText.nodeDownHint}</small></span>
+                      <span className={`toggle-switch ${infrastructureNotifications.notifyNodeDown ? 'is-on' : ''}`}>
+                        <input type="checkbox" checked={infrastructureNotifications.notifyNodeDown} onChange={e => handleInfrastructureNotificationChange('notifyNodeDown', e.target.checked)} disabled={infrastructureNotificationsSaving} />
+                        <span className="toggle-knob" aria-hidden="true" />
+                      </span>
+                    </label>
+                    <label className="settings-toggle-card admin-infrastructure-notification-row">
+                      <span><strong>{settingsText.pangolinDown}</strong><small>{settingsText.pangolinDownHint}</small></span>
+                      <span className={`toggle-switch ${infrastructureNotifications.notifyPangolinDown ? 'is-on' : ''}`}>
+                        <input type="checkbox" checked={infrastructureNotifications.notifyPangolinDown} onChange={e => handleInfrastructureNotificationChange('notifyPangolinDown', e.target.checked)} disabled={infrastructureNotificationsSaving} />
+                        <span className="toggle-knob" aria-hidden="true" />
+                      </span>
+                    </label>
+                  </div>
+                  <div className="form-actions">
+                    <button type="button" className="btn-primary" onClick={handleSaveInfrastructureNotifications} disabled={infrastructureNotificationsSaving}>
+                      {infrastructureNotificationsSaving ? settingsText.savingNotifications : settingsText.saveNotifications}
+                    </button>
+                  </div>
+                </section>
+
+                <section className="panel-card settings-section-card unified-settings-panel settings-smtp-section" aria-labelledby="settings-smtp-title">
+                  <div className="settings-section-heading">
+                    <h3 id="settings-smtp-title">SMTP-Einstellungen</h3>
+                    <p>Konfiguriere den Mailversand für Tests, Benachrichtigungen und Passwort-Zurücksetzungen.</p>
+                  </div>
+                  <form className="form-grid" onSubmit={handleSaveSettings}>
+                    <label className="form-group"><span>SMTP-Host</span><input type="text" name="smtpHost" value={settings.smtpHost} onChange={handleSettingsChange} placeholder="smtp.example.com" /></label>
+                    <label className="form-group"><span>SMTP-Port</span><input type="text" name="smtpPort" value={settings.smtpPort} onChange={handleSettingsChange} placeholder="587" /></label>
+                    <label className="form-group"><span>SMTP-Benutzer</span><input type="email" name="smtpUser" value={settings.smtpUser} onChange={handleSettingsChange} placeholder="noreply@example.com" /></label>
+                    <label className="form-group"><span>SMTP-Passwort</span><input type="password" name="smtpPassword" value={settings.smtpPassword} onChange={handleSettingsChange} placeholder="Leer lassen, vorhandenes Passwort verwenden" /></label>
+                    <div className="form-actions full-width"><button type="button" className="btn-secondary" onClick={handleTestSmtp} disabled={actionLoading}>SMTP testen</button><button type="submit" className="btn-primary" disabled={actionLoading}>Speichern</button></div>
+                  </form>
+                  {smtpTestResult && <div className={`test-result ${smtpTestResult.success ? 'success' : 'error'}`}>{translateMessage(smtpTestResult.message)}</div>}
+                  <div className="settings-testmail-row">
+                    <button type="button" className="btn-secondary" onClick={handleSendTestMail} disabled={actionLoading}>Test-E-Mail an mich senden</button>
+                    {testMailResult && <div className={`test-result ${testMailResult.success ? 'success' : 'error'}`}>{translateMessage(testMailResult.message)}</div>}
+                  </div>
+                </section>
+
+                <ProvisioningSettings
+                  clusters={clusters}
+                  onSaved={() => loadData('settings')}
+                  onError={(msg) => setError(msg)}
+                  onSuccess={showSuccess}
+                />
+
+                <PangolinSettingsPanel
+                  language={mobileMenuLanguage}
+                  onSuccess={showSuccess}
+                  onError={(msg) => setError(msg)}
+                />
+              </div>
             )}
           </>
         )}

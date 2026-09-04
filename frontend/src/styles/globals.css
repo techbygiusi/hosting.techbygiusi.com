@@ -952,6 +952,40 @@ body.theme-light .disk-row {
   justify-content: space-between;
   gap: var(--spacing-md);
 }
+.resource-card-header-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-shrink: 0;
+}
+.resource-console-button {
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-bg-alt);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+  text-decoration: none;
+  box-shadow: var(--portal-button-shadow, 0 1px 2px rgba(36, 30, 56, 0.045));
+  transition: var(--transition);
+}
+.resource-console-button:hover {
+  transform: translateY(-1px);
+  text-decoration: none;
+}
+.resource-console-button svg {
+  width: 18px;
+  height: 18px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
 .resource-card-header h2 { margin-top: 4px; font-size: var(--font-size-xl); }
 .resource-id {
   color: var(--color-primary);
@@ -4098,8 +4132,8 @@ body.theme-dark {
   --color-success: #A98BFF;
   --brand-green-soft: color-mix(in srgb, #A98BFF 14%, transparent);
   --brand-green-border: color-mix(in srgb, #A98BFF 38%, transparent);
-  --scrollbar-thumb: rgba(194, 206, 167, 0.34);
-  --scrollbar-thumb-hover: rgba(194, 206, 167, 0.58);
+  --scrollbar-thumb: rgba(140, 111, 240, 0.34);
+  --scrollbar-thumb-hover: rgba(140, 111, 240, 0.58);
 }
 
 .alert-success,
@@ -4454,8 +4488,8 @@ body.theme-dark .cluster-map-canvas .leaflet-container {
 
 body.theme-dark .cluster-map-canvas::after {
   background:
-    radial-gradient(circle at top left, rgba(194, 206, 167, 0.08), transparent 42%),
-    linear-gradient(180deg, rgba(7, 9, 13, 0.14), rgba(7, 9, 13, 0.3));
+    radial-gradient(circle at top left, rgba(229, 219, 255, 0.08), transparent 42%),
+    linear-gradient(180deg, rgba(36, 30, 56, 0.14), rgba(36, 30, 56, 0.30));
 }
 
 body.theme-light .cluster-map-canvas .leaflet-container {
@@ -4956,8 +4990,8 @@ body.theme-dark .cluster-map-canvas .leaflet-container {
 
 body.theme-dark .cluster-map-canvas::after {
   background:
-    radial-gradient(circle at top left, rgba(194, 206, 167, 0.06), transparent 40%),
-    linear-gradient(180deg, rgba(5, 8, 12, 0.12), rgba(5, 8, 12, 0.24));
+    radial-gradient(circle at top left, rgba(229, 219, 255, 0.06), transparent 40%),
+    linear-gradient(180deg, rgba(36, 30, 56, 0.12), rgba(36, 30, 56, 0.24));
 }
 
 body.theme-light .cluster-map-canvas .leaflet-container {
@@ -8721,6 +8755,12 @@ body.theme-dark .mobile-admin-menu-logout {
   border-color: rgba(229, 219, 255, 0.10) !important;
 }
 
+body.theme-dark .resource-console-button {
+  background: rgba(37, 31, 66, 0.95) !important;
+  color: #F1EBFF !important;
+  border-color: rgba(229, 219, 255, 0.10) !important;
+}
+
 body.theme-dark .btn-secondary:hover,
 body.theme-dark .btn-outline:hover,
 body.theme-dark .service-detail-toggle:hover,
@@ -8793,6 +8833,13 @@ body.theme-dark .site-header::after {
   }
   body.theme-dark .resource-summary {
     grid-template-columns: 1fr;
+  }
+  .resource-card-header-actions {
+    gap: 8px;
+  }
+  .resource-console-button {
+    width: 34px;
+    height: 34px;
   }
 }
 
@@ -8876,7 +8923,7 @@ body.theme-dark {
 }
 
 body.theme-dark .dashboard-hero-card {
-  background: linear-gradient(135deg, rgba(39, 33, 68, 0.98) 0%, rgba(37, 31, 66, 0.98) 56%, rgba(26, 33, 28, 0.72) 100%) !important;
+  background: linear-gradient(135deg, rgba(39, 33, 68, 0.98) 0%, rgba(37, 31, 66, 0.98) 56%, rgba(52, 42, 92, 0.86) 100%) !important;
 }
 
 body.theme-dark .dashboard-hero-card::after {
@@ -9306,7 +9353,7 @@ body.theme-dark .cluster-map-widget {
 body.theme-dark .cluster-map-canvas::after {
   background:
     radial-gradient(circle at top left, rgba(229, 219, 255, 0.035), transparent 44%),
-    linear-gradient(180deg, rgba(8, 13, 10, 0.02), rgba(5, 9, 7, 0.13)) !important;
+    linear-gradient(180deg, rgba(36, 30, 56, 0.02), rgba(36, 30, 56, 0.13)) !important;
 }
 
 body.theme-dark .cluster-map-summary-item {
@@ -10851,7 +10898,7 @@ body.theme-dark .audit-filter-card select {
 @media (max-width: 960px) {
   .mobile-admin-menu-overlay,
   .user-fullscreen-menu-overlay {
-    background: linear-gradient(180deg, rgba(241, 244, 239, 0.72), rgba(228, 234, 227, 0.82)) !important;
+    background: linear-gradient(180deg, rgba(247, 244, 252, 0.78), rgba(239, 234, 248, 0.86)) !important;
     backdrop-filter: blur(22px) saturate(1.05) !important;
     -webkit-backdrop-filter: blur(22px) saturate(1.05) !important;
   }
@@ -10871,7 +10918,7 @@ body.theme-dark .audit-filter-card select {
     background: rgba(255, 255, 255, 0.76) !important;
     border: 1px solid rgba(61, 48, 96, 0.08) !important;
     border-radius: 28px !important;
-    box-shadow: 0 18px 48px rgba(75, 90, 76, 0.10), inset 0 1px 0 rgba(255,255,255,0.46) !important;
+    box-shadow: 0 18px 48px rgba(36, 30, 56, 0.10), inset 0 1px 0 rgba(255,255,255,0.46) !important;
   }
 
   .mobile-admin-menu-header,
@@ -10947,7 +10994,7 @@ body.theme-dark .mobile-menu-theme-switch button.active {
 @media (max-width: 960px) {
   body.theme-dark .mobile-admin-menu-overlay,
   body.theme-dark .user-fullscreen-menu-overlay {
-    background: linear-gradient(180deg, rgba(5, 8, 6, 0.70), rgba(8, 12, 10, 0.82)) !important;
+    background: linear-gradient(180deg, rgba(23, 19, 49, 0.78), rgba(33, 27, 60, 0.86)) !important;
     backdrop-filter: blur(22px) saturate(1.05) !important;
     -webkit-backdrop-filter: blur(22px) saturate(1.05) !important;
   }
@@ -12710,5 +12757,31 @@ body.theme-dark .console-metric-grid .metric-value {
   .user-dashboard-shell .resource-grid {
     gap: 18px !important;
     align-items: stretch !important;
+  }
+}
+
+/* v3.2.2 - hosting settings are standalone sections, not nested cards. */
+.hosting-settings-stack {
+  display: grid;
+  gap: 22px;
+  min-width: 0;
+  width: 100%;
+}
+
+.hosting-settings-stack > .unified-settings-panel {
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+}
+
+/* The top settings card now only carries the Settings heading/tabs in the
+   Hosting view; every hosting section below is a first-level panel. */
+.admin-settings-navigation-card {
+  align-self: start;
+}
+
+@media (max-width: 767px) {
+  .hosting-settings-stack {
+    gap: 16px;
   }
 }
