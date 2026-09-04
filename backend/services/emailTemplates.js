@@ -5,40 +5,42 @@
 
 const BRAND_NAME = process.env.BRAND_NAME || 'Hosting by TechByGiusi';
 const BRAND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
-const ACCENT = '#dae3d7';
+const ACCENT = '#8C6FF0';
 
 const THEMES = {
   light: {
-    body: '#eef1ec',
-    shell: '#f7f8f4',
-    card: '#ffffff',
-    cardAlt: '#f4f6f0',
-    text: '#121714',
-    muted: '#657064',
-    border: 'rgba(20, 28, 22, 0.10)',
+    body: '#FAF7FF',
+    shell: '#FFFFFF',
+    card: '#FFFFFF',
+    cardAlt: '#F1ECFF',
+    text: '#241E38',
+    muted: '#6E6584',
+    border: 'rgba(36, 30, 56, 0.08)',
     accent: ACCENT,
-    accentStrong: '#b8c5b2',
-    buttonText: '#0d1410',
-    success: '#2f7d46',
-    warning: '#b7791f',
-    danger: '#b42318',
-    shadow: '0 22px 48px rgba(28, 35, 30, 0.08)'
+    accentSoft: '#E5DBFF',
+    accentStrong: '#7857E0',
+    buttonText: '#FFFFFF',
+    success: '#2FA679',
+    warning: '#DD7C1F',
+    danger: '#D6467E',
+    shadow: '0 24px 60px rgba(36, 30, 56, 0.14)'
   },
   dark: {
-    body: '#070b09',
-    shell: '#0b100d',
-    card: '#111814',
-    cardAlt: '#141d18',
-    text: '#eef4ed',
-    muted: '#9aa89d',
-    border: 'rgba(218, 227, 215, 0.12)',
-    accent: ACCENT,
-    accentStrong: '#ebf4e7',
-    buttonText: '#0d1410',
-    success: '#66c084',
-    warning: '#e1b45c',
-    danger: '#f08a84',
-    shadow: '0 28px 60px rgba(0, 0, 0, 0.38)'
+    body: '#1C1730',
+    shell: '#211B3C',
+    card: '#272144',
+    cardAlt: '#2F2852',
+    text: '#F1EDFF',
+    muted: '#B2A8CE',
+    border: 'rgba(241, 237, 255, 0.12)',
+    accent: '#A98BFF',
+    accentSoft: '#33285C',
+    accentStrong: '#BCA1FF',
+    buttonText: '#201A38',
+    success: '#5FD6A8',
+    warning: '#FFAE5C',
+    danger: '#FF8FB8',
+    shadow: '0 28px 70px rgba(0, 0, 0, 0.45)'
   }
 };
 
@@ -89,7 +91,7 @@ function baseLayout({ language = 'en', theme = 'light', preheader = '', title, e
           <td style="padding:24px 28px 18px;background:linear-gradient(135deg, ${palette.cardAlt} 0%, ${palette.shell} 60%, ${palette.card} 100%);border-bottom:1px solid ${palette.border};">
             <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
               <td valign="top">
-                <div style="display:inline-block;padding:6px 12px;border-radius:999px;background:${palette.accent};color:${palette.buttonText};font-size:11px;letter-spacing:.18em;text-transform:uppercase;font-weight:700;">${escapeHtml(eyebrow || BRAND_NAME)}</div>
+                <div style="display:inline-block;padding:6px 14px;border-radius:999px;background:${palette.accentSoft};color:${palette.accentStrong};font-size:12px;letter-spacing:0;text-transform:none;font-weight:700;">${escapeHtml(eyebrow || BRAND_NAME)}</div>
                 <h1 style="margin:18px 0 0;font-size:28px;line-height:1.2;font-weight:600;color:${palette.text};">${escapeHtml(title)}</h1>
               </td>
             </tr></table>
@@ -110,7 +112,7 @@ function baseLayout({ language = 'en', theme = 'light', preheader = '', title, e
 
 function button(href, label, theme = 'light') {
   const palette = THEMES[normalizeTheme(theme)];
-  return `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:22px 0 8px;"><tr><td style="border-radius:16px;background:${palette.accent};"><a href="${escapeHtml(href)}" target="_blank" style="display:inline-block;padding:14px 22px;font-size:15px;font-weight:700;color:${palette.buttonText};text-decoration:none;border-radius:16px;">${escapeHtml(label)}</a></td></tr></table>`;
+  return `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:22px 0 8px;"><tr><td style="border-radius:999px;background:${palette.accent};box-shadow:0 10px 24px rgba(140,111,240,0.35);"><a href="${escapeHtml(href)}" target="_blank" style="display:inline-block;padding:14px 26px;font-size:15px;font-weight:700;color:${palette.buttonText};text-decoration:none;border-radius:999px;">${escapeHtml(label)}</a></td></tr></table>`;
 }
 function infoTable(rows, theme = 'light') {
   const palette = THEMES[normalizeTheme(theme)];
