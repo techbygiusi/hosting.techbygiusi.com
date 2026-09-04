@@ -16,7 +16,7 @@ function terminalText(value) {
 }
 
 const NORD_TERMINAL_BASE = Object.freeze({
-  background: '#241E42',
+  background: '#2E3440',
   foreground: '#D8DEE9',
   black: '#3B4252',
   red: '#BF616A',
@@ -33,12 +33,12 @@ const NORD_TERMINAL_BASE = Object.freeze({
   brightCyan: '#8FBCBB',
   brightWhite: '#ECEFF4',
   // The shell's ANSI green slot is intentionally mapped to the softer Nord Frost teal.
-  // This keeps prompts and other accent text legible and stable across portal themes
-  // instead of inheriting the portal's own (now lavender) accent colour.
+  // This keeps prompts and other accent text consistent in both portal themes
+  // instead of inheriting the portal's green light/dark accent.
   green: '#8FBCBB',
   brightGreen: '#8FBCBB',
   cursor: '#8FBCBB',
-  cursorAccent: '#241E42',
+  cursorAccent: '#2E3440',
   selectionBackground: 'rgba(143, 188, 187, 0.34)',
   selectionInactiveBackground: 'rgba(143, 188, 187, 0.20)'
 });

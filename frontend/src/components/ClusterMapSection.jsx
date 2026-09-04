@@ -62,11 +62,11 @@ export default function ClusterMapSection({ clusters = [], mappedCount = 0, onOp
 
   const isDark = theme === 'dark';
   const countryStyle = isDark
-    ? { color: 'rgba(241, 237, 255, 0.20)', weight: 0.8, fillColor: '#241E3E', fillOpacity: 1 }
-    : { color: 'rgba(140, 111, 240, 0.30)', weight: 0.8, fillColor: '#F6F1FF', fillOpacity: 1 };
+    ? { color: 'rgba(218, 227, 215, 0.22)', weight: 0.8, fillColor: '#0b100d', fillOpacity: 1 }
+    : { color: 'rgba(122, 135, 111, 0.34)', weight: 0.8, fillColor: '#f6f7f4', fillOpacity: 1 };
   const markerStyle = isDark
-    ? { color: '#171331', weight: 2, fillColor: '#A98BFF', fillOpacity: 0.96 }
-    : { color: '#ffffff', weight: 2, fillColor: '#8C6FF0', fillOpacity: 0.95 };
+    ? { color: '#080c09', weight: 2, fillColor: '#dae3d7', fillOpacity: 0.96 }
+    : { color: '#ffffff', weight: 2, fillColor: '#7a876f', fillOpacity: 0.95 };
 
   const points = useMemo(() => (
     (Array.isArray(clusters) ? clusters : [])
