@@ -657,6 +657,8 @@ function ResourceCard({ resource, onOpenDetails, onManagePublicPage, labels }) {
             <a
               className="resource-console-button"
               href={`/console/${resource.id}`}
+              target="_blank"
+              rel="noreferrer"
               title={consoleTitle}
               aria-label={consoleTitle}
             >

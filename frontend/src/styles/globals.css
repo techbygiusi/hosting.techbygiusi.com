@@ -10533,9 +10533,16 @@ body.theme-dark .admin-settings-tabs button.active::after {
 body.theme-dark .settings-section-card .settings-toggle-card,
 body.theme-dark .settings-section-card .pangolin-protocol-toggle,
 body.theme-dark .settings-section-card .notification-toggle-stack > *,
-body.theme-dark .settings-section-card .settings-inline-check-grid > * {
+body.theme-dark .settings-section-card .settings-inline-check-grid > :not(.settings-setup-tests) {
   background: rgba(47, 40, 82, 0.88) !important;
   border-color: rgba(229, 219, 255, 0.08) !important;
+}
+
+body.theme-dark .settings-section-card .settings-setup-tests {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  padding: 0 !important;
 }
 
 body.theme-dark .settings-section-card .settings-toggle-card:hover,
@@ -12784,4 +12791,71 @@ body.theme-dark .console-metric-grid .metric-value {
   .hosting-settings-stack {
     gap: 16px;
   }
+}
+
+
+/* -------------------------------------------------------------
+   v3.2.7 - Wiki editor header/toolbars: flat corners and a single,
+   clean header treatment without the double-header shadow effect.
+---------------------------------------------------------------- */
+.wiki-editor-topbar,
+.wiki-editor-metabar,
+.wiki-editor-toolbar-bar {
+  box-shadow: none !important;
+}
+
+.wiki-editor-topbar {
+  background: var(--color-surface) !important;
+}
+
+.wiki-editor-metabar,
+.wiki-editor-toolbar-bar {
+  background: var(--color-bg-alt) !important;
+}
+
+.wiki-editor-toolbar-bar {
+  position: relative !important;
+  top: auto !important;
+  z-index: 1 !important;
+}
+
+.wiki-toolbar-group,
+.wiki-toolbar-btn,
+.wiki-upload-button,
+.wiki-view-toggle,
+.wiki-view-toggle button {
+  border-radius: 0 !important;
+}
+
+.wiki-view-toggle {
+  overflow: hidden;
+}
+
+.wiki-toolbar-btn,
+.wiki-upload-button,
+.wiki-view-toggle button {
+  box-shadow: none !important;
+}
+
+/* Keep the global portal header from looking like a second stacked
+   header by removing the oversized translucent shadow treatment. */
+.site-header {
+  background: color-mix(in srgb, var(--color-bg) 96%, transparent) !important;
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+  box-shadow: none !important;
+}
+
+.site-header::after {
+  left: 0 !important;
+  right: 0 !important;
+  background: rgba(140, 111, 240, 0.10) !important;
+}
+
+body.theme-dark .site-header {
+  background: color-mix(in srgb, #171331 94%, transparent) !important;
+}
+
+body.theme-dark .site-header::after {
+  background: rgba(229, 219, 255, 0.10) !important;
 }
