@@ -419,7 +419,7 @@ export default function WikiEditorPage() {
     <div className="wiki-editor-page">
       <header className="wiki-editor-topbar">
         <div className="wiki-editor-topbar-left">
-          <button type="button" className="btn-secondary btn-small" onClick={leave}>← {text.back}</button>
+          <button type="button" className="btn-secondary btn-small wiki-editor-header-action" onClick={leave}>← {text.back}</button>
           <span className="wiki-editor-title">{translation?.title || draft.slug}</span>
           {dirty && <span className="wiki-dirty-flag">{text.unsaved}</span>}
         </div>
@@ -444,7 +444,7 @@ export default function WikiEditorPage() {
               );
             })}
           </div>
-          <button type="button" className="btn-primary btn-small" onClick={save} disabled={busy === 'save'}>
+          <button type="button" className="btn-secondary btn-small wiki-editor-header-action" onClick={save} disabled={busy === 'save'}>
             {busy === 'save' ? text.saving : text.save}
           </button>
         </div>
