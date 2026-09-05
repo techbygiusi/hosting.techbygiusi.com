@@ -8498,7 +8498,7 @@ body { background: var(--portal-shell-bg); }
 }
 
 .admin-sidebar-shell, .admin-main-shell { min-width: 0; }
-.admin-sidebar-shell { display: grid; gap: 18px; align-self: start; position: sticky; top: calc(96px + var(--maintenance-banner-offset, 0px)); }
+.admin-sidebar-shell { display: grid; gap: 18px; align-self: start; position: sticky; top: 98px; }
 
 .panel-card, .list-card, .metric-card, .resource-card, .settings-avatar-card, .settings-language-card, .settings-notification-card, .dashboard-hero-card, .audit-filter-card, .console-sidebar-card, .soft-box, .modal-card, .wiki-browser-layout, .wiki-card-shell, .cluster-map-card {
   background: var(--portal-surface-1) !important;
@@ -12607,7 +12607,7 @@ body.theme-dark .unified-settings-panel {
   .desktop-admin-sidebar {
     display: grid !important;
     position: sticky !important;
-    top: calc(96px + var(--maintenance-banner-offset, 0px)) !important;
+    top: 98px !important;
   }
 }
 
@@ -13444,12 +13444,28 @@ body.theme-light .cluster-map-canvas::after {
 }
 
 
-/* v3.3.4 - keep the desktop admin sidebar stable from the first scroll pixel */
+/* v3.3.5 - exact sticky start position for the desktop admin sidebar.
+   Desktop header is 74px high and the admin shell starts 22px below it,
+   so the sidebar must stick at the exact same 96px viewport position.
+   This prevents the small first-scroll snap. */
 @media (min-width: 961px) {
   .admin-sidebar-shell,
   .desktop-admin-sidebar {
-    top: calc(74px + 22px + var(--maintenance-banner-offset, 0px)) !important;
+    position: sticky !important;
+    top: calc(96px + var(--maintenance-banner-offset, 0px)) !important;
+    align-self: start !important;
     transition: none !important;
     transform: none !important;
+    translate: none !important;
+    animation: none !important;
+    will-change: auto !important;
+  }
+
+  .admin-sidebar-shell .console-sidebar-card,
+  .admin-sidebar-shell .app-tabs.console-nav-tabs {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    transform: none !important;
+    transition: none !important;
   }
 }
