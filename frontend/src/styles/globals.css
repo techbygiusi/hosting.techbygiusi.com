@@ -14277,3 +14277,60 @@ body.theme-dark .wiki-slash-menu {
     align-self: center !important;
   }
 }
+
+/* v3.4.4 - keep the mobile create-container action fully inside the dashboard hero */
+.user-dashboard-shell .user-dashboard-hero-card > div:first-child {
+  min-height: 0 !important;
+  height: auto !important;
+}
+
+@media (max-width: 720px) {
+  .user-dashboard-shell .user-dashboard-hero-card {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    grid-template-rows: auto auto !important;
+    align-items: center !important;
+    justify-items: stretch !important;
+    min-height: 0 !important;
+    height: auto !important;
+    padding: 20px 18px !important;
+    gap: 16px !important;
+    overflow: hidden !important;
+  }
+
+  .user-dashboard-shell .user-dashboard-hero-card > div:first-child {
+    min-height: 0 !important;
+    height: auto !important;
+    width: 100% !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    text-align: center !important;
+  }
+
+  .user-dashboard-shell .user-dashboard-hero-card h2 {
+    margin: 0 !important;
+    line-height: 1.2 !important;
+  }
+
+  .user-dashboard-shell .dashboard-hero-actions {
+    position: static !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    margin: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    overflow: visible !important;
+  }
+
+  .user-dashboard-shell .dashboard-hero-actions .btn-primary,
+  .user-dashboard-shell .dashboard-hero-actions .btn-secondary {
+    position: static !important;
+    width: 100% !important;
+    max-width: 320px !important;
+    min-width: 0 !important;
+    margin: 0 !important;
+    flex: 0 1 320px !important;
+  }
+}
