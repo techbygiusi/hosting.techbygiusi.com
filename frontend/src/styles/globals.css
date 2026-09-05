@@ -13152,3 +13152,198 @@ body.theme-dark .app-page.user-page,
 body.theme-dark .app-page {
   background: radial-gradient(circle at top left, rgba(229, 219, 255, 0.08), transparent 24%), linear-gradient(180deg, #171331 0%, #171331 100%) !important;
 }
+
+
+/* -------------------------------------------------------------
+   v3.3.1 - Admin overview refinement: flatter action area,
+   full-width location map and less nested card chrome.
+---------------------------------------------------------------- */
+.admin-overview-dashboard {
+  gap: 20px !important;
+}
+
+.admin-overview-actions-strip {
+  padding: 22px 24px !important;
+}
+
+.admin-overview-actions-strip .panel-header {
+  margin-bottom: 14px !important;
+}
+
+.admin-overview-actions-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 0 !important;
+  border-top: 1px solid var(--color-border);
+  border-left: 1px solid var(--color-border);
+  border-radius: 18px;
+  overflow: hidden;
+}
+
+.admin-overview-action-tile {
+  min-height: 92px;
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px !important;
+  padding: 16px 18px !important;
+  border: 0 !important;
+  border-right: 1px solid var(--color-border) !important;
+  border-bottom: 1px solid var(--color-border) !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.admin-overview-action-tile:hover,
+.admin-overview-action-tile:focus-visible {
+  transform: none !important;
+  background: color-mix(in srgb, var(--color-primary) 7%, transparent) !important;
+  border-color: var(--color-border) !important;
+}
+
+.admin-overview-action-copy {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.admin-overview-action-copy strong {
+  color: var(--color-text);
+}
+
+.admin-overview-action-copy small {
+  color: var(--color-text-light);
+  line-height: 1.35;
+}
+
+.admin-overview-action-arrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  background: var(--bento-lavender);
+  color: var(--color-primary-dark);
+  font-weight: 700;
+  flex: 0 0 auto;
+}
+
+/* The map is now a first-class full-width dashboard section. */
+.admin-overview-dashboard > .cluster-map-card {
+  margin-top: 0 !important;
+  padding: 24px !important;
+}
+
+.admin-overview-dashboard > .cluster-map-card .cluster-map-layout {
+  grid-template-columns: minmax(0, 1.85fr) minmax(310px, 0.75fr) !important;
+  gap: 20px !important;
+}
+
+.admin-overview-dashboard > .cluster-map-card .cluster-map-canvas,
+.admin-overview-dashboard > .cluster-map-card .cluster-map-widget {
+  min-height: 390px !important;
+}
+
+.admin-overview-dashboard > .cluster-map-card .cluster-map-summary {
+  gap: 0 !important;
+  border-top: 1px solid var(--color-border);
+}
+
+.admin-overview-dashboard > .cluster-map-card .cluster-map-summary-item {
+  min-height: 0 !important;
+  padding: 16px 4px !important;
+  border: 0 !important;
+  border-bottom: 1px solid var(--color-border) !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.admin-overview-dashboard > .cluster-map-card .cluster-map-summary-item:last-child {
+  border-bottom: 0 !important;
+}
+
+.admin-overview-dashboard > .cluster-map-card .cluster-map-summary-item .status-badge {
+  min-width: auto !important;
+  height: 34px !important;
+  min-height: 34px !important;
+  max-height: 34px !important;
+  padding: 0 12px !important;
+}
+
+.admin-overview-secondary-grid {
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr) !important;
+  gap: 20px !important;
+}
+
+.admin-overview-secondary-grid > .panel-card {
+  height: 100%;
+}
+
+.admin-overview-health-card {
+  padding: 22px !important;
+}
+
+.admin-overview-health-list {
+  gap: 0 !important;
+  border-top: 1px solid var(--color-border);
+}
+
+.admin-overview-health-row {
+  padding: 16px 0 !important;
+  border: 0 !important;
+  border-bottom: 1px solid var(--color-border) !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.admin-overview-health-row:last-child {
+  border-bottom: 0 !important;
+}
+
+body.theme-dark .admin-overview-action-tile,
+body.theme-dark .admin-overview-health-row,
+body.theme-dark .admin-overview-dashboard > .cluster-map-card .cluster-map-summary-item {
+  background: transparent !important;
+}
+
+body.theme-dark .admin-overview-action-arrow {
+  background: rgba(229, 219, 255, 0.12) !important;
+  color: #E5DBFF !important;
+}
+
+@media (max-width: 1180px) {
+  .admin-overview-actions-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .admin-overview-dashboard > .cluster-map-card .cluster-map-layout,
+  .admin-overview-secondary-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .admin-overview-dashboard > .cluster-map-card .cluster-map-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    display: grid;
+    column-gap: 20px !important;
+  }
+}
+
+@media (max-width: 700px) {
+  .admin-overview-actions-grid,
+  .admin-overview-dashboard > .cluster-map-card .cluster-map-summary {
+    grid-template-columns: 1fr !important;
+  }
+
+  .admin-overview-actions-strip,
+  .admin-overview-dashboard > .cluster-map-card,
+  .admin-overview-health-card {
+    padding: 18px !important;
+  }
+
+  .admin-overview-action-tile {
+    min-height: 82px;
+  }
+}

@@ -1460,26 +1460,24 @@ export default function AdminDashboard() {
                 />
               </section>
 
-              <div className="admin-overview-primary-grid">
-                <section className="panel-card admin-overview-actions-card">
-                  <div className="panel-header admin-overview-actions-header">
-                    <div>
-                      <h2>{overviewText.quickActions}</h2>
-                      <p>{overviewText.quickActionsText}</p>
-                    </div>
+              <section className="panel-card admin-overview-actions-card admin-overview-actions-strip">
+                <div className="panel-header admin-overview-actions-header">
+                  <div>
+                    <h2>{overviewText.quickActions}</h2>
+                    <p>{overviewText.quickActionsText}</p>
                   </div>
-                  <div className="admin-overview-actions-grid">
-                    <OverviewActionTile title={overviewText.manageUsers} detail={overviewText.manageUsersText} onClick={() => handleSelectTab('users')} />
-                    <OverviewActionTile title={overviewText.manageGroups} detail={overviewText.manageGroupsText} onClick={() => handleSelectTab('groups')} />
-                    <OverviewActionTile title={dashboardText.manageClusters} detail={clusterText.title || 'Manage Proxmox clusters'} onClick={() => handleSelectTab('clusters')} />
-                    <OverviewActionTile title={dashboardText.manageServices} detail={mobileMenuLanguage === 'de' ? 'Dienste, Vorlagen und Zuweisungen verwalten' : 'Manage services, templates and assignments'} onClick={() => handleSelectTab('resources')} />
-                    <OverviewActionTile title={overviewText.manageLog} detail={overviewText.manageLogText} onClick={() => handleSelectTab('audit')} />
-                    <OverviewActionTile title={overviewText.manageSettings} detail={overviewText.manageSettingsText} onClick={() => handleSelectTab('settings')} />
-                  </div>
-                </section>
+                </div>
+                <div className="admin-overview-actions-grid">
+                  <OverviewActionTile title={overviewText.manageUsers} detail={overviewText.manageUsersText} onClick={() => handleSelectTab('users')} />
+                  <OverviewActionTile title={overviewText.manageGroups} detail={overviewText.manageGroupsText} onClick={() => handleSelectTab('groups')} />
+                  <OverviewActionTile title={dashboardText.manageClusters} detail={clusterText.title || 'Manage Proxmox clusters'} onClick={() => handleSelectTab('clusters')} />
+                  <OverviewActionTile title={dashboardText.manageServices} detail={mobileMenuLanguage === 'de' ? 'Dienste, Vorlagen und Zuweisungen verwalten' : 'Manage services, templates and assignments'} onClick={() => handleSelectTab('resources')} />
+                  <OverviewActionTile title={overviewText.manageLog} detail={overviewText.manageLogText} onClick={() => handleSelectTab('audit')} />
+                  <OverviewActionTile title={overviewText.manageSettings} detail={overviewText.manageSettingsText} onClick={() => handleSelectTab('settings')} />
+                </div>
+              </section>
 
-                <ClusterMapSection clusters={clusterStats} mappedCount={mappedClusterCount} onOpenClusters={() => handleSelectTab('clusters')} labels={mobileMenuText.clusterMap} />
-              </div>
+              <ClusterMapSection clusters={clusterStats} mappedCount={mappedClusterCount} onOpenClusters={() => handleSelectTab('clusters')} labels={mobileMenuText.clusterMap} />
 
               <div className="admin-overview-secondary-grid">
                 <StatusEventsSection events={statusEvents} />
@@ -1491,8 +1489,6 @@ export default function AdminDashboard() {
                   onOpenClusters={() => handleSelectTab('clusters')}
                 />
               </div>
-
-              <ClusterStatsSection clusters={clusterStats} labels={mobileMenuText.clusterStatus} />
             </div>
           )}
 
@@ -2482,8 +2478,11 @@ function OverviewFeatureCard({ eyebrow, title, subtitle, hint, items = [], onCli
 function OverviewActionTile({ title, detail, onClick }) {
   return (
     <button type="button" className="admin-overview-action-tile" onClick={onClick}>
-      <strong>{title}</strong>
-      <span>{detail}</span>
+      <span className="admin-overview-action-copy">
+        <strong>{title}</strong>
+        <small>{detail}</small>
+      </span>
+      <span className="admin-overview-action-arrow" aria-hidden="true">→</span>
     </button>
   );
 }
