@@ -427,8 +427,7 @@ export default function WikiAdminPanel({ language = 'en' }) {
 
   return (
     <section className="panel-card wiki-admin-panel">
-      <div className="panel-header">
-        <h2>{text.title}</h2>
+      <div className="wiki-admin-toolbar">
         <div className="wiki-admin-heading-actions">
           <button type="button" className="btn-secondary" onClick={() => setFolderForm({ id: null, parentId: null, titles: {} })}>
             {text.newFolder}

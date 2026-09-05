@@ -66,19 +66,11 @@ export default function AdminAccountSettings({ language, onLanguageChange }) {
   };
 
   return (
-    <div className="settings-layout-clean">
-      {error ? <InlineNotice tone="danger">{error}</InlineNotice> : null}
-      {notice ? <InlineNotice tone="success">{notice}</InlineNotice> : null}
+    <div className="settings-layout-clean settings-grid-compact admin-settings-grid-v5">
+      {error ? <div className="settings-grid-span"><InlineNotice tone="danger">{error}</InlineNotice></div> : null}
+      {notice ? <div className="settings-grid-span"><InlineNotice tone="success">{notice}</InlineNotice></div> : null}
 
-      <SectionCard title="Profile" subtitle="Your administrator account details">
-        <AvatarSettingsPanel language={language} />
-        <div className="settings-component-separator" />
-        <AccountEmailSettingsPanel language={language} />
-        <div className="settings-component-separator" />
-        <AccountPasswordSettingsPanel language={language} />
-      </SectionCard>
-
-      <SectionCard title="Appearance & language" subtitle="Personal display preferences for this account">
+      <SectionCard title="Appearance & language" className="settings-compact-card">
         <div className="settings-choice-grid">
           <div className="settings-choice-block">
             <span className="settings-choice-label">Appearance</span>
@@ -97,12 +89,13 @@ export default function AdminAccountSettings({ language, onLanguageChange }) {
         </div>
       </SectionCard>
 
-      <SectionCard title="Service notifications" subtitle="The same service notification options available to portal users">
-        <NotificationSettingsPanel language={language} />
-      </SectionCard>
+      <SectionCard className="settings-compact-card"><AvatarSettingsPanel language={language} /></SectionCard>
+      <SectionCard className="settings-compact-card"><AccountEmailSettingsPanel language={language} /></SectionCard>
+      <SectionCard className="settings-compact-card"><AccountPasswordSettingsPanel language={language} /></SectionCard>
+      <SectionCard title="Service notifications" className="settings-compact-card"><NotificationSettingsPanel language={language} /></SectionCard>
 
-      <SectionCard title="Administrator notifications" subtitle="Additional infrastructure-wide alerts only administrators receive">
-        {loading ? <div className="page-state-clean">Loading notification preferences…</div> : (
+      <SectionCard title="Administrator notifications" className="settings-compact-card">
+        {loading ? <div className="page-state-clean compact-state">Loading notification preferences…</div> : (
           <div className="settings-toggle-list-clean">
             <ToggleRow
               label="Cluster unavailable"
@@ -126,7 +119,7 @@ export default function AdminAccountSettings({ language, onLanguageChange }) {
               disabled={saving}
             />
             <div className="form-actions left">
-              <button type="button" className="btn-primary" onClick={saveInfra} disabled={saving}>{saving ? 'Saving…' : 'Save administrator notifications'}</button>
+              <button type="button" className="btn-primary" onClick={saveInfra} disabled={saving}>{saving ? 'Saving…' : 'Save notifications'}</button>
             </div>
           </div>
         )}

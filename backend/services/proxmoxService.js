@@ -142,6 +142,42 @@ async function getContainerDetails(clusterUrl, apiToken, node, type, vmid) {
   return response.data?.data || {};
 }
 
+async function getResourceRrdData(clusterUrl, apiToken, node, type, vmid, timeframe = 'hour') {
+  const allowedTimeframes = new Set(['hour', 'day', 'week', 'month', 'year']);
+  const safeTimeframe = allowedTimeframes.has(String(timeframe)) ? String(timeframe) : 'hour';
+  const client = createProxmoxClient(clusterUrl, apiToken);
+  const kind = type === 'lxc' ? 'lxc' : 'qemu';
+  const response = await client.get(`/api2/json/nodes/${node}/${kind}/${vmid}/rrddata`, {
+    params: { timeframe: safeTimeframe, cf: 'AVERAGE' }
+  });
+  ensureSuccess(response, 'Proxmox metric history query failed:');
+
+  const rows = Array.isArray(response.data?.data) ? response.data.data : [];
+  return rows
+    .map((row) => {
+      const time = Number(row?.time || 0);
+      const cpuRaw = Number(row?.cpu);
+      const mem = Number(row?.mem);
+      const maxmem = Number(row?.maxmem);
+      const cpuPercent = Number.isFinite(cpuRaw)
+        ? Math.min(Math.max(cpuRaw <= 1 ? cpuRaw * 100 : cpuRaw, 0), 100)
+        : null;
+      const memoryPercent = Number.isFinite(mem) && Number.isFinite(maxmem) && maxmem > 0
+        ? Math.min(Math.max((mem / maxmem) * 100, 0), 100)
+        : null;
+
+      if (!Number.isFinite(time) || time <= 0) return null;
+      return {
+        time,
+        cpuPercent,
+        memoryPercent,
+        mem: Number.isFinite(mem) ? mem : null,
+        maxmem: Number.isFinite(maxmem) ? maxmem : null
+      };
+    })
+    .filter(Boolean);
+}
+
 async function getVmConfig(client, node, type, vmid) {
   const endpoint = type === 'lxc'
     ? `/api2/json/nodes/${node}/lxc/${vmid}/config`
@@ -1597,6 +1633,7 @@ module.exports = {
   getAllContainers,
   getClusterResources,
   getContainerDetails,
+  getResourceRrdData,
   getContainerIps,
   getResourceDiskDetails,
   testConnection,

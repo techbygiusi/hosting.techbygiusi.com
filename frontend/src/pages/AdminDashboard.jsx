@@ -12,8 +12,7 @@ import {
   HomeIcon,
   BellIcon,
   LockIcon,
-  LinkIcon,
-  CloseIcon
+  LinkIcon
 } from '../components/Icons';
 import { EmptyState, InlineNotice, SectionCard, StatCard, StatusBadge } from '../components/UiBits';
 import { useAuth } from '../context/AuthContext';
@@ -326,55 +325,53 @@ export default function AdminDashboard() {
     return [...serviceItems, ...userItems, ...clusterItems, ...groupItems];
   }, [resources, users, clusters, groups]);
 
-  const renderEditorPanel = (type) => {
+  const renderEditorPage = (type, listTitle) => {
     if (!editor || editor.type !== type) return null;
     const title = `${editor.mode === 'create' ? 'Create' : 'Edit'} ${type}`;
     return (
-      <aside className="admin-side-editor section-card">
-        <div className="admin-side-editor-head">
-          <div>
-            <span className="eyebrow-clean">{editor.mode === 'create' ? 'New entry' : 'Selected entry'}</span>
-            <h2>{title}</h2>
-          </div>
-          <button type="button" className="icon-button" onClick={() => setEditor(null)} aria-label="Close editor"><CloseIcon size={18} /></button>
+      <div className="admin-editor-replacement">
+        <div className="subpage-back-row">
+          <button type="button" className="btn-secondary" onClick={() => setEditor(null)}>← Back to {listTitle}</button>
         </div>
+        <SectionCard title={title} subtitle={editor.mode === 'create' ? `Add a new ${type}.` : `Update ${editor.data.name || editor.data.email || `this ${type}`}.`}>
+          <form className="clean-form-grid compact admin-editor-form" onSubmit={saveEditor}>
+            {type === 'user' ? <>
+              <label><span>Name</span><input value={editor.data.name || ''} onChange={(event) => setEditor((current) => ({ ...current, data: { ...current.data, name: event.target.value } }))} required /></label>
+              <label><span>Email</span><input type="email" value={editor.data.email || ''} onChange={(event) => setEditor((current) => ({ ...current, data: { ...current.data, email: event.target.value } }))} required /></label>
+              <label><span>Role</span><select value={editor.data.role || 'user'} onChange={(event) => setEditor((current) => ({ ...current, data: { ...current.data, role: event.target.value } }))}><option value="user">User</option><option value="admin">Admin</option></select></label>
+              <label><span>Password {editor.mode === 'edit' ? '(optional)' : ''}</span><input type="password" value={editor.data.password || ''} onChange={(event) => setEditor((current) => ({ ...current, data: { ...current.data, password: event.target.value } }))} required={editor.mode === 'create'} /></label>
+            </> : null}
 
-        <form className="clean-form-grid compact" onSubmit={saveEditor}>
-          {type === 'user' ? <>
-            <label><span>Name</span><input value={editor.data.name || ''} onChange={(event) => setEditor((current) => ({ ...current, data: { ...current.data, name: event.target.value } }))} required /></label>
-            <label><span>Email</span><input type="email" value={editor.data.email || ''} onChange={(event) => setEditor((current) => ({ ...current, data: { ...current.data, email: event.target.value } }))} required /></label>
-            <label><span>Role</span><select value={editor.data.role || 'user'} onChange={(event) => setEditor((current) => ({ ...current, data: { ...current.data, role: event.target.value } }))}><option value="user">User</option><option value="admin">Admin</option></select></label>
-            <label><span>Password {editor.mode === 'edit' ? '(optional)' : ''}</span><input type="password" value={editor.data.password || ''} onChange={(event) => setEditor((current) => ({ ...current, data: { ...current.data, password: event.target.value } }))} required={editor.mode === 'create'} /></label>
-          </> : null}
+            {type === 'cluster' ? <>
+              <label><span>Name</span><input value={editor.data.name || ''} onChange={(event) => setEditor((current) => ({ ...current, data: { ...current.data, name: event.target.value } }))} required /></label>
+              <label><span>URL</span><input value={editor.data.url || ''} onChange={(event) => setEditor((current) => ({ ...current, data: { ...current.data, url: event.target.value } }))} required /></label>
+              <label className="span-full"><span>API token {editor.mode === 'edit' ? '(leave empty to keep existing)' : ''}</span><textarea rows="6" value={editor.data.apiToken || ''} onChange={(event) => setEditor((current) => ({ ...current, data: { ...current.data, apiToken: event.target.value } }))} required={editor.mode === 'create'} /></label>
+            </> : null}
 
-          {type === 'cluster' ? <>
-            <label><span>Name</span><input value={editor.data.name || ''} onChange={(event) => setEditor((current) => ({ ...current, data: { ...current.data, name: event.target.value } }))} required /></label>
-            <label><span>URL</span><input value={editor.data.url || ''} onChange={(event) => setEditor((current) => ({ ...current, data: { ...current.data, url: event.target.value } }))} required /></label>
-            <label><span>API token {editor.mode === 'edit' ? '(leave empty to keep existing)' : ''}</span><textarea rows="5" value={editor.data.apiToken || ''} onChange={(event) => setEditor((current) => ({ ...current, data: { ...current.data, apiToken: event.target.value } }))} required={editor.mode === 'create'} /></label>
-          </> : null}
+            {type === 'group' ? <label><span>Name</span><input value={editor.data.name || ''} onChange={(event) => setEditor((current) => ({ ...current, data: { ...current.data, name: event.target.value } }))} required /></label> : null}
 
-          {type === 'group' ? <label><span>Name</span><input value={editor.data.name || ''} onChange={(event) => setEditor((current) => ({ ...current, data: { ...current.data, name: event.target.value } }))} required /></label> : null}
+            {type === 'resource' ? <>
+              <label><span>Name</span><input value={editor.data.name || ''} onChange={(event) => setEditor((current) => ({ ...current, data: { ...current.data, name: event.target.value } }))} /></label>
+              <label><span>Service / VM ID</span><input value={editor.data.containerId || editor.data.container_id || ''} onChange={(event) => setEditor((current) => ({ ...current, data: { ...current.data, containerId: event.target.value } }))} required /></label>
+              <label><span>Cluster</span><select value={editor.data.clusterId || editor.data.cluster_id || ''} onChange={(event) => setEditor((current) => ({ ...current, data: { ...current.data, clusterId: event.target.value } }))} required><option value="">Select cluster</option>{clusters.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}</select></label>
+              <label><span>User</span><select value={editor.data.userId || editor.data.user_id || ''} onChange={(event) => setEditor((current) => ({ ...current, data: { ...current.data, userId: event.target.value, user_id: '', groupId: '', group_id: '' } }))}><option value="">No direct user</option>{users.filter((entry) => entry.role === 'user').map((entry) => <option key={entry.id} value={entry.id}>{entry.name} · {entry.email}</option>)}</select></label>
+              <label><span>Group</span><select value={editor.data.groupId || editor.data.group_id || ''} onChange={(event) => setEditor((current) => ({ ...current, data: { ...current.data, groupId: event.target.value, group_id: '', userId: '', user_id: '' } }))}><option value="">No group</option>{groups.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}</select></label>
+              <label><span>Admin URL</span><input value={editor.data.adminUrl ?? editor.data.admin_url ?? ''} onChange={(event) => setEditor((current) => ({ ...current, data: { ...current.data, adminUrl: event.target.value } }))} placeholder="https://example.com" /></label>
+            </> : null}
 
-          {type === 'resource' ? <>
-            <label><span>Name</span><input value={editor.data.name || ''} onChange={(event) => setEditor((current) => ({ ...current, data: { ...current.data, name: event.target.value } }))} /></label>
-            <label><span>Service / VM ID</span><input value={editor.data.containerId || editor.data.container_id || ''} onChange={(event) => setEditor((current) => ({ ...current, data: { ...current.data, containerId: event.target.value } }))} required /></label>
-            <label><span>Cluster</span><select value={editor.data.clusterId || editor.data.cluster_id || ''} onChange={(event) => setEditor((current) => ({ ...current, data: { ...current.data, clusterId: event.target.value } }))} required><option value="">Select cluster</option>{clusters.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}</select></label>
-            <label><span>User</span><select value={editor.data.userId || editor.data.user_id || ''} onChange={(event) => setEditor((current) => ({ ...current, data: { ...current.data, userId: event.target.value, user_id: '', groupId: '', group_id: '' } }))}><option value="">No direct user</option>{users.filter((entry) => entry.role === 'user').map((entry) => <option key={entry.id} value={entry.id}>{entry.name} · {entry.email}</option>)}</select></label>
-            <label><span>Group</span><select value={editor.data.groupId || editor.data.group_id || ''} onChange={(event) => setEditor((current) => ({ ...current, data: { ...current.data, groupId: event.target.value, group_id: '', userId: '', user_id: '' } }))}><option value="">No group</option>{groups.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}</select></label>
-            <label><span>Admin URL</span><input value={editor.data.adminUrl ?? editor.data.admin_url ?? ''} onChange={(event) => setEditor((current) => ({ ...current, data: { ...current.data, adminUrl: event.target.value } }))} placeholder="https://example.com" /></label>
-          </> : null}
-
-          <div className="form-actions left">
-            <button type="button" className="btn-secondary" onClick={() => setEditor(null)}>Cancel</button>
-            <button type="submit" className="btn-primary" disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
-          </div>
-        </form>
-      </aside>
+            <div className="form-actions left span-full">
+              <button type="button" className="btn-secondary" onClick={() => setEditor(null)}>Cancel</button>
+              <button type="submit" className="btn-primary" disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
+            </div>
+          </form>
+        </SectionCard>
+      </div>
     );
   };
 
-  const renderCrudWorkspace = ({ type, title, subtitle, addLabel, columns, rows, onAdd, onEdit, emptyText }) => (
-    <div className={`admin-crud-workspace ${editor?.type === type ? 'has-editor' : ''}`}>
+  const renderCrudWorkspace = ({ type, title, subtitle, addLabel, columns, rows, onAdd, onEdit, emptyText }) => {
+    if (editor?.type === type) return renderEditorPage(type, title);
+    return (
       <SectionCard title={title} subtitle={subtitle} action={<button type="button" className="btn-primary" onClick={onAdd}>{addLabel}</button>}>
         <CrudTable
           columns={columns}
@@ -386,9 +383,8 @@ export default function AdminDashboard() {
           emptyText={emptyText}
         />
       </SectionCard>
-      {renderEditorPanel(type)}
-    </div>
-  );
+    );
+  };
 
   let content = null;
   if (loading && ['overview', 'services', 'users', 'groups', 'clusters'].includes(activeTab)) {
@@ -404,7 +400,7 @@ export default function AdminDashboard() {
   } else if (activeTab === 'services') {
     content = renderCrudWorkspace({ type: 'resource', title: 'Services', subtitle: 'Assignments visible to portal users', addLabel: 'Add service', columns: resourceColumns, rows: resources, onAdd: () => openResourceEditor(), onEdit: openResourceEditor, emptyText: 'Assign the first service to a user or a group.' });
   } else if (activeTab === 'wiki') {
-    content = <SectionCard title="Wiki" subtitle="Manage documentation and articles"><WikiAdminPanel language={language} /></SectionCard>;
+    content = <WikiAdminPanel language={language} />;
   } else if (activeTab === 'templates') {
     content = <TemplateManager clusters={clusters} />;
   } else if (activeTab === 'selfservice') {

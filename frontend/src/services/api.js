@@ -352,6 +352,7 @@ export const adminApi = {
 
 export const userApi = {
   getResources: () => apiClient.get('/user/resources'),
+  getResourceMetrics: (timeframe = 'hour') => apiClient.get(`/user/resource-metrics?timeframe=${encodeURIComponent(timeframe)}`),
   getResourceDetails: (resourceId) => apiClient.get(`/user/resources/${resourceId}`),
   getPublishingOptions: (resourceId) => apiClient.get(`/user/publishing/options${resourceId ? `?resourceId=${encodeURIComponent(resourceId)}` : ''}`),
   getPublications: (resourceId) => apiClient.get(`/user/resources/${resourceId}/publications`),

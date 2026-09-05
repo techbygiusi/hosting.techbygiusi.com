@@ -10,6 +10,7 @@ const { HTTP_STATUS } = require('../config/constants');
 const { AppError } = require('../middleware/errorHandler');
 const {
   getAllContainers,
+  getResourceRrdData,
   getContainerIps,
   powerAction,
   getVmTasks,
@@ -606,6 +607,61 @@ router.get('/resources', async (req, res, next) => {
         };
       })
     });
+  } catch (err) {
+    next(err);
+  }
+});
+
+
+router.get('/resource-metrics', async (req, res, next) => {
+  try {
+    const allowedTimeframes = new Set(['hour', 'day', 'week', 'month', 'year']);
+    const timeframe = allowedTimeframes.has(String(req.query.timeframe || 'hour'))
+      ? String(req.query.timeframe || 'hour')
+      : 'hour';
+    const rows = await getResourceRowsForUser(req.user.id);
+    const clusterCache = new Map();
+
+    for (const row of rows) {
+      const key = String(row.cluster_id);
+      if (clusterCache.has(key)) continue;
+      const apiToken = decrypt(row.api_token);
+      try {
+        const liveResources = await getAllContainers(row.cluster_url, apiToken);
+        clusterCache.set(key, { apiToken, liveResources });
+      } catch (_) {
+        clusterCache.set(key, { apiToken, liveResources: [] });
+      }
+    }
+
+    const entries = await Promise.all(rows.map(async (row) => {
+      const cluster = clusterCache.get(String(row.cluster_id));
+      const live = cluster?.liveResources?.find((item) => String(item.vmid) === String(row.container_id));
+      if (!cluster || !live) return [String(row.id), { points: [] }];
+
+      try {
+        const points = await getResourceRrdData(
+          row.cluster_url,
+          cluster.apiToken,
+          live.node,
+          live.type,
+          live.vmid,
+          timeframe
+        );
+        return [String(row.id), { points }];
+      } catch (_) {
+        const cpuRaw = Number(live.cpu || 0);
+        const cpuPercent = Math.min(Math.max(cpuRaw <= 1 ? cpuRaw * 100 : cpuRaw, 0), 100);
+        const memoryPercent = Number(live.maxmem || 0) > 0
+          ? Math.min(Math.max((Number(live.mem || 0) / Number(live.maxmem)) * 100, 0), 100)
+          : 0;
+        return [String(row.id), {
+          points: [{ time: Math.floor(Date.now() / 1000), cpuPercent, memoryPercent }]
+        }];
+      }
+    }));
+
+    res.json({ timeframe, metrics: Object.fromEntries(entries) });
   } catch (err) {
     next(err);
   }

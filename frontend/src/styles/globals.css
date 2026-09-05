@@ -2946,3 +2946,234 @@ body.theme-dark *::-webkit-scrollbar-thumb:hover {
 .terminal-status-open {
   color: #77d7aa;
 }
+
+.service-metric-charts,
+.service-detail-history-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.metric-sparkline {
+  min-width: 0;
+  padding: 10px 12px 8px;
+  border: 1px solid var(--portal-border);
+  border-radius: 14px;
+  background: linear-gradient(180deg, var(--portal-bg-soft), transparent);
+  overflow: hidden;
+}
+
+.metric-sparkline.large {
+  padding: 16px 18px 12px;
+  border-radius: 18px;
+}
+
+.metric-sparkline-head,
+.metric-sparkline-axis {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.metric-sparkline-head {
+  margin-bottom: 6px;
+  color: var(--portal-text-soft);
+  font-size: .8rem;
+}
+
+.metric-sparkline-head strong {
+  color: var(--portal-heading);
+  font-size: .86rem;
+}
+
+.metric-sparkline svg {
+  width: 100%;
+  height: 54px;
+  display: block;
+  overflow: visible;
+}
+
+.metric-sparkline.large svg {
+  height: 128px;
+}
+
+.metric-sparkline-area {
+  fill: color-mix(in srgb, var(--portal-primary) 13%, transparent);
+  stroke: none;
+}
+
+.metric-sparkline-line {
+  fill: none;
+  stroke: var(--portal-primary);
+  stroke-width: 1.9;
+  vector-effect: non-scaling-stroke;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.metric-sparkline-axis {
+  margin-top: 3px;
+  color: var(--portal-text-soft);
+  font-size: .68rem;
+  opacity: .76;
+}
+
+.service-detail-page,
+.admin-editor-replacement,
+.maintenance-editor-replacement {
+  display: grid;
+  gap: 14px;
+}
+
+.subpage-back-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+.service-detail-history-grid {
+  margin-bottom: 18px;
+}
+
+.service-detail-info-grid {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.admin-editor-form {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  max-width: 1040px;
+}
+
+.admin-crud-workspace,
+.admin-crud-workspace.has-editor,
+.maintenance-workspace,
+.maintenance-workspace.has-editor,
+.service-workspace-v4,
+.service-workspace-v4.has-detail {
+  display: block;
+}
+
+.mobile-drawer-backdrop {
+  padding: 0;
+  align-items: stretch;
+  justify-content: stretch;
+}
+
+.mobile-drawer {
+  width: 100vw;
+  max-width: none;
+  height: 100dvh;
+  min-height: 100dvh;
+  border: 0;
+  border-radius: 0;
+  padding: max(18px, env(safe-area-inset-top)) max(18px, env(safe-area-inset-right)) max(18px, env(safe-area-inset-bottom)) max(18px, env(safe-area-inset-left));
+}
+
+.mobile-drawer .portal-nav {
+  min-height: 0;
+  overflow-y: auto;
+}
+
+@media (max-width: 1180px) {
+  .service-detail-info-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .service-metric-charts,
+  .service-detail-history-grid,
+  .service-detail-info-grid,
+  .admin-editor-form {
+    grid-template-columns: 1fr;
+  }
+
+  .metric-sparkline svg {
+    height: 74px;
+  }
+
+  .metric-sparkline.large svg {
+    height: 116px;
+  }
+
+  .service-detail-actions {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .service-detail-actions > * {
+    width: 100%;
+  }
+
+  .mobile-drawer {
+    gap: 16px;
+  }
+}
+
+
+.wiki-panel { display: grid; gap: 14px; }
+.wiki-panel-toolbar { display: flex; align-items: center; justify-content: flex-end; min-height: 40px; }
+.wiki-panel-heading-actions { position: relative; display: flex; justify-content: flex-end; }
+.wiki-floating-menu-button {
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  white-space: nowrap;
+  line-height: 1;
+}
+.wiki-floating-menu-button svg {
+  width: 17px;
+  height: 17px;
+  flex: 0 0 17px;
+  display: block;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.wiki-floating-menu-popover { top: calc(100% + 10px); }
+.wiki-admin-toolbar { display: flex; align-items: center; justify-content: flex-end; gap: 12px; margin-bottom: 14px; }
+.wiki-admin-heading-actions { justify-content: flex-end; }
+
+.settings-grid-compact {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  align-items: start;
+}
+.settings-grid-compact > * { min-width: 0; }
+.settings-grid-span { grid-column: 1 / -1; }
+.settings-grid-compact .section-card { padding: 18px; border-radius: 20px; }
+.settings-grid-compact .section-card-header { margin-bottom: 14px; }
+.settings-grid-compact .section-card-header h2 { font-size: 1.08rem; }
+.settings-grid-compact .settings-section-card { padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+.settings-grid-compact .settings-section-header { margin-bottom: 12px; }
+.settings-grid-compact .settings-section-header h3,
+.settings-grid-compact .settings-avatar-card h3,
+.settings-grid-compact .settings-email-card h3,
+.settings-grid-compact .settings-password-card h3 { font-size: 1.02rem; }
+.settings-grid-compact .avatar-dropzone { padding: 14px; border-radius: 16px; gap: 14px; }
+.settings-grid-compact .avatar-dropzone-preview { width: 72px !important; height: 72px !important; font-size: 26px !important; }
+.settings-grid-compact .toggle-row,
+.settings-grid-compact .settings-toggle-clean { padding: 12px 13px; border-radius: 14px; }
+.settings-grid-compact .notification-settings-intro { margin-bottom: 12px; }
+.settings-grid-compact .page-state-clean.compact-state { padding: 16px; min-height: 0; }
+.settings-grid-compact .btn-primary,
+.settings-grid-compact .btn-secondary { min-height: 40px; }
+
+@media (max-width: 1050px) {
+  .settings-grid-compact { grid-template-columns: 1fr; }
+  .settings-grid-span { grid-column: auto; }
+}
+
+@media (max-width: 760px) {
+  .settings-grid-compact { gap: 12px; }
+  .settings-grid-compact .section-card { padding: 16px; }
+  .wiki-panel-toolbar { min-height: 38px; }
+  .wiki-floating-menu-button { min-height: 38px; padding: 9px 11px; }
+}

@@ -172,9 +172,8 @@ export default function WikiBrowser({ language = 'en' }) {
 
   return (
     <section className="panel-card wiki-panel">
-      <div className="panel-header wiki-panel-heading">
-        <h2>{text.title}</h2>
-        {hasContent && (
+      {hasContent && (
+        <div className="wiki-panel-toolbar">
           <div className="wiki-panel-heading-actions" ref={menuWrapRef}>
             <button
               type="button"
@@ -203,8 +202,8 @@ export default function WikiBrowser({ language = 'en' }) {
               </div>
             )}
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {error && <div className="alert alert-danger">{error}</div>}
 
