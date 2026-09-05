@@ -1,741 +1,371 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import PortalShell from '../components/PortalShell';
+import { DashboardIcon, ServerIcon, BookIcon, SettingsIcon, HomeIcon, LinkIcon, UserIcon } from '../components/Icons';
+import { EmptyState, InlineNotice, SectionCard, StatCard, StatusBadge } from '../components/UiBits';
 import { useAuth } from '../context/AuthContext';
-import { userApi, getErrorMessage, translateMessage } from '../services/api';
-import '../styles/globals.css';
+import { userApi, getErrorMessage } from '../services/api';
 import { readStoredLanguage, storeLanguage } from '../components/LanguageSwitch';
-import ResourceDetail, { getPercent, formatBytes, renderType } from '../components/ResourceDetail';
-import CreateMachineModal from '../components/CreateMachineModal';
-import MaintenanceBanner from '../components/MaintenanceBanner';
-import NotificationSettingsPanel from '../components/NotificationSettingsPanel';
-import WikiBrowser from '../components/WikiBrowser';
-import PublicPageModal from '../components/PublicPageModal';
 import AvatarSettingsPanel from '../components/AvatarSettingsPanel';
-import AccountMenu from '../components/AccountMenu';
 import AccountEmailSettingsPanel from '../components/AccountEmailSettingsPanel';
 import AccountPasswordSettingsPanel from '../components/AccountPasswordSettingsPanel';
+import NotificationSettingsPanel from '../components/NotificationSettingsPanel';
+import WikiBrowser from '../components/WikiBrowser';
+import CreateMachineModal from '../components/CreateMachineModal';
+import ActionModal from '../components/ActionModal';
 import { useTheme } from '../components/ThemeButton';
 
-const USER_LANGUAGE_OPTIONS = [
-  { code: 'en', label: 'English' },
-  { code: 'de', label: 'Deutsch' }
-];
-
-const PROVISIONING_SUCCESS_VISIBILITY_MS = 30 * 1000;
-const PROVISIONING_FAILED_VISIBILITY_MS = 5 * 60 * 1000;
-
-function parseServerTimestamp(value) {
-  if (!value) return null;
-  const parsed = Date.parse(`${String(value).replace(' ', 'T')}Z`);
-  return Number.isFinite(parsed) ? parsed : null;
-}
-
-function provisioningJobVisibilityMs(job) {
-  if (job.status === 'failed') return PROVISIONING_FAILED_VISIBILITY_MS;
-  return PROVISIONING_SUCCESS_VISIBILITY_MS;
-}
-
-function isProvisioningJobVisible(job, now = Date.now()) {
-  if (Number(job.progress) < 100) return true;
-  if (job.status !== 'success' && job.status !== 'failed') return true;
-  const finishedAt = parseServerTimestamp(job.finishedAt);
-  return finishedAt === null || now - finishedAt < provisioningJobVisibilityMs(job);
-}
-
-const USER_TRANSLATIONS = {
-  en: {
-    userConsole: 'User Portal',
-    notifications: 'Notifications',
-    dashboard: 'Dashboard',
-    wiki: 'Wiki',
-    settings: 'Settings',
-    accountSettings: 'Account Settings',
-    portalSettings: 'Portal Settings',
-    menu: 'Menu',
-    openMenu: 'Open menu',
-    closeMenu: 'Close menu',
-    close: 'Close',
-    language: 'Language',
-    appearance: 'Appearance',
-    appearanceText: 'Choose the portal theme used on this device.',
-    light: 'Light',
-    dark: 'Dark',
-    languageText: 'Choose the language used by the portal, menus, placeholders and maintenance banners.',
-    notificationsText: 'Manage e-mail notifications for outages, recoveries and maintenance.',
-    notificationSettings: 'Notification settings',
-    password: 'Password',
-    passwordText: 'Change the password used to sign in to your portal account.',
-    currentPassword: 'Current password',
-    newPassword: 'New password',
-    confirmPassword: 'Confirm new password',
-    changePassword: 'Change password',
-    changingPassword: 'Changing password...',
-    passwordChanged: 'Your password was changed successfully.',
-    passwordRequired: 'Enter your current password and a new password.',
-    passwordTooShort: 'The new password must be at least 8 characters long.',
-    passwordMismatch: 'The new passwords do not match.',
-    passwordChangeFailed: 'The password could not be changed.',
-    logout: 'Log out',
-    createContainer: 'Create new container',
-    firstContainer: 'Create first container',
-    selfServiceUnavailable: 'Container self-service is temporarily unavailable.',
-    provisioningJobs: 'Provisioning jobs',
-    noProvisioningJobs: 'No recent provisioning jobs.',
-    provisioningRunning: 'Provisioning',
-    provisioningReady: 'Ready',
-    provisioningFailed: 'Failed',
-    loadingServices: 'Loading services...',
-    noServices: 'No services',
-    noServicesText: 'No services have been assigned to you yet.',
-    publicPage: 'Website',
-    publicPageTitle: 'Open public website',
-    addPublicPage: 'Publish service',
-    editPublicPage: 'Edit public access',
-    managePublicAccess: 'Access',
-    managePublicAccessTitle: 'Manage public access',
-    addWebsite: 'Add link',
-    addWebsiteTitle: 'Add a public website link',
-    editWebsite: 'Edit link',
-    editWebsiteTitle: 'Edit the public website link',
-    publicPageUrl: 'Public page URL',
-    publicPageHelp: 'Publish this service securely through Pangolin.',
-    publicPageRequired: 'Enter a public page URL.',
-    publicPageInvalid: 'The public page must be a valid URL starting with http:// or https://.',
-    publicPageSaveFailed: 'The public page could not be saved.',
-    publicPageRemoveFailed: 'The public page could not be removed.',
-    removePublicPage: 'Remove public page',
-    removePublicPageConfirm: 'Remove the public page from this service?',
-    managementPage: 'Admin',
-    managementPageTitle: 'Open management page',
-    console: 'Console',
-    consoleTitle: 'Open console',
-    sshConsoleTitle: 'Open SSH console',
-    details: 'Show details',
-    save: 'Save',
-    saving: 'Saving...',
-    cancel: 'Cancel',
-    cluster: 'Cluster',
-    user: 'User',
-    group: 'Group',
-    node: 'Node',
-    unknown: 'Unknown',
-    counts: {
-      services: 'services',
-      online: 'online'
-    },
-    hero: {
-      title: 'Dashboard'
-    },
-    status: {
-      running: 'Online',
-      stopped: 'Offline',
-      paused: 'Paused',
-      suspended: 'Suspended',
-      unknown: 'Unknown'
-    }
-  },
-  de: {
-    userConsole: 'Benutzer-Portal',
-    notifications: 'Benachrichtigungen',
-    dashboard: 'Dashboard',
-    wiki: 'Wiki',
-    settings: 'Einstellungen',
-    accountSettings: 'Account Settings',
-    portalSettings: 'Portal Settings',
-    menu: 'Menü',
-    openMenu: 'Menü öffnen',
-    closeMenu: 'Menü schließen',
-    close: 'Schließen',
-    language: 'Sprache',
-    appearance: 'Darstellung',
-    appearanceText: 'Wähle das Portal-Design für dieses Gerät.',
-    light: 'Hell',
-    dark: 'Dunkel',
-    languageText: 'Wähle die Sprache für Portal, Menüs, Platzhalter und Wartungsbanner.',
-    notificationsText: 'Verwalte E-Mail-Benachrichtigungen für Ausfälle, Wiederherstellungen und Wartungen.',
-    notificationSettings: 'Benachrichtigungseinstellungen',
-    password: 'Passwort',
-    passwordText: 'Ändere das Passwort, mit dem du dich an deinem Portal-Konto anmeldest.',
-    currentPassword: 'Aktuelles Passwort',
-    newPassword: 'Neues Passwort',
-    confirmPassword: 'Neues Passwort bestätigen',
-    changePassword: 'Passwort ändern',
-    changingPassword: 'Passwort wird geändert...',
-    passwordChanged: 'Dein Passwort wurde erfolgreich geändert.',
-    passwordRequired: 'Bitte das aktuelle und ein neues Passwort eingeben.',
-    passwordTooShort: 'Das neue Passwort muss mindestens 8 Zeichen lang sein.',
-    passwordMismatch: 'Die neuen Passwörter stimmen nicht überein.',
-    passwordChangeFailed: 'Das Passwort konnte nicht geändert werden.',
-    logout: 'Abmelden',
-    createContainer: 'Neuen Container erstellen',
-    firstContainer: 'Ersten Container erstellen',
-    selfServiceUnavailable: 'Der Container-Self-Service ist vorübergehend nicht verfügbar.',
-    provisioningJobs: 'Bereitstellungsaufträge',
-    noProvisioningJobs: 'Keine aktuellen Bereitstellungsaufträge.',
-    provisioningRunning: 'Wird bereitgestellt',
-    provisioningReady: 'Bereit',
-    provisioningFailed: 'Fehlgeschlagen',
-    loadingServices: 'Dienste werden geladen...',
-    noServices: 'Keine Dienste',
-    noServicesText: 'Dir sind noch keine Dienste zugewiesen.',
-    publicPage: 'Webseite',
-    publicPageTitle: 'Öffentliche Webseite öffnen',
-    addPublicPage: 'Dienst veröffentlichen',
-    editPublicPage: 'Öffentlichen Zugriff bearbeiten',
-    managePublicAccess: 'Freigaben',
-    managePublicAccessTitle: 'Öffentliche Zugriffe verwalten',
-    addWebsite: 'Link hinzufügen',
-    addWebsiteTitle: 'Link zu einer öffentlichen Webseite hinterlegen',
-    editWebsite: 'Link bearbeiten',
-    editWebsiteTitle: 'Link zur öffentlichen Webseite bearbeiten',
-    publicPageUrl: 'URL der öffentlichen Seite',
-    publicPageHelp: 'Veröffentliche diesen Dienst sicher über Pangolin.',
-    publicPageRequired: 'Bitte eine URL für die öffentliche Seite eingeben.',
-    publicPageInvalid: 'Die öffentliche Seite muss eine gültige URL mit http:// oder https:// sein.',
-    publicPageSaveFailed: 'Die öffentliche Seite konnte nicht gespeichert werden.',
-    publicPageRemoveFailed: 'Die öffentliche Seite konnte nicht entfernt werden.',
-    removePublicPage: 'Öffentliche Seite entfernen',
-    removePublicPageConfirm: 'Die öffentliche Seite von diesem Dienst entfernen?',
-    managementPage: 'Admin',
-    managementPageTitle: 'Verwaltungsseite öffnen',
-    console: 'Konsole',
-    consoleTitle: 'Konsole öffnen',
-    sshConsoleTitle: 'SSH-Konsole öffnen',
-    details: 'Details anzeigen',
-    save: 'Speichern',
-    saving: 'Wird gespeichert...',
-    cancel: 'Abbrechen',
-    cluster: 'Cluster',
-    user: 'Benutzer',
-    group: 'Gruppe',
-    node: 'Node',
-    unknown: 'Unbekannt',
-    counts: {
-      services: 'Dienste',
-      online: 'online'
-    },
-    hero: {
-      title: 'Dashboard'
-    },
-    status: {
-      running: 'Online',
-      stopped: 'Offline',
-      paused: 'Pausiert',
-      suspended: 'Angehalten',
-      unknown: 'Unbekannt'
-    }
+function formatBytes(value) {
+  const bytes = Number(value || 0);
+  if (!Number.isFinite(bytes) || bytes <= 0) return '—';
+  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+  let index = 0;
+  let current = bytes;
+  while (current >= 1024 && index < units.length - 1) {
+    current /= 1024;
+    index += 1;
   }
-};
-
-function renderUserStatus(status, labels) {
-  return labels.status[status] || labels.status.unknown;
+  return `${current.toFixed(current >= 10 || index === 0 ? 0 : 1)} ${units[index]}`;
 }
 
-function MenuIcon() {
+function formatUptime(seconds) {
+  const total = Number(seconds || 0);
+  if (!Number.isFinite(total) || total <= 0) return '—';
+  const days = Math.floor(total / 86400);
+  const hours = Math.floor((total % 86400) / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+  if (days > 0) return `${days}d ${hours}h`;
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  return `${minutes}m`;
+}
+
+function resourceTypeLabel(resource) {
+  const raw = String(resource?.resourceType || resource?.type || '').toLowerCase();
+  if (raw === 'qemu' || raw === 'vm') return 'Virtual machine';
+  if (raw === 'lxc' || raw === 'ct') return 'Container';
+  if (raw === 'website') return 'Website';
+  return raw ? raw.toUpperCase() : 'Service';
+}
+
+function detailPairs(resource) {
+  return [
+    ['Cluster', resource.clusterName || '—'],
+    ['Node', resource.node || '—'],
+    ['Type', resourceTypeLabel(resource)],
+    ['ID', resource.containerId || '—'],
+    ['Status', resource.status || '—'],
+    ['Uptime', formatUptime(resource.uptime)],
+    ['CPU', resource.maxcpu ? `${resource.maxcpu} cores` : '—'],
+    ['Memory', resource.maxmem ? formatBytes(resource.maxmem) : '—'],
+    ['Service IP', resource.manualIp || resource.ip || resource.primaryIp || '—'],
+    ['Operating system', resource.operatingSystem || '—']
+  ];
+}
+
+function servicePrimaryUrl(resource) {
+  return resource.publicUrl || resource.webUrl || resource.adminUrl || '';
+}
+
+function UserOverview({ resources, onOpenProvisioning, onSelectService }) {
+  const running = resources.filter((item) => String(item.status || '').toLowerCase().includes('run')).length;
+  const stopped = resources.filter((item) => String(item.status || '').toLowerCase().includes('stop')).length;
+  const totalMemory = resources.reduce((sum, item) => sum + Number(item.maxmem || 0), 0);
+  const clusters = new Set(resources.map((item) => item.clusterName).filter(Boolean));
+
   return (
-    <svg className="menu-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-      <path d="M4 7h16" />
-      <path d="M4 12h16" />
-      <path d="M4 17h16" />
-    </svg>
+    <div className="dashboard-grid-full">
+      <section className="hero-card-clean span-2">
+        <div>
+          <p className="eyebrow-clean">Overview</p>
+          <h2>Everything looks tidy.</h2>
+          <p>Your services, docs and access tools live in one place now.</p>
+        </div>
+        <div className="hero-actions">
+          <button type="button" className="btn-primary" onClick={onOpenProvisioning}>Create container</button>
+        </div>
+      </section>
+
+      <StatCard label="Services" value={resources.length} hint="Visible in your account" tone="neutral" />
+      <StatCard label="Running" value={running} hint="Healthy and online" tone="success" />
+      <StatCard label="Stopped" value={stopped} hint="Needs attention" tone="danger" />
+      <StatCard label="Clusters" value={clusters.size} hint="Assigned locations" tone="neutral" />
+
+      <SectionCard title="Your services" subtitle="Quick access to the latest resources" className="span-2">
+        <div className="service-list-compact">
+          {resources.slice(0, 6).map((resource) => (
+            <button type="button" className="service-row-card" key={resource.id} onClick={() => onSelectService(resource.id)}>
+              <div>
+                <strong>{resource.name}</strong>
+                <span>{resource.clusterName || 'Unassigned cluster'}</span>
+              </div>
+              <StatusBadge status={resource.status} />
+            </button>
+          ))}
+          {!resources.length ? <EmptyState title="No services yet" text="Services assigned by the admin will appear here." /> : null}
+        </div>
+      </SectionCard>
+
+      <SectionCard title="Capacity snapshot" subtitle="Based on assigned service limits">
+        <div className="metric-pair-list">
+          <div><span>Total memory</span><strong>{formatBytes(totalMemory)}</strong></div>
+          <div><span>Total CPU cores</span><strong>{resources.reduce((sum, item) => sum + Number(item.maxcpu || 0), 0)}</strong></div>
+          <div><span>Provisioned machines</span><strong>{resources.filter((item) => item.isSelfService || item.provisioned_id).length}</strong></div>
+        </div>
+      </SectionCard>
+    </div>
   );
 }
 
-function LogoutIcon() {
+function UserServices({ resources, selectedId, onSelect, search, onSearch, onOpenConsole }) {
+  const filtered = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    if (!term) return resources;
+    return resources.filter((item) => [item.name, item.clusterName, item.node, item.status].some((field) => String(field || '').toLowerCase().includes(term)));
+  }, [resources, search]);
+
+  const selected = filtered.find((item) => String(item.id) === String(selectedId)) || filtered[0] || null;
+
+  useEffect(() => {
+    if (!selectedId && filtered[0]) onSelect(filtered[0].id);
+  }, [filtered, onSelect, selectedId]);
+
   return (
-    <svg className="logout-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-      <path d="M10 6H5v12h5" />
-      <path d="M14 8l4 4-4 4" />
-      <path d="M8 12h10" />
-    </svg>
+    <div className="two-column-layout">
+      <SectionCard title="Services" subtitle="Browse and manage your assigned services" action={<input className="search-clean" value={search} onChange={(event) => onSearch(event.target.value)} placeholder="Search services…" />}>
+        <div className="service-table-clean">
+          {filtered.map((resource) => (
+            <button type="button" key={resource.id} className={`service-table-row ${String(selected?.id) === String(resource.id) ? 'active' : ''}`} onClick={() => onSelect(resource.id)}>
+              <div className="service-table-main">
+                <strong>{resource.name}</strong>
+                <span>{resource.clusterName || 'No cluster'} · {resourceTypeLabel(resource)}</span>
+              </div>
+              <div className="service-table-side">
+                <StatusBadge status={resource.status} />
+              </div>
+            </button>
+          ))}
+          {!filtered.length ? <EmptyState title="No matching services" text="Try another search or wait for new assignments." /> : null}
+        </div>
+      </SectionCard>
+
+      <SectionCard title={selected ? selected.name : 'Service details'} subtitle={selected ? `${selected.clusterName || 'Unknown cluster'} · ${resourceTypeLabel(selected)}` : 'Select a service to inspect it'}>
+        {selected ? (
+          <>
+            <div className="service-action-row">
+              {servicePrimaryUrl(selected) ? <a className="btn-primary" href={servicePrimaryUrl(selected)} target="_blank" rel="noreferrer">Open service</a> : null}
+              {selected.adminUrl ? <a className="btn-secondary" href={selected.adminUrl} target="_blank" rel="noreferrer">Open admin</a> : null}
+              <button type="button" className="btn-secondary" onClick={() => onOpenConsole(selected.id)}>Open console</button>
+            </div>
+            <div className="detail-grid-clean">
+              {detailPairs(selected).map(([label, value]) => (
+                <div key={label} className="detail-pair-clean">
+                  <span>{label}</span>
+                  <strong>{value}</strong>
+                </div>
+              ))}
+            </div>
+          </>
+        ) : <EmptyState title="No service selected" text="Choose a service on the left to see details and actions." />}
+      </SectionCard>
+    </div>
   );
 }
 
-function ConsoleIcon() {
+function SettingsSummary({ profile, setProfile, saveProfile, savingProfile, error, notice }) {
   return (
-    <svg className="console-launch-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-      <path d="M4 6.5h16" />
-      <rect x="3" y="5" width="18" height="14" rx="2.5" />
-      <path d="M7.5 10.5l2.5 2-2.5 2" />
-      <path d="M12.5 14.5h4" />
-    </svg>
+    <SectionCard title="Profile" subtitle="Basic account settings">
+      {error ? <InlineNotice tone="danger">{error}</InlineNotice> : null}
+      {notice ? <InlineNotice tone="success">{notice}</InlineNotice> : null}
+      <form className="clean-form-grid compact two-up" onSubmit={saveProfile}>
+        <label>
+          <span>Name</span>
+          <input value={profile.name || ''} onChange={(event) => setProfile((current) => ({ ...current, name: event.target.value }))} />
+        </label>
+        <label>
+          <span>Timezone</span>
+          <input value={profile.timezone || ''} onChange={(event) => setProfile((current) => ({ ...current, timezone: event.target.value }))} placeholder="Europe/Berlin" />
+        </label>
+        <div className="span-full"><button type="submit" className="btn-primary" disabled={savingProfile}>{savingProfile ? 'Saving…' : 'Save profile'}</button></div>
+      </form>
+    </SectionCard>
   );
 }
 
 export default function UserDashboard() {
-  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+  const { user, logout, applyUserPatch } = useAuth();
+  const [activeTab, setActiveTab] = useState('dashboard');
   const [resources, setResources] = useState([]);
+  const [profile, setProfile] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [detailId, setDetailId] = useState(null);
+  const [notice, setNotice] = useState('');
+  const [search, setSearch] = useState('');
+  const [selectedId, setSelectedId] = useState('');
+  const [language, setLanguage] = useState(readStoredLanguage());
   const [provisioningOptions, setProvisioningOptions] = useState([]);
-  const [showCreate, setShowCreate] = useState(false);
-  const [provisioningJobs, setProvisioningJobs] = useState([]);
-  const [openProvisioningJob, setOpenProvisioningJob] = useState(null);
-  const [publicPageResource, setPublicPageResource] = useState(null);
-  const [language, setLanguage] = useState(readStoredLanguage);
-  const [activeTab, setActiveTab] = useState('dashboard');
-  const [settingsSection, setSettingsSection] = useState('account');
-  const [menuOpen, setMenuOpen] = useState(false);
-
-  const fetchResources = useCallback(async (withSpinner = true) => {
-    try {
-      if (withSpinner) setLoading(true);
-      setError('');
-      const response = await userApi.getResources();
-      const nextResources = response.data.resources || [];
-      setResources(nextResources);
-      return nextResources;
-    } catch (err) {
-      setError(getErrorMessage(err, 'Dienste konnten nicht geladen werden.'));
-      return null;
-    } finally {
-      if (withSpinner) setLoading(false);
-    }
-  }, []);
-
-
-  const fetchProvisioningJobs = useCallback(async () => {
-    try {
-      const response = await userApi.getProvisioningJobs(10);
-      setProvisioningJobs(response.data.jobs || []);
-    } catch (_) {
-      setProvisioningJobs([]);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchResources();
-    fetchProvisioningJobs();
-    userApi.getProvisioningOptions()
-      .then(res => setProvisioningOptions(res.data.clusters || []))
-      .catch(() => setProvisioningOptions([]));
-  }, [fetchResources, fetchProvisioningJobs]);
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      if (document.visibilityState === 'visible') fetchResources(false);
-    }, 30 * 1000);
-    return () => clearInterval(timer);
-  }, [fetchResources]);
-
-
-  useEffect(() => {
-    const active = provisioningJobs.some(job => ['queued', 'running'].includes(job.status));
-    if (!active) return undefined;
-    const timer = setInterval(() => {
-      fetchProvisioningJobs();
-      fetchResources(false);
-    }, 2000);
-    return () => clearInterval(timer);
-  }, [provisioningJobs, fetchProvisioningJobs, fetchResources]);
-
-
-  useEffect(() => {
-    const now = Date.now();
-    const expired = provisioningJobs.some(job => !isProvisioningJobVisible(job, now));
-    if (expired) {
-      setProvisioningJobs(current => current.filter(job => isProvisioningJobVisible(job)));
-      return undefined;
-    }
-    const remaining = provisioningJobs
-      .filter(job => (job.status === 'success' || job.status === 'failed') && Number(job.progress) >= 100)
-      .map(job => {
-        const finishedAt = parseServerTimestamp(job.finishedAt);
-        return finishedAt === null ? null : Math.max((finishedAt + provisioningJobVisibilityMs(job)) - now, 0);
-      })
-      .filter(value => value !== null);
-    if (!remaining.length) return undefined;
-    const timer = setTimeout(() => {
-      setProvisioningJobs(current => current.filter(job => isProvisioningJobVisible(job)));
-    }, Math.min(...remaining) + 50);
-    return () => clearTimeout(timer);
-  }, [provisioningJobs]);
-
-  const detailResource = resources.find(item => item.id === detailId) || null;
-  const labels = USER_TRANSLATIONS[language] || USER_TRANSLATIONS.en;
-  const onlineCount = useMemo(() => resources.filter(item => item.status === 'running').length, [resources]);
-  const availableProvisioningOptions = useMemo(
-    () => provisioningOptions.filter(item => item.available !== false),
-    [provisioningOptions]
-  );
-  const unavailableProvisioningOptions = useMemo(
-    () => provisioningOptions.filter(item => item.available === false),
-    [provisioningOptions]
-  );
-
-  const selectTab = (tab) => {
-    setActiveTab(tab);
-    setMenuOpen(false);
-  };
-
+  const [createOpen, setCreateOpen] = useState(false);
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [jobModal, setJobModal] = useState(null);
   const { theme, setTheme } = useTheme();
 
-  const selectLanguage = (nextLanguage) => {
-    setLanguage(nextLanguage);
-    storeLanguage(nextLanguage);
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const [resourcesRes, profileRes, optionsRes, jobsRes] = await Promise.all([
+        userApi.getResources(),
+        userApi.getProfile(),
+        userApi.getProvisioningOptions().catch(() => ({ data: { options: [] } })),
+        userApi.getProvisioningJobs(10).catch(() => ({ data: { jobs: [] } }))
+      ]);
+      const nextResources = resourcesRes.data?.resources || [];
+      setResources(nextResources);
+      setProfile(profileRes.data?.profile || {});
+      setProvisioningOptions(optionsRes.data?.options || []);
+      setJobModal((jobsRes.data?.jobs || []).find((item) => ['queued', 'running'].includes(item.status)) || null);
+      if (nextResources[0] && !selectedId) setSelectedId(nextResources[0].id);
+    } catch (err) {
+      setError(getErrorMessage(err, 'The dashboard could not be loaded.'));
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedId]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const openConsole = (resourceId) => {
+    navigate(`/console/${resourceId}`);
   };
 
-  return (
-    <div className="app-page user-page">
-      <MaintenanceBanner />
-      <header className="site-header">
-        <div className="site-header-inner">
-          <div className="site-brand">
-            <h1>Hosting by TechByGiusi</h1>
-          </div>
-          <div className="site-actions">
-            <button type="button" className="btn-secondary admin-mobile-menu-toggle user-menu-toggle-icon-only" onClick={() => setMenuOpen(true)} aria-label={labels.openMenu} title={labels.menu}><MenuIcon /></button>
-            <AccountMenu user={user} language={language} onOpenSettings={() => selectTab('settings')} onLogout={logout} />
-          </div>
-        </div>
-      </header>
+  const saveProfile = async (event) => {
+    event.preventDefault();
+    setSavingProfile(true);
+    setError('');
+    setNotice('');
+    try {
+      const response = await userApi.updateProfile({ name: profile.name, timezone: profile.timezone });
+      const nextProfile = response.data?.profile || { ...profile };
+      setProfile(nextProfile);
+      applyUserPatch({ name: nextProfile.name || profile.name });
+      setNotice('Profile updated.');
+    } catch (err) {
+      setError(getErrorMessage(err, 'The profile could not be saved.'));
+    } finally {
+      setSavingProfile(false);
+    }
+  };
 
-      <div className={`user-fullscreen-menu-overlay ${menuOpen ? 'open' : ''}`} onClick={() => setMenuOpen(false)} aria-hidden={!menuOpen}>
-        <div className="user-fullscreen-menu-panel" onClick={(e) => e.stopPropagation()}>
-          <div className="mobile-admin-menu-header">
-            <div>
-              <span className="resource-id">{labels.userConsole}</span>
-              <h2>{user?.name || user?.email || 'User'}</h2>
-              <p>{resources.length} {labels.counts.services} · {onlineCount} {labels.counts.online}</p>
+  const changeLanguage = async (value) => {
+    setLanguage(value);
+    storeLanguage(value);
+    applyUserPatch({ preferredLanguage: value });
+    try {
+      await userApi.updateLanguage(value);
+    } catch (_) {
+      // keep local change
+    }
+  };
+
+  const navItems = [
+    { key: 'dashboard', label: 'Dashboard', icon: HomeIcon },
+    { key: 'services', label: 'Services', icon: ServerIcon, badge: `${resources.length}` },
+    { key: 'wiki', label: 'Wiki', icon: BookIcon },
+    { key: 'settings', label: 'Settings', icon: SettingsIcon }
+  ];
+
+  const activeTitle = {
+    dashboard: 'Dashboard',
+    services: 'Services',
+    wiki: 'Wiki',
+    settings: 'Settings'
+  }[activeTab];
+
+  const toolbar = <input className="search-clean global-toolbar-search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search services, clusters or docs…" />;
+
+  let content = null;
+  if (loading) {
+    content = <SectionCard><div className="page-state-clean">Loading…</div></SectionCard>;
+  } else if (activeTab === 'dashboard') {
+    content = <UserOverview resources={resources} onOpenProvisioning={() => setCreateOpen(true)} onSelectService={(id) => { setSelectedId(id); setActiveTab('services'); }} />;
+  } else if (activeTab === 'services') {
+    content = <UserServices resources={resources} selectedId={selectedId} onSelect={setSelectedId} search={search} onSearch={setSearch} onOpenConsole={openConsole} />;
+  } else if (activeTab === 'wiki') {
+    content = <SectionCard title="Wiki" subtitle="Documentation and shared knowledge"><WikiBrowser /></SectionCard>;
+  } else {
+    content = (
+      <div className="settings-layout-clean">
+        <SettingsSummary
+          profile={profile}
+          setProfile={setProfile}
+          saveProfile={saveProfile}
+          savingProfile={savingProfile}
+          error={error}
+          notice={notice}
+        />
+        <SectionCard title="Appearance & language" subtitle="Personal display preferences for this account">
+          <div className="settings-choice-grid">
+            <div className="settings-choice-block">
+              <span className="settings-choice-label">Appearance</span>
+              <div className="segmented-clean">
+                <button type="button" className={theme === 'light' ? 'active' : ''} onClick={() => setTheme('light')}>Light</button>
+                <button type="button" className={theme === 'dark' ? 'active' : ''} onClick={() => setTheme('dark')}>Dark</button>
+              </div>
             </div>
-            <button type="button" className="btn-secondary mobile-admin-menu-close" onClick={() => setMenuOpen(false)} aria-label={labels.closeMenu}>{labels.close}</button>
+            <div className="settings-choice-block">
+              <span className="settings-choice-label">Language</span>
+              <div className="segmented-clean">
+                <button type="button" className={language === 'en' ? 'active' : ''} onClick={() => changeLanguage('en')}>English</button>
+                <button type="button" className={language === 'de' ? 'active' : ''} onClick={() => changeLanguage('de')}>Deutsch</button>
+              </div>
+            </div>
           </div>
-          <section className="mobile-menu-theme-card" aria-labelledby="user-mobile-theme-title">
-            <div className="mobile-menu-theme-copy">
-              <h3 id="user-mobile-theme-title">{labels.appearance}</h3>
-              <p>{labels.appearanceText}</p>
-            </div>
-            <div className="mobile-menu-theme-switch" role="group" aria-label={labels.appearance}>
-              <button
-                type="button"
-                className={theme === 'light' ? 'active' : ''}
-                onClick={() => setTheme('light')}
-              >
-                {labels.light}
-              </button>
-              <button
-                type="button"
-                className={theme === 'dark' ? 'active' : ''}
-                onClick={() => setTheme('dark')}
-              >
-                {labels.dark}
-              </button>
-            </div>
-          </section>
-          <nav className="console-nav-tabs mobile-admin-menu-nav" aria-label={labels.menu}>
-            <button type="button" className={activeTab === 'dashboard' ? 'active' : ''} onClick={() => selectTab('dashboard')}>{labels.dashboard}</button>
-            <button type="button" className={activeTab === 'wiki' ? 'active' : ''} onClick={() => selectTab('wiki')}>{labels.wiki}</button>
-            <button type="button" className={activeTab === 'settings' ? 'active' : ''} onClick={() => selectTab('settings')}>{labels.settings}</button>
-          </nav>
-          <div className="mobile-admin-menu-footer">
-            <button type="button" className="btn-secondary mobile-admin-menu-logout" onClick={logout}>{labels.logout}</button>
-          </div>
-        </div>
+        </SectionCard>
+        <SectionCard title="Profile picture"><AvatarSettingsPanel language={language} /></SectionCard>
+        <SectionCard title="Email address"><AccountEmailSettingsPanel language={language} /></SectionCard>
+        <SectionCard title="Password"><AccountPasswordSettingsPanel language={language} /></SectionCard>
+        <SectionCard title="Notifications" subtitle="Mail preferences for service monitoring"><NotificationSettingsPanel language={language} /></SectionCard>
       </div>
+    );
+  }
 
-      <main className="app-container compact-container admin-shell user-dashboard-shell">
-        <aside className="admin-sidebar-shell desktop-admin-sidebar user-desktop-sidebar">
-          <div className="panel-card console-sidebar-card">
-            <span className="resource-id">{labels.userConsole}</span>
-            <h2>{user?.name || user?.email || 'User'}</h2>
-            <p>{resources.length} {labels.counts.services} · {onlineCount} {labels.counts.online}</p>
-          </div>
-          <nav className="app-tabs console-nav-tabs" aria-label={labels.menu}>
-            <button type="button" className={activeTab === 'dashboard' ? 'active' : ''} onClick={() => selectTab('dashboard')}>{labels.dashboard}</button>
-            <button type="button" className={activeTab === 'wiki' ? 'active' : ''} onClick={() => selectTab('wiki')}>{labels.wiki}</button>
-            <button type="button" className={activeTab === 'settings' ? 'active' : ''} onClick={() => selectTab('settings')}>{labels.settings}</button>
-          </nav>
-        </aside>
+  return (
+    <>
+      <PortalShell
+        user={user}
+        title={activeTitle}
+        subtitle="A rebuilt full-width workspace for your hosting portal."
+        navItems={navItems}
+        activeKey={activeTab}
+        onSelect={setActiveTab}
+        onLogout={logout}
+        toolbar={toolbar}
+        language={language}
+        onLanguageChange={changeLanguage}
+        footer={<span>Hosting by TechByGiusi · Self-hosted. More freedom.</span>}
+      >
+        {error && activeTab !== 'settings' ? <InlineNotice tone="danger">{error}</InlineNotice> : null}
+        {content}
+      </PortalShell>
 
-        <section className="admin-main-shell">
-          {error && <div className="alert alert-danger">{error}</div>}
-
-          {activeTab === 'dashboard' && (
-            <>
-              <section className="panel-card dashboard-hero-card user-dashboard-hero-card">
-                <div>
-                  <h2>{labels.hero.title}</h2>
-                </div>
-                {availableProvisioningOptions.length > 0 && (
-                  <div className="dashboard-hero-actions">
-                    <button type="button" className="btn-primary" onClick={() => setShowCreate(true)}>{labels.createContainer}</button>
-                  </div>
-                )}
-              </section>
-
-              {availableProvisioningOptions.length === 0 && unavailableProvisioningOptions.length > 0 && (
-                <div className="alert alert-warning provisioning-unavailable-notice">
-                  <strong>{labels.selfServiceUnavailable}</strong>
-                  <span>{unavailableProvisioningOptions.map(item => `${item.clusterName}: ${translateMessage(item.unavailableReason)}`).join(' · ')}</span>
-                </div>
-              )}
-
-
-              {provisioningJobs.length > 0 && (
-                <section className="panel-card provisioning-jobs-panel">
-                  <h2>{labels.provisioningJobs}</h2>
-                  <div className="provisioning-job-list">
-                    {provisioningJobs.map(job => (
-                      <button type="button" key={job.id} className="provisioning-job-card provisioning-job-button" onClick={() => setOpenProvisioningJob(job)}>
-                        <div><strong>{job.hostname}</strong><small>{job.templateName || 'Template'} · {job.clusterName}</small></div>
-                        <div className="provisioning-job-progress">
-                          <div className="progress-bar"><span style={{ width: `${job.progress || 0}%` }} /></div>
-                          <small>{job.status === 'success' ? labels.provisioningReady : job.status === 'failed' ? labels.provisioningFailed : labels.provisioningRunning} · {job.progress || 0}%</small>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                </section>
-              )}
-
-              {loading ? (
-                <div className="loading"><span className="spinner"></span><span>{labels.loadingServices}</span></div>
-              ) : resources.length === 0 ? (
-                <section className="empty-state panel-card">
-                  <h2>{labels.noServices}</h2>
-                  <p>{labels.noServicesText}</p>
-                  {availableProvisioningOptions.length > 0 && (
-                    <button type="button" className="btn-primary" onClick={() => setShowCreate(true)}>{labels.firstContainer}</button>
-                  )}
-                </section>
-              ) : (
-                <section className="resource-grid">
-                  {resources.map(resource => (
-                    <ResourceCard
-                      key={resource.id}
-                      resource={resource}
-                      onOpenDetails={() => setDetailId(resource.id)}
-                      onManagePublicPage={() => setPublicPageResource(resource)}
-                      labels={labels}
-                    />
-                  ))}
-                </section>
-              )}
-            </>
-          )}
-
-          {activeTab === 'wiki' && <WikiBrowser language={language} />}
-
-          {activeTab === 'settings' && (
-            <section className="panel-card user-settings-card user-settings-shell">
-              <div className="panel-header"><h2>{labels.settings}</h2></div>
-
-              <nav className="admin-settings-tabs user-settings-tabs" aria-label={labels.settings}>
-                <button type="button" className={settingsSection === 'account' ? 'active' : ''} onClick={() => setSettingsSection('account')}>{labels.accountSettings}</button>
-                <button type="button" className={settingsSection === 'portal' ? 'active' : ''} onClick={() => setSettingsSection('portal')}>{labels.portalSettings}</button>
-              </nav>
-
-              {settingsSection === 'account' && (
-                <div className="settings-tab-content user-settings-tab-content">
-                  <AvatarSettingsPanel language={language} />
-                  <AccountEmailSettingsPanel language={language} />
-                  <AccountPasswordSettingsPanel language={language} />
-                </div>
-              )}
-
-              {settingsSection === 'portal' && (
-                <div className="settings-tab-content user-settings-tab-content">
-                  <section className="settings-language-card settings-appearance-card">
-                    <div>
-                      <h3>{labels.appearance}</h3>
-                      <p>{labels.appearanceText}</p>
-                    </div>
-                    <div className="mobile-admin-language-switch settings-language-buttons" role="group" aria-label={labels.appearance}>
-                      <button
-                        type="button"
-                        className={theme === 'light' ? 'active' : ''}
-                        onClick={() => setTheme('light')}
-                      >
-                        {labels.light}
-                      </button>
-                      <button
-                        type="button"
-                        className={theme === 'dark' ? 'active' : ''}
-                        onClick={() => setTheme('dark')}
-                      >
-                        {labels.dark}
-                      </button>
-                    </div>
-                  </section>
-
-                  <div className="settings-language-card language-settings-block">
-                    <div>
-                      <h3>{labels.language}</h3>
-                      <p>{labels.languageText}</p>
-                    </div>
-                    <div className="mobile-admin-language-switch settings-language-buttons" role="group" aria-label={labels.language}>
-                      {USER_LANGUAGE_OPTIONS.map(option => (
-                        <button
-                          key={option.code}
-                          type="button"
-                          className={language === option.code ? 'active' : ''}
-                          onClick={() => selectLanguage(option.code)}
-                        >
-                          {option.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="settings-notification-card">
-                    <div className="settings-section-header">
-                      <h3>{labels.notifications}</h3>
-                    </div>
-                    <NotificationSettingsPanel language={language} />
-                  </div>
-                </div>
-              )}
-            </section>
-          )}
-        </section>
-      </main>
-
-      {detailResource && (
-        <ResourceDetail
-          resource={detailResource}
-          onClose={() => setDetailId(null)}
-          onChanged={() => fetchResources(false)}
-          onManagePublicPage={() => {
-            setDetailId(null);
-            setPublicPageResource(detailResource);
-          }}
-        />
-      )}
-
-
-      {publicPageResource && (
-        <PublicPageModal
-          resource={publicPageResource}
-          language={language}
-          labels={labels}
-          onClose={() => setPublicPageResource(null)}
-          onSaved={() => fetchResources(false)}
-        />
-      )}
-
-      {openProvisioningJob && !showCreate && (
+      {createOpen ? (
         <CreateMachineModal
-          options={[]}
-          initialJob={openProvisioningJob}
-          onClose={() => setOpenProvisioningJob(null)}
-          onCreated={() => { fetchResources(false); fetchProvisioningJobs(); }}
+          options={provisioningOptions}
+          initialJob={jobModal}
+          onClose={() => setCreateOpen(false)}
+          onCreated={() => { load(); }}
         />
-      )}
+      ) : null}
 
-      {showCreate && (
-        <CreateMachineModal
-          options={availableProvisioningOptions}
-          onClose={() => setShowCreate(false)}
-          onCreated={() => { fetchResources(false); fetchProvisioningJobs(); }}
-        />
-      )}
-    </div>
+      {jobModal && !createOpen ? (
+        <ActionModal title="Provisioning still running" subtitle="A machine creation job is active." onClose={() => setJobModal(null)}>
+          <p>You can reopen the create dialog to watch the live progress.</p>
+          <div className="form-actions">
+            <button type="button" className="btn-secondary" onClick={() => setJobModal(null)}>Dismiss</button>
+            <button type="button" className="btn-primary" onClick={() => { setCreateOpen(true); }}>Open provisioning</button>
+          </div>
+        </ActionModal>
+      ) : null}
+    </>
   );
-}
-
-
-function ResourceCard({ resource, onOpenDetails, onManagePublicPage, labels }) {
-  const cpuPercent = getCpuPercent(resource);
-  const memPercent = getPercent(resource.mem, resource.maxmem);
-  const publicUrl = resource.publicUrl || resource.webUrl;
-  const adminUrl = resource.adminUrl || '';
-  const managePublicPageLabel = `${labels.managePublicAccess}${Number(resource.publicationCount || 0) > 0 ? ` (${resource.publicationCount})` : ''}`;
-  const managePublicPageTitle = labels.editPublicPage;
-  const canOpenConsole = !!resource?.capabilities?.canConsole;
-  const consoleTitle = resource?.consoleMode === 'ssh' ? labels.sshConsoleTitle : labels.consoleTitle;
-
-  return (
-    <article className="resource-card compact-resource-card">
-      <div className="resource-card-header">
-        <div>
-          <span className="resource-id">{renderType(resource.type)} · {resource.containerId}</span>
-          <h2>{resource.name}</h2>
-        </div>
-        <div className="resource-card-header-actions">
-          {canOpenConsole && (
-            <a
-              className="resource-console-button"
-              href={`/console/${resource.id}`}
-              target="_blank"
-              rel="noreferrer"
-              title={consoleTitle}
-              aria-label={consoleTitle}
-            >
-              <ConsoleIcon />
-            </a>
-          )}
-          <span className={`status-badge status-${resource.status || 'unknown'}`}>{renderUserStatus(resource.status || 'unknown', labels)}</span>
-        </div>
-      </div>
-
-      <div className="resource-summary">
-        <div><span>{resource.userName || resource.userEmail ? labels.user : labels.group}</span><strong>{resource.userName || resource.userEmail || resource.groupName || labels.unknown}</strong></div>
-        <div><span>{labels.cluster}</span><strong>{resource.clusterName || labels.unknown}</strong></div>
-      </div>
-
-      <Metric label="CPU" percent={cpuPercent} detail={`${cpuPercent.toFixed(1)} %`} />
-      <Metric label="RAM" percent={memPercent} detail={`${formatBytes(resource.mem)} / ${formatBytes(resource.maxmem)}`} />
-
-      <div className="resource-card-footer">
-        <div className="service-link-row publishing-service-links">
-          {publicUrl && (
-            <a
-              className="btn-primary full-button"
-              href={publicUrl}
-              target="_blank"
-              rel="noreferrer"
-              title={labels.publicPageTitle}
-              aria-label={labels.publicPageTitle}
-            >
-              {labels.publicPage}
-            </a>
-          )}
-          {resource.canManagePublicPage && !(publicUrl && adminUrl) && (
-            <button
-              type="button"
-              className={publicUrl ? 'btn-secondary full-button' : 'btn-primary full-button'}
-              onClick={onManagePublicPage}
-              title={managePublicPageTitle}
-              aria-label={managePublicPageTitle}
-            >
-              {managePublicPageLabel}
-            </button>
-          )}
-          {adminUrl && (
-            <a
-              className="btn-secondary full-button"
-              href={adminUrl}
-              target="_blank"
-              rel="noreferrer"
-              title={labels.managementPageTitle}
-              aria-label={labels.managementPageTitle}
-            >
-              {labels.managementPage}
-            </a>
-          )}
-        </div>
-
-        <button type="button" className="btn-secondary full-button service-detail-toggle" onClick={onOpenDetails}>
-          {labels.details}
-        </button>
-      </div>
-    </article>
-  );
-}
-
-function Metric({ label, percent, detail }) {
-  const safePercent = Math.min(Math.max(Number(percent) || 0, 0), 100);
-  return (
-    <div className="metric-line">
-      <div><span>{label}</span><span>{safePercent.toFixed(1)}%</span></div>
-      <div className="progress-bar"><span style={{ width: `${safePercent}%` }}></span></div>
-      <small>{detail}</small>
-    </div>
-  );
-}
-
-function getCpuPercent(resource) {
-  const cpu = Number(resource.cpu || 0);
-  if (cpu <= 1) return Math.min(Math.max(cpu * 100, 0), 100);
-  return Math.min(Math.max(cpu, 0), 100);
 }

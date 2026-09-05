@@ -11,9 +11,7 @@
     "react-scripts": "5.0.1",
     "@xterm/xterm": "^5.5.0",
     "@xterm/addon-fit": "^0.10.0",
-    "ajv": "^8.17.1",
-    "leaflet": "^1.9.4",
-    "react-leaflet": "^4.2.1"
+    "ajv": "^8.17.1"
   },
   "scripts": {
     "start": "react-scripts start",

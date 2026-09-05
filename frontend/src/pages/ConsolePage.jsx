@@ -5,6 +5,7 @@ import { userApi, getErrorMessage } from '../services/api';
 import '../styles/globals.css';
 import { readStoredLanguage } from '../components/LanguageSwitch';
 import { translatePortalText } from '../i18n';
+import { BrandMark } from '../components/BrandLogo';
 
 export default function ConsolePage() {
   const { resourceId } = useParams();
@@ -192,6 +193,7 @@ export default function ConsolePage() {
     <div className="app-page console-page">
       <header className="console-page-header console-page-header-unified">
         <div className="console-header-identity">
+          <BrandMark className="console-brand-mark" size={42} />
           <div className="console-header-title">
             <p className="eyebrow">{consoleTitle}</p>
             <h1>{resource?.name || text('Konsole')}</h1>
