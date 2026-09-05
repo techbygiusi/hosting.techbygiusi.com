@@ -1954,9 +1954,69 @@ router.get('/provisioning-jobs', async (req, res, next) => {
 });
 
 
+async function recordSystemUpdateResult(update) {
+  if (!update?.id || !['completed', 'failed'].includes(String(update.status || ''))) return;
+
+  const action = update.status === 'completed' ? 'system_update.completed' : 'system_update.failed';
+  const target = `system:${update.type || 'unknown'}:${update.id}`;
+
+  try {
+    const alreadyLogged = await get(
+      'SELECT id FROM audit_log WHERE action = ? AND target = ? LIMIT 1',
+      [action, target]
+    );
+    if (alreadyLogged) return;
+
+    const startEntry = await get(
+      `SELECT user_id, user_email, ip, created_at
+       FROM audit_log
+       WHERE action = 'system_update.start' AND target = ?
+       ORDER BY id DESC LIMIT 1`,
+      [target]
+    );
+
+    const labels = {
+      os: 'Debian update',
+      portal: 'Portal update',
+      timezone: 'Host timezone change'
+    };
+    const label = labels[update.type] || 'System update';
+    const timing = [
+      update.startedAt ? `started=${update.startedAt}` : '',
+      update.finishedAt ? `finished=${update.finishedAt}` : ''
+    ].filter(Boolean).join('; ');
+
+    const details = update.status === 'completed'
+      ? `${label} completed successfully${timing ? `; ${timing}` : ''}`
+      : `${label} failed${update.error ? `: ${update.error}` : ''}${timing ? `; ${timing}` : ''}`;
+
+    await run(
+      `INSERT INTO audit_log (user_id, user_email, action, target, details, ip)
+       SELECT ?, ?, ?, ?, ?, ?
+       WHERE NOT EXISTS (
+         SELECT 1 FROM audit_log WHERE action = ? AND target = ?
+       )`,
+      [
+        startEntry?.user_id || null,
+        startEntry?.user_email || '',
+        action,
+        target,
+        details,
+        startEntry?.ip || '',
+        action,
+        target
+      ]
+    );
+  } catch (err) {
+    console.error('System update result audit failed:', err.message);
+  }
+}
+
 router.get('/system-update/status', async (req, res, next) => {
   try {
-    res.json({ update: getSystemUpdateStatus() });
+    const update = getSystemUpdateStatus();
+    await recordSystemUpdateResult(update);
+    res.json({ update });
   } catch (err) {
     next(err);
   }
@@ -1986,8 +2046,10 @@ router.post('/system-update/:type', async (req, res, next) => {
       }
       throw err;
     }
-    const auditDetail = type === 'timezone' ? `Timezone ${String(req.body?.timezone || '').trim()}` : `Update requested by ${req.user?.email || req.user?.id || 'admin'}`;
-    await logAudit(req, 'system_update.start', `system:${type}`, auditDetail);
+    const auditDetail = type === 'timezone'
+      ? `Host timezone change requested: ${String(req.body?.timezone || '').trim()}`
+      : `${type === 'os' ? 'Debian update' : 'Portal update'} requested`;
+    await logAudit(req, 'system_update.start', `system:${type}:${update.id}`, auditDetail);
     res.status(HTTP_STATUS.ACCEPTED).json({ update });
   } catch (err) {
     next(err);

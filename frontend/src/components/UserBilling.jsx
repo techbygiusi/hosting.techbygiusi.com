@@ -5,17 +5,17 @@ import { EmptyState, InlineNotice, SectionCard } from './UiBits';
 const TEXT = {
   en: {
     total: 'Your total this month', runtime: 'Runtime', cpu: 'CPU', memory: 'Memory', storage: 'Storage',
-    services: 'Cost by service', noData: 'No billing data yet', noDataText: 'Usage tracking starts automatically for self-service containers and other billable services.',
+    services: 'Cost by service', noData: 'No billing data yet', noDataText: 'Billing tracking starts automatically for self-service containers and other billable services.',
     month: 'Month', hours: 'h', coreHours: 'core h', gbHours: 'GB h', gbMonth: 'GB month',
-    average: 'Average', sourceSelf: 'Self-service', sourceAssigned: 'Assigned service', loading: 'Loading billing…',
+    average: 'Allocated', sourceSelf: 'Self-service', sourceAssigned: 'Assigned service', loading: 'Loading billing…',
     failed: 'Billing data could not be loaded.', yourShare: 'Your share', serviceTotal: 'Service total',
     splitAcross: 'Split across', usersLabel: 'users'
   },
   de: {
     total: 'Dein Anteil in diesem Monat', runtime: 'Laufzeit', cpu: 'CPU', memory: 'Arbeitsspeicher', storage: 'Speicher',
-    services: 'Kosten pro Service', noData: 'Noch keine Abrechnungsdaten', noDataText: 'Die Verbrauchserfassung startet automatisch für Self-Service-Container und andere abrechenbare Services.',
+    services: 'Kosten pro Service', noData: 'Noch keine Abrechnungsdaten', noDataText: 'Die Billing-Erfassung startet automatisch für Self-Service-Container und andere abrechenbare Services.',
     month: 'Monat', hours: 'Std.', coreHours: 'Core-Std.', gbHours: 'GB-Std.', gbMonth: 'GB-Monat',
-    average: 'Ø', sourceSelf: 'Self-Service', sourceAssigned: 'Zugewiesener Service', loading: 'Billing wird geladen…',
+    average: 'zugewiesen', sourceSelf: 'Self-Service', sourceAssigned: 'Zugewiesener Service', loading: 'Billing wird geladen…',
     failed: 'Billing-Daten konnten nicht geladen werden.', yourShare: 'Dein Anteil', serviceTotal: 'Gesamtkosten',
     splitAcross: 'Aufgeteilt auf', usersLabel: 'Benutzer'
   }
@@ -37,7 +37,6 @@ function CostBreakdown({ data, settings, language, compact = false }) {
   const text = TEXT[language] || TEXT.en;
   const currency = settings?.currency || 'EUR';
   const parts = [
-    [text.runtime, data?.costs?.runtime],
     [text.cpu, data?.costs?.cpu],
     [text.memory, data?.costs?.memory],
     [text.storage, data?.costs?.storage]

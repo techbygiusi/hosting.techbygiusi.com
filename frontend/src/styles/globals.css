@@ -2527,6 +2527,8 @@ body.theme-dark *::-webkit-scrollbar-thumb:hover {
   width: 100%;
   display: grid;
   grid-template-rows: 1fr;
+  align-items: center;
+  justify-items: center;
   padding: 18px;
 }
 
@@ -2792,6 +2794,8 @@ body.theme-dark *::-webkit-scrollbar-thumb:hover {
 @media (max-width: 900px) {
   .login-page-v4 {
     padding: 12px;
+    align-items: stretch;
+    justify-items: stretch;
   }
 
   .login-shell-v4 {
@@ -3936,14 +3940,18 @@ select {
   min-height: 220px;
   max-height: 420px;
   overflow: auto;
-  white-space: pre-wrap;
-  word-break: break-word;
+  white-space: pre;
+  word-break: normal;
+  overflow-wrap: normal;
   padding: 16px;
   border-radius: 16px;
   background: #0d0a14;
   color: #e9ddff;
   border: 1px solid rgba(180, 135, 255, .18);
   font: 12px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  direction: ltr;
+  unicode-bidi: plaintext;
+  tab-size: 2;
 }
 
 .inline-notice.warning {
@@ -5094,5 +5102,18 @@ button:disabled,
     min-width: 0;
     justify-items: start;
     text-align: left;
+  }
+}
+
+
+/* v27 billing is allocation-based: CPU, RAM and storage only */
+.billing-cost-breakdown,
+.billing-cost-breakdown.compact {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+@media (max-width: 720px) {
+  .billing-cost-breakdown,
+  .billing-cost-breakdown.compact {
+    grid-template-columns: 1fr;
   }
 }

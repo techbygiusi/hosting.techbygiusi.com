@@ -88,6 +88,31 @@ function reconcileCompletedStatus(status) {
   return recovered;
 }
 
+
+function normalizeUpdateLog(value) {
+  const text = String(value || '')
+    .replace(/\u001b\[[0-?]*[ -/]*[@-~]/g, '')
+    .replace(/\u001b\][^\u0007]*(?:\u0007|\u001b\\)/g, '')
+    .replace(/\u0008/g, '')
+    .replace(/\u0000/g, '');
+
+  const output = [];
+  for (const rawLine of text.replace(/\r\n/g, '\n').split('\n')) {
+    const frames = rawLine.split('\r');
+    let line = '';
+    for (let index = frames.length - 1; index >= 0; index -= 1) {
+      if (frames[index] !== '') {
+        line = frames[index];
+        break;
+      }
+    }
+    line = line.replace(/[ \t]+$/g, '');
+    if (line && output[output.length - 1] === line) continue;
+    output.push(line);
+  }
+  return output.join('\n').replace(/\n{3,}/g, '\n\n').trimEnd();
+}
+
 function getSystemUpdateStatus() {
   let status = safeJsonRead(statusPath, null) || {
     id: null,
@@ -104,8 +129,9 @@ function getSystemUpdateStatus() {
 
   let log = '';
   try {
-    const lines = fs.readFileSync(logPath, 'utf8').split(/\r?\n/).filter(Boolean);
-    log = lines.slice(-250).join('\n');
+    const cleaned = normalizeUpdateLog(fs.readFileSync(logPath, 'utf8'));
+    const lines = cleaned.split('\n');
+    log = lines.slice(-350).join('\n');
   } catch (_) {
     log = '';
   }

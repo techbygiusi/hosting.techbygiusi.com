@@ -148,8 +148,11 @@ def main():
             if not PROJECT_DIR.exists():
                 raise RuntimeError(f'Project directory does not exist: {PROJECT_DIR}')
             run_command(status, steps, 0, ['git', 'pull', '--ff-only'], cwd=PROJECT_DIR)
-            run_command(status, steps, 1, ['docker', 'compose', 'up', '--build', '-d'], cwd=PROJECT_DIR)
-            run_command(status, steps, 2, ['docker', 'image', 'prune', '-f'], cwd=PROJECT_DIR)
+            docker_env = os.environ.copy()
+            docker_env['COMPOSE_ANSI'] = 'never'
+            docker_env['BUILDKIT_PROGRESS'] = 'plain'
+            run_command(status, steps, 1, ['docker', 'compose', 'up', '--build', '-d'], cwd=PROJECT_DIR, env=docker_env)
+            run_command(status, steps, 2, ['docker', 'image', 'prune', '-f'], cwd=PROJECT_DIR, env=docker_env)
         else:
             if not target_timezone:
                 raise RuntimeError('Timezone is missing')

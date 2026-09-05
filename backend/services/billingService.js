@@ -5,7 +5,6 @@ const lastObservedAt = new Map();
 
 const DEFAULTS = Object.freeze({
   currency: 'EUR',
-  runtimePerHour: 0,
   cpuPerCoreHour: 0,
   memoryPerGbHour: 0,
   storagePerGbMonth: 0
@@ -13,7 +12,6 @@ const DEFAULTS = Object.freeze({
 
 const SETTING_KEYS = {
   currency: 'billing_currency',
-  runtimePerHour: 'billing_runtime_per_hour',
   cpuPerCoreHour: 'billing_cpu_per_core_hour',
   memoryPerGbHour: 'billing_memory_per_gb_hour',
   storagePerGbMonth: 'billing_storage_per_gb_month'
@@ -53,7 +51,6 @@ async function getBillingSettings() {
   const currency = String(map[SETTING_KEYS.currency] || DEFAULTS.currency).trim().toUpperCase();
   return {
     currency: /^[A-Z]{3}$/.test(currency) ? currency : DEFAULTS.currency,
-    runtimePerHour: numberSetting(map[SETTING_KEYS.runtimePerHour], DEFAULTS.runtimePerHour),
     cpuPerCoreHour: numberSetting(map[SETTING_KEYS.cpuPerCoreHour], DEFAULTS.cpuPerCoreHour),
     memoryPerGbHour: numberSetting(map[SETTING_KEYS.memoryPerGbHour], DEFAULTS.memoryPerGbHour),
     storagePerGbMonth: numberSetting(map[SETTING_KEYS.storagePerGbMonth], DEFAULTS.storagePerGbMonth)
@@ -65,7 +62,6 @@ async function saveBillingSettings(input = {}) {
   if (!/^[A-Z]{3}$/.test(currency)) throw new Error('Currency must be a three-letter ISO code');
   const values = {
     currency,
-    runtimePerHour: numberSetting(input.runtimePerHour, NaN),
     cpuPerCoreHour: numberSetting(input.cpuPerCoreHour, NaN),
     memoryPerGbHour: numberSetting(input.memoryPerGbHour, NaN),
     storagePerGbMonth: numberSetting(input.storagePerGbMonth, NaN)
@@ -82,11 +78,6 @@ async function saveBillingSettings(input = {}) {
   return values;
 }
 
-function normalizedCpuRatio(resource) {
-  const raw = Number(resource?.cpu || 0);
-  if (!Number.isFinite(raw) || raw <= 0) return 0;
-  return Math.min(Math.max(raw > 1 ? raw / 100 : raw, 0), 1);
-}
 
 async function billableRowsForCluster(clusterId) {
   return all(`
@@ -151,11 +142,17 @@ async function recordClusterBillingUsage(cluster, liveResources = []) {
 
     const running = String(live.status || '').toLowerCase() === 'running';
     const runningSeconds = running ? elapsed : 0;
-    const cpuCoreSeconds = running
-      ? normalizedCpuRatio(live) * Math.max(Number(live.maxcpu || 0), 0) * elapsed
-      : 0;
-    const memoryGbSeconds = running ? Math.max(Number(live.mem || 0), 0) / GB * elapsed : 0;
-    const storageGbSeconds = Math.max(Number(live.disk || 0), 0) / GB * elapsed;
+
+    // Billing is allocation-based, not utilization-based:
+    // while a service is running, charge its full assigned CPU and RAM.
+    // Storage is charged using the full assigned disk capacity for the whole observed period.
+    const allocatedCpuCores = Math.max(Number(live.maxcpu || 0), 0);
+    const allocatedMemoryBytes = Math.max(Number(live.maxmem || live.mem || 0), 0);
+    const allocatedStorageBytes = Math.max(Number(live.maxdisk || live.disk || 0), 0);
+
+    const cpuCoreSeconds = running ? allocatedCpuCores * elapsed : 0;
+    const memoryGbSeconds = running ? allocatedMemoryBytes / GB * elapsed : 0;
+    const storageGbSeconds = allocatedStorageBytes / GB * elapsed;
     const share = 1 / users.length;
     const source = row.provisioned_id ? 'self-service' : 'assigned';
 
@@ -193,7 +190,6 @@ function calculateUsage(row, settings, monthHours) {
   const memoryGbHours = memoryGbSeconds / 3600;
   const storageGbMonths = storageGbSeconds / (monthHours * 3600);
   const costs = {
-    runtime: runtimeHours * settings.runtimePerHour,
     cpu: cpuCoreHours * settings.cpuPerCoreHour,
     memory: memoryGbHours * settings.memoryPerGbHour,
     storage: storageGbMonths * settings.storagePerGbMonth
@@ -208,7 +204,7 @@ function calculateUsage(row, settings, monthHours) {
     averageMemoryGb: runningSeconds > 0 ? memoryGbSeconds / runningSeconds : 0,
     averageStorageGb: durationSeconds > 0 ? storageGbSeconds / durationSeconds : 0,
     costs,
-    totalCost: costs.runtime + costs.cpu + costs.memory + costs.storage
+    totalCost: costs.cpu + costs.memory + costs.storage
   };
 }
 
