@@ -1,4 +1,5 @@
 const { get, run, all } = require('../config/database');
+const { spawn } = require('child_process');
 const { encrypt, decrypt } = require('./cryptoService');
 const {
   getAllContainers, getContainerIps, getCapabilities, getClusterFirewallStatus,
@@ -18,13 +19,46 @@ function longToIp(value) {
   const num = Number(value) >>> 0;
   return [(num >>> 24) & 255, (num >>> 16) & 255, (num >>> 8) & 255, num & 255].join('.');
 }
-function allocateIp(start, end, used) {
+function pingIp(ip) {
+  return new Promise((resolve, reject) => {
+    const child = spawn('ping', ['-n', '-c', '1', '-W', '1', ip], {
+      stdio: 'ignore'
+    });
+
+    child.once('error', error => {
+      reject(new Error(`Unable to check IP availability with ping: ${error.message}`));
+    });
+
+    child.once('close', code => {
+      if (code === 0) return resolve(true);
+      if (code === 1) return resolve(false);
+      reject(new Error(`Unable to check IP availability with ping (exit code ${code})`));
+    });
+  });
+}
+
+async function allocateIp(start, end, used) {
   const first = ipToLong(start); const last = ipToLong(end);
   if (first === null || last === null || first > last) return null;
+
+  let checkedByPing = 0;
+  let pingResponses = 0;
+
   for (let value = first; value <= last; value += 1) {
     const ip = longToIp(value);
-    if (!used.has(ip)) return ip;
+    if (used.has(ip)) continue;
+
+    checkedByPing += 1;
+    const responds = await pingIp(ip);
+    if (responds) {
+      pingResponses += 1;
+      used.add(ip);
+      continue;
+    }
+
+    return { ip, checkedByPing, pingResponses };
   }
+
   return null;
 }
 
@@ -135,7 +169,7 @@ async function executeJob(jobId) {
   const firewall = await getClusterFirewallStatus(job.url, apiToken);
   if (!firewall.enabled) throw new Error('Proxmox datacenter firewall is disabled');
 
-  await addEvent(jobId, 'reserve', 'Reserving VMID and IP address from the portal pool…', 'VMID und IP-Adresse werden aus dem Portal-Pool reserviert…', '', 'info', 18);
+  await addEvent(jobId, 'reserve', 'Reserving VMID and checking IP availability in the portal pool…', 'VMID wird reserviert und die IP-Verfügbarkeit im Portal-Pool geprüft…', '', 'info', 18);
   const reservedMachines = await all('SELECT vmid FROM provisioned_machines WHERE cluster_id = ?', [job.cluster_id]);
   const reservedJobs = await all(`SELECT vmid FROM provisioning_jobs WHERE cluster_id = ? AND id != ? AND status IN ('queued','running') AND vmid IS NOT NULL`, [job.cluster_id, jobId]);
   const vmid = await getNextVmidInRange(job.url, apiToken, job.vmid_min, job.vmid_max, [...reservedMachines, ...reservedJobs].map(r => r.vmid));
@@ -149,8 +183,9 @@ async function executeJob(jobId) {
     ips.forEach(entry => { const ipv4 = stripCidr(entry.ipv4 || entry.ip || ''); if (ipv4) { usedIps.add(ipv4); lateralDestinations.add(ipv4); } });
   }
   (await getClusterNodeAddresses(job.url, apiToken).catch(() => [])).forEach(address => lateralDestinations.add(address));
-  const ip = allocateIp(job.ip_start, job.ip_end, usedIps);
-  if (!ip) throw new Error('No free IP address available in the configured range');
+  const ipReservation = await allocateIp(job.ip_start, job.ip_end, usedIps);
+  if (!ipReservation) throw new Error('No free IP address available in the configured range');
+  const ip = ipReservation.ip;
 
   const nodes = await getOnlineNodes(job.url, apiToken);
   if (!nodes.length) throw new Error('No online node available');
@@ -162,7 +197,15 @@ async function executeJob(jobId) {
   if (sourceType === 'lxc-template') node = job.template_source_node;
 
   await run('UPDATE provisioning_jobs SET vmid = ?, ip = ?, node = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [vmid, ip, node, jobId]);
-  await addEvent(jobId, 'reserve', `Reserved VMID ${vmid} and IP ${ip} from the portal pool.`, `VMID ${vmid} und IP ${ip} wurden aus dem Portal-Pool reserviert.`, `node=${node} vmid=${vmid} ip=${ip}`, 'info', 28);
+  await addEvent(
+    jobId,
+    'reserve',
+    `Reserved VMID ${vmid} and IP ${ip} from the portal pool.`,
+    `VMID ${vmid} und IP ${ip} wurden aus dem Portal-Pool reserviert.`,
+    `node=${node} vmid=${vmid} ip=${ip} pingChecks=${ipReservation.checkedByPing} pingResponses=${ipReservation.pingResponses}`,
+    'info',
+    28
+  );
 
   if (sourceType === 'lxc-template') {
     const prepared = await getPreparedLxcTemplates(job.url, apiToken);

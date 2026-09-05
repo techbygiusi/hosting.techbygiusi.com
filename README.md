@@ -31,7 +31,7 @@ Hosting Portal is a self-hosted customer portal for Proxmox environments. It com
 
 - Allow users to create LXC containers from approved Proxmox CT archives or prepared LXC templates.
 - Create prepared templates as full clones while preserving the configured portal tags.
-- Assign the next available VMID and IPv4 address from administrator-defined pools.
+- Assign the next available VMID and IPv4 address from administrator-defined pools, checking each IP with ICMP before reservation and skipping addresses that respond.
 - Apply configurable CPU, memory, disk and storage limits.
 - Configure hostname, root password, network, gateway and firewall rules during provisioning.
 - Show live provisioning progress and automatically clean up completed jobs.

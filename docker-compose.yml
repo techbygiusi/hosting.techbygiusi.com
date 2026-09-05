@@ -4,6 +4,8 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     container_name: hosting-portal-backend
+    cap_add:
+      - NET_RAW
     ports:
       - "127.0.0.1:3001:3001"
     environment:
