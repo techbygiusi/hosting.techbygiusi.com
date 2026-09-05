@@ -4116,22 +4116,22 @@ body.theme-dark .login-theme-action .theme-toggle {
   }
 }
 
-/* v3.0.14 - unified brand green across light and dark mode */
+/* v3.0.14 - unified brand accent across light and dark mode */
 :root,
 body.theme-light {
   --site-accent: #8C6FF0;
   --color-primary: #8C6FF0;
   --color-success: #8C6FF0;
-  --brand-green-soft: color-mix(in srgb, #8C6FF0 12%, transparent);
-  --brand-green-border: color-mix(in srgb, #8C6FF0 36%, transparent);
+  --brand-accent-soft: color-mix(in srgb, #8C6FF0 12%, transparent);
+  --brand-accent-border: color-mix(in srgb, #8C6FF0 36%, transparent);
 }
 
 body.theme-dark {
   --site-accent: #A98BFF;
   --color-primary: #A98BFF;
   --color-success: #A98BFF;
-  --brand-green-soft: color-mix(in srgb, #A98BFF 14%, transparent);
-  --brand-green-border: color-mix(in srgb, #A98BFF 38%, transparent);
+  --brand-accent-soft: color-mix(in srgb, #A98BFF 14%, transparent);
+  --brand-accent-border: color-mix(in srgb, #A98BFF 38%, transparent);
   --scrollbar-thumb: rgba(140, 111, 240, 0.34);
   --scrollbar-thumb-hover: rgba(140, 111, 240, 0.58);
 }
@@ -4141,8 +4141,8 @@ body.theme-dark {
 .setup-ok,
 .status-running,
 .maintenance-chip.state-chip.state-aktiv {
-  background: var(--brand-green-soft);
-  border-color: var(--brand-green-border);
+  background: var(--brand-accent-soft);
+  border-color: var(--brand-accent-border);
   color: var(--color-primary);
 }
 
@@ -4162,17 +4162,17 @@ body.theme-dark {
 
 
 
-/* v3.0.15 - keep every green text accent on the exact brand green */
+/* v3.0.15 - keep every accent text on the exact brand accent */
 body.theme-light {
   --site-accent: #8C6FF0;
   --site-accent-strong: #8C6FF0;
   --color-primary: #8C6FF0;
   --color-primary-dark: #8C6FF0;
   --color-success: #8C6FF0;
-  --brand-green-text: #8C6FF0;
-  --brand-green-soft: color-mix(in srgb, #8C6FF0 12%, transparent);
-  --brand-green-border: color-mix(in srgb, #8C6FF0 36%, transparent);
-  --brand-green-focus: color-mix(in srgb, #8C6FF0 18%, transparent);
+  --brand-accent-text: #8C6FF0;
+  --brand-accent-soft: color-mix(in srgb, #8C6FF0 12%, transparent);
+  --brand-accent-border: color-mix(in srgb, #8C6FF0 36%, transparent);
+  --brand-accent-focus: color-mix(in srgb, #8C6FF0 18%, transparent);
 }
 
 body.theme-dark {
@@ -4181,10 +4181,10 @@ body.theme-dark {
   --color-primary: #A98BFF;
   --color-primary-dark: #A98BFF;
   --color-success: #A98BFF;
-  --brand-green-text: #A98BFF;
-  --brand-green-soft: color-mix(in srgb, #A98BFF 14%, transparent);
-  --brand-green-border: color-mix(in srgb, #A98BFF 38%, transparent);
-  --brand-green-focus: color-mix(in srgb, #A98BFF 18%, transparent);
+  --brand-accent-text: #A98BFF;
+  --brand-accent-soft: color-mix(in srgb, #A98BFF 14%, transparent);
+  --brand-accent-border: color-mix(in srgb, #A98BFF 38%, transparent);
+  --brand-accent-focus: color-mix(in srgb, #A98BFF 18%, transparent);
 }
 
 a,
@@ -4204,14 +4204,14 @@ a,
 .link-button,
 .link-button:hover,
 .cluster-node-badge {
-  color: var(--brand-green-text);
+  color: var(--brand-accent-text);
 }
 
 input:focus,
 select:focus,
 textarea:focus {
-  border-color: var(--brand-green-text);
-  box-shadow: 0 0 0 3px var(--brand-green-focus);
+  border-color: var(--brand-accent-text);
+  box-shadow: 0 0 0 3px var(--brand-accent-focus);
 }
 
 .status-running,
@@ -4220,12 +4220,12 @@ textarea:focus {
 .setup-ok,
 .credential-badge,
 .cred-tag-admin {
-  background: var(--brand-green-soft);
-  border-color: var(--brand-green-border);
+  background: var(--brand-accent-soft);
+  border-color: var(--brand-accent-border);
 }
 
 
-/* v3.0.16 - apply the brand greens to capability bubbles and every green chip state */
+/* v3.0.16 - apply the brand accent to capability bubbles and status chip states */
 .capability-ok,
 .status-badge.status-running,
 .cluster-node-badge.status-running,
@@ -4236,16 +4236,16 @@ textarea:focus {
 .test-result.success,
 .setup-ok,
 .maintenance-chip.state-chip.state-aktiv {
-  background: var(--brand-green-soft);
-  border-color: var(--brand-green-border);
-  color: var(--brand-green-text);
+  background: var(--brand-accent-soft);
+  border-color: var(--brand-accent-border);
+  color: var(--brand-accent-text);
 }
 
 .capability-ok:hover,
 .status-badge.status-running:hover,
 .cluster-node-badge.status-running:hover {
-  color: var(--brand-green-text);
-  border-color: var(--brand-green-border);
+  color: var(--brand-accent-text);
+  border-color: var(--brand-accent-border);
 }
 
 /* v3.1.0 - Hetzner-inspired admin dashboard revamp */
@@ -4465,7 +4465,7 @@ textarea:focus {
 }
 
 .location-search-item:hover {
-  background: var(--brand-green-soft);
+  background: var(--brand-accent-soft);
 }
 
 .location-search-item.muted {
