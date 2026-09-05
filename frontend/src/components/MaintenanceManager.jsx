@@ -130,7 +130,7 @@ export default function MaintenanceManager() {
     <div className="settings-layout-clean">
       {error ? <InlineNotice tone="danger">{error}</InlineNotice> : null}
       {notice ? <InlineNotice tone="success">{notice}</InlineNotice> : null}
-      <SectionCard title="Maintenance" action={<button type="button" className="btn-primary" onClick={openCreate}>Plan maintenance</button>}>
+      <SectionCard action={<button type="button" className="btn-primary" onClick={openCreate}>Plan maintenance</button>}>
         {loading ? <div className="page-state-clean">Loading maintenance windows…</div> : null}
         {!loading && !windows.length ? <EmptyState title="No maintenance planned" text="Create a maintenance window when services or infrastructure will be affected." /> : null}
         <div className="maintenance-list-clean">

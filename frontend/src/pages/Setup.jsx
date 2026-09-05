@@ -5,6 +5,7 @@ import { authApi, getErrorMessage } from '../services/api';
 import BrandLogo from '../components/BrandLogo';
 import ThemeButton from '../components/ThemeButton';
 import LanguageSwitch, { readStoredLanguage, storeLanguage } from '../components/LanguageSwitch';
+import { InlineNotice } from '../components/UiBits';
 
 const initialAdmin = { name: '', email: '', password: '' };
 const initialCluster = { name: '', url: '', apiToken: '' };
@@ -89,8 +90,8 @@ export default function Setup() {
             <p>Everything stays on one page so the setup feels clear and fast.</p>
           </div>
 
-          {error ? <div className="inline-notice danger">{error}</div> : null}
-          {message ? <div className="inline-notice success">{message}</div> : null}
+          {error ? <InlineNotice tone="danger">{error}</InlineNotice> : null}
+          {message ? <InlineNotice tone="success">{message}</InlineNotice> : null}
 
           <form className="setup-grid" onSubmit={submit}>
             <div className="setup-section">

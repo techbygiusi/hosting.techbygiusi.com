@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { authApi, getErrorMessage } from '../services/api';
 import BrandLogo from '../components/BrandLogo';
+import MaintenanceBanner from '../components/MaintenanceBanner';
+import { InlineNotice } from '../components/UiBits';
 import { readStoredLanguage } from '../components/LanguageSwitch';
 
 export default function Login() {
@@ -52,6 +54,7 @@ export default function Login() {
   return (
     <div className="login-page-v4">
       <main className="login-shell-v4">
+        <MaintenanceBanner language={language} />
         <section className="login-brand-panel-v4">
           <BrandLogo />
           <div className="login-brand-copy-v4">
@@ -62,8 +65,8 @@ export default function Login() {
         <section className="login-form-panel-v4">
           <div className="login-form-card-v4">
             <div className="auth-card-head"><h2>Sign in</h2><p>Continue to Hosting by TechByGiusi.</p></div>
-            {error ? <div className="inline-notice danger">{error}</div> : null}
-            {forgotSent ? <div className="inline-notice success">{forgotSent}</div> : null}
+            {error ? <InlineNotice tone="danger">{error}</InlineNotice> : null}
+            {forgotSent ? <InlineNotice tone="success">{forgotSent}</InlineNotice> : null}
 
             {!forgotOpen ? (
               <form className="clean-form-grid" onSubmit={submit}>

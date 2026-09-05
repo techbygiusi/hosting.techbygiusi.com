@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { authApi, getErrorMessage } from '../services/api';
 import BrandLogo from '../components/BrandLogo';
 import ThemeButton from '../components/ThemeButton';
+import { InlineNotice } from '../components/UiBits';
 
 export default function ResetPassword() {
   const [params] = useSearchParams();
@@ -51,9 +52,9 @@ export default function ResetPassword() {
             <h2>Reset password</h2>
             <p>The link from your email opens this page with a secure token.</p>
           </div>
-          {tokenMissing ? <div className="inline-notice danger">The reset token is missing.</div> : null}
-          {error ? <div className="inline-notice danger">{error}</div> : null}
-          {success ? <div className="inline-notice success">{success}</div> : null}
+          {tokenMissing ? <InlineNotice tone="danger">The reset token is missing.</InlineNotice> : null}
+          {error ? <InlineNotice tone="danger">{error}</InlineNotice> : null}
+          {success ? <InlineNotice tone="success">{success}</InlineNotice> : null}
           <form className="clean-form-grid" onSubmit={submit}>
             <label>
               <span>New password</span>

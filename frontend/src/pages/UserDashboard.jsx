@@ -187,8 +187,20 @@ function ServiceDetailView({ resource, history = [], onBack, onConsole }) {
 function UserOverview({ resources, metrics, onOpenProvisioning, onSelectService, onConsole }) {
   const running = resources.filter((item) => String(item.status || '').toLowerCase().includes('run')).length;
   const stopped = resources.filter((item) => String(item.status || '').toLowerCase().includes('stop')).length;
-  const totalCpu = resources.reduce((sum, item) => sum + Number(item.maxcpu || 0), 0);
   const clusters = new Set(resources.map((item) => item.clusterName).filter(Boolean));
+  const totalCpu = resources.reduce((sum, item) => sum + Number(item.maxcpu || 0), 0);
+  const usedCpu = resources.reduce((sum, item) => {
+    const raw = Number(item.cpu || 0);
+    const ratio = raw > 1 ? raw / 100 : raw;
+    return sum + (Math.min(Math.max(ratio, 0), 1) * Number(item.maxcpu || 0));
+  }, 0);
+  const cpuUsage = totalCpu > 0 ? Math.min(Math.max((usedCpu / totalCpu) * 100, 0), 100) : 0;
+  const usedMemory = resources.reduce((sum, item) => sum + Number(item.mem || 0), 0);
+  const totalMemory = resources.reduce((sum, item) => sum + Number(item.maxmem || 0), 0);
+  const memoryUsage = totalMemory > 0 ? Math.min(Math.max((usedMemory / totalMemory) * 100, 0), 100) : 0;
+  const usedStorage = resources.reduce((sum, item) => sum + Number(item.disk || 0), 0);
+  const totalStorage = resources.reduce((sum, item) => sum + Number(item.maxdisk || 0), 0);
+  const storageUsage = totalStorage > 0 ? Math.min(Math.max((usedStorage / totalStorage) * 100, 0), 100) : 0;
 
   return (
     <div className="user-dashboard-v4">
@@ -205,7 +217,23 @@ function UserOverview({ resources, metrics, onOpenProvisioning, onSelectService,
         <StatCard label="Services" value={resources.length} hint="Assigned to your account" />
         <StatCard label="Running" value={running} hint="Online" tone="success" />
         <StatCard label="Stopped" value={stopped} hint="Offline" tone={stopped ? 'danger' : 'neutral'} />
-        <StatCard label="CPU cores" value={totalCpu} hint="Assigned maximum" />
+        <div className="stat-card resource-usage-stat-card">
+          <span className="stat-label">Resource usage</span>
+          <div className="resource-usage-stat-list">
+            <div className="resource-usage-stat-row">
+              <div className="resource-usage-stat-head"><span>CPU</span><strong>{cpuUsage.toFixed(1)}%</strong></div>
+              <div className="resource-usage-stat-track"><span style={{ width: `${cpuUsage}%` }} /></div>
+            </div>
+            <div className="resource-usage-stat-row">
+              <div className="resource-usage-stat-head"><span>RAM</span><strong>{formatBytes(usedMemory)} / {formatBytes(totalMemory)}</strong></div>
+              <div className="resource-usage-stat-track"><span style={{ width: `${memoryUsage}%` }} /></div>
+            </div>
+            <div className="resource-usage-stat-row">
+              <div className="resource-usage-stat-head"><span>Storage</span><strong>{formatBytes(usedStorage)} / {formatBytes(totalStorage)}</strong></div>
+              <div className="resource-usage-stat-track"><span style={{ width: `${storageUsage}%` }} /></div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <SectionCard title="Services" className="user-dashboard-services-v4">
@@ -234,7 +262,7 @@ function UserServices({ resources, metrics, selectedId, detailOpen, onDetails, o
   }
 
   return (
-    <SectionCard title="Services" action={(
+    <SectionCard action={(
       <div className="services-section-actions">
         <input className="search-clean services-inline-search" value={filter} onChange={(event) => setFilter(event.target.value)} placeholder="Filter services…" />
         <button type="button" className="btn-primary" onClick={onOpenProvisioning}>Create container</button>

@@ -194,7 +194,7 @@ function AdminOverview({ users, clusters, resources, groups, clusterStats, onOpe
                 <span className={`status-badge ${cluster.error ? 'danger' : 'success'}`}>{cluster.error ? 'Offline' : 'Online'}</span>
               </div>
               {cluster.error ? (
-                <InlineNotice tone="danger">{cluster.error}</InlineNotice>
+                <InlineNotice tone="danger" persistent>{cluster.error}</InlineNotice>
               ) : (
                 <div className="admin-cluster-load-grid-v8">
                   <ClusterLoadBar label="CPU" value={cluster.totals?.cpuPercent} />
@@ -582,7 +582,7 @@ export default function AdminDashboard() {
   const renderCrudWorkspace = ({ type, title, subtitle, addLabel, columns, rows, onAdd, onEdit, emptyText }) => {
     if (editor?.type === type) return renderEditorPage(type, title);
     return (
-      <SectionCard title={title} subtitle={subtitle} action={<button type="button" className="btn-primary" onClick={onAdd}>{addLabel}</button>}>
+      <SectionCard action={<button type="button" className="btn-primary" onClick={onAdd}>{addLabel}</button>}>
         <CrudTable
           columns={columns}
           rows={rows}

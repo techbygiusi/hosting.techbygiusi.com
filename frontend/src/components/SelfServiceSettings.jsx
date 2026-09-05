@@ -134,7 +134,7 @@ export default function SelfServiceSettings({ clusters = [] }) {
       {error ? <InlineNotice tone="danger">{error}</InlineNotice> : null}
       {notice ? <InlineNotice tone="success">{notice}</InlineNotice> : null}
 
-      <SectionCard title="Self-Service provisioning" subtitle="LXC container creation limits and network allocation per cluster">
+      <SectionCard>
         <div className="clean-form-grid compact">
           <label>
             <span>Cluster</span>

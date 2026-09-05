@@ -466,10 +466,9 @@ async function testPangolinConnection(input = {}) {
   const config = mergeInputWithStored(input, stored);
   validateConfig(config);
 
-  // Use the Integration API root endpoint for the connection test. This uses
-  // the same base URL and Bearer authentication as publication creation, but
-  // does not require extra organization catalogue permissions.
-  await request(config, 'get', '/');
+  // Test an authenticated endpoint that is also used by discovery and publishing.
+  // Some Pangolin Integration API deployments intentionally do not expose a usable API-root response.
+  await request(config, 'get', `/org/${encodeURIComponent(config.orgId)}`);
 
   return {
     success: true,

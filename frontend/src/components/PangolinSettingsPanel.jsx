@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { adminApi, getErrorMessage } from '../services/api';
 import { readStoredLanguage } from './LanguageSwitch';
+import { InlineNotice } from './UiBits';
 
 const RAW_PORT_MIN = 20000;
 const RAW_PORT_MAX = 26000;
@@ -393,6 +394,11 @@ export default function PangolinSettingsPanel({ onSuccess, onError, language: la
               {busy === 'discover' ? text.discovering : text.discover}
             </button>
           </div>
+          {result ? (
+            <div className="pangolin-inline-result full-width">
+              <InlineNotice tone={result.success ? 'success' : 'danger'}>{result.message}</InlineNotice>
+            </div>
+          ) : null}
           <label className="form-group">
             <span>{text.site}</span>
             {sites.length ? (
@@ -515,7 +521,6 @@ export default function PangolinSettingsPanel({ onSuccess, onError, language: la
         )}
       </div>
 
-      {result && <div className={`test-result ${result.success ? 'success' : 'error'}`}>{result.message}</div>}
       </>}
     </section>
   );

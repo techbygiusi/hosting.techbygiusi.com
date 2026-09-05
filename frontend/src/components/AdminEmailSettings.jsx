@@ -81,7 +81,7 @@ export default function AdminEmailSettings() {
       {error ? <InlineNotice tone="danger">{error}</InlineNotice> : null}
       {notice ? <InlineNotice tone="success">{notice}</InlineNotice> : null}
 
-      <SectionCard title="Email delivery" subtitle="SMTP is used for notifications, account recovery and system emails">
+      <SectionCard>
         {loading ? <div className="page-state-clean">Loading SMTP settings…</div> : (
           <form className="clean-form-grid compact two-up" onSubmit={save}>
             <label><span>SMTP host</span><input value={form.smtpHost} onChange={(event) => update('smtpHost', event.target.value)} placeholder="smtp.example.com" /></label>

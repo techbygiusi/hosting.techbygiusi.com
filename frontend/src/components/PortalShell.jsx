@@ -4,6 +4,7 @@ import AccountMenu from './AccountMenu';
 import Avatar from './Avatar';
 import GlobalSearch from './GlobalSearch';
 import PageSkeleton from './PageSkeleton';
+import MaintenanceBanner from './MaintenanceBanner';
 import { MenuIcon, CloseIcon, LogoutIcon, SettingsIcon } from './Icons';
 
 export default function PortalShell({
@@ -151,9 +152,11 @@ export default function PortalShell({
           </div>
           <div className="portal-topbar-actions">
             {actions}
-            <AccountMenu user={user} language={language} onLanguageChange={onLanguageChange} onOpenSettings={onOpenSettings ? openSettings : null} onLogout={onLogout} />
+            <AccountMenu user={user} language={language} onOpenSettings={onOpenSettings ? openSettings : null} onLogout={onLogout} />
           </div>
         </header>
+
+        <MaintenanceBanner language={language} />
 
         <div className="portal-page-heading">
           <div>

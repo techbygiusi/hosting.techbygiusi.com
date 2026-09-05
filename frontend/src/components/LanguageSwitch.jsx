@@ -10,7 +10,9 @@ const LANGUAGES = [
 export function readStoredLanguage() {
   try {
     const stored = localStorage.getItem(LANGUAGE_STORAGE_KEY);
-    return stored === 'de' || stored === 'en' ? stored : 'en';
+    if (stored === 'de' || stored === 'en') return stored;
+    const browserLanguage = typeof navigator !== 'undefined' ? String(navigator.language || '').toLowerCase() : '';
+    return browserLanguage.startsWith('de') ? 'de' : 'en';
   } catch (_) {
     return 'en';
   }

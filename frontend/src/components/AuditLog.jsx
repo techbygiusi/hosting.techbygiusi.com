@@ -41,7 +41,7 @@ export default function AuditLog() {
   return (
     <div className="settings-layout-clean">
       {error ? <InlineNotice tone="danger">{error}</InlineNotice> : null}
-      <SectionCard title="Audit log" subtitle="Administrative and security-relevant portal actions" action={<button type="button" className="btn-secondary" onClick={() => load(page, search)} disabled={loading}>{loading ? 'Refreshing…' : 'Refresh'}</button>}>
+      <SectionCard action={<button type="button" className="btn-secondary" onClick={() => load(page, search)} disabled={loading}>{loading ? 'Refreshing…' : 'Refresh'}</button>}>
         <form className="audit-toolbar-clean" onSubmit={applySearch}>
           <input className="search-clean" value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="Search audit entries…" />
           <button type="submit" className="btn-primary">Search</button>

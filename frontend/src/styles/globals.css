@@ -2245,6 +2245,48 @@ body.theme-dark *::-webkit-scrollbar-thumb:hover {
   min-height: 116px;
 }
 
+.resource-usage-stat-card {
+  gap: 10px;
+  align-content: start;
+}
+.resource-usage-stat-list {
+  display: grid;
+  gap: 9px;
+}
+.resource-usage-stat-row {
+  display: grid;
+  gap: 5px;
+}
+.resource-usage-stat-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--portal-text-soft);
+  font-size: .78rem;
+  line-height: 1.2;
+}
+.resource-usage-stat-head strong {
+  color: var(--portal-heading);
+  font-size: .78rem;
+  white-space: nowrap;
+}
+.resource-usage-stat-track {
+  height: 5px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--portal-primary-soft);
+}
+.resource-usage-stat-track > span {
+  display: block;
+  height: 100%;
+  min-width: 2px;
+  max-width: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--portal-primary), var(--portal-primary-strong));
+  transition: width .35s ease;
+}
+
 .user-dashboard-services-v4 {
   grid-column: 1 / -1;
 }
@@ -4429,4 +4471,106 @@ button:disabled,
   .wiki-editor-recovery-actions {
     width: 100%;
   }
+}
+
+
+.account-menu-preference-row-full {
+  grid-template-columns: minmax(0, 1fr) !important;
+  width: 100%;
+}
+.account-menu-preference-row-full .preference-slider {
+  width: 100%;
+  min-width: 0;
+}
+.account-menu-preference-row-full .preference-slider-option {
+  min-width: 0;
+}
+.account-menu-preference-row-full .preference-slider-option svg {
+  flex: 0 0 auto;
+}
+
+.pangolin-inline-result {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+.pangolin-inline-result .inline-notice {
+  margin: 0;
+}
+
+.maintenance-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 13px 16px;
+  border: 1px solid var(--portal-border-strong);
+  border-radius: 16px;
+  background: var(--portal-primary-soft);
+  color: var(--portal-text);
+  box-shadow: var(--portal-shadow-soft);
+}
+.maintenance-banner-main {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+.maintenance-banner-main strong {
+  color: var(--portal-heading);
+}
+.maintenance-banner-main span,
+.maintenance-banner-time {
+  color: var(--portal-text-soft);
+}
+.maintenance-banner-time {
+  display: grid;
+  gap: 2px;
+  flex: 0 0 auto;
+  text-align: right;
+  font-size: .82rem;
+}
+.maintenance-warning {
+  background: var(--portal-warning-soft);
+  border-color: rgba(211,145,76,.28);
+}
+.maintenance-critical {
+  background: var(--portal-danger-soft);
+  border-color: rgba(218,95,119,.30);
+}
+.maintenance-info {
+  background: var(--portal-primary-soft);
+}
+.login-shell-v4 > .maintenance-banner {
+  grid-column: 1 / -1;
+  width: 100%;
+  margin: 0;
+}
+@media (max-width: 760px) {
+  .maintenance-banner {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .maintenance-banner-time {
+    text-align: left;
+  }
+}
+
+
+.alert-success,
+.alert-danger,
+.inline-notice.success,
+.inline-notice.danger,
+.test-result.success,
+.test-result.error {
+  transition: opacity 180ms ease, transform 180ms ease;
+}
+.message-auto-dismiss {
+  opacity: 0 !important;
+  transform: translateY(-3px);
+  pointer-events: none;
+}
+.account-menu-preference-row-full .preference-slider-option svg {
+  display: block;
+  width: 15px;
+  height: 15px;
 }

@@ -6,6 +6,14 @@ const configuredApiUrl = process.env.REACT_APP_API_URL || '';
 const API_URL = configuredApiUrl.trim() || '/api';
 
 const MESSAGE_TRANSLATIONS = {
+  "The host updater helper is not installed. Run ./setup-updater.sh as root once in /opt/hosting.techbygiusi.com.": "Der Host-Updater ist nicht installiert. Führe ./setup-updater.sh einmal als root in /opt/hosting.techbygiusi.com aus.",
+  "Another system update is already running": "Es läuft bereits eine andere System-Aktualisierung.",
+  "The host updater helper must be refreshed. Run ./setup-updater.sh as root again in /opt/hosting.techbygiusi.com.": "Der Host-Updater muss aktualisiert werden. Führe ./setup-updater.sh erneut als root in /opt/hosting.techbygiusi.com aus.",
+  "Invalid host timezone": "Ungültige Host-Zeitzone.",
+  "Host updater helper is not installed": "Der Host-Updater ist nicht installiert.",
+  "Host updater helper is outdated": "Der Host-Updater ist veraltet.",
+  "Another update is already running": "Es läuft bereits eine andere Aktualisierung.",
+  "Invalid timezone": "Ungültige Zeitzone.",
   'Invalid email or password': 'E-Mail-Adresse oder Passwort ist falsch.',
   'Invalid email address': 'Bitte eine gültige E-Mail-Adresse eingeben.',
   'User with this email already exists': 'Ein Benutzer mit dieser E-Mail-Adresse existiert bereits.',

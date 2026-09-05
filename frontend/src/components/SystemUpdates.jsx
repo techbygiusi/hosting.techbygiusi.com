@@ -2,6 +2,34 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { adminApi, getErrorMessage } from '../services/api';
 import { InlineNotice, SectionCard } from './UiBits';
 
+
+async function hardReloadPortal(completionKey = '') {
+  try {
+    if ('serviceWorker' in navigator) {
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(registrations.map((registration) => registration.unregister()));
+    }
+  } catch (_) {
+  }
+
+  try {
+    if ('caches' in window) {
+      const names = await window.caches.keys();
+      await Promise.all(names.map((name) => window.caches.delete(name)));
+    }
+  } catch (_) {
+  }
+
+  try {
+    if (completionKey) sessionStorage.setItem('hosting-portal-last-reloaded-update', completionKey);
+  } catch (_) {
+  }
+
+  const url = new URL(window.location.href);
+  url.searchParams.set('__portalRefresh', String(Date.now()));
+  window.location.replace(url.toString());
+}
+
 function formatDate(value) {
   if (!value) return '—';
   try {
@@ -23,6 +51,7 @@ export default function SystemUpdates() {
   });
   const timezoneTouched = useRef(false);
   const reloadScheduled = useRef(false);
+  const portalUpdateObservedRunning = useRef(false);
   const logRef = useRef(null);
   const logFollowEnabled = useRef(true);
 
@@ -43,10 +72,22 @@ export default function SystemUpdates() {
       setUpdate(next);
       setWaitingForBackend(false);
       if (!timezoneTouched.current && next?.hostTimezone) setHostTimezone(next.hostTimezone);
-      if (next?.status === 'completed' && next?.type === 'portal' && !reloadScheduled.current) {
-        reloadScheduled.current = true;
-        setNotice('Portal update completed. Reloading the portal…');
-        window.setTimeout(() => window.location.reload(), 2500);
+      if (next?.type === 'portal' && ['queued', 'running'].includes(next?.status)) {
+        portalUpdateObservedRunning.current = true;
+      }
+      if (next?.status === 'completed' && next?.type === 'portal' && portalUpdateObservedRunning.current && !reloadScheduled.current) {
+        const completionKey = String(next?.id || next?.finishedAt || next?.startedAt || 'portal-update');
+        let alreadyReloaded = false;
+        try {
+          alreadyReloaded = sessionStorage.getItem('hosting-portal-last-reloaded-update') === completionKey;
+        } catch (_) {
+        }
+        if (!alreadyReloaded) {
+          reloadScheduled.current = true;
+          portalUpdateObservedRunning.current = false;
+          setNotice('Portal update completed. Reloading the portal…');
+          window.setTimeout(() => { hardReloadPortal(completionKey); }, 2500);
+        }
       }
     } catch (err) {
       if (silent) {
@@ -73,6 +114,7 @@ export default function SystemUpdates() {
     setError('');
     setNotice('');
     reloadScheduled.current = false;
+    if (type === 'portal') portalUpdateObservedRunning.current = true;
     try {
       const response = await adminApi.startSystemUpdate(type);
       setUpdate(response.data?.update || null);

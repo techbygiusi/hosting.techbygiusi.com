@@ -59,8 +59,6 @@ export default function TemplateManager({ clusters = [] }) {
       {notice ? <InlineNotice tone="success">{notice}</InlineNotice> : null}
 
       <SectionCard
-        title="Templates"
-        subtitle="Synchronize Proxmox LXC templates and decide how they appear in self-service"
         action={<button type="button" className="btn-primary" disabled={!clusterId || busy} onClick={() => load(true)}>{busy ? 'Loading…' : 'Sync from Proxmox'}</button>}
       >
         <div className="clean-form-grid compact template-filter-row">
