@@ -29,6 +29,7 @@ import MaintenanceManager from '../components/MaintenanceManager';
 import AuditLog from '../components/AuditLog';
 import SystemUpdates from '../components/SystemUpdates';
 import AdminBilling from '../components/AdminBilling';
+import AdminResourceCredentials from '../components/AdminResourceCredentials';
 
 function formatPercent(value) {
   const number = Number(value || 0);
@@ -302,7 +303,25 @@ export default function AdminDashboard() {
   const openResourceEditor = (entry = null) => setEditor({
     type: 'resource',
     mode: entry ? 'edit' : 'create',
-    data: entry ? { ...entry, billable: !!entry.billable } : { name: '', containerId: '', clusterId: clusters[0]?.id || '', userId: '', groupId: '', adminUrl: '', billable: false }
+    data: entry ? {
+      ...entry,
+      publicUrl: entry.publicUrl ?? entry.public_url ?? entry.webUrl ?? entry.web_url ?? '',
+      adminUrl: entry.adminUrl ?? entry.admin_url ?? '',
+      manualIp: entry.manualIp ?? entry.manual_ip ?? '',
+      sshPort: entry.sshPort ?? entry.ssh_port ?? 22,
+      billable: !!entry.billable
+    } : {
+      name: '',
+      containerId: '',
+      clusterId: clusters[0]?.id || '',
+      userId: '',
+      groupId: '',
+      publicUrl: '',
+      adminUrl: '',
+      manualIp: '',
+      sshPort: 22,
+      billable: false
+    }
   });
 
   const testClusterConnection = async () => {
@@ -356,7 +375,10 @@ export default function AdminDashboard() {
           clusterId: data.clusterId || data.cluster_id,
           userId: data.userId || data.user_id || null,
           groupId: data.groupId || data.group_id || null,
+          publicUrl: data.publicUrl ?? data.public_url ?? data.webUrl ?? data.web_url ?? '',
           adminUrl: data.adminUrl ?? data.admin_url ?? '',
+          manualIp: data.manualIp ?? data.manual_ip ?? '',
+          sshPort: data.sshPort ?? data.ssh_port ?? 22,
           billable: !!data.billable
         };
         if (mode === 'create') await adminApi.createResource(payload);
@@ -571,7 +593,10 @@ export default function AdminDashboard() {
               <label><span>Cluster</span><select value={editor.data.clusterId || editor.data.cluster_id || ''} onChange={(event) => setEditor((current) => ({ ...current, data: { ...current.data, clusterId: event.target.value } }))} required><option value="">Select cluster</option>{clusters.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}</select></label>
               <label><span>User</span><select value={editor.data.userId || editor.data.user_id || ''} onChange={(event) => setEditor((current) => ({ ...current, data: { ...current.data, userId: event.target.value, user_id: '', groupId: '', group_id: '' } }))}><option value="">No direct user</option>{users.filter((entry) => entry.role === 'user').map((entry) => <option key={entry.id} value={entry.id}>{entry.name} · {entry.email}</option>)}</select></label>
               <label><span>Group</span><select value={editor.data.groupId || editor.data.group_id || ''} onChange={(event) => setEditor((current) => ({ ...current, data: { ...current.data, groupId: event.target.value, group_id: '', userId: '', user_id: '' } }))}><option value="">No group</option>{groups.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}</select></label>
-              <label><span>Admin URL</span><input value={editor.data.adminUrl ?? editor.data.admin_url ?? ''} onChange={(event) => setEditor((current) => ({ ...current, data: { ...current.data, adminUrl: event.target.value } }))} placeholder="https://example.com" /></label>
+              <label><span>Website URL</span><input value={editor.data.publicUrl ?? editor.data.public_url ?? editor.data.webUrl ?? editor.data.web_url ?? ''} onChange={(event) => setEditor((current) => ({ ...current, data: { ...current.data, publicUrl: event.target.value } }))} placeholder="https://service.example.com" /></label>
+              <label><span>Admin URL</span><input value={editor.data.adminUrl ?? editor.data.admin_url ?? ''} onChange={(event) => setEditor((current) => ({ ...current, data: { ...current.data, adminUrl: event.target.value } }))} placeholder="https://admin.example.com" /></label>
+              <label><span>Service IP</span><input value={editor.data.manualIp ?? editor.data.manual_ip ?? ''} onChange={(event) => setEditor((current) => ({ ...current, data: { ...current.data, manualIp: event.target.value } }))} placeholder="10.10.20.20" /></label>
+              <label><span>SSH port</span><input type="number" min="1" max="65535" value={editor.data.sshPort ?? editor.data.ssh_port ?? 22} onChange={(event) => setEditor((current) => ({ ...current, data: { ...current.data, sshPort: event.target.value } }))} /></label>
               <div className="cluster-feature-grid span-full">
                 <ClusterToggle
                   label="Include in billing"
@@ -588,6 +613,12 @@ export default function AdminDashboard() {
             </div>
           </form>
         </SectionCard>
+        {type === 'resource' && editor.mode === 'edit' ? (
+          <AdminResourceCredentials
+            resourceId={editor.data.id}
+            adminUrl={editor.data.adminUrl ?? editor.data.admin_url ?? ''}
+          />
+        ) : null}
       </div>
     );
   };

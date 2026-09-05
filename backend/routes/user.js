@@ -292,6 +292,7 @@ async function attachPublications(resources) {
     const primaryHttpPublication = publications.find(item => item.protocol === 'http' && item.publicUrl) || null;
     const pangolinPublicUrl = primaryHttpPublication?.publicUrl || '';
     const manualPublicUrl = resource.manualPublicUrl || '';
+    const adminPublicUrl = resource.source === 'admin' ? (resource.publicUrl || resource.webUrl || '') : '';
     return {
       ...resource,
       publications,
@@ -299,8 +300,9 @@ async function attachPublications(resources) {
       publicationCount: publications.length,
       pangolinPublicUrl,
       manualPublicUrl,
-      publicUrl: pangolinPublicUrl || manualPublicUrl,
-      webUrl: pangolinPublicUrl || manualPublicUrl
+      adminPublicUrl,
+      publicUrl: adminPublicUrl || pangolinPublicUrl || manualPublicUrl,
+      webUrl: adminPublicUrl || pangolinPublicUrl || manualPublicUrl
     };
   });
 }
@@ -309,6 +311,9 @@ async function getOwnedPublishableResource(userId, resourceId, { requireClusterP
   const rows = await getResourceRowsForUser(userId, resourceId);
   if (rows.length === 0 || String(rows[0].user_id) !== String(userId)) {
     throw new AppError('Only the assigned user can manage publishing for this service', HTTP_STATUS.FORBIDDEN);
+  }
+  if (!rows[0].provisioned_id) {
+    throw new AppError('Administrator-provided service URLs are read-only', HTTP_STATUS.FORBIDDEN);
   }
   if (requireClusterPublishing && Number(rows[0].allow_publishing ?? 1) !== 1) {
     throw new AppError('Public publishing is disabled for this cluster', HTTP_STATUS.FORBIDDEN);
@@ -582,19 +587,24 @@ router.get('/resources', async (req, res, next) => {
         const clusterPublishingEnabled = resource.clusterPublishingEnabled !== false;
         const publishingConfig = publishingConfigs[String(resource.clusterId)] || { enabled: false };
         const pangolinAvailable = !!publishingConfig.enabled && clusterPublishingEnabled;
-        const canPublish = ownsResource && !!resource.primaryIp && pangolinAvailable;
-        const canManageManualPublicPage = ownsResource && !pangolinAvailable;
-        const effectivePublicUrl = pangolinAvailable
-          ? (resource.pangolinPublicUrl || '')
-          : (resource.manualPublicUrl || resource.pangolinPublicUrl || '');
+        const adminManaged = resource.source === 'admin';
+        const canPublish = !adminManaged && ownsResource && !!resource.primaryIp && pangolinAvailable;
+        const canManageManualPublicPage = !adminManaged && ownsResource && !pangolinAvailable;
+        const effectivePublicUrl = adminManaged
+          ? (resource.adminPublicUrl || resource.publicUrl || resource.webUrl || '')
+          : (pangolinAvailable
+            ? (resource.pangolinPublicUrl || '')
+            : (resource.manualPublicUrl || resource.pangolinPublicUrl || ''));
         return {
           ...resource,
           publicUrl: effectivePublicUrl,
           webUrl: effectivePublicUrl,
-          publicAccessMode: pangolinAvailable ? 'pangolin' : 'manual',
+          publicAccessMode: adminManaged ? 'admin' : (pangolinAvailable ? 'pangolin' : 'manual'),
+          adminManaged,
           canManageManualPublicPage,
-          canManageServiceIp: ownsResource && !!resource.canConfigureManualIp,
-          canManagePublicPage: ownsResource,
+          canManageServiceIp: !adminManaged && ownsResource && !!resource.canConfigureManualIp,
+          canManagePublicPage: !adminManaged && ownsResource,
+          canManageCredentials: !adminManaged && ownsResource && !!resource.isSelfService,
           canPublish,
           publishingClusterEnabled: clusterPublishingEnabled,
           canDelete: !!resource.canDelete && ownsResource && !!capsByCluster[resource.clusterId]?.canProvision,
@@ -677,28 +687,35 @@ router.get('/resources/:id', async (req, res, next) => {
     const resources = await attachPublications(await attachSharedManagementUrls(await enrichResources(rows)));
     const caps = await getClusterCapabilities(rows[0].cluster_id, rows[0].cluster_url, decrypt(rows[0].api_token));
     const publishingConfig = await getPangolinConfig(rows[0].cluster_id);
-    const ownsResource = String(resources[0].userId) === String(req.user.id);
-    const clusterPublishingEnabled = resources[0].clusterPublishingEnabled !== false;
+    const resource = resources[0];
+    const ownsResource = String(resource.userId) === String(req.user.id);
+    const selfCreatedOwner = !!rows[0].provisioned_id && String(rows[0].provisioned_user_id || '') === String(req.user.id);
+    const adminManaged = resource.source === 'admin' || !selfCreatedOwner;
+    const clusterPublishingEnabled = resource.clusterPublishingEnabled !== false;
     const pangolinAvailable = !!publishingConfig.enabled && clusterPublishingEnabled;
-    const canPublish = ownsResource && !!resources[0].primaryIp && pangolinAvailable;
-    const canManageManualPublicPage = ownsResource && !pangolinAvailable;
-    const effectivePublicUrl = pangolinAvailable
-      ? (resources[0].pangolinPublicUrl || '')
-      : (resources[0].manualPublicUrl || resources[0].pangolinPublicUrl || '');
+    const canPublish = !adminManaged && ownsResource && !!resource.primaryIp && pangolinAvailable;
+    const canManageManualPublicPage = !adminManaged && ownsResource && !pangolinAvailable;
+    const effectivePublicUrl = adminManaged
+      ? (resource.adminPublicUrl || resource.publicUrl || resource.webUrl || '')
+      : (pangolinAvailable
+        ? (resource.pangolinPublicUrl || '')
+        : (resource.manualPublicUrl || resource.pangolinPublicUrl || ''));
     res.json({
       resource: {
-        ...resources[0],
+        ...resource,
         publicUrl: effectivePublicUrl,
         webUrl: effectivePublicUrl,
-        publicAccessMode: pangolinAvailable ? 'pangolin' : 'manual',
+        publicAccessMode: adminManaged ? 'admin' : (pangolinAvailable ? 'pangolin' : 'manual'),
+        adminManaged,
         canManageManualPublicPage,
-        canManageServiceIp: ownsResource && !!resources[0].canConfigureManualIp,
-        canManagePublicPage: ownsResource,
+        canManageServiceIp: !adminManaged && ownsResource && !!resource.canConfigureManualIp,
+        canManagePublicPage: !adminManaged && ownsResource,
+        canManageCredentials: selfCreatedOwner && !adminManaged,
         canPublish,
         publishingClusterEnabled: clusterPublishingEnabled,
-        canDelete: !!resources[0].canDelete && ownsResource && !!caps.canProvision,
-        consoleMode: resources[0].canConfigureManualIp && resources[0].manualIp ? 'ssh' : 'proxmox',
-        capabilities: { ...caps, canConsole: !!(resources[0].canConfigureManualIp && resources[0].manualIp) || !!caps.canConsole }
+        canDelete: !!resource.canDelete && selfCreatedOwner && !!caps.canProvision,
+        consoleMode: resource.canConfigureManualIp && resource.manualIp ? 'ssh' : 'proxmox',
+        capabilities: { ...caps, canConsole: !!(resource.canConfigureManualIp && resource.manualIp) || !!caps.canConsole }
       }
     });
   } catch (err) {
@@ -902,6 +919,9 @@ async function getOwnedResourceWithoutIpRequirement(userId, resourceId) {
   if (rows.length === 0 || String(rows[0].user_id) !== String(userId)) {
     throw new AppError('Only the assigned user can manage publishing for this service', HTTP_STATUS.FORBIDDEN);
   }
+  if (!rows[0].provisioned_id) {
+    throw new AppError('Administrator-provided service URLs are read-only', HTTP_STATUS.FORBIDDEN);
+  }
   const enriched = await attachPublications(await enrichResources(rows));
   return enriched[0];
 }
@@ -1053,6 +1073,9 @@ async function getOwnedManualPublicPageResource(userId, resourceId) {
   const rows = await getResourceRowsForUser(userId, resourceId);
   if (rows.length === 0 || String(rows[0].user_id) !== String(userId)) {
     throw new AppError('Only the assigned user can manage the public page for this service', HTTP_STATUS.FORBIDDEN);
+  }
+  if (!rows[0].provisioned_id) {
+    throw new AppError('Administrator-provided service URLs are read-only', HTTP_STATUS.FORBIDDEN);
   }
   const publishingConfig = await getPangolinConfig(rows[0].cluster_id);
   const clusterPublishingEnabled = Number(rows[0].allow_publishing ?? 1) === 1;
@@ -1215,8 +1238,11 @@ router.put('/resources/:id/service-ip', async (req, res, next) => {
     if (String(target.row.user_id) !== String(req.user.id)) {
       throw new AppError('Only the assigned user can manage the service IP', HTTP_STATUS.FORBIDDEN);
     }
-    if (target.row.provisioned_id || String(target.type || '').toLowerCase() !== 'qemu') {
-      throw new AppError('Manual service IPs are only available for administrator-assigned QEMU VMs', HTTP_STATUS.BAD_REQUEST);
+    if (!target.row.provisioned_id) {
+      throw new AppError('Administrator-provided service IP and SSH settings are read-only', HTTP_STATUS.FORBIDDEN);
+    }
+    if (String(target.type || '').toLowerCase() !== 'qemu') {
+      throw new AppError('Manual service IPs are only available for supported QEMU VMs', HTTP_STATUS.BAD_REQUEST);
     }
 
     const manualIp = normalizeManualIpv4(req.body?.ip);
@@ -1384,6 +1410,14 @@ async function assertResourceAccess(userId, resourceId) {
   return rows[0];
 }
 
+async function assertSelfCreatedResourceOwner(userId, resourceId) {
+  const resource = await assertResourceAccess(userId, resourceId);
+  if (!resource.provisioned_id || String(resource.provisioned_user_id || '') !== String(userId)) {
+    throw new AppError('Only the creator of a self-service resource can change its access settings', HTTP_STATUS.FORBIDDEN);
+  }
+  return resource;
+}
+
 async function getManagementPageRecord(resourceId) {
   return get(
     `SELECT id, label, username, url, notes, created_by_role, created_at, updated_at,
@@ -1417,12 +1451,16 @@ router.get('/resources/:id/management-page', async (req, res, next) => {
 
 router.put('/resources/:id/management-page', async (req, res, next) => {
   try {
-    const resource = await assertResourceAccess(req.user.id, req.params.id);
+    const resource = await assertSelfCreatedResourceOwner(req.user.id, req.params.id);
     const url = normalizeManagementPageUrl(req.body?.url);
     const username = String(req.body?.username || '').trim();
     const notes = String(req.body?.notes || '').trim();
     const secretProvided = req.body?.secret !== undefined && String(req.body.secret) !== '';
     const existing = await getManagementPageRecord(req.params.id);
+
+    if (existing?.created_by_role === 'admin') {
+      throw new AppError('Administrator-provided management access is read-only', HTTP_STATUS.FORBIDDEN);
+    }
 
     if (existing) {
       const encryptedSecret = secretProvided
@@ -1464,7 +1502,11 @@ router.put('/resources/:id/management-page', async (req, res, next) => {
 
 router.delete('/resources/:id/management-page', async (req, res, next) => {
   try {
-    const resource = await assertResourceAccess(req.user.id, req.params.id);
+    const resource = await assertSelfCreatedResourceOwner(req.user.id, req.params.id);
+    const existing = await getManagementPageRecord(req.params.id);
+    if (existing?.created_by_role === 'admin') {
+      throw new AppError('Administrator-provided management access is read-only', HTTP_STATUS.FORBIDDEN);
+    }
     await run("DELETE FROM resource_credentials WHERE resource_id = ? AND COALESCE(purpose, 'general') = 'management'", [resource.id]);
     await run("UPDATE resources SET admin_url = '', updated_at = CURRENT_TIMESTAMP WHERE id = ?", [resource.id]);
     await logAudit(req, 'resource.management-page.remove', `resource:${resource.id}`);
@@ -1499,7 +1541,8 @@ async function getRootConsoleCredential(resourceId) {
 
 router.get('/resources/:id/credentials', async (req, res, next) => {
   try {
-    await assertResourceAccess(req.user.id, req.params.id);
+    const resource = await assertResourceAccess(req.user.id, req.params.id);
+    const selfCreatedOwner = !!resource.provisioned_id && String(resource.provisioned_user_id || '') === String(req.user.id);
     const rows = await all(
       `SELECT id, label, username, url, notes, created_by_role, COALESCE(purpose, 'general') AS purpose,
               COALESCE(is_ssh_console, 0) AS is_ssh_console, created_at, updated_at
@@ -1513,7 +1556,7 @@ router.get('/resources/:id/credentials', async (req, res, next) => {
         ...row,
         hasSecret: true,
         fromAdmin: row.created_by_role === 'admin',
-        canManage: row.created_by_role !== 'admin' || row.purpose === 'management',
+        canManage: selfCreatedOwner && row.created_by_role !== 'admin',
         useForSshConsole: Number(row.is_ssh_console || 0) === 1
       }))
     });
@@ -1540,7 +1583,7 @@ router.get('/resources/:id/credentials/:credId/reveal', async (req, res, next) =
 
 router.post('/resources/:id/credentials', async (req, res, next) => {
   try {
-    const resource = await assertResourceAccess(req.user.id, req.params.id);
+    const resource = await assertSelfCreatedResourceOwner(req.user.id, req.params.id);
     const { label, username, secret, url, notes, purpose: requestedPurpose, useForSshConsole } = req.body;
     const purpose = requestedPurpose === 'management' ? 'management' : 'general';
     const sshConsole = purpose === 'general' && useForSshConsole === true ? 1 : 0;
@@ -1589,7 +1632,7 @@ router.post('/resources/:id/credentials', async (req, res, next) => {
 
 router.put('/resources/:id/credentials/:credId', async (req, res, next) => {
   try {
-    await assertResourceAccess(req.user.id, req.params.id);
+    const resource = await assertSelfCreatedResourceOwner(req.user.id, req.params.id);
     const { label, username, secret, url, notes, purpose: requestedPurpose, useForSshConsole } = req.body;
     const cred = await get(
       'SELECT * FROM resource_credentials WHERE id = ? AND resource_id = ?',
@@ -1598,7 +1641,7 @@ router.put('/resources/:id/credentials/:credId', async (req, res, next) => {
     if (!cred) throw new AppError('Credential not found', HTTP_STATUS.NOT_FOUND);
     // Management-page credentials are shared between admin and authorized users.
     // Other admin-provided credentials stay read-only for users.
-    if (cred.created_by_role === 'admin' && cred.purpose !== 'management') {
+    if (cred.created_by_role === 'admin') {
       throw new AppError('Admin-provided credentials cannot be edited', HTTP_STATUS.FORBIDDEN);
     }
     const purpose = cred.purpose === 'management' || requestedPurpose === 'management' ? 'management' : 'general';
@@ -1638,12 +1681,15 @@ router.put('/resources/:id/credentials/:credId', async (req, res, next) => {
 
 router.delete('/resources/:id/credentials/:credId', async (req, res, next) => {
   try {
-    await assertResourceAccess(req.user.id, req.params.id);
+    const resource = await assertSelfCreatedResourceOwner(req.user.id, req.params.id);
     const cred = await get(
-      'SELECT id, label FROM resource_credentials WHERE id = ? AND resource_id = ?',
+      'SELECT id, label, created_by_role FROM resource_credentials WHERE id = ? AND resource_id = ?',
       [req.params.credId, req.params.id]
     );
     if (!cred) throw new AppError('Credential not found', HTTP_STATUS.NOT_FOUND);
+    if (cred.created_by_role === 'admin') {
+      throw new AppError('Admin-provided credentials cannot be deleted', HTTP_STATUS.FORBIDDEN);
+    }
 
     await run('DELETE FROM resource_credentials WHERE id = ?', [req.params.credId]);
     await logAudit(req, 'credential.delete', `resource:${req.params.id}`, cred.label);

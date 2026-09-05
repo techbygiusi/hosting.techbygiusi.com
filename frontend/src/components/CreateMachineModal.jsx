@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import Modal from './Modal';
 import { getErrorMessage, translateMessage, userApi } from '../services/api';
 import { readStoredLanguage } from './LanguageSwitch';
@@ -39,6 +39,8 @@ export default function CreateMachineModal({ options = [], onClose, onCreated, i
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [job, setJob] = useState(initialJob);
+  const eventListRef = useRef(null);
+  const followEventsRef = useRef(true);
   const cluster = useMemo(() => options.find(item => String(item.clusterId) === String(clusterId)), [options, clusterId]);
   const selectedTemplate = (cluster?.templates || []).find(item => String(item.id) === String(form.templateProfileId));
   const diskMin = Math.max(4, Number(selectedTemplate?.minDiskGb) || 4);
@@ -60,6 +62,21 @@ export default function CreateMachineModal({ options = [], onClose, onCreated, i
     }, 1000);
     return () => clearInterval(timer);
   }, [job, onCreated]);
+
+  useEffect(() => {
+    const list = eventListRef.current;
+    if (!list || !followEventsRef.current) return;
+    window.requestAnimationFrame(() => {
+      list.scrollTop = list.scrollHeight;
+    });
+  }, [job?.events?.length, job?.progress]);
+
+  const handleEventScroll = () => {
+    const list = eventListRef.current;
+    if (!list) return;
+    const distanceFromBottom = list.scrollHeight - list.scrollTop - list.clientHeight;
+    followEventsRef.current = distanceFromBottom < 36;
+  };
 
   const setField = (field, value) => { setForm(prev => ({ ...prev, [field]: value })); setError(''); };
   const submit = async event => {
@@ -87,7 +104,7 @@ export default function CreateMachineModal({ options = [], onClose, onCreated, i
         {job.status === 'failed' && <div className="alert alert-danger">{t.failed}{job.error && <small className="provisioning-failure-detail">{translateMessage(job.error)}</small>}</div>}
         {job.status === 'success' && <div className="alert alert-success">{t.done}</div>}
         <h3>{t.progress}</h3>
-        <div className="provisioning-event-list">
+        <div className="provisioning-event-list" ref={eventListRef} onScroll={handleEventScroll}>
           {events.map(event => <div key={event.id} className={`provisioning-event event-${event.level}`}><span className="provisioning-event-dot" /><div><strong>{language === 'de' ? event.messageDe : event.messageEn}</strong><small>{new Date(String(event.createdAt).replace(' ', 'T') + 'Z').toLocaleTimeString(language === 'de' ? 'de-DE' : 'en-GB')}</small></div></div>)}
         </div>
         <div className="form-actions"><button type="button" className="btn-primary" onClick={onClose}>{t.close}</button></div>

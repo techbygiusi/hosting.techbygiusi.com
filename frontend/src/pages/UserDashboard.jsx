@@ -14,6 +14,7 @@ import NotificationSettingsPanel from '../components/NotificationSettingsPanel';
 import WikiBrowser from '../components/WikiBrowser';
 import CreateMachineModal from '../components/CreateMachineModal';
 import UserBilling from '../components/UserBilling';
+import ResourceAccessDetails from '../components/ResourceAccessDetails';
 import { useTheme } from '../components/ThemeButton';
 
 function formatBytes(value) {
@@ -38,6 +39,20 @@ function formatUptime(seconds) {
   if (days > 0) return `${days}d ${hours}h`;
   if (hours > 0) return `${hours}h ${minutes}m`;
   return `${minutes}m`;
+}
+
+function formatMoney(value, currency = 'EUR', language = 'en') {
+  const amount = Number(value || 0);
+  try {
+    return new Intl.NumberFormat(language === 'de' ? 'de-DE' : 'en-GB', {
+      style: 'currency',
+      currency: currency || 'EUR',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(Number.isFinite(amount) ? amount : 0);
+  } catch (_) {
+    return `${Number.isFinite(amount) ? amount.toFixed(2) : '0.00'} ${currency || 'EUR'}`;
+  }
 }
 
 function resourceTypeLabel(resource) {
@@ -137,40 +152,105 @@ function ServiceCard({ resource, history = [], onDetails, onConsole, compact = f
   );
 }
 
-function ServiceDetailView({ resource, history = [], onBack, onConsole }) {
-  if (!resource) return null;
-  const publicUrl = servicePrimaryUrl(resource);
-  const cpu = cpuPercent(resource);
-  const memory = percent(resource.mem, resource.maxmem);
+function ServiceDetailView({ resource, history = [], language = 'en', onBack, onConsole, onResourceUpdate }) {
+  const [liveResource, setLiveResource] = useState(resource);
+  const [powerBusy, setPowerBusy] = useState('');
+  const [powerError, setPowerError] = useState('');
+  const [powerNotice, setPowerNotice] = useState('');
+
+  useEffect(() => { setLiveResource(resource); }, [resource]);
+  if (!liveResource) return null;
+
+  const text = language === 'de'
+    ? {
+        back: '← Zurück zu Services', openService: 'Service öffnen', openAdmin: 'Admin öffnen', openConsole: 'Konsole öffnen',
+        start: 'Starten', stop: 'Stoppen', restart: 'Neustarten', unavailable: 'Power-Steuerung ist mit dem aktuellen Proxmox-Token nicht verfügbar.',
+        started: 'Aktion wurde gestartet.', failed: 'Power-Aktion konnte nicht ausgeführt werden.'
+      }
+    : {
+        back: '← Back to services', openService: 'Open service', openAdmin: 'Open admin', openConsole: 'Open console',
+        start: 'Start', stop: 'Stop', restart: 'Restart', unavailable: 'Power controls are unavailable with the current Proxmox token.',
+        started: 'Power action started.', failed: 'Power action could not be started.'
+      };
+
+  const publicUrl = servicePrimaryUrl(liveResource);
+  const cpu = cpuPercent(liveResource);
+  const memory = percent(liveResource.mem, liveResource.maxmem);
+  const status = String(liveResource.status || '').toLowerCase();
+  const running = status.includes('run');
+  const canPower = liveResource?.capabilities?.canPower !== false;
   const values = [
-    ['Cluster', resource.clusterName || '—'],
-    ['Node', resource.node || '—'],
-    ['Type', resourceTypeLabel(resource)],
-    ['ID', resource.containerId || '—'],
-    ['Status', resource.status || '—'],
-    ['Uptime', formatUptime(resource.uptime)],
-    ['CPU', resource.maxcpu ? `${resource.maxcpu} cores` : '—'],
-    ['Memory', resource.maxmem ? formatBytes(resource.maxmem) : '—'],
-    ['Service IP', resource.manualIp || resource.primaryIp || resource.ip || '—'],
-    ['Operating system', resource.operatingSystem || '—']
+    ['Cluster', liveResource.clusterName || '—'],
+    ['Node', liveResource.node || '—'],
+    ['Type', resourceTypeLabel(liveResource)],
+    ['ID', liveResource.containerId || '—'],
+    ['Status', liveResource.status || '—'],
+    ['Uptime', formatUptime(liveResource.uptime)],
+    ['CPU', liveResource.maxcpu ? `${liveResource.maxcpu} cores` : '—'],
+    ['Memory', liveResource.maxmem ? formatBytes(liveResource.maxmem) : '—'],
+    ['Service IP', liveResource.manualIp || liveResource.primaryIp || liveResource.ip || '—'],
+    ['Operating system', liveResource.operatingSystem || '—']
   ];
+
+  const runPowerAction = async (action) => {
+    if (!canPower || powerBusy) return;
+    setPowerBusy(action);
+    setPowerError('');
+    setPowerNotice('');
+    try {
+      await userApi.powerAction(liveResource.id, action);
+      setPowerNotice(text.started);
+
+      const expected = action === 'start' ? 'running' : action === 'stop' ? 'stopped' : '';
+      for (let attempt = 0; attempt < 6; attempt += 1) {
+        await new Promise((resolve) => window.setTimeout(resolve, attempt === 0 ? 900 : 1200));
+        try {
+          const response = await userApi.getResourceDetails(liveResource.id);
+          const next = response.data?.resource;
+          if (!next) continue;
+          setLiveResource(next);
+          onResourceUpdate?.(next);
+          const nextStatus = String(next.status || '').toLowerCase();
+          if (!expected || nextStatus.includes(expected === 'running' ? 'run' : 'stop')) break;
+        } catch (_) {
+          // Keep polling briefly while Proxmox completes the task.
+        }
+      }
+    } catch (err) {
+      setPowerError(getErrorMessage(err, text.failed));
+    } finally {
+      setPowerBusy('');
+    }
+  };
 
   return (
     <div className="service-detail-page">
       <div className="subpage-back-row">
-        <button type="button" className="btn-secondary" onClick={onBack}>← Back to services</button>
+        <button type="button" className="btn-secondary" onClick={onBack}>{text.back}</button>
       </div>
       <SectionCard
-        title={resource.name}
-        subtitle={`${resource.clusterName || 'Unknown cluster'} · ${resourceTypeLabel(resource)}`}
+        title={liveResource.name}
+        subtitle={`${liveResource.clusterName || 'Unknown cluster'} · ${resourceTypeLabel(liveResource)}`}
         action={(
           <div className="service-detail-actions">
-            {publicUrl ? <a className="btn-primary" href={publicUrl} target="_blank" rel="noreferrer">Open service</a> : null}
-            {resource.adminUrl ? <a className="btn-secondary" href={resource.adminUrl} target="_blank" rel="noreferrer">Open admin</a> : null}
-            {resource?.capabilities?.canConsole ? <button type="button" className="btn-secondary" onClick={() => onConsole(resource.id)}>Open console</button> : null}
+            <div className="service-power-actions" title={!canPower ? text.unavailable : ''}>
+              {running ? (
+                <>
+                  <button type="button" className="btn-secondary" disabled={!canPower || !!powerBusy} onClick={() => runPowerAction('reboot')}>{powerBusy === 'reboot' ? '…' : text.restart}</button>
+                  <button type="button" className="btn-danger" disabled={!canPower || !!powerBusy} onClick={() => runPowerAction('stop')}>{powerBusy === 'stop' ? '…' : text.stop}</button>
+                </>
+              ) : (
+                <button type="button" className="btn-primary" disabled={!canPower || !!powerBusy} onClick={() => runPowerAction('start')}>{powerBusy === 'start' ? '…' : text.start}</button>
+              )}
+            </div>
+            {publicUrl ? <a className="btn-primary" href={publicUrl} target="_blank" rel="noreferrer">{text.openService}</a> : null}
+            {liveResource.adminUrl ? <a className="btn-secondary" href={liveResource.adminUrl} target="_blank" rel="noreferrer">{text.openAdmin}</a> : null}
+            {liveResource?.capabilities?.canConsole ? <button type="button" className="btn-secondary" onClick={() => onConsole(liveResource.id)}>{text.openConsole}</button> : null}
           </div>
         )}
       >
+        {powerError ? <InlineNotice tone="danger">{powerError}</InlineNotice> : null}
+        {powerNotice ? <InlineNotice tone="success">{powerNotice}</InlineNotice> : null}
         <div className="service-detail-history-grid">
           <MetricSparkline label="CPU" value={cpu} history={history} field="cpuPercent" large />
           <MetricSparkline label="Memory" value={memory} history={history} field="memoryPercent" large />
@@ -181,11 +261,12 @@ function ServiceDetailView({ resource, history = [], onBack, onConsole }) {
           ))}
         </div>
       </SectionCard>
+      <ResourceAccessDetails resource={liveResource} language={language} />
     </div>
   );
 }
 
-function UserOverview({ resources, metrics, onOpenProvisioning, onSelectService, onConsole }) {
+function UserOverview({ resources, metrics, billing, language, onOpenBilling, onOpenProvisioning, onSelectService, onConsole }) {
   const running = resources.filter((item) => String(item.status || '').toLowerCase().includes('run')).length;
   const stopped = resources.filter((item) => String(item.status || '').toLowerCase().includes('stop')).length;
   const clusters = new Set(resources.map((item) => item.clusterName).filter(Boolean));
@@ -202,6 +283,10 @@ function UserOverview({ resources, metrics, onOpenProvisioning, onSelectService,
   const usedStorage = resources.reduce((sum, item) => sum + Number(item.disk || 0), 0);
   const totalStorage = resources.reduce((sum, item) => sum + Number(item.maxdisk || 0), 0);
   const storageUsage = totalStorage > 0 ? Math.min(Math.max((usedStorage / totalStorage) * 100, 0), 100) : 0;
+  const billingCurrency = billing?.settings?.currency || 'EUR';
+  const billingTotal = billing?.summary?.totalCost;
+  const billingLabel = language === 'de' ? 'Billing diesen Monat' : 'Billing this month';
+  const billingHint = language === 'de' ? 'Details ansehen' : 'View details';
 
   return (
     <div className="user-dashboard-v4">
@@ -211,7 +296,17 @@ function UserOverview({ resources, metrics, onOpenProvisioning, onSelectService,
           <h2>{running === resources.length && resources.length ? 'All assigned services are running.' : 'Your hosting overview'}</h2>
           <p>{resources.length} services across {clusters.size} {clusters.size === 1 ? 'cluster' : 'clusters'}.</p>
         </div>
-        <button type="button" className="btn-primary" onClick={onOpenProvisioning}>Create container</button>
+        <div className="user-dashboard-hero-actions">
+          <button type="button" className="dashboard-billing-mini" onClick={onOpenBilling}>
+            <span className="dashboard-billing-mini-icon"><BillingIcon size={18} /></span>
+            <span className="dashboard-billing-mini-copy">
+              <small>{billingLabel}</small>
+              <strong>{billing ? formatMoney(billingTotal, billingCurrency, language) : '—'}</strong>
+            </span>
+            <span className="dashboard-billing-mini-link">{billingHint} →</span>
+          </button>
+          <button type="button" className="btn-primary" onClick={onOpenProvisioning}>Create container</button>
+        </div>
       </section>
 
       <div className="user-dashboard-stats-v4">
@@ -249,7 +344,7 @@ function UserOverview({ resources, metrics, onOpenProvisioning, onSelectService,
   );
 }
 
-function UserServices({ resources, metrics, selectedId, detailOpen, onDetails, onCloseDetails, onConsole, onOpenProvisioning }) {
+function UserServices({ resources, metrics, selectedId, detailOpen, language, onDetails, onCloseDetails, onConsole, onOpenProvisioning, onResourceUpdate }) {
   const [filter, setFilter] = useState('');
   const filtered = useMemo(() => {
     const term = filter.trim().toLowerCase();
@@ -259,7 +354,7 @@ function UserServices({ resources, metrics, selectedId, detailOpen, onDetails, o
   const selected = resources.find((item) => String(item.id) === String(selectedId)) || null;
 
   if (detailOpen && selected) {
-    return <ServiceDetailView resource={selected} history={metrics?.[String(selected.id)]?.points || []} onBack={onCloseDetails} onConsole={onConsole} />;
+    return <ServiceDetailView resource={selected} history={metrics?.[String(selected.id)]?.points || []} language={language} onBack={onCloseDetails} onConsole={onConsole} onResourceUpdate={onResourceUpdate} />;
   }
 
   return (
@@ -309,6 +404,7 @@ export default function UserDashboard() {
   const [createOpen, setCreateOpen] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
   const [activeProvisioningJob, setActiveProvisioningJob] = useState(null);
+  const [billingSummary, setBillingSummary] = useState(null);
   const { theme, setTheme } = useTheme();
 
   const refreshMetrics = useCallback(async () => {
@@ -323,17 +419,19 @@ export default function UserDashboard() {
     setLoading(true);
     setError('');
     try {
-      const [resourcesRes, profileRes, optionsRes, jobsRes] = await Promise.all([
+      const [resourcesRes, profileRes, optionsRes, jobsRes, billingRes] = await Promise.all([
         userApi.getResources(),
         userApi.getProfile(),
         userApi.getProvisioningOptions().catch(() => ({ data: { clusters: [], options: [] } })),
-        userApi.getProvisioningJobs(10).catch(() => ({ data: { jobs: [] } }))
+        userApi.getProvisioningJobs(10).catch(() => ({ data: { jobs: [] } })),
+        userApi.getBilling().catch(() => ({ data: null }))
       ]);
       const nextResources = resourcesRes.data?.resources || [];
       setResources(nextResources);
       setProfile(profileRes.data?.profile || {});
       setProvisioningOptions(optionsRes.data?.clusters || optionsRes.data?.options || []);
       setActiveProvisioningJob((jobsRes.data?.jobs || []).find((item) => ['queued', 'running'].includes(item.status)) || null);
+      setBillingSummary(billingRes.data || null);
       setSelectedId((current) => current || nextResources[0]?.id || '');
       refreshMetrics();
     } catch (err) {
@@ -358,6 +456,11 @@ export default function UserDashboard() {
     setDetailOpen(true);
     setActiveTab('services');
   };
+
+  const updateResource = useCallback((nextResource) => {
+    if (!nextResource?.id) return;
+    setResources((current) => current.map((item) => String(item.id) === String(nextResource.id) ? nextResource : item));
+  }, []);
 
   const saveProfile = async (event) => {
     event.preventDefault();
@@ -411,9 +514,18 @@ export default function UserDashboard() {
   if (loading) {
     content = <PageSkeleton variant={activeTab === 'services' ? 'table' : 'dashboard'} />;
   } else if (activeTab === 'dashboard') {
-    content = <UserOverview resources={resources} metrics={metrics} onOpenProvisioning={() => setCreateOpen(true)} onSelectService={openServiceDetails} onConsole={openConsole} />;
+    content = <UserOverview
+      resources={resources}
+      metrics={metrics}
+      billing={billingSummary}
+      language={language}
+      onOpenBilling={() => setActiveTab('billing')}
+      onOpenProvisioning={() => setCreateOpen(true)}
+      onSelectService={openServiceDetails}
+      onConsole={openConsole}
+    />;
   } else if (activeTab === 'services') {
-    content = <UserServices resources={resources} metrics={metrics} selectedId={selectedId} detailOpen={detailOpen} onDetails={openServiceDetails} onCloseDetails={() => setDetailOpen(false)} onConsole={openConsole} onOpenProvisioning={() => setCreateOpen(true)} />;
+    content = <UserServices resources={resources} metrics={metrics} selectedId={selectedId} detailOpen={detailOpen} language={language} onDetails={openServiceDetails} onCloseDetails={() => setDetailOpen(false)} onConsole={openConsole} onOpenProvisioning={() => setCreateOpen(true)} onResourceUpdate={updateResource} />;
   } else if (activeTab === 'billing') {
     content = <UserBilling language={language} />;
   } else if (activeTab === 'wiki') {

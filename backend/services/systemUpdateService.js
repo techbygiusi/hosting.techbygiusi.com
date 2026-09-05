@@ -52,6 +52,34 @@ function writeJsonAtomic(filePath, payload) {
   fs.renameSync(temporaryPath, filePath);
 }
 
+
+function reconcileFailedStatus(status) {
+  if (!status || !['queued', 'running'].includes(status.status)) return status;
+  const steps = Array.isArray(status.steps) ? status.steps : [];
+  const failedStep = steps.find((step) => step?.status === 'failed');
+  if (!failedStep) return status;
+
+  const message = String(failedStep.message || `${failedStep.label || 'Update step'} failed`).trim();
+  const recovered = {
+    ...status,
+    status: 'failed',
+    currentStep: 'Update failed',
+    finishedAt: status.finishedAt || new Date().toISOString(),
+    error: status.error || message
+  };
+
+  try {
+    writeJsonAtomic(statusPath, recovered);
+    const existingLog = safeTextRead(logPath, '');
+    if (!existingLog.includes('Failed update status recovered by portal status check.')) {
+      fs.appendFileSync(logPath, '\nFailed update status recovered by portal status check.\n');
+    }
+  } catch (_) {
+    return status;
+  }
+  return recovered;
+}
+
 function reconcileCompletedStatus(status) {
   if (!status || status.status !== 'running') return status;
   const steps = Array.isArray(status.steps) ? status.steps : [];
@@ -125,6 +153,7 @@ function getSystemUpdateStatus() {
     finishedAt: null,
     error: ''
   };
+  status = reconcileFailedStatus(status);
   status = reconcileCompletedStatus(status);
 
   let log = '';
@@ -162,7 +191,7 @@ function startSystemUpdate(type, requestedBy = '', options = {}) {
   }
 
   const current = getSystemUpdateStatus();
-  if (type === 'timezone' && Number(current.helperVersion || 1) < 2) {
+  if (Number(current.helperVersion || 1) < 3) {
     const error = new Error('Host updater helper is outdated');
     error.code = 'HELPER_OUTDATED';
     throw error;

@@ -70,8 +70,21 @@ def run_command(status, steps, index, command, cwd=None, env=None):
         append_log(line.rstrip('\n'))
     code = process.wait()
     if code != 0:
+        failure_message = f"{steps[index]['label']} failed with exit code {code}"
         set_step(status, steps, index, 'failed', f'Command exited with code {code}')
-        raise RuntimeError(f"{steps[index]['label']} failed with exit code {code}")
+        # Persist the terminal job state immediately. Do not rely only on the
+        # outer exception handler: if the helper is interrupted after the
+        # failed step was written, the portal must never be left at running.
+        update_status(
+            status,
+            status='failed',
+            steps=steps,
+            currentStep='Update failed',
+            finishedAt=now(),
+            error=failure_message,
+        )
+        append_log(f'Update failed: {failure_message}')
+        raise RuntimeError(failure_message)
     set_step(status, steps, index, 'done')
 
 

@@ -176,9 +176,9 @@ export default function SystemUpdates() {
         <InlineNotice tone="warning">
           The Debian host updater is not installed yet. Run <code>./setup-updater.sh</code> as root once in <code>/opt/hosting.techbygiusi.com</code>.
         </InlineNotice>
-      ) : Number(update?.helperVersion || 1) < 2 ? (
+      ) : Number(update?.helperVersion || 1) < 3 ? (
         <InlineNotice tone="warning">
-          Refresh the Debian helper once with <code>./setup-updater.sh</code> as root to enable host timezone management.
+          Refresh the Debian helper once with <code>./setup-updater.sh</code> as root to install the latest update-state recovery and host timezone support.
         </InlineNotice>
       ) : null}
 
@@ -191,7 +191,7 @@ export default function SystemUpdates() {
               <code>apt-get -y upgrade</code>
             </div>
             <div className="system-update-action-footer">
-              <button type="button" className="btn-primary" onClick={() => start('os')} disabled={!update?.helperInstalled || running || !!starting}>
+              <button type="button" className="btn-primary" onClick={() => start('os')} disabled={!update?.helperInstalled || Number(update?.helperVersion || 1) < 3 || running || !!starting}>
                 {starting === 'os' ? 'Starting…' : 'Update Debian'}
               </button>
             </div>
@@ -207,7 +207,7 @@ export default function SystemUpdates() {
               <code>docker image prune -f</code>
             </div>
             <div className="system-update-action-footer">
-              <button type="button" className="btn-primary" onClick={() => start('portal')} disabled={!update?.helperInstalled || running || !!starting}>
+              <button type="button" className="btn-primary" onClick={() => start('portal')} disabled={!update?.helperInstalled || Number(update?.helperVersion || 1) < 3 || running || !!starting}>
                 {starting === 'portal' ? 'Starting…' : 'Update portal'}
               </button>
             </div>
@@ -239,7 +239,7 @@ export default function SystemUpdates() {
               type="button"
               className="btn-primary system-update-timezone-button"
               onClick={saveTimezone}
-              disabled={!update?.helperInstalled || Number(update?.helperVersion || 1) < 2 || running || !!starting}
+              disabled={!update?.helperInstalled || Number(update?.helperVersion || 1) < 3 || running || !!starting}
             >
               {starting === 'timezone' ? 'Applying…' : 'Apply timezone'}
             </button>

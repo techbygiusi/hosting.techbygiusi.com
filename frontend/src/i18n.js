@@ -2,6 +2,21 @@ import { useEffect } from 'react';
 import { readStoredLanguage } from './components/LanguageSwitch';
 
 export const DE_EN_PHRASES = {
+  "Zugangsdaten aktualisiert.": "Credentials updated.",
+  "Zugangsdaten hinzugefügt.": "Credentials added.",
+  "Zugangsdaten gelöscht.": "Credentials deleted.",
+  "Zugangsdaten konnten nicht gespeichert werden.": "Credentials could not be saved.",
+  "Passwort konnte nicht angezeigt werden.": "Password could not be revealed.",
+  "Zugangsdaten für den Dienst": "Access credentials",
+  "Zugangsdaten werden geladen…": "Loading credentials…",
+  "Keine Zugangsdaten hinterlegt.": "No credentials configured yet.",
+  "Kein Benutzername": "No username",
+  "Zugangsdaten bearbeiten": "Edit credentials",
+  "Bearbeiten abbrechen": "Cancel edit",
+  "Zugangsdaten speichern": "Save credentials",
+  "Webseiten-URL": "Website URL",
+  "Admin-URL": "Admin URL",
+  "Dieser Benutzername und dieses Passwort werden für die Browser-SSH-Konsole verwendet.": "This username and password will be used for the browser SSH console.",
   "In Billing einbeziehen": "Include in billing",
   "Vom Admin zugewiesene Services sind standardmäßig ausgeschlossen. Self-Service-Container werden immer automatisch abgerechnet.": "Admin-assigned services are excluded by default. Self-service containers are always billed automatically.",
   "Abrechenbar": "Billable",

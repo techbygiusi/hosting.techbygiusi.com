@@ -910,7 +910,7 @@ router.get('/resources/:id/credentials', async (req, res, next) => {
         ...row,
         hasSecret: true,
         fromAdmin: row.created_by_role === 'admin',
-        canManage: row.created_by_role === 'admin' || row.purpose === 'management',
+        canManage: row.created_by_role === 'admin',
         useForSshConsole: Number(row.is_ssh_console || 0) === 1
       }))
     });
@@ -927,7 +927,7 @@ router.get('/resources/:id/credentials/:credId/reveal', async (req, res, next) =
       [req.params.credId, req.params.id]
     );
     if (!cred) throw new AppError('Credential not found', HTTP_STATUS.NOT_FOUND);
-    if (cred.created_by_role !== 'admin' && cred.purpose !== 'management') {
+    if (cred.created_by_role !== 'admin') {
       throw new AppError('This credential belongs to the user and cannot be viewed', HTTP_STATUS.FORBIDDEN);
     }
 
@@ -997,7 +997,7 @@ router.put('/resources/:id/credentials/:credId', async (req, res, next) => {
       [req.params.credId, req.params.id]
     );
     if (!cred) throw new AppError('Credential not found', HTTP_STATUS.NOT_FOUND);
-    if (cred.created_by_role !== 'admin' && cred.purpose !== 'management') {
+    if (cred.created_by_role !== 'admin') {
       throw new AppError('This credential belongs to the user and cannot be edited', HTTP_STATUS.FORBIDDEN);
     }
 
@@ -1046,7 +1046,7 @@ router.delete('/resources/:id/credentials/:credId', async (req, res, next) => {
     );
     if (!cred) throw new AppError('Credential not found', HTTP_STATUS.NOT_FOUND);
     // Shared management credentials may be removed by admin or authorized users.
-    if (cred.created_by_role !== 'admin' && cred.purpose !== 'management') {
+    if (cred.created_by_role !== 'admin') {
       throw new AppError('This credential belongs to the user and cannot be deleted', HTTP_STATUS.FORBIDDEN);
     }
 
@@ -1218,7 +1218,7 @@ router.get('/resources', async (req, res, next) => {
 
 router.post('/resources', async (req, res, next) => {
   try {
-    const { name, containerId, clusterId, userId, groupId, adminUrl, billable = false } = req.body;
+    const { name, containerId, clusterId, userId, groupId, publicUrl, adminUrl, manualIp, sshPort, billable = false } = req.body;
 
     const cleanUserId = userId || null;
     const requestedGroupId = groupId || null;
@@ -1265,13 +1265,14 @@ router.post('/resources', async (req, res, next) => {
 
     const resourceType = String(selectedResource?.type || '').toLowerCase();
 
-    const cleanPublicUrl = '';
+    const cleanPublicUrl = validateWebUrl(publicUrl, 'Website link');
     const cleanAdminUrl = validateWebUrl(adminUrl, 'Admin link');
-    // A manual service IP is deliberately not accepted while the portal
-    // assignment is being created. It becomes available only after an
-    // administrator-assigned QEMU VM exists as a visible user service.
-    const cleanManualIp = '';
-    const cleanSshPort = 22;
+    const suppliedManualIp = normalizeManualIpv4(manualIp);
+    if (suppliedManualIp && resourceType !== 'qemu') {
+      throw new AppError('Manual service IPs are only available for administrator-assigned QEMU VMs', HTTP_STATUS.BAD_REQUEST);
+    }
+    const cleanManualIp = resourceType === 'qemu' ? suppliedManualIp : '';
+    const cleanSshPort = resourceType === 'qemu' ? normalizeSshPort(sshPort) : 22;
 
     const result = await run(
       'INSERT INTO resources (name, container_id, cluster_id, user_id, group_id, web_url, public_url, admin_url, manual_ip, ssh_port, resource_type, billable) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
@@ -1291,7 +1292,7 @@ router.post('/resources', async (req, res, next) => {
 router.put('/resources/:id', async (req, res, next) => {
   try {
     const resourceId = req.params.id;
-    const { name, containerId, clusterId, userId, groupId, adminUrl, manualIp, sshPort, billable } = req.body;
+    const { name, containerId, clusterId, userId, groupId, publicUrl, adminUrl, manualIp, sshPort, billable } = req.body;
     const resource = await get('SELECT * FROM resources WHERE id = ?', [resourceId]);
 
     if (!resource) {
@@ -1351,7 +1352,7 @@ router.put('/resources/:id', async (req, res, next) => {
       throw new AppError('Manual service IPs are only available for administrator-assigned QEMU VMs', HTTP_STATUS.BAD_REQUEST);
     }
 
-    const cleanPublicUrl = resource.public_url || resource.web_url || '';
+    const cleanPublicUrl = validateWebUrl(publicUrl ?? resource.public_url ?? resource.web_url, 'Website link');
     const cleanAdminUrl = validateWebUrl(adminUrl ?? resource.admin_url, 'Admin link');
     const cleanManualIp = resourceType === 'qemu'
       ? normalizeManualIpv4(manualIp !== undefined ? manualIp : resource.manual_ip)
@@ -2036,7 +2037,7 @@ router.post('/system-update/:type', async (req, res, next) => {
         throw new AppError('Another system update is already running', HTTP_STATUS.CONFLICT);
       }
       if (err.code === 'HELPER_OUTDATED') {
-        throw new AppError('The host updater helper must be refreshed. Run ./setup-updater.sh as root again in /opt/hosting.techbygiusi.com.', HTTP_STATUS.SERVICE_UNAVAILABLE);
+        throw new AppError('The host updater helper must be refreshed. Run ./setup-updater.sh as root again in /opt/hosting.techbygiusi.com before starting another system update.', HTTP_STATUS.SERVICE_UNAVAILABLE);
       }
       if (err.code === 'INVALID_TIMEZONE') {
         throw new AppError('Invalid host timezone', HTTP_STATUS.BAD_REQUEST);

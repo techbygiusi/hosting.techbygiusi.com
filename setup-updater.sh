@@ -54,7 +54,7 @@ WantedBy=multi-user.target
 UNIT
 
 touch "$DATA_DIR/system-updater-ready"
-printf '%s\n' '2' > "$VERSION_FILE"
+printf '%s\n' '3' > "$VERSION_FILE"
 if command -v timedatectl >/dev/null 2>&1; then
   timedatectl show --property=Timezone --value > "$TIMEZONE_FILE" 2>/dev/null || true
 fi

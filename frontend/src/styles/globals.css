@@ -5229,3 +5229,419 @@ button:disabled,
     display: none !important;
   }
 }
+
+
+/* v32 desktop navigation stays fixed while page content scrolls */
+@media (min-width: 1181px) {
+  .portal-shell {
+    align-items: start;
+  }
+
+  .portal-sidebar.desktop-only {
+    position: sticky;
+    top: 16px;
+    align-self: start;
+    height: calc(100vh - 32px);
+    min-height: 0;
+    max-height: calc(100vh - 32px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+}
+
+
+/* v33 compact user dashboard billing snapshot */
+.user-dashboard-hero-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.dashboard-billing-mini {
+  min-width: 230px;
+  padding: 11px 13px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--portal-border);
+  border-radius: 16px;
+  background:
+    radial-gradient(circle at right top, rgba(180, 135, 255, .18), transparent 45%),
+    var(--portal-bg-soft);
+  color: var(--portal-text);
+  text-align: left;
+  cursor: pointer;
+  transition: transform .16s ease, border-color .16s ease, box-shadow .16s ease, background .16s ease;
+}
+
+.dashboard-billing-mini:hover,
+.dashboard-billing-mini:focus-visible {
+  transform: translateY(-1px);
+  border-color: var(--portal-primary);
+  box-shadow: 0 10px 24px rgba(70, 45, 118, .10);
+  outline: none;
+}
+
+.dashboard-billing-mini-icon {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 11px;
+  background: var(--portal-primary-soft);
+  color: var(--portal-primary);
+}
+
+.dashboard-billing-mini-copy {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.dashboard-billing-mini-copy small {
+  color: var(--portal-text-soft);
+  font-size: .72rem;
+  font-weight: 700;
+}
+
+.dashboard-billing-mini-copy strong {
+  color: var(--portal-heading);
+  font-size: 1.08rem;
+  line-height: 1.1;
+}
+
+.dashboard-billing-mini-link {
+  color: var(--portal-primary);
+  font-size: .72rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+@media (max-width: 900px) {
+  .user-dashboard-hero-actions {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .dashboard-billing-mini {
+    flex: 1 1 260px;
+  }
+}
+
+@media (max-width: 720px) {
+  .user-dashboard-hero-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-billing-mini,
+  .user-dashboard-hero-actions > .btn-primary {
+    width: 100%;
+  }
+
+  .dashboard-billing-mini {
+    min-width: 0;
+  }
+}
+
+.admin-resource-credentials-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(360px, .9fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.admin-resource-credential-list {
+  display: grid;
+  gap: 10px;
+}
+
+.admin-resource-credential-row,
+.resource-access-credential {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--portal-border);
+  border-radius: 16px;
+  background: var(--portal-bg-soft);
+}
+
+.admin-resource-credential-main,
+.resource-access-credential-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.admin-resource-credential-main > div:first-child,
+.resource-access-credential-head > div:first-child {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.admin-resource-credential-main span,
+.resource-access-credential-head span,
+.admin-resource-credential-row p,
+.resource-access-credential p {
+  color: var(--portal-text-soft);
+  font-size: .8rem;
+}
+
+.admin-resource-credential-badges,
+.admin-resource-credential-actions,
+.resource-access-credential-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.admin-resource-credential-url,
+.resource-access-credential-url {
+  color: var(--portal-primary);
+  font-size: .8rem;
+  overflow-wrap: anywhere;
+}
+
+.admin-resource-secret {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+}
+
+.admin-resource-secret span {
+  color: var(--portal-text-soft);
+  font-size: .78rem;
+}
+
+.admin-resource-secret code,
+.resource-access-credential-grid code {
+  min-width: 0;
+  padding: 7px 9px;
+  border: 1px solid var(--portal-border);
+  border-radius: 10px;
+  background: var(--portal-surface-strong);
+  color: var(--portal-heading);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  overflow-wrap: anywhere;
+}
+
+.admin-resource-credential-form {
+  padding: 14px;
+  border: 1px solid var(--portal-border);
+  border-radius: 16px;
+  background: var(--portal-bg-soft);
+}
+
+.admin-resource-credential-form-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.admin-resource-ssh-choice {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 12px;
+  border: 1px solid var(--portal-border);
+  border-radius: 14px;
+  background: var(--portal-surface-strong);
+}
+
+.admin-resource-ssh-choice input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+}
+
+.admin-resource-ssh-choice > span {
+  display: grid;
+  gap: 2px;
+}
+
+.admin-resource-ssh-choice small {
+  color: var(--portal-text-soft);
+}
+
+.resource-access-readonly-note {
+  margin-bottom: 14px;
+  padding: 10px 12px;
+  border: 1px solid var(--portal-border);
+  border-radius: 13px;
+  background: var(--portal-primary-soft);
+  color: var(--portal-text-soft);
+  font-size: .82rem;
+}
+
+.resource-access-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.resource-access-summary-item {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+  padding: 12px;
+  border: 1px solid var(--portal-border);
+  border-radius: 14px;
+  background: var(--portal-bg-soft);
+}
+
+.resource-access-summary-item span,
+.resource-access-credential-grid span {
+  color: var(--portal-text-soft);
+  font-size: .76rem;
+}
+
+.resource-access-summary-item strong,
+.resource-access-summary-item a {
+  min-width: 0;
+  color: var(--portal-heading);
+  font-size: .88rem;
+  overflow-wrap: anywhere;
+}
+
+.resource-access-summary-item a {
+  color: var(--portal-primary);
+  font-weight: 800;
+}
+
+.resource-access-credentials-head {
+  margin-top: 18px;
+  margin-bottom: 10px;
+}
+
+.resource-access-credential-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.resource-access-credential-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.resource-access-credential-grid > div {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.resource-access-credential-grid strong {
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 1180px) {
+  .admin-resource-credentials-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .resource-access-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .resource-access-summary-grid,
+  .resource-access-credential-list,
+  .resource-access-credential-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-resource-credential-main,
+  .resource-access-credential-head,
+  .admin-resource-credential-form-head {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
+
+/* v35 provisioning follow mode, power controls and user credential management */
+.service-detail-actions,
+.service-power-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.service-power-actions {
+  padding-right: 8px;
+  margin-right: 2px;
+  border-right: 1px solid var(--portal-border);
+}
+
+.service-power-actions button:disabled {
+  cursor: not-allowed;
+  opacity: .5;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+.resource-access-editor {
+  margin-top: 16px;
+  padding: 14px;
+  border: 1px solid var(--portal-border);
+  border-radius: 16px;
+  background: var(--portal-bg-soft);
+}
+
+.resource-access-editor-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.resource-access-credential-actions .btn-secondary,
+.resource-access-credential-actions .btn-danger {
+  min-height: 34px;
+}
+
+.resource-access-credential-actions svg {
+  flex: 0 0 auto;
+}
+
+.provisioning-event-list {
+  scroll-behavior: smooth;
+  overscroll-behavior: contain;
+}
+
+@media (max-width: 720px) {
+  .service-detail-actions,
+  .service-power-actions {
+    width: 100%;
+  }
+
+  .service-power-actions {
+    padding-right: 0;
+    padding-bottom: 8px;
+    margin-right: 0;
+    border-right: 0;
+    border-bottom: 1px solid var(--portal-border);
+  }
+
+  .service-detail-actions > a,
+  .service-detail-actions > button,
+  .service-power-actions > button {
+    flex: 1 1 auto;
+  }
+
+  .resource-access-editor-head {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
