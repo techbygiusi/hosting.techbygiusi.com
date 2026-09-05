@@ -13519,3 +13519,69 @@ body.theme-light .cluster-map-canvas::after {
     border-radius: 10px !important;
   }
 }
+
+
+/* v3.3.7 - provisioning log scrolls before rows can be compressed */
+.create-machine-modal > .provisioning-live-view {
+  overflow: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  gap: 14px !important;
+}
+
+.create-machine-modal .provisioning-event-list {
+  display: grid !important;
+  grid-auto-rows: max-content !important;
+  align-content: start !important;
+  flex: 0 1 auto !important;
+  min-height: 0 !important;
+  max-height: min(330px, 38dvh) !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  scrollbar-gutter: stable !important;
+  gap: 8px !important;
+  padding: 4px 8px 8px 0 !important;
+}
+
+.create-machine-modal .provisioning-event {
+  height: auto !important;
+  min-height: 56px !important;
+  max-height: none !important;
+  align-self: start !important;
+  box-sizing: border-box !important;
+  padding: 9px 13px !important;
+}
+
+.create-machine-modal .provisioning-event > div {
+  min-width: 0;
+  min-height: 0;
+}
+
+.create-machine-modal .provisioning-event strong,
+.create-machine-modal .provisioning-event small {
+  position: static !important;
+  overflow: visible !important;
+  white-space: normal !important;
+  text-overflow: clip !important;
+}
+
+.create-machine-modal .provisioning-event small {
+  display: block !important;
+  margin-top: 3px !important;
+}
+
+.create-machine-modal .provisioning-live-view > .form-actions {
+  flex: 0 0 auto !important;
+  margin-top: 0 !important;
+}
+
+@media (max-width: 767px) {
+  .create-machine-modal .provisioning-event-list {
+    max-height: min(300px, 36dvh) !important;
+  }
+
+  .create-machine-modal .provisioning-event {
+    min-height: 52px !important;
+  }
+}
