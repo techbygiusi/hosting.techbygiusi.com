@@ -142,6 +142,7 @@ def main():
             run_command(status, steps, 0, ['apt-get', 'update'])
             env = os.environ.copy()
             env['DEBIAN_FRONTEND'] = 'noninteractive'
+            env['NEEDRESTART_MODE'] = 'l'
             run_command(status, steps, 1, ['apt-get', '-y', 'upgrade'], env=env)
         elif update_type == 'portal':
             if not PROJECT_DIR.exists():

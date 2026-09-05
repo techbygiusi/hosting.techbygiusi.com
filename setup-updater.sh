@@ -11,7 +11,7 @@ VERSION_FILE="$DATA_DIR/system-updater-version"
 TIMEZONE_FILE="$DATA_DIR/system-timezone.txt"
 
 if [ "$(id -u)" -ne 0 ]; then
-  echo "Run this installer as root: sudo ./setup-updater.sh"
+  echo "Run ./setup-updater.sh as root once in /opt/hosting.techbygiusi.com"
   exit 1
 fi
 

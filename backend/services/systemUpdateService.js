@@ -44,8 +44,52 @@ function safeJsonRead(filePath, fallback = null) {
   }
 }
 
+
+function writeJsonAtomic(filePath, payload) {
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  const temporaryPath = `${filePath}.${process.pid}.tmp`;
+  fs.writeFileSync(temporaryPath, JSON.stringify(payload, null, 2));
+  fs.renameSync(temporaryPath, filePath);
+}
+
+function reconcileCompletedStatus(status) {
+  if (!status || status.status !== 'running') return status;
+  const steps = Array.isArray(status.steps) ? status.steps : [];
+  const allStepsDone = steps.length > 0 && steps.every((step) => step?.status === 'done');
+  const progressComplete = Number(status.progress || 0) >= 100;
+  if (!allStepsDone || !progressComplete) return status;
+
+  let ageMs = 0;
+  try {
+    ageMs = Date.now() - fs.statSync(statusPath).mtimeMs;
+  } catch (_) {
+    return status;
+  }
+  if (ageMs < 2000) return status;
+
+  const recovered = {
+    ...status,
+    status: 'completed',
+    progress: 100,
+    currentStep: 'Update completed',
+    finishedAt: status.finishedAt || new Date().toISOString(),
+    error: ''
+  };
+
+  try {
+    writeJsonAtomic(statusPath, recovered);
+    const existingLog = safeTextRead(logPath, '');
+    if (!existingLog.includes('Update completion recovered by portal status check.')) {
+      fs.appendFileSync(logPath, '\nUpdate completion recovered by portal status check.\n');
+    }
+  } catch (_) {
+    return status;
+  }
+  return recovered;
+}
+
 function getSystemUpdateStatus() {
-  const status = safeJsonRead(statusPath, null) || {
+  let status = safeJsonRead(statusPath, null) || {
     id: null,
     type: null,
     status: 'idle',
@@ -56,6 +100,7 @@ function getSystemUpdateStatus() {
     finishedAt: null,
     error: ''
   };
+  status = reconcileCompletedStatus(status);
 
   let log = '';
   try {

@@ -23,6 +23,8 @@ export default function SystemUpdates() {
   });
   const timezoneTouched = useRef(false);
   const reloadScheduled = useRef(false);
+  const logRef = useRef(null);
+  const logFollowEnabled = useRef(true);
 
   const running = ['queued', 'running'].includes(update?.status);
   const timezoneOptions = useMemo(() => {
@@ -59,7 +61,7 @@ export default function SystemUpdates() {
 
   useEffect(() => {
     loadStatus();
-    const timer = window.setInterval(() => loadStatus(true), 1600);
+    const timer = window.setInterval(() => loadStatus(true), 850);
     return () => window.clearInterval(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -104,6 +106,20 @@ export default function SystemUpdates() {
   };
 
   const steps = useMemo(() => update?.steps || [], [update]);
+  const finalizing = running && Number(update?.progress || 0) >= 100 && steps.length > 0 && steps.every((step) => step.status === 'done');
+
+  useEffect(() => {
+    const element = logRef.current;
+    if (!element || !logFollowEnabled.current) return;
+    element.scrollTop = element.scrollHeight;
+  }, [update?.log]);
+
+  const handleLogScroll = () => {
+    const element = logRef.current;
+    if (!element) return;
+    const distanceFromBottom = element.scrollHeight - element.scrollTop - element.clientHeight;
+    logFollowEnabled.current = distanceFromBottom <= 48;
+  };
 
   if (loading) {
     return <SectionCard><div className="page-state-clean">Loading update status…</div></SectionCard>;
@@ -195,7 +211,7 @@ export default function SystemUpdates() {
             <span className={`status-badge ${update?.status === 'completed' ? 'success' : update?.status === 'failed' ? 'danger' : running ? 'warning' : 'neutral'}`}>
               {update?.status || 'idle'}
             </span>
-            <strong>{update?.currentStep || 'No update is running'}</strong>
+            <strong>{finalizing ? 'Finalizing update…' : (update?.currentStep || 'No update is running')}</strong>
           </div>
           <span>{Math.max(0, Math.min(100, Number(update?.progress || 0)))}%</span>
         </div>
@@ -225,7 +241,7 @@ export default function SystemUpdates() {
       </SectionCard>
 
       <SectionCard title="Live output" className="system-update-log-card">
-        <pre>{update?.log || 'No update output yet.'}</pre>
+        <pre ref={logRef} onScroll={handleLogScroll}>{update?.log || 'No update output yet.'}</pre>
       </SectionCard>
     </div>
   );

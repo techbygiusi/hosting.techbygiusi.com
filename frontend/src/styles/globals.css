@@ -2484,36 +2484,13 @@ body.theme-dark *::-webkit-scrollbar-thumb:hover {
   min-height: 100vh;
   width: 100%;
   display: grid;
-  grid-template-rows: auto 1fr;
+  grid-template-rows: 1fr;
   padding: 18px;
-  gap: 18px;
-}
-
-.login-toolbar-v4 {
-  width: min(1280px, 100%);
-  margin: 0 auto;
-  min-height: 52px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 8px 12px;
-}
-
-.login-toolbar-brand,
-.login-toolbar-controls {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.login-toolbar-brand strong {
-  color: var(--portal-heading);
 }
 
 .login-shell-v4 {
   width: min(1280px, 100%);
-  min-height: min(720px, calc(100vh - 106px));
+  min-height: min(820px, calc(100vh - 36px));
   margin: 0 auto;
   display: grid;
   grid-template-columns: minmax(0, 1.08fr) minmax(430px, .92fr);
@@ -2555,22 +2532,6 @@ body.theme-dark *::-webkit-scrollbar-thumb:hover {
   line-height: .98;
   letter-spacing: -.055em;
   color: var(--portal-heading);
-}
-
-.login-feature-pills-v4 {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 9px;
-}
-
-.login-feature-pills-v4 span {
-  padding: 9px 12px;
-  border-radius: 999px;
-  background: var(--portal-primary-soft);
-  color: var(--portal-primary);
-  border: 1px solid var(--portal-border);
-  font-weight: 700;
-  font-size: .86rem;
 }
 
 .login-form-panel-v4 {
@@ -2904,14 +2865,6 @@ body.theme-dark *::-webkit-scrollbar-thumb:hover {
 
   .admin-shortcut-grid-v4 {
     grid-template-columns: 1fr;
-  }
-
-  .login-toolbar-v4 {
-    padding: 4px;
-  }
-
-  .login-toolbar-brand strong {
-    display: none;
   }
 
   .login-brand-panel-v4 {
@@ -4012,4 +3965,468 @@ select {
   .services-section-actions { width: 100%; display: grid; grid-template-columns: 1fr; }
   .services-section-actions .services-inline-search,
   .services-section-actions .btn-primary { width: 100%; }
+}
+
+:root {
+  --control-height: 42px;
+  --control-height-small: 36px;
+  --control-radius: 13px;
+  --control-radius-small: 11px;
+  --control-transition: 160ms cubic-bezier(.2,.75,.3,1);
+  --control-shadow-hover: 0 8px 20px rgba(126,87,194,.16);
+  --control-focus-ring: 0 0 0 3px rgba(126,87,194,.14);
+}
+
+.btn-primary,
+.btn-secondary,
+.btn-danger,
+.portal-logout,
+.account-menu-item,
+.icon-button,
+.wiki-floating-menu-button,
+.wiki-editor-header-action {
+  min-height: var(--control-height);
+  border-radius: var(--control-radius);
+  transition:
+    transform var(--control-transition),
+    box-shadow var(--control-transition),
+    border-color var(--control-transition),
+    background-color var(--control-transition),
+    color var(--control-transition),
+    opacity var(--control-transition);
+}
+
+.btn-primary,
+.btn-secondary,
+.btn-danger,
+.portal-logout,
+.account-menu-item {
+  padding: 0 16px;
+  line-height: 1;
+}
+
+.btn-small {
+  min-height: var(--control-height-small);
+  border-radius: var(--control-radius-small);
+  padding: 0 12px;
+  font-size: .88rem;
+}
+
+.btn-primary:hover:not(:disabled),
+.btn-secondary:hover:not(:disabled),
+.btn-danger:hover:not(:disabled),
+.portal-logout:hover:not(:disabled),
+.account-menu-item:hover:not(:disabled),
+.icon-button:hover:not(:disabled),
+.wiki-floating-menu-button:hover:not(:disabled),
+.wiki-editor-header-action:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: var(--control-shadow-hover);
+}
+
+.btn-primary:active:not(:disabled),
+.btn-secondary:active:not(:disabled),
+.btn-danger:active:not(:disabled),
+.portal-logout:active:not(:disabled),
+.account-menu-item:active:not(:disabled),
+.icon-button:active:not(:disabled),
+.wiki-floating-menu-button:active:not(:disabled),
+.wiki-editor-header-action:active:not(:disabled) {
+  transform: translateY(0) scale(.985);
+  box-shadow: none;
+}
+
+.btn-primary:focus-visible,
+.btn-secondary:focus-visible,
+.btn-danger:focus-visible,
+.portal-logout:focus-visible,
+.account-menu-item:focus-visible,
+.icon-button:focus-visible,
+.wiki-floating-menu-button:focus-visible,
+.wiki-editor-header-action:focus-visible,
+.preference-slider-option:focus-visible,
+.toggle-clean:focus-visible,
+.toggle-switch:focus-within {
+  outline: none;
+  box-shadow: var(--control-focus-ring);
+}
+
+.btn-secondary:hover:not(:disabled),
+.portal-logout:hover:not(:disabled),
+.account-menu-item:hover:not(:disabled) {
+  border-color: var(--portal-primary);
+  background: rgba(126,87,194,.14);
+}
+
+.btn-danger:hover:not(:disabled),
+.account-menu-item-danger:hover:not(:disabled) {
+  border-color: rgba(218,95,119,.42);
+  background: rgba(218,95,119,.16);
+  color: var(--portal-danger) !important;
+}
+
+button:disabled,
+.btn-primary:disabled,
+.btn-secondary:disabled,
+.btn-danger:disabled {
+  opacity: .52;
+  box-shadow: none !important;
+}
+
+.preference-slider {
+  min-height: var(--control-height);
+  padding: 3px;
+  border-color: var(--portal-border-strong);
+  transition: border-color var(--control-transition), box-shadow var(--control-transition), background-color var(--control-transition);
+}
+
+.preference-slider:hover {
+  border-color: rgba(126,87,194,.36);
+}
+
+.preference-slider-thumb {
+  top: 3px;
+  bottom: 3px;
+  left: 3px;
+  width: calc((100% - 6px) / var(--preference-count));
+  box-shadow: 0 6px 16px rgba(126,87,194,.20);
+  transition: transform 220ms cubic-bezier(.2,.8,.25,1), box-shadow var(--control-transition);
+}
+
+.preference-slider:hover .preference-slider-thumb {
+  box-shadow: 0 8px 20px rgba(126,87,194,.27);
+}
+
+.preference-slider-option {
+  min-height: 34px;
+  padding: 0 13px;
+  transition: color var(--control-transition), transform var(--control-transition), opacity var(--control-transition);
+}
+
+.preference-slider-compact {
+  min-height: 38px;
+  padding: 3px;
+}
+
+.preference-slider-compact .preference-slider-option {
+  min-height: 30px;
+  padding: 0 10px;
+}
+
+.toggle-clean,
+.toggle-switch {
+  width: 48px;
+  height: 28px;
+  min-width: 48px;
+  border-radius: 999px;
+  border: 1px solid var(--portal-border-strong);
+  background: rgba(110,91,135,.18);
+  transition: background-color var(--control-transition), border-color var(--control-transition), box-shadow var(--control-transition), transform var(--control-transition);
+}
+
+.toggle-clean:hover,
+.toggle-switch:hover {
+  border-color: rgba(126,87,194,.45);
+  box-shadow: 0 4px 12px rgba(126,87,194,.10);
+}
+
+.toggle-clean:active,
+.toggle-switch:active {
+  transform: scale(.97);
+}
+
+.toggle-clean {
+  padding: 3px;
+}
+
+.toggle-clean > span,
+.toggle-knob {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--portal-text-soft);
+  transition: transform 200ms cubic-bezier(.2,.8,.25,1), background-color var(--control-transition), box-shadow var(--control-transition);
+}
+
+.toggle-knob {
+  left: 3px;
+  top: 3px;
+}
+
+.toggle-clean.active,
+.toggle-switch.is-on {
+  background: var(--portal-primary-soft);
+  border-color: var(--portal-primary);
+}
+
+.toggle-clean.active > span,
+.toggle-switch.is-on .toggle-knob {
+  transform: translateX(20px);
+  background: var(--portal-primary);
+  box-shadow: 0 3px 8px rgba(126,87,194,.24);
+}
+
+.toggle-switch input {
+  cursor: pointer;
+}
+
+.theme-toggle,
+.language-switch {
+  transition: border-color var(--control-transition), box-shadow var(--control-transition), background-color var(--control-transition);
+}
+
+.theme-toggle:hover,
+.language-switch:hover {
+  border-color: rgba(126,87,194,.38);
+  box-shadow: 0 5px 14px rgba(126,87,194,.10);
+}
+
+.theme-toggle-thumb,
+.language-switch-thumb {
+  transition: transform 200ms cubic-bezier(.2,.8,.25,1), box-shadow var(--control-transition), background-color var(--control-transition);
+}
+
+.settings-toggle-clean,
+.toggle-row,
+.cluster-toggle-card,
+.pangolin-protocol-toggle {
+  transition: border-color var(--control-transition), background-color var(--control-transition), box-shadow var(--control-transition), transform var(--control-transition);
+}
+
+.settings-toggle-clean:hover,
+.toggle-row:hover,
+.cluster-toggle-card:hover,
+.pangolin-protocol-toggle:hover {
+  border-color: rgba(126,87,194,.34);
+  box-shadow: 0 6px 16px rgba(49,27,86,.06);
+}
+
+.system-update-log-card pre {
+  scroll-behavior: auto;
+  overscroll-behavior: contain;
+}
+
+@media (max-width: 760px) {
+  :root {
+    --control-height: 44px;
+    --control-height-small: 40px;
+  }
+
+  .form-actions,
+  .notification-settings-actions,
+  .maintenance-actions-clean,
+  .pangolin-settings-footer,
+  .system-update-action-footer {
+    gap: 8px;
+  }
+
+  .form-actions .btn-primary,
+  .form-actions .btn-secondary,
+  .form-actions .btn-danger,
+  .settings-password-actions .btn-primary,
+  .settings-password-actions .btn-secondary,
+  .notification-settings-actions .btn-primary,
+  .notification-settings-actions .btn-secondary,
+  .system-update-action-footer .btn-primary,
+  .system-update-timezone-button {
+    width: 100%;
+  }
+
+  .form-actions,
+  .settings-password-actions,
+  .notification-settings-actions,
+  .system-update-action-footer {
+    display: grid;
+    grid-template-columns: 1fr;
+    width: 100%;
+  }
+
+  .preference-slider {
+    width: 100%;
+  }
+
+  .settings-toggle-clean,
+  .toggle-row {
+    min-height: 58px;
+    gap: 12px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn-primary,
+  .btn-secondary,
+  .btn-danger,
+  .portal-logout,
+  .account-menu-item,
+  .icon-button,
+  .preference-slider,
+  .preference-slider-thumb,
+  .preference-slider-option,
+  .toggle-clean,
+  .toggle-clean > span,
+  .toggle-switch,
+  .toggle-knob,
+  .theme-toggle,
+  .theme-toggle-thumb,
+  .language-switch,
+  .language-switch-thumb,
+  .settings-toggle-clean,
+  .toggle-row,
+  .cluster-toggle-card,
+  .pangolin-protocol-toggle {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+.wiki-icon-btn,
+.wiki-toolbar-btn,
+.wiki-language-tab,
+.wiki-view-toggle button,
+.wiki-slash-menu button,
+.mobile-account-action,
+.segmented-clean button,
+.login-text-button-v4 {
+  transition:
+    transform var(--control-transition),
+    box-shadow var(--control-transition),
+    border-color var(--control-transition),
+    background-color var(--control-transition),
+    color var(--control-transition),
+    opacity var(--control-transition);
+}
+
+.wiki-icon-btn:hover:not(:disabled),
+.wiki-toolbar-btn:hover:not(:disabled),
+.wiki-language-tab:hover:not(:disabled),
+.wiki-view-toggle button:hover:not(:disabled),
+.wiki-slash-menu button:hover:not(:disabled),
+.mobile-account-action:hover:not(:disabled),
+.segmented-clean button:hover:not(:disabled) {
+  border-color: rgba(126,87,194,.42);
+  color: var(--portal-primary);
+  background: var(--portal-primary-soft);
+  transform: translateY(-1px);
+  box-shadow: 0 5px 14px rgba(126,87,194,.10);
+}
+
+.wiki-icon-btn:active:not(:disabled),
+.wiki-toolbar-btn:active:not(:disabled),
+.wiki-language-tab:active:not(:disabled),
+.wiki-view-toggle button:active:not(:disabled),
+.wiki-slash-menu button:active:not(:disabled),
+.mobile-account-action:active:not(:disabled),
+.segmented-clean button:active:not(:disabled) {
+  transform: scale(.97);
+  box-shadow: none;
+}
+
+.login-text-button-v4:hover:not(:disabled) {
+  color: var(--portal-primary-strong);
+  transform: translateY(-1px);
+}
+
+.login-text-button-v4:active:not(:disabled) {
+  transform: translateY(0) scale(.985);
+}
+
+.wiki-icon-btn:focus-visible,
+.wiki-toolbar-btn:focus-visible,
+.wiki-language-tab:focus-visible,
+.wiki-view-toggle button:focus-visible,
+.wiki-slash-menu button:focus-visible,
+.mobile-account-action:focus-visible,
+.segmented-clean button:focus-visible,
+.login-text-button-v4:focus-visible {
+  outline: none;
+  box-shadow: var(--control-focus-ring);
+}
+
+.resource-range {
+  --range-progress: var(--portal-primary);
+  width: 100%;
+  height: 22px;
+  margin: 2px 0;
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.resource-range::-webkit-slider-runnable-track {
+  height: 7px;
+  border-radius: 999px;
+  border: 1px solid var(--portal-border);
+  background: linear-gradient(90deg, var(--portal-primary) 0 var(--range-progress, 0%), var(--portal-bg-soft) var(--range-progress, 0%) 100%);
+}
+
+.resource-range::-webkit-slider-thumb {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  margin-top: -6px;
+  border-radius: 50%;
+  border: 3px solid var(--portal-surface-strong);
+  background: var(--portal-primary);
+  box-shadow: 0 3px 10px rgba(126,87,194,.28);
+  transition: transform var(--control-transition), box-shadow var(--control-transition);
+}
+
+.resource-range:hover::-webkit-slider-thumb {
+  transform: scale(1.08);
+  box-shadow: 0 4px 13px rgba(126,87,194,.36);
+}
+
+.resource-range::-moz-range-track {
+  height: 7px;
+  border-radius: 999px;
+  border: 1px solid var(--portal-border);
+  background: var(--portal-bg-soft);
+}
+
+.resource-range::-moz-range-progress {
+  height: 7px;
+  border-radius: 999px;
+  background: var(--portal-primary);
+}
+
+.resource-range::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 3px solid var(--portal-surface-strong);
+  background: var(--portal-primary);
+  box-shadow: 0 3px 10px rgba(126,87,194,.28);
+}
+
+.resource-range:focus-visible {
+  outline: none;
+}
+
+.resource-range:focus-visible::-webkit-slider-thumb {
+  box-shadow: var(--control-focus-ring), 0 3px 10px rgba(126,87,194,.28);
+}
+
+@media (max-width: 760px) {
+  .wiki-icon-btn,
+  .wiki-toolbar-btn {
+    min-width: 40px;
+    height: 40px;
+  }
+
+  .wiki-language-tab,
+  .wiki-view-toggle button,
+  .mobile-account-action,
+  .segmented-clean button {
+    min-height: var(--control-height);
+  }
+
+  .avatar-dropzone-actions,
+  .maintenance-actions-clean,
+  .wiki-admin-heading-actions,
+  .wiki-folder-form-actions,
+  .wiki-editor-recovery-actions {
+    width: 100%;
+  }
 }

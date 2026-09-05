@@ -2,8 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { authApi, getErrorMessage } from '../services/api';
-import BrandLogo, { BrandMark } from '../components/BrandLogo';
-import ThemeButton from '../components/ThemeButton';
+import BrandLogo from '../components/BrandLogo';
 import { readStoredLanguage } from '../components/LanguageSwitch';
 
 export default function Login() {
@@ -17,7 +16,7 @@ export default function Login() {
   const [forgotBusy, setForgotBusy] = useState(false);
   const [forgotSent, setForgotSent] = useState('');
   const [localError, setLocalError] = useState('');
-  const [language, setLanguage] = useState(readStoredLanguage());
+  const language = readStoredLanguage();
   const error = localError || authError || '';
 
   const submit = async (event) => {
@@ -52,21 +51,11 @@ export default function Login() {
 
   return (
     <div className="login-page-v4">
-      <header className="login-toolbar-v4">
-        <div className="login-toolbar-brand"><BrandMark size={34} /><strong>Hosting</strong></div>
-        <div className="login-toolbar-controls">
-          <ThemeButton />
-        </div>
-      </header>
-
       <main className="login-shell-v4">
         <section className="login-brand-panel-v4">
           <BrandLogo />
           <div className="login-brand-copy-v4">
             <h1>Your services.<br />One portal.</h1>
-            <div className="login-feature-pills-v4">
-              <span>Services</span><span>Console</span><span>Wiki</span><span>Self-Service</span>
-            </div>
           </div>
         </section>
 
