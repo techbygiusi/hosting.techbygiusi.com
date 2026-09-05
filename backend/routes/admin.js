@@ -26,6 +26,7 @@ const {
 } = require('../services/pangolinService');
 const { syncClusterTemplates, ensureClusterTemplates, listClusterTemplates } = require('../services/templateService');
 const { getSystemUpdateStatus, startSystemUpdate } = require('../services/systemUpdateService');
+const { getBillingSettings, saveBillingSettings, getBillingSummary } = require('../services/billingService');
 
 router.use(adminMiddleware);
 
@@ -1217,7 +1218,7 @@ router.get('/resources', async (req, res, next) => {
 
 router.post('/resources', async (req, res, next) => {
   try {
-    const { name, containerId, clusterId, userId, groupId, adminUrl } = req.body;
+    const { name, containerId, clusterId, userId, groupId, adminUrl, billable = false } = req.body;
 
     const cleanUserId = userId || null;
     const requestedGroupId = groupId || null;
@@ -1273,8 +1274,8 @@ router.post('/resources', async (req, res, next) => {
     const cleanSshPort = 22;
 
     const result = await run(
-      'INSERT INTO resources (name, container_id, cluster_id, user_id, group_id, web_url, public_url, admin_url, manual_ip, ssh_port, resource_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [resourceName, String(containerId), clusterId, cleanUserId, cleanGroupId, cleanPublicUrl, cleanPublicUrl, cleanAdminUrl, cleanManualIp || null, cleanSshPort, resourceType || null]
+      'INSERT INTO resources (name, container_id, cluster_id, user_id, group_id, web_url, public_url, admin_url, manual_ip, ssh_port, resource_type, billable) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [resourceName, String(containerId), clusterId, cleanUserId, cleanGroupId, cleanPublicUrl, cleanPublicUrl, cleanAdminUrl, cleanManualIp || null, cleanSshPort, resourceType || null, billable === true || Number(billable) === 1 ? 1 : 0]
     );
 
     await logAudit(req, 'resource.create', `resource:${result.lastID}`, resourceName);
@@ -1290,7 +1291,7 @@ router.post('/resources', async (req, res, next) => {
 router.put('/resources/:id', async (req, res, next) => {
   try {
     const resourceId = req.params.id;
-    const { name, containerId, clusterId, userId, groupId, adminUrl, manualIp, sshPort } = req.body;
+    const { name, containerId, clusterId, userId, groupId, adminUrl, manualIp, sshPort, billable } = req.body;
     const resource = await get('SELECT * FROM resources WHERE id = ?', [resourceId]);
 
     if (!resource) {
@@ -1358,10 +1359,13 @@ router.put('/resources/:id', async (req, res, next) => {
     const cleanSshPort = resourceType === 'qemu'
       ? normalizeSshPort(sshPort !== undefined ? sshPort : resource.ssh_port)
       : 22;
+    const nextBillable = billable === undefined
+      ? Number(resource.billable || 0)
+      : (billable === true || Number(billable) === 1 ? 1 : 0);
 
     await run(
-      'UPDATE resources SET name = ?, container_id = ?, cluster_id = ?, user_id = ?, group_id = ?, web_url = ?, public_url = ?, admin_url = ?, manual_ip = ?, ssh_port = ?, resource_type = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-      [nextName, nextContainerId, nextClusterId, nextUserId, nextGroupId, cleanPublicUrl, cleanPublicUrl, cleanAdminUrl, cleanManualIp || null, cleanSshPort, resourceType || null, resourceId]
+      'UPDATE resources SET name = ?, container_id = ?, cluster_id = ?, user_id = ?, group_id = ?, web_url = ?, public_url = ?, admin_url = ?, manual_ip = ?, ssh_port = ?, resource_type = ?, billable = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+      [nextName, nextContainerId, nextClusterId, nextUserId, nextGroupId, cleanPublicUrl, cleanPublicUrl, cleanAdminUrl, cleanManualIp || null, cleanSshPort, resourceType || null, nextBillable, resourceId]
     );
 
     await logAudit(req, 'resource.update', `resource:${resourceId}`, nextName);
@@ -1985,6 +1989,33 @@ router.post('/system-update/:type', async (req, res, next) => {
     const auditDetail = type === 'timezone' ? `Timezone ${String(req.body?.timezone || '').trim()}` : `Update requested by ${req.user?.email || req.user?.id || 'admin'}`;
     await logAudit(req, 'system_update.start', `system:${type}`, auditDetail);
     res.status(HTTP_STATUS.ACCEPTED).json({ update });
+  } catch (err) {
+    next(err);
+  }
+});
+
+
+router.get('/billing/settings', async (req, res, next) => {
+  try {
+    res.json({ settings: await getBillingSettings() });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.put('/billing/settings', async (req, res, next) => {
+  try {
+    const settings = await saveBillingSettings(req.body || {});
+    await logAudit(req, 'billing.settings.update', 'billing', JSON.stringify(settings));
+    res.json({ settings });
+  } catch (err) {
+    next(new AppError(err.message || 'Billing settings could not be saved', HTTP_STATUS.BAD_REQUEST));
+  }
+});
+
+router.get('/billing', async (req, res, next) => {
+  try {
+    res.json(await getBillingSummary({ month: req.query.month }));
   } catch (err) {
     next(err);
   }

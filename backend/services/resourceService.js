@@ -130,6 +130,9 @@ function normalizeResourceRow(row, liveResource = null, error = null, diskInfo =
     isSelfService,
     adminReadOnly: isSelfService,
     source: isSelfService ? 'self-service' : 'admin',
+    manualBillable: Number(row.billable || 0) === 1,
+    billable: isSelfService || Number(row.billable || 0) === 1,
+    billingSource: isSelfService ? 'self-service' : (Number(row.billable || 0) === 1 ? 'assigned' : 'excluded'),
     monitorError: error || null,
     createdAt: row.created_at,
     updatedAt: row.updated_at

@@ -7,7 +7,7 @@ const { all } = require('../config/database');
  * Public (unauthenticated): active and upcoming maintenance windows for the
  * top banner - shown on the login screen as well, so no auth required.
  * Only exposes title, message, severity and the time window.
- * Upcoming windows are announced up to 24 hours in advance.
+ * Upcoming windows are announced up to 7 days in advance.
  */
 router.get('/', async (req, res, next) => {
   try {
@@ -16,7 +16,7 @@ router.get('/', async (req, res, next) => {
       SELECT id, title, message, severity, starts_at, ends_at
       FROM maintenance_windows
       WHERE datetime(ends_at) > datetime('now')
-        AND datetime(starts_at) <= datetime('now', '+24 hours')
+        AND datetime(starts_at) <= datetime('now', '+7 days')
       ORDER BY datetime(starts_at) ASC
       LIMIT 5
       `

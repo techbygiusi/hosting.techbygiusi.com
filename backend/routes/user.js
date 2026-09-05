@@ -46,6 +46,7 @@ const { buildAvatarUrl, saveAvatarForUser, deleteAvatarForUser } = require('../s
 const { generateToken } = require('../middleware/auth');
 const { sendEmail } = require('../services/emailService');
 const { testMailTemplate } = require('../services/emailTemplates');
+const { getBillingSummary } = require('../services/billingService');
 
 /* ------------------------------------------------------------ ACCESS ---- */
 /**
@@ -1661,19 +1662,44 @@ router.delete('/resources/:id/credentials/:credId', async (req, res, next) => {
  */
 router.get('/provisioning/options', async (req, res, next) => {
   try {
-    const clusters = await all("SELECT * FROM proxmox_clusters WHERE allow_provisioning = 1 AND vmid_min IS NOT NULL AND vmid_max IS NOT NULL");
+    const clusters = await all("SELECT * FROM proxmox_clusters WHERE allow_provisioning = 1");
     const options = [];
     for (const cluster of clusters) {
       const apiToken = decrypt(cluster.api_token);
-      const caps = await getClusterCapabilities(cluster.id, cluster.url, apiToken);
-      if (!caps.canProvision || !caps.canManageFirewall || !caps.canVerifyFirewall) continue;
-      let firewallEnabled = false;
+      let caps = {};
       let unavailableReason = '';
-      try { firewallEnabled = !!(await getClusterFirewallStatus(cluster.url, apiToken)).enabled; if (!firewallEnabled) unavailableReason = 'Proxmox datacenter firewall is disabled'; }
-      catch (_) { unavailableReason = 'Proxmox datacenter firewall status could not be verified'; }
-      let profiles;
-      try { profiles = await syncClusterTemplates(cluster.id); }
-      catch (_) { profiles = await ensureClusterTemplates(cluster.id); }
+      try {
+        caps = await getClusterCapabilities(cluster.id, cluster.url, apiToken);
+      } catch (_) {
+        unavailableReason = 'Proxmox API capabilities could not be verified';
+      }
+
+      if (!unavailableReason && (!caps.canProvision || !caps.canManageFirewall || !caps.canVerifyFirewall)) {
+        unavailableReason = 'The Proxmox API token is missing required self-service permissions';
+      }
+      if (!unavailableReason && (cluster.vmid_min === null || cluster.vmid_max === null)) {
+        unavailableReason = 'Self-service VMID limits are not configured';
+      }
+
+      let firewallEnabled = false;
+      if (!unavailableReason) {
+        try {
+          firewallEnabled = !!(await getClusterFirewallStatus(cluster.url, apiToken)).enabled;
+          if (!firewallEnabled) unavailableReason = 'Proxmox datacenter firewall is disabled';
+        } catch (_) {
+          unavailableReason = 'Proxmox datacenter firewall status could not be verified';
+        }
+      }
+
+      let profiles = [];
+      if (!unavailableReason || caps.canProvision) {
+        try { profiles = await syncClusterTemplates(cluster.id); }
+        catch (_) {
+          try { profiles = await ensureClusterTemplates(cluster.id); }
+          catch (_) { profiles = []; }
+        }
+      }
+
       const maxDiskGb = Math.min(cluster.max_disk_gb || 20, 64);
       const templates = profiles
         .filter(item => Number(item.enabled) === 1 && Number(item.present) === 1)
@@ -1686,15 +1712,16 @@ router.get('/provisioning/options', async (req, res, next) => {
           minDiskGb: Math.max(Number(item.minDiskGb) || 4, 4)
         }));
       if (!unavailableReason && templates.length === 0) unavailableReason = 'No approved container template is currently available';
+
       options.push({
         clusterId: cluster.id, clusterName: cluster.name, allowTypes: 'ct',
-        available: firewallEnabled && templates.length > 0, unavailableReason,
+        available: !unavailableReason && firewallEnabled && templates.length > 0, unavailableReason,
         hasDefaultPassword: !!cluster.default_password_encrypted,
         maxCores: cluster.max_cores || 2, maxMemoryMb: cluster.max_memory_mb || 2048,
         maxDiskGb, templates
       });
     }
-    res.json({ clusters: options });
+    res.json({ clusters: options, options });
   } catch (err) { next(err); }
 });
 
@@ -1843,6 +1870,15 @@ router.post('/change-password', async (req, res, next) => {
 
     await logAudit(req, 'password.change', `user:${req.user.id}`);
     res.json({ message: 'Password changed successfully' });
+  } catch (err) {
+    next(err);
+  }
+});
+
+
+router.get('/billing', async (req, res, next) => {
+  try {
+    res.json(await getBillingSummary({ userId: req.user.id, month: req.query.month }));
   } catch (err) {
     next(err);
   }

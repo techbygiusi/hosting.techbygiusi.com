@@ -45,7 +45,7 @@ export default function MaintenanceBanner({ language = 'en' }) {
 
   const announcement = useMemo(() => {
     const now = Date.now();
-    const maxStart = now + 24 * 60 * 60 * 1000;
+    const maxStart = now + 7 * 24 * 60 * 60 * 1000;
     return announcements
       .filter((item) => {
         const starts = dateValue(item.startsAt);

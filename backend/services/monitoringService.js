@@ -10,6 +10,7 @@ const { all, run } = require('../config/database');
 const { decrypt } = require('./cryptoService');
 const { getClusterResources, getClusterNodes } = require('./proxmoxService');
 const { getPangolinConfig, testPangolinConnection } = require('./pangolinService');
+const { recordClusterBillingUsage } = require('./billingService');
 const { sendEmail } = require('./emailService');
 const { resourceDownTemplate, resourceRecoveredTemplate, infrastructureDownTemplate } = require('./emailTemplates');
 const { safeIdentifier } = require('../middleware/validate');
@@ -272,6 +273,12 @@ async function pollCluster(cluster) {
   }
 
   await processNodeHealth(cluster, apiToken);
+
+  try {
+    await recordClusterBillingUsage(cluster, resources);
+  } catch (err) {
+    console.error(`Billing: usage sample for cluster "${cluster.name}" failed:`, err.message);
+  }
 
   let state = stateByCluster.get(cluster.id);
   const firstRun = !state;

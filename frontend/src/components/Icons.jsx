@@ -188,6 +188,13 @@ export const TerminalIcon = (props) => (
   <Icon {...props}><path d="m5 7 4 4-4 4" /><path d="M11 16h8" /></Icon>
 );
 
+export const BillingIcon = (props) => (
+  <Icon {...props}>
+    <path d="M6 3.5h12v17l-3-1.8-3 1.8-3-1.8-3 1.8z" />
+    <path d="M9 8h6" /><path d="M9 12h6" /><path d="M9 16h3.5" />
+  </Icon>
+);
+
 export const ServerIcon = (props) => (
   <Icon {...props}>
     <rect x="3.5" y="4.5" width="17" height="6" rx="1.8" />

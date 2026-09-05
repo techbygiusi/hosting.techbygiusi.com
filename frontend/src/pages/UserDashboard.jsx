@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import PortalShell from '../components/PortalShell';
 import PageSkeleton from '../components/PageSkeleton';
 import PreferenceSlider from '../components/PreferenceSlider';
-import { ServerIcon, BookIcon, SettingsIcon, HomeIcon, TerminalIcon, LinkIcon } from '../components/Icons';
+import { ServerIcon, BookIcon, SettingsIcon, HomeIcon, TerminalIcon, LinkIcon, BillingIcon } from '../components/Icons';
 import { EmptyState, InlineNotice, SectionCard, StatCard, StatusBadge } from '../components/UiBits';
 import { useAuth } from '../context/AuthContext';
 import { userApi, getErrorMessage } from '../services/api';
@@ -13,6 +13,7 @@ import AccountPasswordSettingsPanel from '../components/AccountPasswordSettingsP
 import NotificationSettingsPanel from '../components/NotificationSettingsPanel';
 import WikiBrowser from '../components/WikiBrowser';
 import CreateMachineModal from '../components/CreateMachineModal';
+import UserBilling from '../components/UserBilling';
 import { useTheme } from '../components/ThemeButton';
 
 function formatBytes(value) {
@@ -325,13 +326,13 @@ export default function UserDashboard() {
       const [resourcesRes, profileRes, optionsRes, jobsRes] = await Promise.all([
         userApi.getResources(),
         userApi.getProfile(),
-        userApi.getProvisioningOptions().catch(() => ({ data: { options: [] } })),
+        userApi.getProvisioningOptions().catch(() => ({ data: { clusters: [], options: [] } })),
         userApi.getProvisioningJobs(10).catch(() => ({ data: { jobs: [] } }))
       ]);
       const nextResources = resourcesRes.data?.resources || [];
       setResources(nextResources);
       setProfile(profileRes.data?.profile || {});
-      setProvisioningOptions(optionsRes.data?.options || []);
+      setProvisioningOptions(optionsRes.data?.clusters || optionsRes.data?.options || []);
       setActiveProvisioningJob((jobsRes.data?.jobs || []).find((item) => ['queued', 'running'].includes(item.status)) || null);
       setSelectedId((current) => current || nextResources[0]?.id || '');
       refreshMetrics();
@@ -389,6 +390,7 @@ export default function UserDashboard() {
   const navItems = [
     { key: 'dashboard', label: 'Dashboard', icon: HomeIcon },
     { key: 'services', label: 'Services', icon: ServerIcon, count: resources.length },
+    { key: 'billing', label: language === 'de' ? 'Billing' : 'Billing', icon: BillingIcon },
     { key: 'wiki', label: 'Wiki', icon: BookIcon },
     { key: 'settings', label: 'Settings', icon: SettingsIcon }
   ];
@@ -403,7 +405,7 @@ export default function UserDashboard() {
     onSelect: () => openServiceDetails(resource.id)
   })), [resources]);
 
-  const activeTitle = { dashboard: 'Dashboard', services: 'Services', wiki: 'Wiki', settings: 'Settings' }[activeTab];
+  const activeTitle = { dashboard: 'Dashboard', services: 'Services', billing: 'Billing', wiki: 'Wiki', settings: 'Settings' }[activeTab];
 
   let content = null;
   if (loading) {
@@ -412,6 +414,8 @@ export default function UserDashboard() {
     content = <UserOverview resources={resources} metrics={metrics} onOpenProvisioning={() => setCreateOpen(true)} onSelectService={openServiceDetails} onConsole={openConsole} />;
   } else if (activeTab === 'services') {
     content = <UserServices resources={resources} metrics={metrics} selectedId={selectedId} detailOpen={detailOpen} onDetails={openServiceDetails} onCloseDetails={() => setDetailOpen(false)} onConsole={openConsole} onOpenProvisioning={() => setCreateOpen(true)} />;
+  } else if (activeTab === 'billing') {
+    content = <UserBilling language={language} />;
   } else if (activeTab === 'wiki') {
     content = <WikiBrowser language={language} />;
   } else {

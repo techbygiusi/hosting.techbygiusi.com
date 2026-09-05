@@ -67,6 +67,7 @@ function migrateResourceUserAssignment(database, callback) {
         ssh_port INTEGER DEFAULT 22,
         resource_type TEXT,
         group_id INTEGER,
+        billable INTEGER NOT NULL DEFAULT 0,
         FOREIGN KEY (cluster_id) REFERENCES proxmox_clusters(id) ON DELETE CASCADE,
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
         FOREIGN KEY (group_id) REFERENCES customer_groups(id) ON DELETE SET NULL
@@ -74,12 +75,12 @@ function migrateResourceUserAssignment(database, callback) {
       INSERT INTO resources_assignment_migration (
         id, name, container_id, cluster_id, user_id, web_url, public_url,
         admin_url, created_at, updated_at, manual_public_url, manual_ip,
-        ssh_port, resource_type, group_id
+        ssh_port, resource_type, group_id, billable
       )
       SELECT
         id, name, container_id, cluster_id, user_id, web_url, public_url,
         admin_url, created_at, updated_at, manual_public_url, manual_ip,
-        ssh_port, resource_type, group_id
+        ssh_port, resource_type, group_id, COALESCE(billable, 0)
       FROM resources;
       DROP TABLE resources;
       ALTER TABLE resources_assignment_migration RENAME TO resources;
@@ -312,6 +313,7 @@ async function initDatabase() {
           web_url TEXT,
           public_url TEXT,
           admin_url TEXT,
+          billable INTEGER NOT NULL DEFAULT 0,
           created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
           updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
           FOREIGN KEY (cluster_id) REFERENCES proxmox_clusters(id) ON DELETE CASCADE,
@@ -333,6 +335,9 @@ async function initDatabase() {
 
       // v2.0: shared access via groups (owner stays user_id, group_id grants shared access)
       database.run(`ALTER TABLE resources ADD COLUMN group_id INTEGER REFERENCES customer_groups(id) ON DELETE SET NULL`, () => {});
+      // v3.3: administrator-assigned services can optionally participate in internal billing.
+      // Self-service machines are always billable independent of this flag.
+      database.run(`ALTER TABLE resources ADD COLUMN billable INTEGER NOT NULL DEFAULT 0`, () => {});
 
       // v2.0: provisioning configuration per cluster
       database.run(`ALTER TABLE proxmox_clusters ADD COLUMN allow_provisioning INTEGER DEFAULT 0`, () => {});
@@ -437,6 +442,29 @@ async function initDatabase() {
       database.run(`CREATE UNIQUE INDEX IF NOT EXISTS idx_resource_ssh_console_credential ON resource_credentials(resource_id) WHERE is_ssh_console = 1`, () => {});
 
       // v2.0: audit log
+      database.run(`
+        CREATE TABLE IF NOT EXISTS billing_usage_samples (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          resource_id INTEGER,
+          resource_name TEXT NOT NULL,
+          cluster_id INTEGER,
+          cluster_name TEXT,
+          user_id INTEGER,
+          user_name TEXT,
+          user_email TEXT,
+          source TEXT NOT NULL DEFAULT 'manual',
+          share REAL NOT NULL DEFAULT 1,
+          sampled_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          duration_seconds REAL NOT NULL DEFAULT 0,
+          running_seconds REAL NOT NULL DEFAULT 0,
+          cpu_core_seconds REAL NOT NULL DEFAULT 0,
+          memory_gb_seconds REAL NOT NULL DEFAULT 0,
+          storage_gb_seconds REAL NOT NULL DEFAULT 0
+        )
+      `);
+      database.run(`CREATE INDEX IF NOT EXISTS idx_billing_usage_user_month ON billing_usage_samples(user_id, sampled_at)`, () => {});
+      database.run(`CREATE INDEX IF NOT EXISTS idx_billing_usage_resource_month ON billing_usage_samples(resource_id, sampled_at)`, () => {});
+
       database.run(`
         CREATE TABLE IF NOT EXISTS audit_log (
           id INTEGER PRIMARY KEY AUTOINCREMENT,

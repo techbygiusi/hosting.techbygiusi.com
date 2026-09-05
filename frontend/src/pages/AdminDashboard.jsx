@@ -12,7 +12,8 @@ import {
   HomeIcon,
   BellIcon,
   LockIcon,
-  LinkIcon
+  LinkIcon,
+  BillingIcon
 } from '../components/Icons';
 import { EmptyState, InlineNotice, SectionCard, StatCard, StatusBadge } from '../components/UiBits';
 import { useAuth } from '../context/AuthContext';
@@ -27,6 +28,7 @@ import TemplateManager from '../components/TemplateManager';
 import MaintenanceManager from '../components/MaintenanceManager';
 import AuditLog from '../components/AuditLog';
 import SystemUpdates from '../components/SystemUpdates';
+import AdminBilling from '../components/AdminBilling';
 
 function formatPercent(value) {
   const number = Number(value || 0);
@@ -189,7 +191,7 @@ function AdminOverview({ users, clusters, resources, groups, clusterStats, onOpe
               <div className="cluster-stat-head">
                 <div>
                   <strong>{cluster.name}</strong>
-                  <span>{cluster.totals?.nodes || 0} nodes</span>
+                  <span>· {cluster.totals?.nodes || 0} nodes</span>
                 </div>
                 <span className={`status-badge ${cluster.error ? 'danger' : 'success'}`}>{cluster.error ? 'Offline' : 'Online'}</span>
               </div>
@@ -300,7 +302,7 @@ export default function AdminDashboard() {
   const openResourceEditor = (entry = null) => setEditor({
     type: 'resource',
     mode: entry ? 'edit' : 'create',
-    data: entry ? { ...entry } : { name: '', containerId: '', clusterId: clusters[0]?.id || '', userId: '', groupId: '', adminUrl: '' }
+    data: entry ? { ...entry, billable: !!entry.billable } : { name: '', containerId: '', clusterId: clusters[0]?.id || '', userId: '', groupId: '', adminUrl: '', billable: false }
   });
 
   const testClusterConnection = async () => {
@@ -354,7 +356,8 @@ export default function AdminDashboard() {
           clusterId: data.clusterId || data.cluster_id,
           userId: data.userId || data.user_id || null,
           groupId: data.groupId || data.group_id || null,
-          adminUrl: data.adminUrl ?? data.admin_url ?? ''
+          adminUrl: data.adminUrl ?? data.admin_url ?? '',
+          billable: !!data.billable
         };
         if (mode === 'create') await adminApi.createResource(payload);
         else await adminApi.updateResource(data.id, payload);
@@ -391,6 +394,7 @@ export default function AdminDashboard() {
     { key: 'services', label: 'Services', icon: ServerIcon, section: 'Workspace', count: resources.length },
     { key: 'users', label: 'Users', icon: UserIcon, section: 'Workspace', count: users.length },
     { key: 'groups', label: 'Groups', icon: DashboardIcon, section: 'Workspace', count: groups.length },
+    { key: 'billing', label: 'Billing', icon: BillingIcon, section: 'Workspace' },
     { key: 'wiki', label: 'Wiki', icon: BookIcon, section: 'Workspace' },
     { key: 'clusters', label: 'Clusters', icon: GlobeIcon, section: 'Infrastructure', count: clusters.length },
     { key: 'templates', label: 'Templates', icon: ServerIcon, section: 'Infrastructure' },
@@ -431,6 +435,7 @@ export default function AdminDashboard() {
     { key: 'name', label: 'Name' },
     { key: 'clusterName', label: 'Cluster', render: (row) => row.clusterName || row.cluster_name || '—' },
     { key: 'owner', label: 'Owner', render: (row) => row.userName || row.user_name || row.groupName || row.group_name || '—' },
+    { key: 'billing', label: 'Billing', render: (row) => <span className={`status-badge ${row.billable ? 'success' : 'neutral'}`}>{row.billable ? (row.billingSource === 'self-service' ? 'Self-service' : 'Billable') : 'Excluded'}</span> },
     { key: 'status', label: 'Status', render: (row) => <StatusBadge status={row.status} /> },
     { key: 'containerId', label: 'ID', render: (row) => row.containerId || row.container_id || '—' }
   ], []);
@@ -567,6 +572,14 @@ export default function AdminDashboard() {
               <label><span>User</span><select value={editor.data.userId || editor.data.user_id || ''} onChange={(event) => setEditor((current) => ({ ...current, data: { ...current.data, userId: event.target.value, user_id: '', groupId: '', group_id: '' } }))}><option value="">No direct user</option>{users.filter((entry) => entry.role === 'user').map((entry) => <option key={entry.id} value={entry.id}>{entry.name} · {entry.email}</option>)}</select></label>
               <label><span>Group</span><select value={editor.data.groupId || editor.data.group_id || ''} onChange={(event) => setEditor((current) => ({ ...current, data: { ...current.data, groupId: event.target.value, group_id: '', userId: '', user_id: '' } }))}><option value="">No group</option>{groups.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}</select></label>
               <label><span>Admin URL</span><input value={editor.data.adminUrl ?? editor.data.admin_url ?? ''} onChange={(event) => setEditor((current) => ({ ...current, data: { ...current.data, adminUrl: event.target.value } }))} placeholder="https://example.com" /></label>
+              <div className="cluster-feature-grid span-full">
+                <ClusterToggle
+                  label="Include in billing"
+                  hint="Admin-assigned services are excluded by default. Self-service containers are always billed automatically."
+                  checked={!!editor.data.billable}
+                  onChange={(value) => setEditor((current) => ({ ...current, data: { ...current.data, billable: value } }))}
+                />
+              </div>
             </> : null}
 
             <div className="form-actions left span-full">
@@ -609,6 +622,8 @@ export default function AdminDashboard() {
     content = renderCrudWorkspace({ type: 'group', title: 'Groups', subtitle: 'Customer groups for service assignment', addLabel: 'Add group', columns: groupColumns, rows: groups, onAdd: () => openGroupEditor(), onEdit: openGroupEditor, emptyText: 'Groups help you assign services to teams or customers.' });
   } else if (activeTab === 'services') {
     content = renderCrudWorkspace({ type: 'resource', title: 'Services', subtitle: 'Assignments visible to portal users', addLabel: 'Add service', columns: resourceColumns, rows: resources, onAdd: () => openResourceEditor(), onEdit: openResourceEditor, emptyText: 'Assign the first service to a user or a group.' });
+  } else if (activeTab === 'billing') {
+    content = <AdminBilling language={language} />;
   } else if (activeTab === 'wiki') {
     content = <WikiAdminPanel language={language} />;
   } else if (activeTab === 'templates') {

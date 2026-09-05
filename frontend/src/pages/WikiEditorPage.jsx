@@ -5,7 +5,6 @@ import { wikiApi, getErrorMessage } from '../services/api';
 import { readStoredLanguage } from '../components/LanguageSwitch';
 import PageSkeleton from '../components/PageSkeleton';
 import '../styles/globals.css';
-import { BrandMark } from '../components/BrandLogo';
 
 const LANGUAGES = ['en', 'de'];
 const VIEW_MODES = ['write', 'split', 'preview'];
@@ -885,7 +884,6 @@ export default function WikiEditorPage() {
       <header className="wiki-editor-topbar">
         <div className="wiki-editor-topbar-left">
           <button type="button" className="btn-secondary btn-small wiki-editor-header-action" onClick={leave}>← {text.back}</button>
-          <BrandMark className="wiki-editor-brand-mark" size={34} />
           <span className="wiki-editor-title">{translation?.title || draft.slug}</span>
           {dirty && <span className="wiki-dirty-flag">{text.unsaved}</span>}
         </div>

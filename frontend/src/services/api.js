@@ -357,7 +357,10 @@ export const adminApi = {
   sendTestMail: () => apiClient.post('/admin/settings/send-test-mail'),
   searchLocations: (query) => apiClient.get(`/admin/geocode?q=${encodeURIComponent(query)}`),
   getSystemUpdateStatus: () => apiClient.get('/admin/system-update/status'),
-  startSystemUpdate: (type, data = {}) => apiClient.post(`/admin/system-update/${encodeURIComponent(type)}`, data)
+  startSystemUpdate: (type, data = {}) => apiClient.post(`/admin/system-update/${encodeURIComponent(type)}`, data),
+  getBilling: (month) => apiClient.get(`/admin/billing${month ? `?month=${encodeURIComponent(month)}` : ''}`),
+  getBillingSettings: () => apiClient.get('/admin/billing/settings'),
+  updateBillingSettings: (data) => apiClient.put('/admin/billing/settings', data)
 };
 
 export const userApi = {
@@ -404,7 +407,8 @@ export const userApi = {
   deleteMachine: (resourceId) => apiClient.delete(`/user/resources/${resourceId}`),
   getNotificationPreferences: () => apiClient.get('/user/notifications'),
   updateNotificationPreferences: (data) => apiClient.put('/user/notifications', data),
-  sendNotificationTestMail: () => apiClient.post('/user/notifications/send-test-mail')
+  sendNotificationTestMail: () => apiClient.post('/user/notifications/send-test-mail'),
+  getBilling: (month) => apiClient.get(`/user/billing${month ? `?month=${encodeURIComponent(month)}` : ''}`)
 };
 
 export const wikiApi = {

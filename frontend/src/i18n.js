@@ -2,6 +2,12 @@ import { useEffect } from 'react';
 import { readStoredLanguage } from './components/LanguageSwitch';
 
 export const DE_EN_PHRASES = {
+  "In Billing einbeziehen": "Include in billing",
+  "Vom Admin zugewiesene Services sind standardmäßig ausgeschlossen. Self-Service-Container werden immer automatisch abgerechnet.": "Admin-assigned services are excluded by default. Self-service containers are always billed automatically.",
+  "Abrechenbar": "Billable",
+  "Ausgeschlossen": "Excluded",
+  "Währung muss ein dreistelliger ISO-Code sein": "Currency must be a three-letter ISO code",
+  "Billing-Tarife müssen null oder positive Zahlen sein": "Billing rates must be zero or positive numbers",
   "Der Debian-Host-Updater ist noch nicht installiert. Führe": "The Debian host updater is not installed yet. Run",
   "einmal als root in": "as root once in",
   "Aktualisiere den Debian-Helper einmal mit": "Refresh the Debian helper once with",
