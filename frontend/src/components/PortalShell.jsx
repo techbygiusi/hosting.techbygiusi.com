@@ -19,6 +19,7 @@ export default function PortalShell({
   children,
   footer,
   language,
+  onLanguageChange,
   searchItems = [],
   searchPlaceholder = 'Search services, users, clusters or pages…'
 }) {
@@ -150,7 +151,7 @@ export default function PortalShell({
           </div>
           <div className="portal-topbar-actions">
             {actions}
-            <AccountMenu user={user} language={language} onOpenSettings={onOpenSettings ? openSettings : null} onLogout={onLogout} />
+            <AccountMenu user={user} language={language} onLanguageChange={onLanguageChange} onOpenSettings={onOpenSettings ? openSettings : null} onLogout={onLogout} />
           </div>
         </header>
 

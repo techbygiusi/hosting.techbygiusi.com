@@ -58,6 +58,97 @@ function CrudTable({ columns, rows, renderActions, emptyText = 'Nothing here yet
   );
 }
 
+
+function ClusterToggle({ label, hint, checked, onChange }) {
+  return (
+    <div className="cluster-toggle-card">
+      <div>
+        <strong>{label}</strong>
+        <span>{hint}</span>
+      </div>
+      <button type="button" className={`toggle-clean ${checked ? 'active' : ''}`} onClick={() => onChange(!checked)} aria-pressed={checked}>
+        <span />
+      </button>
+    </div>
+  );
+}
+
+function ClusterLocationField({ data, onChange }) {
+  const [query, setQuery] = useState(data.locationLabel || data.location_label || '');
+  const [results, setResults] = useState([]);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    setQuery(data.locationLabel || data.location_label || '');
+    setResults([]);
+  }, [data.id]);
+
+  useEffect(() => {
+    const value = query.trim();
+    if (value.length < 3 || value === String(data.locationLabel || data.location_label || '').trim()) {
+      setResults([]);
+      return undefined;
+    }
+    let active = true;
+    const timer = window.setTimeout(async () => {
+      setBusy(true);
+      try {
+        const response = await adminApi.searchLocations(value);
+        if (active) setResults(response.data?.results || []);
+      } catch (_) {
+        if (active) setResults([]);
+      } finally {
+        if (active) setBusy(false);
+      }
+    }, 350);
+    return () => {
+      active = false;
+      window.clearTimeout(timer);
+    };
+  }, [query, data.locationLabel, data.location_label]);
+
+  const choose = (item) => {
+    setQuery(item.label);
+    setResults([]);
+    onChange({ locationLabel: item.label, locationLat: item.lat, locationLon: item.lon });
+  };
+
+  const clear = () => {
+    setQuery('');
+    setResults([]);
+    onChange({ locationLabel: '', locationLat: null, locationLon: null });
+  };
+
+  return (
+    <div className="form-group span-full cluster-location-field">
+      <span>Location</span>
+      <div className="cluster-location-input-row">
+        <input
+          value={query}
+          onChange={(event) => {
+            setQuery(event.target.value);
+            onChange({ locationLabel: '', locationLat: null, locationLon: null });
+          }}
+          placeholder="Search city or location…"
+          autoComplete="off"
+        />
+        {query ? <button type="button" className="btn-secondary" onClick={clear}>Clear</button> : null}
+      </div>
+      {busy ? <small className="hint-text">Searching…</small> : null}
+      {results.length ? (
+        <div className="cluster-location-results">
+          {results.map((item) => (
+            <button type="button" key={`${item.lat}-${item.lon}-${item.label}`} onClick={() => choose(item)}>
+              <strong>{item.label}</strong>
+            </button>
+          ))}
+        </div>
+      ) : null}
+      {(data.locationLabel || data.location_label) ? <small className="cluster-location-selected">Selected: {data.locationLabel || data.location_label}</small> : null}
+    </div>
+  );
+}
+
 function AdminOverview({ users, clusters, resources, groups, clusterStats, onOpen }) {
   const onlineClusters = clusterStats.filter((item) => !item.error).length;
   const totalNodes = clusterStats.reduce((sum, item) => sum + Number(item.totals?.nodes || 0), 0);
@@ -177,7 +268,28 @@ export default function AdminDashboard() {
   };
 
   const openUserEditor = (entry = null) => setEditor({ type: 'user', mode: entry ? 'edit' : 'create', data: entry ? { ...entry, password: '' } : { name: '', email: '', password: '', role: 'user' } });
-  const openClusterEditor = (entry = null) => setEditor({ type: 'cluster', mode: entry ? 'edit' : 'create', data: entry ? { ...entry, apiToken: '' } : { name: '', url: '', apiToken: '' } });
+  const openClusterEditor = (entry = null) => setEditor({
+    type: 'cluster',
+    mode: entry ? 'edit' : 'create',
+    data: entry ? {
+      ...entry,
+      apiToken: '',
+      allowProvisioning: Number(entry.allow_provisioning ?? entry.allowProvisioning ?? 0) === 1,
+      allowPublishing: Number(entry.allow_publishing ?? entry.allowPublishing ?? 1) === 1,
+      locationLabel: entry.location_label || entry.locationLabel || '',
+      locationLat: entry.location_lat ?? entry.locationLat ?? null,
+      locationLon: entry.location_lon ?? entry.locationLon ?? null
+    } : {
+      name: '',
+      url: '',
+      apiToken: '',
+      allowProvisioning: false,
+      allowPublishing: true,
+      locationLabel: '',
+      locationLat: null,
+      locationLon: null
+    }
+  });
   const openGroupEditor = (entry = null) => setEditor({ type: 'group', mode: entry ? 'edit' : 'create', data: entry ? { ...entry } : { name: '' } });
   const openResourceEditor = (entry = null) => setEditor({
     type: 'resource',
@@ -273,7 +385,9 @@ export default function AdminDashboard() {
   const clustersColumns = useMemo(() => [
     { key: 'name', label: 'Name' },
     { key: 'url', label: 'URL' },
-    { key: 'location', label: 'Location', render: (row) => row.location_label || '—' }
+    { key: 'location', label: 'Location', render: (row) => row.location_label || '—' },
+    { key: 'selfService', label: 'Self-service', render: (row) => <span className={`status-badge ${Number(row.allow_provisioning || 0) === 1 ? 'success' : 'neutral'}`}>{Number(row.allow_provisioning || 0) === 1 ? 'Enabled' : 'Disabled'}</span> },
+    { key: 'publishing', label: 'Public access', render: (row) => <span className={`status-badge ${Number(row.allow_publishing ?? 1) === 1 ? 'success' : 'neutral'}`}>{Number(row.allow_publishing ?? 1) === 1 ? 'Enabled' : 'Disabled'}</span> }
   ], []);
   const groupColumns = useMemo(() => [{ key: 'name', label: 'Name' }], []);
   const resourceColumns = useMemo(() => [
@@ -345,7 +459,26 @@ export default function AdminDashboard() {
             {type === 'cluster' ? <>
               <label><span>Name</span><input value={editor.data.name || ''} onChange={(event) => setEditor((current) => ({ ...current, data: { ...current.data, name: event.target.value } }))} required /></label>
               <label><span>URL</span><input value={editor.data.url || ''} onChange={(event) => setEditor((current) => ({ ...current, data: { ...current.data, url: event.target.value } }))} required /></label>
-              <label className="span-full"><span>API token {editor.mode === 'edit' ? '(leave empty to keep existing)' : ''}</span><textarea rows="6" value={editor.data.apiToken || ''} onChange={(event) => setEditor((current) => ({ ...current, data: { ...current.data, apiToken: event.target.value } }))} required={editor.mode === 'create'} /></label>
+              <ClusterLocationField
+                key={editor.data.id || 'new-cluster'}
+                data={editor.data}
+                onChange={(patch) => setEditor((current) => ({ ...current, data: { ...current.data, ...patch } }))}
+              />
+              <div className="cluster-feature-grid span-full">
+                <ClusterToggle
+                  label="Self-service"
+                  hint="Allow users assigned to this cluster to create approved LXC containers. Limits and templates are configured under Self-service."
+                  checked={!!editor.data.allowProvisioning}
+                  onChange={(value) => setEditor((current) => ({ ...current, data: { ...current.data, allowProvisioning: value } }))}
+                />
+                <ClusterToggle
+                  label="Public access / Pangolin"
+                  hint="Allow services on this cluster to use the cluster-specific Pangolin connector and public publishing configuration."
+                  checked={!!editor.data.allowPublishing}
+                  onChange={(value) => setEditor((current) => ({ ...current, data: { ...current.data, allowPublishing: value } }))}
+                />
+              </div>
+              <label className="span-full"><span>API token {editor.mode === 'edit' ? '(leave empty to keep existing)' : ''}</span><textarea rows="5" value={editor.data.apiToken || ''} onChange={(event) => setEditor((current) => ({ ...current, data: { ...current.data, apiToken: event.target.value } }))} required={editor.mode === 'create'} /></label>
             </> : null}
 
             {type === 'group' ? <label><span>Name</span><input value={editor.data.name || ''} onChange={(event) => setEditor((current) => ({ ...current, data: { ...current.data, name: event.target.value } }))} required /></label> : null}
@@ -412,7 +545,7 @@ export default function AdminDashboard() {
   } else if (activeTab === 'email') {
     content = <AdminEmailSettings />;
   } else if (activeTab === 'pangolin') {
-    content = <SectionCard title="Pangolin" subtitle="Public publishing and remote access"><PangolinSettingsPanel language={language} /></SectionCard>;
+    content = <PangolinSettingsPanel language={language} clusters={clusters} />;
   } else if (activeTab === 'audit') {
     content = <AuditLog />;
   } else if (activeTab === 'settings') {
@@ -433,6 +566,7 @@ export default function AdminDashboard() {
       onLogout={logout}
       onOpenSettings={() => selectTab('settings')}
       language={language}
+      onLanguageChange={changeLanguage}
       searchItems={searchItems}
     >
       {error ? <InlineNotice tone="danger">{error}</InlineNotice> : null}

@@ -6,6 +6,7 @@ import NotificationSettingsPanel from './NotificationSettingsPanel';
 import { useTheme } from './ThemeButton';
 import { adminApi, getErrorMessage } from '../services/api';
 import { InlineNotice, SectionCard } from './UiBits';
+import PreferenceSlider from './PreferenceSlider';
 
 function ToggleRow({ label, hint, checked, onChange, disabled }) {
   return (
@@ -66,64 +67,80 @@ export default function AdminAccountSettings({ language, onLanguageChange }) {
   };
 
   return (
-    <div className="settings-layout-clean settings-grid-compact admin-settings-grid-v5">
+    <div className="settings-layout-clean settings-grid-compact admin-settings-grid-v7">
       {error ? <div className="settings-grid-span"><InlineNotice tone="danger">{error}</InlineNotice></div> : null}
       {notice ? <div className="settings-grid-span"><InlineNotice tone="success">{notice}</InlineNotice></div> : null}
 
-      <SectionCard title="Appearance & language" className="settings-compact-card">
-        <div className="settings-choice-grid">
-          <div className="settings-choice-block">
-            <span className="settings-choice-label">Appearance</span>
-            <div className="segmented-clean">
-              <button type="button" className={theme === 'light' ? 'active' : ''} onClick={() => setTheme('light')}>Light</button>
-              <button type="button" className={theme === 'dark' ? 'active' : ''} onClick={() => setTheme('dark')}>Dark</button>
+      <div className="settings-pair-row settings-grid-span">
+        <SectionCard title="Appearance & language" className="settings-compact-card settings-preferences-card">
+          <div className="settings-choice-grid settings-slider-grid">
+            <div className="settings-choice-block">
+              <span className="settings-choice-label">Appearance</span>
+              <PreferenceSlider
+                value={theme}
+                ariaLabel="Appearance"
+                onChange={setTheme}
+                options={[
+                  { value: 'light', label: 'Light' },
+                  { value: 'dark', label: 'Dark' }
+                ]}
+              />
+            </div>
+            <div className="settings-choice-block">
+              <span className="settings-choice-label">Language</span>
+              <PreferenceSlider
+                value={language}
+                ariaLabel="Language"
+                onChange={onLanguageChange}
+                options={[
+                  { value: 'en', label: 'English' },
+                  { value: 'de', label: 'Deutsch' }
+                ]}
+              />
             </div>
           </div>
-          <div className="settings-choice-block">
-            <span className="settings-choice-label">Language</span>
-            <div className="segmented-clean">
-              <button type="button" className={language === 'en' ? 'active' : ''} onClick={() => onLanguageChange('en')}>English</button>
-              <button type="button" className={language === 'de' ? 'active' : ''} onClick={() => onLanguageChange('de')}>Deutsch</button>
-            </div>
-          </div>
-        </div>
-      </SectionCard>
+        </SectionCard>
+        <SectionCard className="settings-compact-card"><AvatarSettingsPanel language={language} /></SectionCard>
+      </div>
 
-      <SectionCard className="settings-compact-card"><AvatarSettingsPanel language={language} /></SectionCard>
-      <SectionCard className="settings-compact-card"><AccountEmailSettingsPanel language={language} /></SectionCard>
-      <SectionCard className="settings-compact-card"><AccountPasswordSettingsPanel language={language} /></SectionCard>
-      <SectionCard title="Service notifications" className="settings-compact-card"><NotificationSettingsPanel language={language} /></SectionCard>
+      <div className="settings-pair-row settings-grid-span">
+        <SectionCard className="settings-compact-card"><AccountEmailSettingsPanel language={language} /></SectionCard>
+        <SectionCard className="settings-compact-card"><AccountPasswordSettingsPanel language={language} /></SectionCard>
+      </div>
 
-      <SectionCard title="Administrator notifications" className="settings-compact-card">
-        {loading ? <div className="page-state-clean compact-state">Loading notification preferences…</div> : (
-          <div className="settings-toggle-list-clean">
-            <ToggleRow
-              label="Cluster unavailable"
-              hint="Notify me when an entire configured Proxmox cluster can no longer be reached."
-              checked={infra.notifyClusterDown}
-              onChange={(value) => setInfra((current) => ({ ...current, notifyClusterDown: value }))}
-              disabled={saving}
-            />
-            <ToggleRow
-              label="Node unavailable"
-              hint="Notify me when an individual Proxmox node goes offline."
-              checked={infra.notifyNodeDown}
-              onChange={(value) => setInfra((current) => ({ ...current, notifyNodeDown: value }))}
-              disabled={saving}
-            />
-            <ToggleRow
-              label="Pangolin unavailable"
-              hint="Notify me when public publishing or the Pangolin connection is unavailable."
-              checked={infra.notifyPangolinDown}
-              onChange={(value) => setInfra((current) => ({ ...current, notifyPangolinDown: value }))}
-              disabled={saving}
-            />
-            <div className="form-actions left">
-              <button type="button" className="btn-primary" onClick={saveInfra} disabled={saving}>{saving ? 'Saving…' : 'Save notifications'}</button>
+      <div className="settings-pair-row settings-grid-span settings-pair-notifications">
+        <SectionCard title="Service notifications" className="settings-compact-card"><NotificationSettingsPanel language={language} /></SectionCard>
+        <SectionCard title="Administrator notifications" className="settings-compact-card">
+          {loading ? <div className="page-state-clean compact-state">Loading notification preferences…</div> : (
+            <div className="settings-toggle-list-clean admin-notification-list-v7">
+              <ToggleRow
+                label="Cluster unavailable"
+                hint="Notify me when an entire configured Proxmox cluster can no longer be reached."
+                checked={infra.notifyClusterDown}
+                onChange={(value) => setInfra((current) => ({ ...current, notifyClusterDown: value }))}
+                disabled={saving}
+              />
+              <ToggleRow
+                label="Node unavailable"
+                hint="Notify me when an individual Proxmox node goes offline."
+                checked={infra.notifyNodeDown}
+                onChange={(value) => setInfra((current) => ({ ...current, notifyNodeDown: value }))}
+                disabled={saving}
+              />
+              <ToggleRow
+                label="Pangolin unavailable"
+                hint="Notify me when public publishing or a cluster-specific Pangolin connection is unavailable."
+                checked={infra.notifyPangolinDown}
+                onChange={(value) => setInfra((current) => ({ ...current, notifyPangolinDown: value }))}
+                disabled={saving}
+              />
+              <div className="form-actions left">
+                <button type="button" className="btn-primary" onClick={saveInfra} disabled={saving}>{saving ? 'Saving…' : 'Save notifications'}</button>
+              </div>
             </div>
-          </div>
-        )}
-      </SectionCard>
+          )}
+        </SectionCard>
+      </div>
     </div>
   );
 }

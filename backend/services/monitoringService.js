@@ -321,34 +321,43 @@ async function pollCluster(cluster) {
   }
 }
 
-async function pollPangolin() {
-  let config;
-  try {
-    config = await getPangolinConfig();
-  } catch (err) {
-    console.error('Monitoring: Pangolin configuration could not be read:', err.message);
-    return;
-  }
-
-  if (!config?.enabled) {
-    pangolinHealthState.delete('pangolin');
-    return;
-  }
-
-  try {
-    await testPangolinConnection({});
-    observeInfraState(pangolinHealthState, 'pangolin', 'online');
-  } catch (err) {
-    const transition = observeInfraState(pangolinHealthState, 'pangolin', 'offline');
-    if (transition && !isInfraDown(transition.oldStatus) && isInfraDown(transition.newStatus)) {
-      await notifyInfrastructureDown({
-        kind: 'pangolin',
-        serviceName: config.apiUrl || 'Pangolin',
-        detail: String(err.message || 'Pangolin API unavailable').slice(0, 500),
-        prefColumn: 'notify_pangolin_down'
-      });
+async function pollPangolin(clusters = []) {
+  const activeKeys = new Set();
+  for (const cluster of clusters) {
+    const key = `pangolin:${cluster.id}`;
+    let config;
+    try {
+      config = await getPangolinConfig(cluster.id);
+    } catch (err) {
+      console.error(`Monitoring: Pangolin configuration for ${cluster.name} could not be read:`, err.message);
+      continue;
     }
-    console.error('Monitoring: Pangolin unreachable:', err.message);
+
+    if (!config?.enabled || Number(cluster.allow_publishing ?? 1) !== 1) {
+      pangolinHealthState.delete(key);
+      continue;
+    }
+
+    activeKeys.add(key);
+    try {
+      await testPangolinConnection({ clusterId: cluster.id });
+      observeInfraState(pangolinHealthState, key, 'online');
+    } catch (err) {
+      const transition = observeInfraState(pangolinHealthState, key, 'offline');
+      if (transition && !isInfraDown(transition.oldStatus) && isInfraDown(transition.newStatus)) {
+        await notifyInfrastructureDown({
+          kind: 'pangolin',
+          serviceName: `${cluster.name} · ${config.apiUrl || 'Pangolin'}`,
+          detail: String(err.message || 'Pangolin API unavailable').slice(0, 500),
+          prefColumn: 'notify_pangolin_down'
+        });
+      }
+      console.error(`Monitoring: Pangolin unreachable for ${cluster.name}:`, err.message);
+    }
+  }
+
+  for (const key of [...pangolinHealthState.keys()]) {
+    if (!activeKeys.has(key)) pangolinHealthState.delete(key);
   }
 }
 
@@ -356,11 +365,11 @@ async function pollAll() {
   if (running) return; // never overlap
   running = true;
   try {
-    const clusters = await all('SELECT id, name, url, api_token FROM proxmox_clusters');
+    const clusters = await all('SELECT id, name, url, api_token, allow_publishing FROM proxmox_clusters');
     const activeClusterIds = new Set(clusters.map(cluster => String(cluster.id)));
 
     for (const cluster of clusters) await pollCluster(cluster);
-    await pollPangolin();
+    await pollPangolin(clusters);
 
     for (const key of [...clusterHealthState.keys()]) {
       if (!activeClusterIds.has(String(key))) clusterHealthState.delete(key);

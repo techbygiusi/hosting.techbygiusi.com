@@ -1,7 +1,7 @@
 const axios = require('axios');
 const http = require('http');
 const https = require('https');
-const { all, run } = require('../config/database');
+const { get, all, run } = require('../config/database');
 const { encrypt, decrypt } = require('./cryptoService');
 const { AppError } = require('../middleware/errorHandler');
 const { HTTP_STATUS } = require('../config/constants');
@@ -194,8 +194,47 @@ function configFromRows(rows = {}) {
   };
 }
 
-async function getPangolinConfig() {
-  return configFromRows(await readSettingRows());
+async function readClusterConfigRow(clusterId) {
+  if (!clusterId) return null;
+  return get('SELECT * FROM pangolin_cluster_settings WHERE cluster_id = ?', [clusterId]);
+}
+
+function configFromClusterRow(row) {
+  if (!row) return null;
+  const storedHttpPolicy = String(row.allowed_http_ports || '').trim();
+  const storedTcpPolicy = String(row.allowed_tcp_ports || '').trim();
+  const storedUdpPolicy = String(row.allowed_udp_ports || '').trim();
+  return {
+    enabled: toBoolean(row.enabled, DEFAULTS.enabled),
+    apiUrl: normalizeApiUrl(row.api_url || ''),
+    apiKey: decrypt(row.api_key || ''),
+    orgId: String(row.org_id || '').trim(),
+    siteId: String(row.site_id || '').trim(),
+    domainId: String(row.domain_id || '').trim(),
+    baseDomain: normalizeBaseDomain(row.base_domain || ''),
+    httpEnabled: toBoolean(row.http_enabled, DEFAULTS.httpEnabled),
+    tcpEnabled: toBoolean(row.tcp_enabled, DEFAULTS.tcpEnabled),
+    udpEnabled: toBoolean(row.udp_enabled, DEFAULTS.udpEnabled),
+    allowedHttpPorts: storedHttpPolicy ? compactPortPolicy(storedHttpPolicy) : DEFAULTS.allowedHttpPorts,
+    allowedTcpPorts: storedTcpPolicy || DEFAULTS.allowedTcpPorts,
+    allowedUdpPorts: storedUdpPolicy || DEFAULTS.allowedUdpPorts,
+    defaultTargetMethod: ['http', 'https', 'h2c'].includes(String(row.default_target_method || '').toLowerCase())
+      ? String(row.default_target_method).toLowerCase()
+      : DEFAULTS.defaultTargetMethod,
+    reservedSubdomains: String(row.reserved_subdomains || DEFAULTS.reservedSubdomains),
+    clusterConfigured: true,
+    clusterId: Number(row.cluster_id)
+  };
+}
+
+async function getPangolinConfig(clusterId = null) {
+  if (clusterId) {
+    const clusterConfig = configFromClusterRow(await readClusterConfigRow(clusterId));
+    if (clusterConfig) return clusterConfig;
+    const inherited = configFromRows(await readSettingRows());
+    return { ...inherited, clusterConfigured: false, clusterId: Number(clusterId) };
+  }
+  return { ...configFromRows(await readSettingRows()), clusterConfigured: false, clusterId: null };
 }
 
 function mergeInputWithStored(input = {}, stored = DEFAULTS) {
@@ -243,12 +282,61 @@ function validateConfig(config, { requireSelection = true } = {}) {
   return config;
 }
 
-async function savePangolinConfig(input = {}) {
-  const stored = await getPangolinConfig();
+async function savePangolinConfig(input = {}, clusterId = null) {
+  const normalizedClusterId = Number(clusterId || input.clusterId || 0) || null;
+  const stored = await getPangolinConfig(normalizedClusterId);
   const config = mergeInputWithStored(input, stored);
   validateRawPortPolicy('tcp', config.allowedTcpPorts);
   validateRawPortPolicy('udp', config.allowedUdpPorts);
   if (config.enabled) validateConfig(config);
+
+  if (normalizedClusterId) {
+    const cluster = await get('SELECT id FROM proxmox_clusters WHERE id = ?', [normalizedClusterId]);
+    if (!cluster) throw new AppError('Cluster not found', HTTP_STATUS.NOT_FOUND);
+    await run(
+      `INSERT INTO pangolin_cluster_settings (
+        cluster_id, enabled, api_url, api_key, org_id, site_id, domain_id, base_domain,
+        http_enabled, tcp_enabled, udp_enabled, allowed_http_ports, allowed_tcp_ports,
+        allowed_udp_ports, default_target_method, reserved_subdomains, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+      ON CONFLICT(cluster_id) DO UPDATE SET
+        enabled = excluded.enabled,
+        api_url = excluded.api_url,
+        api_key = excluded.api_key,
+        org_id = excluded.org_id,
+        site_id = excluded.site_id,
+        domain_id = excluded.domain_id,
+        base_domain = excluded.base_domain,
+        http_enabled = excluded.http_enabled,
+        tcp_enabled = excluded.tcp_enabled,
+        udp_enabled = excluded.udp_enabled,
+        allowed_http_ports = excluded.allowed_http_ports,
+        allowed_tcp_ports = excluded.allowed_tcp_ports,
+        allowed_udp_ports = excluded.allowed_udp_ports,
+        default_target_method = excluded.default_target_method,
+        reserved_subdomains = excluded.reserved_subdomains,
+        updated_at = CURRENT_TIMESTAMP`,
+      [
+        normalizedClusterId,
+        config.enabled ? 1 : 0,
+        config.apiUrl,
+        config.apiKey ? encrypt(config.apiKey) : '',
+        config.orgId,
+        config.siteId,
+        config.domainId,
+        config.baseDomain,
+        config.httpEnabled ? 1 : 0,
+        config.tcpEnabled ? 1 : 0,
+        config.udpEnabled ? 1 : 0,
+        config.allowedHttpPorts,
+        config.allowedTcpPorts,
+        config.allowedUdpPorts,
+        config.defaultTargetMethod,
+        config.reservedSubdomains
+      ]
+    );
+    return { ...config, clusterConfigured: true, clusterId: normalizedClusterId };
+  }
 
   const entries = [
     [SETTING_KEYS.enabled, config.enabled ? '1' : '0'],
@@ -295,7 +383,9 @@ function publicConfig(config) {
     allowedTcpPorts: config.allowedTcpPorts,
     allowedUdpPorts: config.allowedUdpPorts,
     defaultTargetMethod: config.defaultTargetMethod,
-    reservedSubdomains: config.reservedSubdomains
+    reservedSubdomains: config.reservedSubdomains,
+    clusterConfigured: !!config.clusterConfigured,
+    clusterId: config.clusterId || null
   };
 }
 
@@ -349,7 +439,8 @@ async function request(config, method, url, data) {
 }
 
 async function discoverPangolin(input = {}) {
-  const stored = await getPangolinConfig();
+  const clusterId = Number(input.clusterId || 0) || null;
+  const stored = await getPangolinConfig(clusterId);
   const config = mergeInputWithStored(input, stored);
   validateConfig(config, { requireSelection: false });
   const [organization, domainsPayload, sitesPayload] = await Promise.all([
@@ -370,7 +461,8 @@ async function discoverPangolin(input = {}) {
 }
 
 async function testPangolinConnection(input = {}) {
-  const stored = await getPangolinConfig();
+  const clusterId = Number(input.clusterId || 0) || null;
+  const stored = await getPangolinConfig(clusterId);
   const config = mergeInputWithStored(input, stored);
   validateConfig(config);
 

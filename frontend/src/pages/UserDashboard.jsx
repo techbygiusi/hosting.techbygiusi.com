@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import PortalShell from '../components/PortalShell';
 import PageSkeleton from '../components/PageSkeleton';
+import PreferenceSlider from '../components/PreferenceSlider';
 import { ServerIcon, BookIcon, SettingsIcon, HomeIcon, TerminalIcon, LinkIcon } from '../components/Icons';
 import { EmptyState, InlineNotice, SectionCard, StatCard, StatusBadge } from '../components/UiBits';
 import { useAuth } from '../context/AuthContext';
@@ -384,10 +385,32 @@ export default function UserDashboard() {
     content = (
       <div className="settings-layout-clean settings-grid-compact user-settings-grid-v5">
         <SettingsSummary profile={profile} setProfile={setProfile} saveProfile={saveProfile} savingProfile={savingProfile} error={error} notice={notice} />
-        <SectionCard title="Appearance & language">
-          <div className="settings-choice-grid">
-            <div className="settings-choice-block"><span className="settings-choice-label">Appearance</span><div className="segmented-clean"><button type="button" className={theme === 'light' ? 'active' : ''} onClick={() => setTheme('light')}>Light</button><button type="button" className={theme === 'dark' ? 'active' : ''} onClick={() => setTheme('dark')}>Dark</button></div></div>
-            <div className="settings-choice-block"><span className="settings-choice-label">Language</span><div className="segmented-clean"><button type="button" className={language === 'en' ? 'active' : ''} onClick={() => changeLanguage('en')}>English</button><button type="button" className={language === 'de' ? 'active' : ''} onClick={() => changeLanguage('de')}>Deutsch</button></div></div>
+        <SectionCard title="Appearance & language" className="settings-preferences-card">
+          <div className="settings-choice-grid settings-slider-grid">
+            <div className="settings-choice-block">
+              <span className="settings-choice-label">Appearance</span>
+              <PreferenceSlider
+                value={theme}
+                ariaLabel="Appearance"
+                onChange={setTheme}
+                options={[
+                  { value: 'light', label: 'Light' },
+                  { value: 'dark', label: 'Dark' }
+                ]}
+              />
+            </div>
+            <div className="settings-choice-block">
+              <span className="settings-choice-label">Language</span>
+              <PreferenceSlider
+                value={language}
+                ariaLabel="Language"
+                onChange={changeLanguage}
+                options={[
+                  { value: 'en', label: 'English' },
+                  { value: 'de', label: 'Deutsch' }
+                ]}
+              />
+            </div>
           </div>
         </SectionCard>
         <SectionCard className="settings-compact-card"><AvatarSettingsPanel language={language} /></SectionCard>
@@ -409,6 +432,7 @@ export default function UserDashboard() {
         onLogout={logout}
         onOpenSettings={() => setActiveTab('settings')}
         language={language}
+        onLanguageChange={changeLanguage}
         searchItems={searchItems}
       >
         {error && activeTab !== 'settings' ? <InlineNotice tone="danger">{error}</InlineNotice> : null}

@@ -1216,9 +1216,12 @@ router.get('/resources', async (req, res, next) => {
   try {
     const rows = await getResourceRows();
     const resources = await enrichResources(rows);
-    const publishingConfig = await getPangolinConfig();
+    const clusterIds = [...new Set(resources.map((resource) => resource.clusterId).filter(Boolean))];
+    const configEntries = await Promise.all(clusterIds.map(async (clusterId) => [String(clusterId), await getPangolinConfig(clusterId)]));
+    const publishingByCluster = Object.fromEntries(configEntries);
     res.json({
       resources: resources.map((resource) => {
+        const publishingConfig = publishingByCluster[String(resource.clusterId)] || { enabled: false };
         const pangolinAvailable = !!publishingConfig.enabled && resource.clusterPublishingEnabled !== false;
         const effectivePublicUrl = pangolinAvailable
           ? (resource.publicUrl || resource.webUrl || '')
@@ -1403,7 +1406,7 @@ router.delete('/resources/:id', async (req, res, next) => {
 
     const publications = await all('SELECT * FROM resource_publications WHERE resource_id = ?', [resourceId]);
     if (publications.length > 0) {
-      const publishingConfig = await getPangolinConfig();
+      const publishingConfig = await getPangolinConfig(resource.cluster_id);
       for (const publication of publications) {
         await deletePublication(publishingConfig, publication);
       }
@@ -1493,11 +1496,13 @@ router.delete('/assignments/:id', async (req, res, next) => {
 
 router.get('/pangolin-publications', async (req, res, next) => {
   try {
+    const clusterId = Number(req.query.clusterId || 0) || null;
     const publications = await all(`
       SELECT
         rp.*,
         r.name AS resource_name,
         r.container_id,
+        r.cluster_id,
         u.name AS user_name,
         u.email AS user_email,
         pc.name AS cluster_name
@@ -1505,8 +1510,9 @@ router.get('/pangolin-publications', async (req, res, next) => {
       JOIN resources r ON r.id = rp.resource_id
       LEFT JOIN users u ON u.id = r.user_id
       JOIN proxmox_clusters pc ON pc.id = r.cluster_id
+      ${clusterId ? 'WHERE r.cluster_id = ?' : ''}
       ORDER BY rp.updated_at DESC
-    `);
+    `, clusterId ? [clusterId] : []);
     res.json({
       publications: publications.map((item) => ({
         id: item.id,
@@ -1516,6 +1522,7 @@ router.get('/pangolin-publications', async (req, res, next) => {
         userName: item.user_name,
         userEmail: item.user_email,
         clusterName: item.cluster_name,
+        clusterId: item.cluster_id,
         protocol: item.protocol,
         subdomain: item.subdomain || '',
         publicPort: item.public_port,
@@ -1534,9 +1541,14 @@ router.get('/pangolin-publications', async (req, res, next) => {
 
 router.delete('/pangolin-publications/:publicationId', async (req, res, next) => {
   try {
-    const publication = await get('SELECT * FROM resource_publications WHERE id = ?', [req.params.publicationId]);
+    const publication = await get(`
+      SELECT rp.*, r.cluster_id
+      FROM resource_publications rp
+      JOIN resources r ON r.id = rp.resource_id
+      WHERE rp.id = ?
+    `, [req.params.publicationId]);
     if (!publication) throw new AppError('Publication not found', HTTP_STATUS.NOT_FOUND);
-    const config = await getPangolinConfig();
+    const config = await getPangolinConfig(publication.cluster_id);
     await deletePublication(config, publication);
     await run('DELETE FROM resource_publications WHERE id = ?', [publication.id]);
     const primary = await get(
@@ -1561,8 +1573,15 @@ router.delete('/pangolin-publications/:publicationId', async (req, res, next) =>
 
 router.get('/pangolin-settings', async (req, res, next) => {
   try {
-    const config = await getPangolinConfig();
-    const publicationCount = await get('SELECT COUNT(*) AS total FROM resource_publications');
+    const clusterId = Number(req.query.clusterId || 0) || null;
+    if (clusterId) {
+      const cluster = await get('SELECT id FROM proxmox_clusters WHERE id = ?', [clusterId]);
+      if (!cluster) throw new AppError('Cluster not found', HTTP_STATUS.NOT_FOUND);
+    }
+    const config = await getPangolinConfig(clusterId);
+    const publicationCount = clusterId
+      ? await get(`SELECT COUNT(*) AS total FROM resource_publications rp JOIN resources r ON r.id = rp.resource_id WHERE r.cluster_id = ?`, [clusterId])
+      : await get('SELECT COUNT(*) AS total FROM resource_publications');
     res.json({
       settings: getPublicPangolinConfig(config),
       publicationCount: Number(publicationCount?.total || 0)
@@ -1574,8 +1593,9 @@ router.get('/pangolin-settings', async (req, res, next) => {
 
 router.put('/pangolin-settings', async (req, res, next) => {
   try {
-    const config = await savePangolinConfig(req.body || {});
-    await logAudit(req, 'settings.pangolin.update', 'pangolin', `enabled=${config.enabled}`);
+    const clusterId = Number(req.body?.clusterId || req.query.clusterId || 0) || null;
+    const config = await savePangolinConfig(req.body || {}, clusterId);
+    await logAudit(req, 'settings.pangolin.update', clusterId ? `cluster:${clusterId}:pangolin` : 'pangolin', `enabled=${config.enabled}`);
     res.json({ message: 'Pangolin settings updated successfully', settings: getPublicPangolinConfig(config) });
   } catch (err) {
     next(err);

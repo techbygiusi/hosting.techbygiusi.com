@@ -2,19 +2,20 @@ import React, { useEffect, useRef, useState } from 'react';
 import Avatar from './Avatar';
 import { ChevronDownIcon, LogoutIcon, SettingsIcon, SunIcon, MoonIcon } from './Icons';
 import { useTheme } from './ThemeButton';
+import PreferenceSlider from './PreferenceSlider';
 
 const TEXT = {
   en: {
     account: 'Account', administrator: 'Administrator', user: 'User', settings: 'Account settings',
-    logout: 'Log out', theme: 'Appearance', light: 'Light', dark: 'Dark', open: 'Open account menu'
+    logout: 'Log out', theme: 'Appearance', language: 'Language', light: 'Light', dark: 'Dark', open: 'Open account menu'
   },
   de: {
     account: 'Konto', administrator: 'Administrator', user: 'Benutzer', settings: 'Kontoeinstellungen',
-    logout: 'Abmelden', theme: 'Darstellung', light: 'Hell', dark: 'Dunkel', open: 'Kontomenü öffnen'
+    logout: 'Abmelden', theme: 'Darstellung', language: 'Sprache', light: 'Hell', dark: 'Dunkel', open: 'Kontomenü öffnen'
   }
 };
 
-export default function AccountMenu({ user, language = 'en', onOpenSettings, onLogout }) {
+export default function AccountMenu({ user, language = 'en', onLanguageChange, onOpenSettings, onLogout }) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef(null);
   const { theme, setTheme } = useTheme();
@@ -68,15 +69,32 @@ export default function AccountMenu({ user, language = 'en', onOpenSettings, onL
             </div>
           </div>
 
-          <div className="account-menu-theme" role="group" aria-label={text.theme}>
-            <span className="account-menu-label">{text.theme}</span>
-            <div className="account-menu-theme-switch">
-              <button type="button" className={theme === 'light' ? 'active' : ''} onClick={() => setTheme('light')}>
-                <SunIcon size={16} />{text.light}
-              </button>
-              <button type="button" className={theme === 'dark' ? 'active' : ''} onClick={() => setTheme('dark')}>
-                <MoonIcon size={16} />{text.dark}
-              </button>
+          <div className="account-menu-preferences">
+            <div className="account-menu-preference-row">
+              <span className="account-menu-label">{text.theme}</span>
+              <PreferenceSlider
+                compact
+                value={theme}
+                ariaLabel={text.theme}
+                onChange={setTheme}
+                options={[
+                  { value: 'light', label: text.light, icon: SunIcon },
+                  { value: 'dark', label: text.dark, icon: MoonIcon }
+                ]}
+              />
+            </div>
+            <div className="account-menu-preference-row">
+              <span className="account-menu-label">{text.language}</span>
+              <PreferenceSlider
+                compact
+                value={language}
+                ariaLabel={text.language}
+                onChange={(value) => onLanguageChange?.(value)}
+                options={[
+                  { value: 'en', label: 'EN', title: 'English' },
+                  { value: 'de', label: 'DE', title: 'Deutsch' }
+                ]}
+              />
             </div>
           </div>
 

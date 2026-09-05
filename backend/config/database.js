@@ -365,6 +365,30 @@ async function initDatabase() {
       // v2.1: default root password stored (encrypted) for newly provisioned machines
       database.run(`ALTER TABLE proxmox_clusters ADD COLUMN default_password_encrypted TEXT`, () => {});
 
+      database.run(`
+        CREATE TABLE IF NOT EXISTS pangolin_cluster_settings (
+          cluster_id INTEGER PRIMARY KEY,
+          enabled INTEGER DEFAULT 0,
+          api_url TEXT,
+          api_key TEXT,
+          org_id TEXT,
+          site_id TEXT,
+          domain_id TEXT,
+          base_domain TEXT,
+          http_enabled INTEGER DEFAULT 1,
+          tcp_enabled INTEGER DEFAULT 1,
+          udp_enabled INTEGER DEFAULT 1,
+          allowed_http_ports TEXT,
+          allowed_tcp_ports TEXT,
+          allowed_udp_ports TEXT,
+          default_target_method TEXT DEFAULT 'http',
+          reserved_subdomains TEXT,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (cluster_id) REFERENCES proxmox_clusters(id) ON DELETE CASCADE
+        )
+      `);
+
       // v2.1: admin-managed credential vault (cluster default logins + free entries)
       database.run(`
         CREATE TABLE IF NOT EXISTS admin_credentials (
@@ -604,7 +628,8 @@ async function initDatabase() {
                 ON resource_publications(protocol);
               CREATE INDEX IF NOT EXISTS idx_resource_publications_resource
                 ON resource_publications(resource_id, updated_at DESC);
-              CREATE UNIQUE INDEX IF NOT EXISTS idx_resource_publications_http_subdomain
+              DROP INDEX IF EXISTS idx_resource_publications_http_subdomain;
+              CREATE INDEX IF NOT EXISTS idx_resource_publications_http_subdomain
                 ON resource_publications(subdomain)
                 WHERE protocol = 'http' AND subdomain IS NOT NULL AND subdomain != '';
               CREATE INDEX IF NOT EXISTS idx_resource_publications_raw_port

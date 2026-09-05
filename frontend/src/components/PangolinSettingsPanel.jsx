@@ -37,10 +37,10 @@ const TEXT = {
     apiKeyStored: 'Stored - leave blank to keep it',
     apiKeyEnter: 'Paste API key',
     orgId: 'Organization ID',
-    discovery: 'Sites and domains',
+    discovery: 'Sites / connectors and domains',
     discover: 'Load from Pangolin',
     discovering: 'Loading...',
-    site: 'Pangolin site',
+    site: 'Pangolin site / connector',
     siteSelect: 'Select site',
     domain: 'Pangolin domain',
     domainSelect: 'Select domain',
@@ -93,10 +93,10 @@ const TEXT = {
     apiKeyStored: 'Gespeichert - leer lassen zum Beibehalten',
     apiKeyEnter: 'API-Schlüssel einfügen',
     orgId: 'Organization ID',
-    discovery: 'Standorte und Domains',
+    discovery: 'Standorte / Connectoren und Domains',
     discover: 'Aus Pangolin laden',
     discovering: 'Wird geladen...',
-    site: 'Pangolin-Standort',
+    site: 'Pangolin-Standort / Connector',
     siteSelect: 'Standort wählen',
     domain: 'Pangolin-Domain',
     domainSelect: 'Domain wählen',
@@ -145,11 +145,12 @@ function errorText(err, fallback, text) {
   return getErrorMessage(err, fallback);
 }
 
-export default function PangolinSettingsPanel({ onSuccess, onError, language: languageProp }) {
+export default function PangolinSettingsPanel({ onSuccess, onError, language: languageProp, clusters = [] }) {
   const language = languageProp === 'de' || languageProp === 'en'
     ? languageProp
     : (readStoredLanguage() === 'de' ? 'de' : 'en');
   const text = TEXT[language];
+  const [selectedClusterId, setSelectedClusterId] = useState(() => clusters[0]?.id ? String(clusters[0].id) : '');
   const [form, setForm] = useState(DEFAULTS);
   const [sites, setSites] = useState([]);
   const [domains, setDomains] = useState([]);
@@ -162,6 +163,21 @@ export default function PangolinSettingsPanel({ onSuccess, onError, language: la
 
   useEffect(() => { onErrorRef.current = onError; }, [onError]);
 
+  useEffect(() => {
+    if (!clusters.length) {
+      setSelectedClusterId('');
+      return;
+    }
+    if (!clusters.some((cluster) => String(cluster.id) === String(selectedClusterId))) {
+      setSelectedClusterId(String(clusters[0].id));
+    }
+  }, [clusters, selectedClusterId]);
+
+  const selectedCluster = useMemo(
+    () => clusters.find((cluster) => String(cluster.id) === String(selectedClusterId)) || null,
+    [clusters, selectedClusterId]
+  );
+
   const selectedDomain = useMemo(
     () => domains.find((item) => String(item.id) === String(form.domainId)),
     [domains, form.domainId]
@@ -169,7 +185,18 @@ export default function PangolinSettingsPanel({ onSuccess, onError, language: la
 
   useEffect(() => {
     let active = true;
-    Promise.all([adminApi.getPangolinSettings(), adminApi.getPangolinPublications()])
+    if (!selectedClusterId) {
+      setForm(DEFAULTS);
+      setPublications([]);
+      setPublicationCount(0);
+      setLoading(false);
+      return () => { active = false; };
+    }
+    setLoading(true);
+    setSites([]);
+    setDomains([]);
+    setResult(null);
+    Promise.all([adminApi.getPangolinSettings(selectedClusterId), adminApi.getPangolinPublications(selectedClusterId)])
       .then(([settingsResponse, publicationsResponse]) => {
         if (!active) return;
         const loaded = settingsResponse.data.settings || {};
@@ -181,11 +208,12 @@ export default function PangolinSettingsPanel({ onSuccess, onError, language: la
       .catch((err) => onErrorRef.current?.(errorText(err, text.settingsLoadFailed, text)))
       .finally(() => active && setLoading(false));
     return () => { active = false; };
-  }, [text]);
+  }, [selectedClusterId, text]);
 
   const update = (name, value) => setForm((current) => ({ ...current, [name]: value }));
 
   const connectionPayload = () => ({
+    clusterId: selectedClusterId,
     apiUrl: form.apiUrl,
     apiKey: form.apiKey || (form.apiKeyConfigured ? '***hidden***' : ''),
     orgId: form.orgId,
@@ -224,7 +252,7 @@ export default function PangolinSettingsPanel({ onSuccess, onError, language: la
     try {
       setBusy('discover');
       setResult(null);
-      const response = await adminApi.discoverPangolin(connectionPayload());
+      const response = await adminApi.discoverPangolin(connectionPayload(), selectedClusterId);
       const nextSites = response.data.sites || [];
       const nextDomains = response.data.domains || [];
       applyDiscovery(nextSites, nextDomains);
@@ -240,7 +268,7 @@ export default function PangolinSettingsPanel({ onSuccess, onError, language: la
     try {
       setBusy('test');
       setResult(null);
-      await adminApi.testPangolin(connectionPayload());
+      await adminApi.testPangolin(connectionPayload(), selectedClusterId);
       setResult({ success: true, message: text.connectionSuccess });
     } catch (err) {
       setResult({ success: false, message: errorText(err, text.connectionFailed, text) });
@@ -254,7 +282,7 @@ export default function PangolinSettingsPanel({ onSuccess, onError, language: la
     try {
       setBusy('save');
       setResult(null);
-      const response = await adminApi.updatePangolinSettings(connectionPayload());
+      const response = await adminApi.updatePangolinSettings(connectionPayload(), selectedClusterId);
       const saved = response.data.settings || {};
       setForm((current) => ({
         ...current,
@@ -298,12 +326,32 @@ export default function PangolinSettingsPanel({ onSuccess, onError, language: la
     }));
   };
 
-  if (loading) {
-    return <section className="panel-card settings-section-card pangolin-settings-panel unified-settings-panel"><p className="loading">{text.loadSettings}</p></section>;
+  if (!clusters.length) {
+    return <section className="panel-card settings-section-card pangolin-settings-panel unified-settings-panel"><p className="hint-text">Add a Proxmox cluster before configuring Pangolin.</p></section>;
   }
 
   return (
     <section className="panel-card settings-section-card pangolin-settings-panel unified-settings-panel">
+      <div className="pangolin-cluster-toolbar">
+        <label className="form-group pangolin-cluster-select">
+          <span>Cluster</span>
+          <select value={selectedClusterId} onChange={(event) => setSelectedClusterId(event.target.value)}>
+            {clusters.map((cluster) => <option key={cluster.id} value={cluster.id}>{cluster.name}</option>)}
+          </select>
+        </label>
+        <div className="pangolin-cluster-summary">
+          <strong>{selectedCluster?.name || 'Cluster'}</strong>
+          <span>{selectedCluster?.location_label || selectedCluster?.url || ''}</span>
+          <small>{Number(selectedCluster?.allow_publishing ?? 1) === 1 ? 'Public access enabled for this cluster' : 'Public access disabled in cluster settings'}</small>
+        </div>
+      </div>
+
+      {loading ? <p className="loading">{text.loadSettings}</p> : <>
+      {!form.clusterConfigured ? (
+        <div className="pangolin-inherited-note">
+          This cluster is using the previous shared Pangolin values. Save once to create an independent connector configuration for {selectedCluster?.name || 'this cluster'}.
+        </div>
+      ) : null}
       <div className="panel-header pangolin-panel-header">
         <div>
           <h2>{text.title}</h2>
@@ -468,6 +516,7 @@ export default function PangolinSettingsPanel({ onSuccess, onError, language: la
       </div>
 
       {result && <div className={`test-result ${result.success ? 'success' : 'error'}`}>{result.message}</div>}
+      </>}
     </section>
   );
 }
