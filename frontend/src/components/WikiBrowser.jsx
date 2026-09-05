@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { wikiApi, getErrorMessage } from '../services/api';
 import MarkdownView from './MarkdownView';
 
@@ -39,15 +39,9 @@ function flattenArticles(node) {
   return articles;
 }
 
-function WikiTree({ folders, rootArticles, activeSlug, onSelect, query }) {
-  const matches = (article) => {
-    if (!query) return true;
-    const needle = query.toLowerCase();
-    return `${article.title} ${article.summary || ''}`.toLowerCase().includes(needle);
-  };
-
+function WikiTree({ folders, rootArticles, activeSlug, onSelect }) {
   const renderFolder = (folder, depth = 0) => {
-    const visibleArticles = (folder.articles || []).filter(matches);
+    const visibleArticles = folder.articles || [];
     const childNodes = (folder.children || []).map(child => renderFolder(child, depth + 1)).filter(Boolean);
     if (!visibleArticles.length && !childNodes.length) return null;
 
@@ -72,12 +66,11 @@ function WikiTree({ folders, rootArticles, activeSlug, onSelect, query }) {
     );
   };
 
-  const visibleRoot = (rootArticles || []).filter(matches);
   const folderNodes = (folders || []).map(folder => renderFolder(folder)).filter(Boolean);
 
   return (
     <ul className="wiki-tree">
-      {visibleRoot.map(article => (
+      {(rootArticles || []).map(article => (
         <li key={article.slug}>
           <button
             type="button"
@@ -98,10 +91,10 @@ export default function WikiBrowser({ language = 'en' }) {
   const [tree, setTree] = useState({ folders: [], rootArticles: [] });
   const [activeSlug, setActiveSlug] = useState('');
   const [article, setArticle] = useState(null);
-  const [query, setQuery] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const [navigationOpen, setNavigationOpen] = useState(false);
+  const menuWrapRef = useRef(null);
 
   const selectArticle = (slug) => {
     setActiveSlug(slug);
@@ -129,8 +122,6 @@ export default function WikiBrowser({ language = 'en' }) {
     return collected;
   }, [tree]);
 
-  // Open the first article automatically, and re-resolve the selection when the
-  // portal language changes so the reader never lands on an empty pane.
   useEffect(() => {
     if (!allArticles.length) {
       setActiveSlug('');
@@ -151,6 +142,32 @@ export default function WikiBrowser({ language = 'en' }) {
     return () => { active = false; };
   }, [activeSlug, language, text.articleFailed]);
 
+  useEffect(() => {
+    if (!navigationOpen) return undefined;
+
+    const handlePointerDown = (event) => {
+      if (menuWrapRef.current && !menuWrapRef.current.contains(event.target)) {
+        setNavigationOpen(false);
+      }
+    };
+
+    const handleEscape = (event) => {
+      if (event.key === 'Escape') {
+        setNavigationOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('touchstart', handlePointerDown);
+    document.addEventListener('keydown', handleEscape);
+
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('touchstart', handlePointerDown);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [navigationOpen]);
+
   const hasContent = allArticles.length > 0;
 
   return (
@@ -158,16 +175,33 @@ export default function WikiBrowser({ language = 'en' }) {
       <div className="panel-header wiki-panel-heading">
         <h2>{text.title}</h2>
         {hasContent && (
-          <div className="wiki-panel-heading-actions">
-            <input
-              type="search"
-              className="wiki-search-input"
-              placeholder={text.search}
-              value={query}
-              onFocus={() => setNavigationOpen(true)}
-              onChange={(event) => { setQuery(event.target.value); setNavigationOpen(true); }}
-              aria-label={text.search}
-            />
+          <div className="wiki-panel-heading-actions" ref={menuWrapRef}>
+            <button
+              type="button"
+              className={`wiki-floating-menu-button wiki-floating-menu-button-inline ${navigationOpen ? 'is-open' : ''}`}
+              onClick={() => setNavigationOpen(open => !open)}
+              aria-expanded={navigationOpen}
+              aria-controls="wiki-navigation"
+              title={text.showNavigation}
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M5 6h14M5 12h14M5 18h14" />
+              </svg>
+              <span>{text.showNavigation}</span>
+            </button>
+
+            {navigationOpen && (
+              <div className="wiki-floating-menu-popover wiki-floating-menu-popover-inline" role="dialog" aria-label={text.showNavigation}>
+                <nav id="wiki-navigation" className="wiki-sidebar wiki-floating-sidebar" aria-label={text.title}>
+                  <WikiTree
+                    folders={tree.folders}
+                    rootArticles={tree.rootArticles}
+                    activeSlug={activeSlug}
+                    onSelect={selectArticle}
+                  />
+                </nav>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -178,41 +212,6 @@ export default function WikiBrowser({ language = 'en' }) {
 
       {hasContent && (
         <div className="wiki-layout wiki-floating-navigation-layout">
-          <button
-            type="button"
-            className={`wiki-floating-menu-button ${navigationOpen ? 'is-open' : ''}`}
-            onClick={() => setNavigationOpen(open => !open)}
-            aria-expanded={navigationOpen}
-            aria-controls="wiki-navigation"
-            title={text.showNavigation}
-          >
-            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-              <path d="M5 6h14M5 12h14M5 18h14" />
-            </svg>
-            <span>{text.showNavigation}</span>
-          </button>
-
-          {navigationOpen && (
-            <div className="wiki-floating-menu-popover" role="dialog" aria-label={text.showNavigation}>
-              <div className="wiki-floating-menu-head">
-                <strong>{text.showNavigation}</strong>
-                <button type="button" className="wiki-floating-menu-close" onClick={() => setNavigationOpen(false)} aria-label={text.closeNavigation}>×</button>
-              </div>
-              <nav id="wiki-navigation" className="wiki-sidebar wiki-floating-sidebar" aria-label={text.title}>
-                <WikiTree
-                  folders={tree.folders}
-                  rootArticles={tree.rootArticles}
-                  activeSlug={activeSlug}
-                  onSelect={selectArticle}
-                  query={query.trim()}
-                />
-                {query.trim() && !allArticles.some(item => `${item.title} ${item.summary || ''}`.toLowerCase().includes(query.trim().toLowerCase())) && (
-                  <p className="hint-text wiki-no-matches">{text.noMatches}</p>
-                )}
-              </nav>
-            </div>
-          )}
-
           <article className="wiki-article">
             <div className="wiki-article-inner">
             {!article && <p className="hint-text">{text.selectPrompt}</p>}

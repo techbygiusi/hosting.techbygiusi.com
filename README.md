@@ -51,8 +51,8 @@ Hosting Portal is a self-hosted customer portal for Proxmox environments. It com
 - Provide an administrator-managed knowledge base inside the user portal.
 - Organize articles in nested folders and move them between folders with a dedicated drag handle.
 - Write English and German Markdown articles with independent publication states.
-- Use a full-page editor with formatting tools, split preview and keyboard shortcuts, then return directly to the Wiki administration tab.
-- Upload or paste images and control their alignment in an article.
+- Use a full-page Markdown editor with formatting tools, slash commands, list continuation, indentation shortcuts, synchronized split preview and local draft recovery.
+- Upload, paste or drag images into an article and control their alignment.
 - Keep wiki articles and uploaded images in persistent backend storage.
 - Search published articles and automatically fall back to the available language.
 
