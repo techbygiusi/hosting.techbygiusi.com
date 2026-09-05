@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { adminApi, getErrorMessage } from '../services/api';
 import { EmptyState, InlineNotice, SectionCard } from './UiBits';
 
@@ -8,14 +8,28 @@ const TEXT = {
     rates: 'Billing rates', currency: 'Currency', runtime: 'Runtime / hour', cpu: 'CPU / core-hour', memory: 'Memory / GB-hour', storage: 'Storage / GB-month',
     save: 'Save rates', saving: 'Saving…', saved: 'Billing rates saved.', failed: 'Billing data could not be loaded.',
     userCosts: 'Cost by user', serviceList: 'Included services', sourceSelf: 'Self-service', sourceAssigned: 'Admin assigned',
-    noUsage: 'No usage tracked for this month.', noServices: 'No billable services.', owner: 'Owner', saveFailed: 'Billing rates could not be saved.'
+    noUsage: 'No usage tracked for this month.', noServices: 'No billable services.', owner: 'Owner', saveFailed: 'Billing rates could not be saved.',
+    simulator: 'Cost simulator', simulatorHint: 'Test any configuration. Values are calculated instantly and are not saved.',
+    simulatorTotal: 'Estimated monthly cost', monthDays: 'Days in month', uptime: 'Uptime in month',
+    cpuCores: 'CPU cores', cpuUsage: 'Average CPU usage', ramSize: 'RAM size', ramUsage: 'Average RAM usage',
+    storageSize: 'Storage size', storageUsage: 'Average storage used', runtimeRate: 'Runtime price / hour',
+    cpuRate: 'CPU price / core-hour', ramRate: 'RAM price / GB-hour', storageRate: 'Storage price / GB-month',
+    activeHours: 'Active hours', runtimeCost: 'Runtime', cpuCost: 'CPU', ramCost: 'RAM', storageCost: 'Storage',
+    useSavedRates: 'Use saved rates', groupTime: 'Time', groupStorage: 'Storage'
   },
   de: {
     month: 'Monat', total: 'Gesamt in diesem Monat', users: 'Abgerechnete Benutzer', services: 'Abrechenbare Services',
     rates: 'Billing-Tarife', currency: 'Währung', runtime: 'Laufzeit / Stunde', cpu: 'CPU / Core-Stunde', memory: 'RAM / GB-Stunde', storage: 'Speicher / GB-Monat',
     save: 'Tarife speichern', saving: 'Speichern…', saved: 'Billing-Tarife gespeichert.', failed: 'Billing-Daten konnten nicht geladen werden.',
     userCosts: 'Kosten pro Benutzer', serviceList: 'Enthaltene Services', sourceSelf: 'Self-Service', sourceAssigned: 'Vom Admin zugewiesen',
-    noUsage: 'Für diesen Monat wurden noch keine Nutzungsdaten erfasst.', noServices: 'Keine abrechenbaren Services.', owner: 'Besitzer', saveFailed: 'Billing-Tarife konnten nicht gespeichert werden.'
+    noUsage: 'Für diesen Monat wurden noch keine Nutzungsdaten erfasst.', noServices: 'Keine abrechenbaren Services.', owner: 'Besitzer', saveFailed: 'Billing-Tarife konnten nicht gespeichert werden.',
+    simulator: 'Kosten-Simulator', simulatorHint: 'Beliebige Konfiguration testen. Alle Werte werden sofort berechnet und nicht gespeichert.',
+    simulatorTotal: 'Geschätzte Monatskosten', monthDays: 'Tage im Monat', uptime: 'Laufzeit im Monat',
+    cpuCores: 'CPU-Cores', cpuUsage: 'Ø CPU-Auslastung', ramSize: 'RAM-Größe', ramUsage: 'Ø RAM-Auslastung',
+    storageSize: 'Speichergröße', storageUsage: 'Ø belegter Speicher', runtimeRate: 'Laufzeitpreis / Stunde',
+    cpuRate: 'CPU-Preis / Core-Stunde', ramRate: 'RAM-Preis / GB-Stunde', storageRate: 'Speicherpreis / GB-Monat',
+    activeHours: 'Aktive Stunden', runtimeCost: 'Laufzeit', cpuCost: 'CPU', ramCost: 'RAM', storageCost: 'Speicher',
+    useSavedRates: 'Gespeicherte Tarife übernehmen', groupTime: 'Zeitraum', groupStorage: 'Speicher'
   }
 };
 
@@ -27,6 +41,43 @@ function money(value, currency, language) {
   }
 }
 
+
+function SimulatorSlider({ label, value, min, max, step = 1, suffix = '', onChange }) {
+  const numericValue = Number(value || 0);
+  const safeMax = Math.max(Number(max || 0), Number(min || 0) + Number(step || 1));
+  const percent = Math.max(0, Math.min(100, ((numericValue - Number(min || 0)) / (safeMax - Number(min || 0))) * 100));
+
+  return (
+    <label className="billing-simulator-control">
+      <div className="billing-simulator-control-head">
+        <span>{label}</span>
+        <div className="billing-simulator-number-wrap">
+          <input
+            className="billing-simulator-number"
+            type="number"
+            min={min}
+            max={max}
+            step={step}
+            value={numericValue}
+            onChange={(event) => onChange(Number(event.target.value))}
+          />
+          {suffix ? <span>{suffix}</span> : null}
+        </div>
+      </div>
+      <input
+        className="billing-simulator-range"
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={numericValue}
+        style={{ '--range-progress': `${percent}%` }}
+        onChange={(event) => onChange(Number(event.target.value))}
+      />
+    </label>
+  );
+}
+
 export default function AdminBilling({ language = 'en' }) {
   const text = TEXT[language] || TEXT.en;
   const [month, setMonth] = useState(new Date().toISOString().slice(0, 7));
@@ -35,6 +86,47 @@ export default function AdminBilling({ language = 'en' }) {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [saving, setSaving] = useState(false);
+  const [simulator, setSimulator] = useState({
+    monthDays: 30,
+    uptimePercent: 100,
+    cpuCores: 4,
+    cpuUsagePercent: 35,
+    ramGb: 8,
+    ramUsagePercent: 60,
+    storageGb: 100,
+    storageUsagePercent: 50,
+    runtimePerHour: 0,
+    cpuPerCoreHour: 0,
+    memoryPerGbHour: 0,
+    storagePerGbMonth: 0
+  });
+
+  const setSimulatorValue = (key, value) => {
+    setSimulator((current) => ({ ...current, [key]: Number.isFinite(Number(value)) ? Number(value) : 0 }));
+  };
+
+  const simulatorResult = useMemo(() => {
+    const days = Math.max(1, Number(simulator.monthDays || 30));
+    const uptime = Math.max(0, Math.min(100, Number(simulator.uptimePercent || 0))) / 100;
+    const activeHours = days * 24 * uptime;
+    const cpuUsed = Math.max(0, Number(simulator.cpuCores || 0)) * Math.max(0, Math.min(100, Number(simulator.cpuUsagePercent || 0))) / 100;
+    const ramUsed = Math.max(0, Number(simulator.ramGb || 0)) * Math.max(0, Math.min(100, Number(simulator.ramUsagePercent || 0))) / 100;
+    const storageUsed = Math.max(0, Number(simulator.storageGb || 0)) * Math.max(0, Math.min(100, Number(simulator.storageUsagePercent || 0))) / 100;
+
+    const runtimeCost = activeHours * Math.max(0, Number(simulator.runtimePerHour || 0));
+    const cpuCost = cpuUsed * activeHours * Math.max(0, Number(simulator.cpuPerCoreHour || 0));
+    const ramCost = ramUsed * activeHours * Math.max(0, Number(simulator.memoryPerGbHour || 0));
+    const storageCost = storageUsed * Math.max(0, Number(simulator.storagePerGbMonth || 0));
+
+    return {
+      activeHours,
+      runtimeCost,
+      cpuCost,
+      ramCost,
+      storageCost,
+      totalCost: runtimeCost + cpuCost + ramCost + storageCost
+    };
+  }, [simulator]);
 
   const load = async () => {
     setError('');
@@ -63,6 +155,17 @@ export default function AdminBilling({ language = 'en' }) {
   };
 
   const currency = settings.currency || 'EUR';
+
+  const applySavedRatesToSimulator = () => {
+    setSimulator((current) => ({
+      ...current,
+      runtimePerHour: Number(settings.runtimePerHour || 0),
+      cpuPerCoreHour: Number(settings.cpuPerCoreHour || 0),
+      memoryPerGbHour: Number(settings.memoryPerGbHour || 0),
+      storagePerGbMonth: Number(settings.storagePerGbMonth || 0)
+    }));
+  };
+
   return (
     <div className="admin-billing-page">
       {error ? <InlineNotice tone="danger">{error}</InlineNotice> : null}
@@ -74,6 +177,59 @@ export default function AdminBilling({ language = 'en' }) {
         <article className="billing-summary-card"><span>{text.users}</span><strong>{data?.users?.length || 0}</strong></article>
         <article className="billing-summary-card"><span>{text.services}</span><strong>{data?.billableServices?.length || 0}</strong></article>
       </div>
+
+      <SectionCard title={text.simulator}>
+        <div className="billing-simulator">
+          <div className="billing-simulator-topbar">
+            <p>{text.simulatorHint}</p>
+            <button type="button" className="btn-secondary btn-small" onClick={applySavedRatesToSimulator}>{text.useSavedRates}</button>
+          </div>
+
+          <div className="billing-simulator-layout">
+            <div className="billing-simulator-controls">
+              <div className="billing-simulator-group">
+                <div className="billing-simulator-group-title">{text.groupTime}</div>
+                <SimulatorSlider label={text.monthDays} value={simulator.monthDays} min={28} max={31} step={1} suffix="" onChange={(value) => setSimulatorValue('monthDays', value)} />
+                <SimulatorSlider label={text.uptime} value={simulator.uptimePercent} min={0} max={100} step={1} suffix="%" onChange={(value) => setSimulatorValue('uptimePercent', value)} />
+                <SimulatorSlider label={text.runtimeRate} value={simulator.runtimePerHour} min={0} max={2} step={0.001} suffix={currency} onChange={(value) => setSimulatorValue('runtimePerHour', value)} />
+              </div>
+
+              <div className="billing-simulator-group">
+                <div className="billing-simulator-group-title">CPU</div>
+                <SimulatorSlider label={text.cpuCores} value={simulator.cpuCores} min={1} max={64} step={1} onChange={(value) => setSimulatorValue('cpuCores', value)} />
+                <SimulatorSlider label={text.cpuUsage} value={simulator.cpuUsagePercent} min={0} max={100} step={1} suffix="%" onChange={(value) => setSimulatorValue('cpuUsagePercent', value)} />
+                <SimulatorSlider label={text.cpuRate} value={simulator.cpuPerCoreHour} min={0} max={2} step={0.001} suffix={currency} onChange={(value) => setSimulatorValue('cpuPerCoreHour', value)} />
+              </div>
+
+              <div className="billing-simulator-group">
+                <div className="billing-simulator-group-title">RAM</div>
+                <SimulatorSlider label={text.ramSize} value={simulator.ramGb} min={1} max={256} step={1} suffix="GB" onChange={(value) => setSimulatorValue('ramGb', value)} />
+                <SimulatorSlider label={text.ramUsage} value={simulator.ramUsagePercent} min={0} max={100} step={1} suffix="%" onChange={(value) => setSimulatorValue('ramUsagePercent', value)} />
+                <SimulatorSlider label={text.ramRate} value={simulator.memoryPerGbHour} min={0} max={2} step={0.001} suffix={currency} onChange={(value) => setSimulatorValue('memoryPerGbHour', value)} />
+              </div>
+
+              <div className="billing-simulator-group">
+                <div className="billing-simulator-group-title">{text.groupStorage}</div>
+                <SimulatorSlider label={text.storageSize} value={simulator.storageGb} min={1} max={4096} step={1} suffix="GB" onChange={(value) => setSimulatorValue('storageGb', value)} />
+                <SimulatorSlider label={text.storageUsage} value={simulator.storageUsagePercent} min={0} max={100} step={1} suffix="%" onChange={(value) => setSimulatorValue('storageUsagePercent', value)} />
+                <SimulatorSlider label={text.storageRate} value={simulator.storagePerGbMonth} min={0} max={5} step={0.001} suffix={currency} onChange={(value) => setSimulatorValue('storagePerGbMonth', value)} />
+              </div>
+            </div>
+
+            <aside className="billing-simulator-result">
+              <span>{text.simulatorTotal}</span>
+              <strong>{money(simulatorResult.totalCost, currency, language)}</strong>
+              <small>{text.activeHours}: {simulatorResult.activeHours.toFixed(1)} h</small>
+              <div className="billing-simulator-breakdown">
+                <div><span>{text.runtimeCost}</span><strong>{money(simulatorResult.runtimeCost, currency, language)}</strong></div>
+                <div><span>{text.cpuCost}</span><strong>{money(simulatorResult.cpuCost, currency, language)}</strong></div>
+                <div><span>{text.ramCost}</span><strong>{money(simulatorResult.ramCost, currency, language)}</strong></div>
+                <div><span>{text.storageCost}</span><strong>{money(simulatorResult.storageCost, currency, language)}</strong></div>
+              </div>
+            </aside>
+          </div>
+        </div>
+      </SectionCard>
 
       <div className="admin-billing-grid">
         <SectionCard title={text.rates}>

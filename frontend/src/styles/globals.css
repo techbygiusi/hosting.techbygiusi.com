@@ -4831,3 +4831,268 @@ button:disabled,
     gap: 5px;
   }
 }
+
+
+/* v22 billing simulator */
+.billing-simulator {
+  display: grid;
+  gap: 16px;
+}
+.billing-simulator-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.billing-simulator-topbar p {
+  margin: 0;
+  color: var(--portal-text-soft);
+}
+.billing-simulator-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, .34fr);
+  gap: 16px;
+  align-items: stretch;
+}
+.billing-simulator-controls {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+.billing-simulator-group {
+  min-width: 0;
+  display: grid;
+  align-content: start;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid var(--portal-border);
+  border-radius: 18px;
+  background: var(--portal-bg-soft);
+}
+.billing-simulator-group-title {
+  color: var(--portal-heading);
+  font-weight: 800;
+  font-size: 1rem;
+}
+.billing-simulator-control {
+  min-width: 0;
+  display: grid;
+  gap: 9px;
+}
+.billing-simulator-control-head {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.billing-simulator-control-head > span {
+  min-width: 0;
+  color: var(--portal-text-soft);
+  font-size: .86rem;
+  font-weight: 700;
+}
+.billing-simulator-number-wrap {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--portal-text-soft);
+  font-size: .78rem;
+}
+.billing-simulator-number {
+  width: 82px;
+  min-height: 34px;
+  padding: 5px 8px;
+  text-align: right;
+  border: 1px solid var(--portal-border-strong);
+  border-radius: 10px;
+  background: var(--portal-input-bg);
+  color: var(--portal-heading);
+  font-weight: 700;
+  outline: none;
+}
+.billing-simulator-number:focus {
+  border-color: var(--portal-primary);
+  box-shadow: 0 0 0 3px var(--portal-primary-soft);
+}
+.billing-simulator-range {
+  --range-progress: 0%;
+  width: 100%;
+  height: 18px;
+  margin: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+.billing-simulator-range::-webkit-slider-runnable-track {
+  height: 7px;
+  border-radius: 999px;
+  border: 1px solid var(--portal-border);
+  background: linear-gradient(
+    90deg,
+    var(--portal-primary) 0,
+    var(--portal-primary) var(--range-progress),
+    var(--portal-primary-soft) var(--range-progress),
+    var(--portal-primary-soft) 100%
+  );
+}
+.billing-simulator-range::-webkit-slider-thumb {
+  width: 18px;
+  height: 18px;
+  margin-top: -6px;
+  border: 3px solid var(--portal-surface-strong);
+  border-radius: 50%;
+  appearance: none;
+  -webkit-appearance: none;
+  background: var(--portal-primary);
+  box-shadow: 0 2px 8px rgba(67, 43, 118, .24);
+  transition: transform 150ms ease, box-shadow 150ms ease;
+}
+.billing-simulator-range:hover::-webkit-slider-thumb {
+  transform: scale(1.12);
+  box-shadow: 0 3px 12px rgba(67, 43, 118, .34);
+}
+.billing-simulator-range::-moz-range-track {
+  height: 7px;
+  border-radius: 999px;
+  border: 1px solid var(--portal-border);
+  background: var(--portal-primary-soft);
+}
+.billing-simulator-range::-moz-range-progress {
+  height: 7px;
+  border-radius: 999px;
+  background: var(--portal-primary);
+}
+.billing-simulator-range::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border: 3px solid var(--portal-surface-strong);
+  border-radius: 50%;
+  background: var(--portal-primary);
+  box-shadow: 0 2px 8px rgba(67, 43, 118, .24);
+  transition: transform 150ms ease, box-shadow 150ms ease;
+}
+.billing-simulator-range:hover::-moz-range-thumb {
+  transform: scale(1.12);
+}
+.billing-simulator-result {
+  min-width: 0;
+  display: grid;
+  align-content: start;
+  gap: 9px;
+  padding: 20px;
+  border: 1px solid var(--portal-border-strong);
+  border-radius: 20px;
+  background:
+    radial-gradient(circle at right top, rgba(180, 135, 255, .22), transparent 40%),
+    var(--portal-surface);
+  box-shadow: var(--portal-shadow-soft);
+}
+.billing-simulator-result > span,
+.billing-simulator-result > small {
+  color: var(--portal-text-soft);
+}
+.billing-simulator-result > strong {
+  color: var(--portal-heading);
+  font-size: clamp(2rem, 3vw, 3.1rem);
+  line-height: 1.05;
+}
+.billing-simulator-breakdown {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+}
+.billing-simulator-breakdown > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--portal-border);
+  border-radius: 13px;
+  background: var(--portal-bg-soft);
+}
+.billing-simulator-breakdown span {
+  color: var(--portal-text-soft);
+  font-size: .84rem;
+}
+.billing-simulator-breakdown strong {
+  color: var(--portal-heading);
+}
+@media (max-width: 1450px) {
+  .billing-simulator-layout {
+    grid-template-columns: 1fr;
+  }
+  .billing-simulator-result {
+    grid-template-columns: minmax(220px, .35fr) minmax(0, 1fr);
+    align-items: center;
+  }
+  .billing-simulator-result > small {
+    grid-column: 1;
+  }
+  .billing-simulator-breakdown {
+    grid-column: 2;
+    grid-row: 1 / span 3;
+    margin: 0;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 1100px) {
+  .billing-simulator-controls {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 720px) {
+  .billing-simulator-topbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .billing-simulator-topbar .btn-secondary {
+    width: 100%;
+  }
+  .billing-simulator-controls,
+  .billing-simulator-result,
+  .billing-simulator-breakdown {
+    grid-template-columns: 1fr;
+  }
+  .billing-simulator-result > small,
+  .billing-simulator-breakdown {
+    grid-column: auto;
+    grid-row: auto;
+  }
+  .billing-simulator-control-head {
+    align-items: flex-start;
+  }
+}
+
+
+/* v24 shared billing allocation */
+.billing-service-cost-stack {
+  flex: 0 0 auto;
+  min-width: 190px;
+  display: grid;
+  justify-items: end;
+  gap: 3px;
+  text-align: right;
+}
+.billing-service-cost-stack > span,
+.billing-service-cost-stack > small {
+  color: var(--portal-text-soft);
+  font-size: .8rem;
+}
+.billing-service-cost-stack > span strong {
+  color: var(--portal-heading);
+}
+.billing-service-cost-stack > small {
+  font-weight: 700;
+}
+@media (max-width: 720px) {
+  .billing-service-cost-stack {
+    width: 100%;
+    min-width: 0;
+    justify-items: start;
+    text-align: left;
+  }
+}

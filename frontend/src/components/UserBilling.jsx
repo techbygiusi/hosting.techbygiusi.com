@@ -4,18 +4,20 @@ import { EmptyState, InlineNotice, SectionCard } from './UiBits';
 
 const TEXT = {
   en: {
-    total: 'This month', runtime: 'Runtime', cpu: 'CPU', memory: 'Memory', storage: 'Storage',
+    total: 'Your total this month', runtime: 'Runtime', cpu: 'CPU', memory: 'Memory', storage: 'Storage',
     services: 'Cost by service', noData: 'No billing data yet', noDataText: 'Usage tracking starts automatically for self-service containers and other billable services.',
     month: 'Month', hours: 'h', coreHours: 'core h', gbHours: 'GB h', gbMonth: 'GB month',
     average: 'Average', sourceSelf: 'Self-service', sourceAssigned: 'Assigned service', loading: 'Loading billing…',
-    failed: 'Billing data could not be loaded.'
+    failed: 'Billing data could not be loaded.', yourShare: 'Your share', serviceTotal: 'Service total',
+    splitAcross: 'Split across', usersLabel: 'users'
   },
   de: {
-    total: 'Dieser Monat', runtime: 'Laufzeit', cpu: 'CPU', memory: 'Arbeitsspeicher', storage: 'Speicher',
+    total: 'Dein Anteil in diesem Monat', runtime: 'Laufzeit', cpu: 'CPU', memory: 'Arbeitsspeicher', storage: 'Speicher',
     services: 'Kosten pro Service', noData: 'Noch keine Abrechnungsdaten', noDataText: 'Die Verbrauchserfassung startet automatisch für Self-Service-Container und andere abrechenbare Services.',
     month: 'Monat', hours: 'Std.', coreHours: 'Core-Std.', gbHours: 'GB-Std.', gbMonth: 'GB-Monat',
     average: 'Ø', sourceSelf: 'Self-Service', sourceAssigned: 'Zugewiesener Service', loading: 'Billing wird geladen…',
-    failed: 'Billing-Daten konnten nicht geladen werden.'
+    failed: 'Billing-Daten konnten nicht geladen werden.', yourShare: 'Dein Anteil', serviceTotal: 'Gesamtkosten',
+    splitAcross: 'Aufgeteilt auf', usersLabel: 'Benutzer'
   }
 };
 
@@ -103,7 +105,13 @@ export default function UserBilling({ language = 'en' }) {
               <article className="billing-service-row" key={`${resource.id}-${resource.name}`}>
                 <div className="billing-service-main">
                   <div><strong>{resource.name}</strong><span>{resource.clusterName || '—'} · {resource.source === 'self-service' ? text.sourceSelf : text.sourceAssigned}</span></div>
-                  <strong className="billing-service-total">{money(resource.totalCost, settings.currency, language)}</strong>
+                  <div className="billing-service-cost-stack">
+                    <span>{text.serviceTotal}: <strong>{money(resource.fullTotalCost ?? resource.totalCost, settings.currency, language)}</strong></span>
+                    <strong className="billing-service-total">{text.yourShare}: {money(resource.ownCost ?? resource.totalCost, settings.currency, language)}</strong>
+                    {Number(resource.allocatedUsers || 1) > 1 ? (
+                      <small>{num(resource.sharePercent, 1)}% · {text.splitAcross} {resource.allocatedUsers} {text.usersLabel}</small>
+                    ) : null}
+                  </div>
                 </div>
                 <div className="billing-service-usage">
                   <span>{text.runtime}: <strong>{num(resource.runtimeHours)} {text.hours}</strong></span>

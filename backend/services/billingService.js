@@ -261,13 +261,54 @@ async function getBillingSummary({ userId = null, month = null } = {}) {
   `, params);
 
   const summary = calculateUsage(aggregate || {}, settings, info.hours);
-  const resources = resourceRows.map((row) => ({
-    id: row.resource_id,
-    name: row.resource_name,
-    clusterName: row.cluster_name,
-    source: row.source,
-    ...calculateUsage(row, settings, info.hours)
-  })).sort((a, b) => b.totalCost - a.totalCost);
+
+  let fullResourceUsage = new Map();
+  if (userId && resourceRows.length) {
+    const resourceIds = [...new Set(resourceRows.map((row) => row.resource_id).filter((value) => value !== null && value !== undefined))];
+    if (resourceIds.length) {
+      const fullRows = await all(`
+        SELECT
+          resource_id,
+          COUNT(DISTINCT user_id) as allocated_users,
+          COALESCE(SUM(duration_seconds), 0) as duration_seconds,
+          COALESCE(SUM(running_seconds), 0) as running_seconds,
+          COALESCE(SUM(cpu_core_seconds), 0) as cpu_core_seconds,
+          COALESCE(SUM(memory_gb_seconds), 0) as memory_gb_seconds,
+          COALESCE(SUM(storage_gb_seconds), 0) as storage_gb_seconds
+        FROM billing_usage_samples
+        WHERE sampled_at >= ? AND sampled_at < ?
+          AND resource_id IN (${resourceIds.map(() => '?').join(',')})
+        GROUP BY resource_id
+      `, [info.start, info.next, ...resourceIds]);
+
+      fullResourceUsage = new Map(fullRows.map((row) => [String(row.resource_id), row]));
+    }
+  }
+
+  const resources = resourceRows.map((row) => {
+    const ownUsage = calculateUsage(row, settings, info.hours);
+    const fullRow = userId ? fullResourceUsage.get(String(row.resource_id)) : null;
+    const fullUsage = fullRow ? calculateUsage(fullRow, settings, info.hours) : ownUsage;
+    const allocatedUsers = Math.max(Number(fullRow?.allocated_users || 1), 1);
+    const ownDuration = Number(row.duration_seconds || 0);
+    const fullDuration = Number(fullRow?.duration_seconds || row.duration_seconds || 0);
+    const sharePercent = fullDuration > 0
+      ? Math.max(0, Math.min(100, ownDuration / fullDuration * 100))
+      : 100 / allocatedUsers;
+
+    return {
+      id: row.resource_id,
+      name: row.resource_name,
+      clusterName: row.cluster_name,
+      source: row.source,
+      ...ownUsage,
+      ownCost: ownUsage.totalCost,
+      fullTotalCost: fullUsage.totalCost,
+      fullCosts: fullUsage.costs,
+      allocatedUsers,
+      sharePercent
+    };
+  }).sort((a, b) => b.totalCost - a.totalCost);
 
   const result = {
     month: info.month,
