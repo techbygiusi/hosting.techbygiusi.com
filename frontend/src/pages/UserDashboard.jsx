@@ -454,7 +454,6 @@ export default function UserDashboard() {
             <>
               <section className="panel-card dashboard-hero-card user-dashboard-hero-card">
                 <div>
-                  <span className="resource-id">Hosting by TechByGiusi</span>
                   <h2>{labels.hero.title}</h2>
                 </div>
                 {availableProvisioningOptions.length > 0 && (
