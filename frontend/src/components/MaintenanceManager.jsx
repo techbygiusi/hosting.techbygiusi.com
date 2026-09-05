@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { adminApi, getErrorMessage } from '../services/api';
-import ActionModal from './ActionModal';
+import { CloseIcon } from './Icons';
 import { EmptyState, InlineNotice, SectionCard } from './UiBits';
 
 function toLocalInput(value) {
@@ -29,7 +29,7 @@ export default function MaintenanceManager() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
-  const [modal, setModal] = useState(null);
+  const [editor, setEditor] = useState(null);
 
   const load = async () => {
     setLoading(true);
@@ -46,8 +46,8 @@ export default function MaintenanceManager() {
 
   useEffect(() => { load(); }, []);
 
-  const openCreate = () => setModal({ mode: 'create', data: freshForm() });
-  const openEdit = (item) => setModal({
+  const openCreate = () => setEditor({ mode: 'create', data: freshForm() });
+  const openEdit = (item) => setEditor({
     mode: 'edit',
     data: {
       ...item,
@@ -59,8 +59,8 @@ export default function MaintenanceManager() {
 
   const save = async (event) => {
     event.preventDefault();
-    if (!modal) return;
-    const data = modal.data;
+    if (!editor) return;
+    const data = editor.data;
     setBusy(true);
     setError('');
     setNotice('');
@@ -73,10 +73,10 @@ export default function MaintenanceManager() {
         endsAt: new Date(data.endsAt).toISOString(),
         notifyUsers: Boolean(data.notifyUsers)
       };
-      if (modal.mode === 'edit') await adminApi.updateMaintenanceWindow(data.id, payload);
+      if (editor.mode === 'edit') await adminApi.updateMaintenanceWindow(data.id, payload);
       else await adminApi.createMaintenanceWindow(payload);
-      setNotice(modal.mode === 'edit' ? 'Maintenance window updated.' : 'Maintenance window created.');
-      setModal(null);
+      setNotice(editor.mode === 'edit' ? 'Maintenance window updated.' : 'Maintenance window created.');
+      setEditor(null);
       await load();
     } catch (err) {
       setError(getErrorMessage(err, 'Maintenance window could not be saved.'));
@@ -91,6 +91,7 @@ export default function MaintenanceManager() {
     setError('');
     try {
       await adminApi.deleteMaintenanceWindow(item.id);
+      if (editor?.data?.id === item.id) setEditor(null);
       setNotice('Maintenance window deleted.');
       await load();
     } catch (err) {
@@ -101,10 +102,11 @@ export default function MaintenanceManager() {
   };
 
   return (
-    <>
-      <div className="settings-layout-clean">
-        {error ? <InlineNotice tone="danger">{error}</InlineNotice> : null}
-        {notice ? <InlineNotice tone="success">{notice}</InlineNotice> : null}
+    <div className="settings-layout-clean">
+      {error ? <InlineNotice tone="danger">{error}</InlineNotice> : null}
+      {notice ? <InlineNotice tone="success">{notice}</InlineNotice> : null}
+
+      <div className={`maintenance-workspace ${editor ? 'has-editor' : ''}`}>
         <SectionCard title="Maintenance" subtitle="Plan maintenance windows and optionally notify portal users" action={<button type="button" className="btn-primary" onClick={openCreate}>Plan maintenance</button>}>
           {loading ? <div className="page-state-clean">Loading maintenance windows…</div> : null}
           {!loading && !windows.length ? <EmptyState title="No maintenance planned" text="Create a maintenance window when services or infrastructure will be affected." /> : null}
@@ -115,7 +117,7 @@ export default function MaintenanceManager() {
               const now = new Date();
               const state = now < starts ? 'Scheduled' : now > ends ? 'Finished' : 'Active';
               return (
-                <article key={item.id} className="maintenance-card-clean">
+                <article key={item.id} className={`maintenance-card-clean ${editor?.data?.id === item.id ? 'selected' : ''}`}>
                   <div className="maintenance-card-main">
                     <div className="maintenance-title-row">
                       <h3>{item.title}</h3>
@@ -137,24 +139,31 @@ export default function MaintenanceManager() {
             })}
           </div>
         </SectionCard>
-      </div>
 
-      {modal ? (
-        <ActionModal title={modal.mode === 'edit' ? 'Edit maintenance' : 'Plan maintenance'} onClose={() => setModal(null)}>
-          <form className="clean-form-grid compact two-up" onSubmit={save}>
-            <label className="span-full"><span>Title</span><input value={modal.data.title || ''} onChange={(event) => setModal((current) => ({ ...current, data: { ...current.data, title: event.target.value } }))} required /></label>
-            <label className="span-full"><span>Description</span><textarea rows="3" value={modal.data.message || ''} onChange={(event) => setModal((current) => ({ ...current, data: { ...current.data, message: event.target.value } }))} /></label>
-            <label><span>Severity</span><select value={modal.data.severity || 'info'} onChange={(event) => setModal((current) => ({ ...current, data: { ...current.data, severity: event.target.value } }))}><option value="info">Information</option><option value="warning">Warning</option><option value="critical">Critical</option></select></label>
-            <label><span>Notify users</span><select value={modal.data.notifyUsers ? 'yes' : 'no'} onChange={(event) => setModal((current) => ({ ...current, data: { ...current.data, notifyUsers: event.target.value === 'yes' } }))}><option value="yes">Yes</option><option value="no">No</option></select></label>
-            <label><span>Starts</span><input type="datetime-local" value={modal.data.startsAt || ''} onChange={(event) => setModal((current) => ({ ...current, data: { ...current.data, startsAt: event.target.value } }))} required /></label>
-            <label><span>Ends</span><input type="datetime-local" value={modal.data.endsAt || ''} onChange={(event) => setModal((current) => ({ ...current, data: { ...current.data, endsAt: event.target.value } }))} required /></label>
-            <div className="form-actions left span-full">
-              <button type="button" className="btn-secondary" onClick={() => setModal(null)}>Cancel</button>
-              <button type="submit" className="btn-primary" disabled={busy}>{busy ? 'Saving…' : 'Save maintenance'}</button>
+        {editor ? (
+          <aside className="admin-side-editor section-card maintenance-side-editor">
+            <div className="admin-side-editor-head">
+              <div>
+                <span className="eyebrow-clean">{editor.mode === 'edit' ? 'Selected window' : 'New window'}</span>
+                <h2>{editor.mode === 'edit' ? 'Edit maintenance' : 'Plan maintenance'}</h2>
+              </div>
+              <button type="button" className="icon-button" onClick={() => setEditor(null)} aria-label="Close editor"><CloseIcon size={18} /></button>
             </div>
-          </form>
-        </ActionModal>
-      ) : null}
-    </>
+            <form className="clean-form-grid compact" onSubmit={save}>
+              <label><span>Title</span><input value={editor.data.title || ''} onChange={(event) => setEditor((current) => ({ ...current, data: { ...current.data, title: event.target.value } }))} required /></label>
+              <label><span>Description</span><textarea rows="4" value={editor.data.message || ''} onChange={(event) => setEditor((current) => ({ ...current, data: { ...current.data, message: event.target.value } }))} /></label>
+              <label><span>Severity</span><select value={editor.data.severity || 'info'} onChange={(event) => setEditor((current) => ({ ...current, data: { ...current.data, severity: event.target.value } }))}><option value="info">Information</option><option value="warning">Warning</option><option value="critical">Critical</option></select></label>
+              <label><span>Notify users</span><select value={editor.data.notifyUsers ? 'yes' : 'no'} onChange={(event) => setEditor((current) => ({ ...current, data: { ...current.data, notifyUsers: event.target.value === 'yes' } }))}><option value="yes">Yes</option><option value="no">No</option></select></label>
+              <label><span>Starts</span><input type="datetime-local" value={editor.data.startsAt || ''} onChange={(event) => setEditor((current) => ({ ...current, data: { ...current.data, startsAt: event.target.value } }))} required /></label>
+              <label><span>Ends</span><input type="datetime-local" value={editor.data.endsAt || ''} onChange={(event) => setEditor((current) => ({ ...current, data: { ...current.data, endsAt: event.target.value } }))} required /></label>
+              <div className="form-actions left">
+                <button type="button" className="btn-secondary" onClick={() => setEditor(null)}>Cancel</button>
+                <button type="submit" className="btn-primary" disabled={busy}>{busy ? 'Saving…' : 'Save maintenance'}</button>
+              </div>
+            </form>
+          </aside>
+        ) : null}
+      </div>
+    </div>
   );
 }

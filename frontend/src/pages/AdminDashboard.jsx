@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import PortalShell from '../components/PortalShell';
+import PageSkeleton from '../components/PageSkeleton';
 import {
   DashboardIcon,
   ServerIcon,
@@ -11,13 +12,13 @@ import {
   HomeIcon,
   BellIcon,
   LockIcon,
-  LinkIcon
+  LinkIcon,
+  CloseIcon
 } from '../components/Icons';
 import { EmptyState, InlineNotice, SectionCard, StatCard, StatusBadge } from '../components/UiBits';
 import { useAuth } from '../context/AuthContext';
 import { adminApi, getErrorMessage } from '../services/api';
 import { readStoredLanguage, storeLanguage } from '../components/LanguageSwitch';
-import ActionModal from '../components/ActionModal';
 import PangolinSettingsPanel from '../components/PangolinSettingsPanel';
 import WikiAdminPanel from '../components/WikiAdminPanel';
 import HostingPortalSettings from '../components/HostingPortalSettings';
@@ -64,34 +65,31 @@ function AdminOverview({ users, clusters, resources, groups, clusterStats, onOpe
   const runningServices = resources.filter((item) => String(item.status || '').toLowerCase().includes('run')).length;
 
   return (
-    <div className="dashboard-grid-full admin-dashboard-grid">
-      <section className="hero-card-clean span-2">
+    <div className="admin-overview-v4">
+      <section className="hero-card-clean admin-overview-hero-v4">
         <div>
-          <p className="eyebrow-clean">Administrator overview</p>
-          <h2>Infrastructure without the settings maze.</h2>
-          <p>Operational tools now have their own places in the main navigation, while Settings is only for your account.</p>
+          <p className="eyebrow-clean">Administrator</p>
+          <h2>{runningServices} of {resources.length} services running</h2>
+          <p>{onlineClusters} of {clusters.length} clusters reachable · {totalNodes} nodes</p>
         </div>
-        <div className="hero-actions">
-          <button type="button" className="btn-primary" onClick={() => onOpen('services')}>Manage services</button>
-        </div>
+        <button type="button" className="btn-primary" onClick={() => onOpen('services')}>Manage services</button>
       </section>
 
-      <StatCard label="Services" value={resources.length} hint={`${runningServices} running`} tone="success" />
-      <StatCard label="Users" value={users.length} hint="Portal accounts" />
-      <StatCard label="Clusters" value={clusters.length} hint={`${onlineClusters} reachable`} tone={clusters.length && onlineClusters === clusters.length ? 'success' : 'neutral'} />
-      <StatCard label="Groups" value={groups.length} hint="Customer groups" />
-      <StatCard label="Nodes" value={totalNodes} hint="Across all Proxmox clusters" />
+      <div className="admin-overview-stats-v4">
+        <StatCard label="Services" value={resources.length} hint={`${runningServices} running`} tone="success" />
+        <StatCard label="Users" value={users.length} hint="Portal accounts" />
+        <StatCard label="Clusters" value={clusters.length} hint={`${onlineClusters} reachable`} tone={clusters.length && onlineClusters === clusters.length ? 'success' : 'neutral'} />
+        <StatCard label="Groups" value={groups.length} hint="Access groups" />
+        <StatCard label="Nodes" value={totalNodes} hint="Proxmox nodes" />
+      </div>
 
-      <SectionCard title="Cluster capacity" subtitle="Live totals from connected Proxmox clusters" className="span-2">
-        <div className="cluster-stat-grid">
+      <SectionCard title="Cluster capacity" className="admin-cluster-capacity-v4">
+        <div className="cluster-stat-grid admin-cluster-grid-v4">
           {clusterStats.map((cluster) => (
             <div key={cluster.id} className="cluster-stat-card">
               <div className="cluster-stat-head">
-                <div>
-                  <strong>{cluster.name}</strong>
-                  <span>{cluster.location_label || cluster.url}</span>
-                </div>
-                {cluster.error ? <span className="status-badge danger">Offline</span> : <span className="status-badge success">Online</span>}
+                <div><strong>{cluster.name}</strong><span>{cluster.location_label || cluster.url}</span></div>
+                <span className={`status-badge ${cluster.error ? 'danger' : 'success'}`}>{cluster.error ? 'Offline' : 'Online'}</span>
               </div>
               <div className="cluster-stat-body">
                 <div><span>CPU</span><strong>{formatPercent(cluster.totals?.cpuPercent)}</strong></div>
@@ -102,18 +100,16 @@ function AdminOverview({ users, clusters, resources, groups, clusterStats, onOpe
               {cluster.error ? <small className="cluster-error-line">{cluster.error}</small> : null}
             </div>
           ))}
-          {!clusterStats.length ? <EmptyState title="No cluster stats" text="Add a cluster to view live infrastructure data." /> : null}
+          {!clusterStats.length ? <EmptyState title="No cluster stats" text="Add a cluster to view live data." /> : null}
         </div>
       </SectionCard>
 
-      <SectionCard title="Administration shortcuts" subtitle="The important configuration areas are now first-class pages">
-        <div className="admin-shortcut-grid">
-          <button type="button" onClick={() => onOpen('portal')}><strong>Hosting Portal</strong><span>Health and core portal configuration</span></button>
-          <button type="button" onClick={() => onOpen('email')}><strong>Email</strong><span>SMTP and test delivery</span></button>
-          <button type="button" onClick={() => onOpen('selfservice')}><strong>Self-Service</strong><span>Container provisioning limits</span></button>
-          <button type="button" onClick={() => onOpen('pangolin')}><strong>Pangolin</strong><span>Publishing and remote access</span></button>
-          <button type="button" onClick={() => onOpen('maintenance')}><strong>Maintenance</strong><span>Plan and communicate outages</span></button>
-          <button type="button" onClick={() => onOpen('audit')}><strong>Audit log</strong><span>Trace administrative actions</span></button>
+      <SectionCard title="Quick access" className="admin-quick-access-v4">
+        <div className="admin-shortcut-grid admin-shortcut-grid-v4">
+          <button type="button" onClick={() => onOpen('selfservice')}><strong>Self-Service</strong><span>Provisioning</span></button>
+          <button type="button" onClick={() => onOpen('pangolin')}><strong>Pangolin</strong><span>Publishing</span></button>
+          <button type="button" onClick={() => onOpen('maintenance')}><strong>Maintenance</strong><span>Windows</span></button>
+          <button type="button" onClick={() => onOpen('email')}><strong>Email</strong><span>SMTP</span></button>
         </div>
       </SectionCard>
     </div>
@@ -134,7 +130,7 @@ export default function AdminDashboard() {
   const [resources, setResources] = useState([]);
   const [groups, setGroups] = useState([]);
   const [clusterStats, setClusterStats] = useState([]);
-  const [modal, setModal] = useState(null);
+  const [editor, setEditor] = useState(null);
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
@@ -164,11 +160,15 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     const requested = searchParams.get('tab');
-    if (requested && requested !== activeTab) setActiveTab(requested);
+    if (requested && requested !== activeTab) {
+      setActiveTab(requested);
+      setEditor(null);
+    }
   }, [searchParams, activeTab]);
 
   const selectTab = (key) => {
     setActiveTab(key);
+    setEditor(null);
     setSearchParams(key === 'overview' ? {} : { tab: key });
   };
 
@@ -177,43 +177,53 @@ export default function AdminDashboard() {
     storeLanguage(value);
   };
 
-  const closeModal = () => setModal(null);
-  const openUserModal = (entry = null) => setModal({ type: 'user', mode: entry ? 'edit' : 'create', data: entry || { name: '', email: '', password: '', role: 'user' } });
-  const openClusterModal = (entry = null) => setModal({ type: 'cluster', mode: entry ? 'edit' : 'create', data: entry || { name: '', url: '', apiToken: '' } });
-  const openGroupModal = (entry = null) => setModal({ type: 'group', mode: entry ? 'edit' : 'create', data: entry || { name: '' } });
-  const openResourceModal = (entry = null) => setModal({
+  const openUserEditor = (entry = null) => setEditor({ type: 'user', mode: entry ? 'edit' : 'create', data: entry ? { ...entry, password: '' } : { name: '', email: '', password: '', role: 'user' } });
+  const openClusterEditor = (entry = null) => setEditor({ type: 'cluster', mode: entry ? 'edit' : 'create', data: entry ? { ...entry, apiToken: '' } : { name: '', url: '', apiToken: '' } });
+  const openGroupEditor = (entry = null) => setEditor({ type: 'group', mode: entry ? 'edit' : 'create', data: entry ? { ...entry } : { name: '' } });
+  const openResourceEditor = (entry = null) => setEditor({
     type: 'resource',
     mode: entry ? 'edit' : 'create',
-    data: entry || { name: '', containerId: '', clusterId: clusters[0]?.id || '', userId: '', groupId: '', adminUrl: '' }
+    data: entry ? { ...entry } : { name: '', containerId: '', clusterId: clusters[0]?.id || '', userId: '', groupId: '', adminUrl: '' }
   });
 
-  const saveModal = async (event) => {
+  const saveEditor = async (event) => {
     event.preventDefault();
-    if (!modal) return;
+    if (!editor) return;
     setSaving(true);
     setError('');
     setNotice('');
     try {
-      const { type, mode, data } = modal;
+      const { type, mode, data } = editor;
       if (type === 'user') {
-        if (mode === 'create') await adminApi.createUser(data);
-        else await adminApi.updateUser(data.id, data);
+        const payload = { ...data };
+        if (mode === 'edit' && !payload.password) delete payload.password;
+        if (mode === 'create') await adminApi.createUser(payload);
+        else await adminApi.updateUser(data.id, payload);
       }
       if (type === 'cluster') {
-        if (mode === 'create') await adminApi.createCluster(data);
-        else await adminApi.updateCluster(data.id, data);
+        const payload = { ...data };
+        if (mode === 'edit' && !payload.apiToken) delete payload.apiToken;
+        if (mode === 'create') await adminApi.createCluster(payload);
+        else await adminApi.updateCluster(data.id, payload);
       }
       if (type === 'group') {
         if (mode === 'create') await adminApi.createGroup(data);
         else await adminApi.updateGroup(data.id, data);
       }
       if (type === 'resource') {
-        const payload = { ...data, userId: data.userId || null, groupId: data.groupId || null };
+        const payload = {
+          ...data,
+          containerId: data.containerId || data.container_id,
+          clusterId: data.clusterId || data.cluster_id,
+          userId: data.userId || data.user_id || null,
+          groupId: data.groupId || data.group_id || null,
+          adminUrl: data.adminUrl ?? data.admin_url ?? ''
+        };
         if (mode === 'create') await adminApi.createResource(payload);
         else await adminApi.updateResource(data.id, payload);
       }
       setNotice('Saved successfully.');
-      closeModal();
+      setEditor(null);
       await load();
     } catch (err) {
       setError(getErrorMessage(err, 'The entry could not be saved.'));
@@ -231,6 +241,7 @@ export default function AdminDashboard() {
       if (kind === 'cluster') await adminApi.deleteCluster(entry.id);
       if (kind === 'group') await adminApi.deleteGroup(entry.id);
       if (kind === 'resource') await adminApi.deleteResource(entry.id);
+      if (editor?.type === kind && editor?.data?.id === entry.id) setEditor(null);
       setNotice('Deleted successfully.');
       await load();
     } catch (err) {
@@ -244,17 +255,14 @@ export default function AdminDashboard() {
     { key: 'users', label: 'Users', icon: UserIcon, section: 'Workspace', count: users.length },
     { key: 'groups', label: 'Groups', icon: DashboardIcon, section: 'Workspace', count: groups.length },
     { key: 'wiki', label: 'Wiki', icon: BookIcon, section: 'Workspace' },
-
     { key: 'clusters', label: 'Clusters', icon: GlobeIcon, section: 'Infrastructure', count: clusters.length },
     { key: 'templates', label: 'Templates', icon: ServerIcon, section: 'Infrastructure' },
     { key: 'selfservice', label: 'Self-Service', icon: UserIcon, section: 'Infrastructure' },
     { key: 'maintenance', label: 'Maintenance', icon: BellIcon, section: 'Infrastructure' },
-
     { key: 'portal', label: 'Hosting Portal', icon: DashboardIcon, section: 'Platform' },
     { key: 'email', label: 'Email', icon: BellIcon, section: 'Platform' },
     { key: 'pangolin', label: 'Pangolin', icon: LinkIcon, section: 'Platform' },
     { key: 'audit', label: 'Audit Log', icon: LockIcon, section: 'Platform' },
-
     { key: 'settings', label: 'Settings', icon: SettingsIcon, section: 'Account' }
   ];
 
@@ -277,19 +285,124 @@ export default function AdminDashboard() {
     { key: 'containerId', label: 'ID', render: (row) => row.containerId || row.container_id || '—' }
   ], []);
 
+
+  const searchItems = useMemo(() => {
+    const serviceItems = resources.map((entry) => ({
+      id: `service-${entry.id}`,
+      label: entry.name,
+      description: `${entry.clusterName || entry.cluster_name || 'Unknown cluster'} · Service ${entry.containerId || entry.container_id || ''}`,
+      category: 'Service',
+      icon: ServerIcon,
+      keywords: `${entry.name || ''} ${entry.clusterName || entry.cluster_name || ''} ${entry.node || ''} ${entry.containerId || entry.container_id || ''}`,
+      onSelect: () => { selectTab('services'); openResourceEditor(entry); }
+    }));
+    const userItems = users.map((entry) => ({
+      id: `user-${entry.id}`,
+      label: entry.name || entry.email,
+      description: entry.email,
+      category: 'User',
+      icon: UserIcon,
+      keywords: `${entry.name || ''} ${entry.email || ''} ${entry.role || ''}`,
+      onSelect: () => { selectTab('users'); openUserEditor(entry); }
+    }));
+    const clusterItems = clusters.map((entry) => ({
+      id: `cluster-${entry.id}`,
+      label: entry.name,
+      description: entry.location_label || entry.url,
+      category: 'Cluster',
+      icon: GlobeIcon,
+      keywords: `${entry.name || ''} ${entry.url || ''} ${entry.location_label || ''}`,
+      onSelect: () => { selectTab('clusters'); openClusterEditor(entry); }
+    }));
+    const groupItems = groups.map((entry) => ({
+      id: `group-${entry.id}`,
+      label: entry.name,
+      description: 'Access group',
+      category: 'Group',
+      icon: DashboardIcon,
+      keywords: entry.name || '',
+      onSelect: () => { selectTab('groups'); openGroupEditor(entry); }
+    }));
+    return [...serviceItems, ...userItems, ...clusterItems, ...groupItems];
+  }, [resources, users, clusters, groups]);
+
+  const renderEditorPanel = (type) => {
+    if (!editor || editor.type !== type) return null;
+    const title = `${editor.mode === 'create' ? 'Create' : 'Edit'} ${type}`;
+    return (
+      <aside className="admin-side-editor section-card">
+        <div className="admin-side-editor-head">
+          <div>
+            <span className="eyebrow-clean">{editor.mode === 'create' ? 'New entry' : 'Selected entry'}</span>
+            <h2>{title}</h2>
+          </div>
+          <button type="button" className="icon-button" onClick={() => setEditor(null)} aria-label="Close editor"><CloseIcon size={18} /></button>
+        </div>
+
+        <form className="clean-form-grid compact" onSubmit={saveEditor}>
+          {type === 'user' ? <>
+            <label><span>Name</span><input value={editor.data.name || ''} onChange={(event) => setEditor((current) => ({ ...current, data: { ...current.data, name: event.target.value } }))} required /></label>
+            <label><span>Email</span><input type="email" value={editor.data.email || ''} onChange={(event) => setEditor((current) => ({ ...current, data: { ...current.data, email: event.target.value } }))} required /></label>
+            <label><span>Role</span><select value={editor.data.role || 'user'} onChange={(event) => setEditor((current) => ({ ...current, data: { ...current.data, role: event.target.value } }))}><option value="user">User</option><option value="admin">Admin</option></select></label>
+            <label><span>Password {editor.mode === 'edit' ? '(optional)' : ''}</span><input type="password" value={editor.data.password || ''} onChange={(event) => setEditor((current) => ({ ...current, data: { ...current.data, password: event.target.value } }))} required={editor.mode === 'create'} /></label>
+          </> : null}
+
+          {type === 'cluster' ? <>
+            <label><span>Name</span><input value={editor.data.name || ''} onChange={(event) => setEditor((current) => ({ ...current, data: { ...current.data, name: event.target.value } }))} required /></label>
+            <label><span>URL</span><input value={editor.data.url || ''} onChange={(event) => setEditor((current) => ({ ...current, data: { ...current.data, url: event.target.value } }))} required /></label>
+            <label><span>API token {editor.mode === 'edit' ? '(leave empty to keep existing)' : ''}</span><textarea rows="5" value={editor.data.apiToken || ''} onChange={(event) => setEditor((current) => ({ ...current, data: { ...current.data, apiToken: event.target.value } }))} required={editor.mode === 'create'} /></label>
+          </> : null}
+
+          {type === 'group' ? <label><span>Name</span><input value={editor.data.name || ''} onChange={(event) => setEditor((current) => ({ ...current, data: { ...current.data, name: event.target.value } }))} required /></label> : null}
+
+          {type === 'resource' ? <>
+            <label><span>Name</span><input value={editor.data.name || ''} onChange={(event) => setEditor((current) => ({ ...current, data: { ...current.data, name: event.target.value } }))} /></label>
+            <label><span>Service / VM ID</span><input value={editor.data.containerId || editor.data.container_id || ''} onChange={(event) => setEditor((current) => ({ ...current, data: { ...current.data, containerId: event.target.value } }))} required /></label>
+            <label><span>Cluster</span><select value={editor.data.clusterId || editor.data.cluster_id || ''} onChange={(event) => setEditor((current) => ({ ...current, data: { ...current.data, clusterId: event.target.value } }))} required><option value="">Select cluster</option>{clusters.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}</select></label>
+            <label><span>User</span><select value={editor.data.userId || editor.data.user_id || ''} onChange={(event) => setEditor((current) => ({ ...current, data: { ...current.data, userId: event.target.value, user_id: '', groupId: '', group_id: '' } }))}><option value="">No direct user</option>{users.filter((entry) => entry.role === 'user').map((entry) => <option key={entry.id} value={entry.id}>{entry.name} · {entry.email}</option>)}</select></label>
+            <label><span>Group</span><select value={editor.data.groupId || editor.data.group_id || ''} onChange={(event) => setEditor((current) => ({ ...current, data: { ...current.data, groupId: event.target.value, group_id: '', userId: '', user_id: '' } }))}><option value="">No group</option>{groups.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}</select></label>
+            <label><span>Admin URL</span><input value={editor.data.adminUrl ?? editor.data.admin_url ?? ''} onChange={(event) => setEditor((current) => ({ ...current, data: { ...current.data, adminUrl: event.target.value } }))} placeholder="https://example.com" /></label>
+          </> : null}
+
+          <div className="form-actions left">
+            <button type="button" className="btn-secondary" onClick={() => setEditor(null)}>Cancel</button>
+            <button type="submit" className="btn-primary" disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
+          </div>
+        </form>
+      </aside>
+    );
+  };
+
+  const renderCrudWorkspace = ({ type, title, subtitle, addLabel, columns, rows, onAdd, onEdit, emptyText }) => (
+    <div className={`admin-crud-workspace ${editor?.type === type ? 'has-editor' : ''}`}>
+      <SectionCard title={title} subtitle={subtitle} action={<button type="button" className="btn-primary" onClick={onAdd}>{addLabel}</button>}>
+        <CrudTable
+          columns={columns}
+          rows={rows}
+          renderActions={(entry) => <>
+            <button type="button" className="btn-secondary btn-small" onClick={() => onEdit(entry)}>Edit</button>
+            <button type="button" className="btn-danger btn-small" onClick={() => removeEntry(type, entry)}>Delete</button>
+          </>}
+          emptyText={emptyText}
+        />
+      </SectionCard>
+      {renderEditorPanel(type)}
+    </div>
+  );
+
   let content = null;
   if (loading && ['overview', 'services', 'users', 'groups', 'clusters'].includes(activeTab)) {
-    content = <SectionCard><div className="page-state-clean">Loading…</div></SectionCard>;
+    content = <PageSkeleton variant={activeTab === 'overview' ? 'dashboard' : 'table'} />;
   } else if (activeTab === 'overview') {
     content = <AdminOverview users={users} clusters={clusters} resources={resources} groups={groups} clusterStats={clusterStats} onOpen={selectTab} />;
   } else if (activeTab === 'users') {
-    content = <SectionCard title="Users" subtitle="Portal accounts and access" action={<button type="button" className="btn-primary" onClick={() => openUserModal()}>Add user</button>}><CrudTable columns={usersColumns} rows={users} renderActions={(entry) => <><button type="button" className="btn-secondary btn-small" onClick={() => openUserModal(entry)}>Edit</button><button type="button" className="btn-danger btn-small" onClick={() => removeEntry('user', entry)}>Delete</button></>} emptyText="Create the first portal user." /></SectionCard>;
+    content = renderCrudWorkspace({ type: 'user', title: 'Users', subtitle: 'Portal accounts and access', addLabel: 'Add user', columns: usersColumns, rows: users, onAdd: () => openUserEditor(), onEdit: openUserEditor, emptyText: 'Create the first portal user.' });
   } else if (activeTab === 'clusters') {
-    content = <SectionCard title="Clusters" subtitle="Connected Proxmox backends" action={<button type="button" className="btn-primary" onClick={() => openClusterModal()}>Add cluster</button>}><CrudTable columns={clustersColumns} rows={clusters} renderActions={(entry) => <><button type="button" className="btn-secondary btn-small" onClick={() => openClusterModal(entry)}>Edit</button><button type="button" className="btn-danger btn-small" onClick={() => removeEntry('cluster', entry)}>Delete</button></>} emptyText="Add a Proxmox cluster to start managing infrastructure." /></SectionCard>;
+    content = renderCrudWorkspace({ type: 'cluster', title: 'Clusters', subtitle: 'Connected Proxmox backends', addLabel: 'Add cluster', columns: clustersColumns, rows: clusters, onAdd: () => openClusterEditor(), onEdit: openClusterEditor, emptyText: 'Add a Proxmox cluster to start managing infrastructure.' });
   } else if (activeTab === 'groups') {
-    content = <SectionCard title="Groups" subtitle="Customer groups for service assignment" action={<button type="button" className="btn-primary" onClick={() => openGroupModal()}>Add group</button>}><CrudTable columns={groupColumns} rows={groups} renderActions={(entry) => <><button type="button" className="btn-secondary btn-small" onClick={() => openGroupModal(entry)}>Edit</button><button type="button" className="btn-danger btn-small" onClick={() => removeEntry('group', entry)}>Delete</button></>} emptyText="Groups help you assign services to teams or customers." /></SectionCard>;
+    content = renderCrudWorkspace({ type: 'group', title: 'Groups', subtitle: 'Customer groups for service assignment', addLabel: 'Add group', columns: groupColumns, rows: groups, onAdd: () => openGroupEditor(), onEdit: openGroupEditor, emptyText: 'Groups help you assign services to teams or customers.' });
   } else if (activeTab === 'services') {
-    content = <SectionCard title="Services" subtitle="Assignments visible to portal users" action={<button type="button" className="btn-primary" onClick={() => openResourceModal()}>Add service</button>}><CrudTable columns={resourceColumns} rows={resources} renderActions={(entry) => <><button type="button" className="btn-secondary btn-small" onClick={() => openResourceModal(entry)}>Edit</button><button type="button" className="btn-danger btn-small" onClick={() => removeEntry('resource', entry)}>Delete</button></>} emptyText="Assign the first service to a user or a group." /></SectionCard>;
+    content = renderCrudWorkspace({ type: 'resource', title: 'Services', subtitle: 'Assignments visible to portal users', addLabel: 'Add service', columns: resourceColumns, rows: resources, onAdd: () => openResourceEditor(), onEdit: openResourceEditor, emptyText: 'Assign the first service to a user or a group.' });
   } else if (activeTab === 'wiki') {
     content = <SectionCard title="Wiki" subtitle="Manage documentation and articles"><WikiAdminPanel language={language} /></SectionCard>;
   } else if (activeTab === 'templates') {
@@ -311,60 +424,24 @@ export default function AdminDashboard() {
   }
 
   const activeItem = navItems.find((item) => item.key === activeTab);
+  const activeSubtitle = '';
 
   return (
-    <>
-      <PortalShell
-        user={user}
-        title={activeItem?.label || 'Overview'}
-        subtitle={activeTab === 'settings' ? 'Your personal administrator preferences.' : 'Full-width administration for the hosting portal.'}
-        navItems={navItems}
-        activeKey={activeTab}
-        onSelect={selectTab}
-        onLogout={logout}
-        language={language}
-        onLanguageChange={changeLanguage}
-        footer={<span>Hosting by TechByGiusi · Administrator workspace</span>}
-      >
-        {error ? <InlineNotice tone="danger">{error}</InlineNotice> : null}
-        {notice ? <InlineNotice tone="success">{notice}</InlineNotice> : null}
-        {content}
-      </PortalShell>
-
-      {modal ? (
-        <ActionModal title={`${modal.mode === 'create' ? 'Create' : 'Edit'} ${modal.type}`} onClose={closeModal}>
-          <form className="clean-form-grid compact" onSubmit={saveModal}>
-            {modal.type === 'user' ? <>
-              <label><span>Name</span><input value={modal.data.name || ''} onChange={(event) => setModal((current) => ({ ...current, data: { ...current.data, name: event.target.value } }))} required /></label>
-              <label><span>Email</span><input type="email" value={modal.data.email || ''} onChange={(event) => setModal((current) => ({ ...current, data: { ...current.data, email: event.target.value } }))} required /></label>
-              <label><span>Role</span><select value={modal.data.role || 'user'} onChange={(event) => setModal((current) => ({ ...current, data: { ...current.data, role: event.target.value } }))}><option value="user">User</option><option value="admin">Admin</option></select></label>
-              <label><span>Password {modal.mode === 'edit' ? '(optional)' : ''}</span><input type="password" value={modal.data.password || ''} onChange={(event) => setModal((current) => ({ ...current, data: { ...current.data, password: event.target.value } }))} required={modal.mode === 'create'} /></label>
-            </> : null}
-
-            {modal.type === 'cluster' ? <>
-              <label><span>Name</span><input value={modal.data.name || ''} onChange={(event) => setModal((current) => ({ ...current, data: { ...current.data, name: event.target.value } }))} required /></label>
-              <label><span>URL</span><input value={modal.data.url || ''} onChange={(event) => setModal((current) => ({ ...current, data: { ...current.data, url: event.target.value } }))} required /></label>
-              <label className="span-full"><span>API token {modal.mode === 'edit' ? '(leave empty to keep existing)' : ''}</span><textarea rows="4" value={modal.data.apiToken || ''} onChange={(event) => setModal((current) => ({ ...current, data: { ...current.data, apiToken: event.target.value } }))} required={modal.mode === 'create'} /></label>
-            </> : null}
-
-            {modal.type === 'group' ? <label><span>Name</span><input value={modal.data.name || ''} onChange={(event) => setModal((current) => ({ ...current, data: { ...current.data, name: event.target.value } }))} required /></label> : null}
-
-            {modal.type === 'resource' ? <>
-              <label><span>Name</span><input value={modal.data.name || ''} onChange={(event) => setModal((current) => ({ ...current, data: { ...current.data, name: event.target.value } }))} /></label>
-              <label><span>Service / VM ID</span><input value={modal.data.containerId || modal.data.container_id || ''} onChange={(event) => setModal((current) => ({ ...current, data: { ...current.data, containerId: event.target.value } }))} required /></label>
-              <label><span>Cluster</span><select value={modal.data.clusterId || modal.data.cluster_id || ''} onChange={(event) => setModal((current) => ({ ...current, data: { ...current.data, clusterId: event.target.value } }))} required><option value="">Select cluster</option>{clusters.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}</select></label>
-              <label><span>User</span><select value={modal.data.userId || modal.data.user_id || ''} onChange={(event) => setModal((current) => ({ ...current, data: { ...current.data, userId: event.target.value, groupId: '' } }))}><option value="">No direct user</option>{users.filter((entry) => entry.role === 'user').map((entry) => <option key={entry.id} value={entry.id}>{entry.name} · {entry.email}</option>)}</select></label>
-              <label><span>Group</span><select value={modal.data.groupId || modal.data.group_id || ''} onChange={(event) => setModal((current) => ({ ...current, data: { ...current.data, groupId: event.target.value, userId: '' } }))}><option value="">No group</option>{groups.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}</select></label>
-              <label className="span-full"><span>Admin URL</span><input value={modal.data.adminUrl || modal.data.admin_url || ''} onChange={(event) => setModal((current) => ({ ...current, data: { ...current.data, adminUrl: event.target.value } }))} placeholder="https://example.com" /></label>
-            </> : null}
-
-            <div className="form-actions left span-full">
-              <button type="button" className="btn-secondary" onClick={closeModal}>Cancel</button>
-              <button type="submit" className="btn-primary" disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
-            </div>
-          </form>
-        </ActionModal>
-      ) : null}
-    </>
+    <PortalShell
+      user={user}
+      title={activeItem?.label || 'Overview'}
+      subtitle={activeSubtitle}
+      navItems={navItems}
+      activeKey={activeTab}
+      onSelect={selectTab}
+      onLogout={logout}
+      onOpenSettings={() => selectTab('settings')}
+      language={language}
+      searchItems={searchItems}
+    >
+      {error ? <InlineNotice tone="danger">{error}</InlineNotice> : null}
+      {notice ? <InlineNotice tone="success">{notice}</InlineNotice> : null}
+      {content}
+    </PortalShell>
   );
 }

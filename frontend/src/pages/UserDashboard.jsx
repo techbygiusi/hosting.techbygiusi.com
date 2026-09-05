@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import PortalShell from '../components/PortalShell';
-import { DashboardIcon, ServerIcon, BookIcon, SettingsIcon, HomeIcon, LinkIcon, UserIcon } from '../components/Icons';
+import PageSkeleton from '../components/PageSkeleton';
+import { ServerIcon, BookIcon, SettingsIcon, HomeIcon, TerminalIcon, LinkIcon } from '../components/Icons';
 import { EmptyState, InlineNotice, SectionCard, StatCard, StatusBadge } from '../components/UiBits';
 import { useAuth } from '../context/AuthContext';
 import { userApi, getErrorMessage } from '../services/api';
@@ -12,7 +12,6 @@ import AccountPasswordSettingsPanel from '../components/AccountPasswordSettingsP
 import NotificationSettingsPanel from '../components/NotificationSettingsPanel';
 import WikiBrowser from '../components/WikiBrowser';
 import CreateMachineModal from '../components/CreateMachineModal';
-import ActionModal from '../components/ActionModal';
 import { useTheme } from '../components/ThemeButton';
 
 function formatBytes(value) {
@@ -47,8 +46,74 @@ function resourceTypeLabel(resource) {
   return raw ? raw.toUpperCase() : 'Service';
 }
 
-function detailPairs(resource) {
-  return [
+function servicePrimaryUrl(resource) {
+  return resource.publicUrl || resource.webUrl || '';
+}
+
+function percent(value, max) {
+  const current = Number(value || 0);
+  const total = Number(max || 0);
+  if (!Number.isFinite(current) || !Number.isFinite(total) || total <= 0) return 0;
+  return Math.min(Math.max((current / total) * 100, 0), 100);
+}
+
+function cpuPercent(resource) {
+  const value = Number(resource.cpu || 0);
+  return value <= 1 ? Math.min(Math.max(value * 100, 0), 100) : Math.min(Math.max(value, 0), 100);
+}
+
+function ServiceCard({ resource, onDetails, onConsole, compact = false }) {
+  const publicUrl = servicePrimaryUrl(resource);
+  const adminUrl = resource.adminUrl || '';
+  const canConsole = Boolean(resource?.capabilities?.canConsole);
+  const cpu = cpuPercent(resource);
+  const memory = percent(resource.mem, resource.maxmem);
+
+  return (
+    <article className={`service-tile ${compact ? 'compact' : ''}`}>
+      <div className="service-tile-head">
+        <div className="service-tile-icon"><ServerIcon size={20} /></div>
+        <div className="service-tile-title">
+          <strong>{resource.name}</strong>
+          <span>{resourceTypeLabel(resource)} · {resource.containerId || resource.id}</span>
+        </div>
+        <StatusBadge status={resource.status} />
+      </div>
+
+      <div className="service-tile-meta">
+        <span>{resource.clusterName || 'Unknown cluster'}</span>
+        <span>{resource.node || 'Unknown node'}</span>
+      </div>
+
+      {!compact ? (
+        <div className="service-tile-metrics">
+          <div>
+            <span>CPU</span>
+            <strong>{cpu.toFixed(1)}%</strong>
+            <i><b style={{ width: `${cpu}%` }} /></i>
+          </div>
+          <div>
+            <span>Memory</span>
+            <strong>{memory.toFixed(1)}%</strong>
+            <i><b style={{ width: `${memory}%` }} /></i>
+          </div>
+        </div>
+      ) : null}
+
+      <div className="service-tile-actions">
+        {publicUrl ? <a className="btn-primary btn-small" href={publicUrl} target="_blank" rel="noreferrer"><LinkIcon size={15} />Open</a> : null}
+        {adminUrl && !compact ? <a className="btn-secondary btn-small" href={adminUrl} target="_blank" rel="noreferrer">Admin</a> : null}
+        {canConsole ? <button type="button" className="btn-secondary btn-small" onClick={() => onConsole(resource.id)}><TerminalIcon size={15} />Console</button> : null}
+        <button type="button" className="btn-secondary btn-small" onClick={() => onDetails(resource.id)}>Details</button>
+      </div>
+    </article>
+  );
+}
+
+function ServiceDetailPanel({ resource, onClose, onConsole }) {
+  if (!resource) return null;
+  const publicUrl = servicePrimaryUrl(resource);
+  const values = [
     ['Cluster', resource.clusterName || '—'],
     ['Node', resource.node || '—'],
     ['Type', resourceTypeLabel(resource)],
@@ -57,134 +122,102 @@ function detailPairs(resource) {
     ['Uptime', formatUptime(resource.uptime)],
     ['CPU', resource.maxcpu ? `${resource.maxcpu} cores` : '—'],
     ['Memory', resource.maxmem ? formatBytes(resource.maxmem) : '—'],
-    ['Service IP', resource.manualIp || resource.ip || resource.primaryIp || '—'],
+    ['Service IP', resource.manualIp || resource.primaryIp || resource.ip || '—'],
     ['Operating system', resource.operatingSystem || '—']
   ];
+
+  return (
+    <aside className="service-detail-panel section-card">
+      <div className="service-detail-panel-head">
+        <div>
+          <span className="eyebrow-clean">Service details</span>
+          <h2>{resource.name}</h2>
+          <p>{resource.clusterName || 'Unknown cluster'} · {resourceTypeLabel(resource)}</p>
+        </div>
+        <button type="button" className="service-detail-close" onClick={onClose} aria-label="Close service details">×</button>
+      </div>
+
+      <div className="service-detail-actions">
+        {publicUrl ? <a className="btn-primary" href={publicUrl} target="_blank" rel="noreferrer">Open service</a> : null}
+        {resource.adminUrl ? <a className="btn-secondary" href={resource.adminUrl} target="_blank" rel="noreferrer">Open admin</a> : null}
+        {resource?.capabilities?.canConsole ? <button type="button" className="btn-secondary" onClick={() => onConsole(resource.id)}>Open console</button> : null}
+      </div>
+
+      <div className="detail-grid-clean">
+        {values.map(([label, value]) => (
+          <div key={label} className="detail-pair-clean"><span>{label}</span><strong>{value}</strong></div>
+        ))}
+      </div>
+    </aside>
+  );
 }
 
-function servicePrimaryUrl(resource) {
-  return resource.publicUrl || resource.webUrl || resource.adminUrl || '';
-}
-
-function UserOverview({ resources, onOpenProvisioning, onSelectService }) {
+function UserOverview({ resources, onOpenProvisioning, onSelectService, onConsole }) {
   const running = resources.filter((item) => String(item.status || '').toLowerCase().includes('run')).length;
   const stopped = resources.filter((item) => String(item.status || '').toLowerCase().includes('stop')).length;
   const totalMemory = resources.reduce((sum, item) => sum + Number(item.maxmem || 0), 0);
   const clusters = new Set(resources.map((item) => item.clusterName).filter(Boolean));
 
   return (
-    <div className="dashboard-grid-full">
-      <section className="hero-card-clean span-2">
+    <div className="user-dashboard-v4">
+      <section className="hero-card-clean user-dashboard-hero-v4">
         <div>
           <p className="eyebrow-clean">Overview</p>
-          <h2>Everything looks tidy.</h2>
-          <p>Your services, docs and access tools live in one place now.</p>
+          <h2>{running === resources.length && resources.length ? 'All assigned services are running.' : 'Your hosting overview'}</h2>
+          <p>{resources.length} services across {clusters.size} {clusters.size === 1 ? 'cluster' : 'clusters'}.</p>
         </div>
-        <div className="hero-actions">
-          <button type="button" className="btn-primary" onClick={onOpenProvisioning}>Create container</button>
-        </div>
+        <button type="button" className="btn-primary" onClick={onOpenProvisioning}>Create container</button>
       </section>
 
-      <StatCard label="Services" value={resources.length} hint="Visible in your account" tone="neutral" />
-      <StatCard label="Running" value={running} hint="Healthy and online" tone="success" />
-      <StatCard label="Stopped" value={stopped} hint="Needs attention" tone="danger" />
-      <StatCard label="Clusters" value={clusters.size} hint="Assigned locations" tone="neutral" />
+      <div className="user-dashboard-stats-v4">
+        <StatCard label="Services" value={resources.length} hint="Assigned to your account" />
+        <StatCard label="Running" value={running} hint="Online" tone="success" />
+        <StatCard label="Stopped" value={stopped} hint="Offline" tone={stopped ? 'danger' : 'neutral'} />
+        <StatCard label="Memory" value={formatBytes(totalMemory)} hint="Assigned maximum" />
+      </div>
 
-      <SectionCard title="Your services" subtitle="Quick access to the latest resources" className="span-2">
-        <div className="service-list-compact">
+      <SectionCard title="Services" className="user-dashboard-services-v4">
+        <div className="service-card-grid dashboard-service-grid">
           {resources.slice(0, 6).map((resource) => (
-            <button type="button" className="service-row-card" key={resource.id} onClick={() => onSelectService(resource.id)}>
-              <div>
-                <strong>{resource.name}</strong>
-                <span>{resource.clusterName || 'Unassigned cluster'}</span>
-              </div>
-              <StatusBadge status={resource.status} />
-            </button>
+            <ServiceCard key={resource.id} resource={resource} onDetails={onSelectService} onConsole={onConsole} compact />
           ))}
-          {!resources.length ? <EmptyState title="No services yet" text="Services assigned by the admin will appear here." /> : null}
-        </div>
-      </SectionCard>
-
-      <SectionCard title="Capacity snapshot" subtitle="Based on assigned service limits">
-        <div className="metric-pair-list">
-          <div><span>Total memory</span><strong>{formatBytes(totalMemory)}</strong></div>
-          <div><span>Total CPU cores</span><strong>{resources.reduce((sum, item) => sum + Number(item.maxcpu || 0), 0)}</strong></div>
-          <div><span>Provisioned machines</span><strong>{resources.filter((item) => item.isSelfService || item.provisioned_id).length}</strong></div>
+          {!resources.length ? <EmptyState title="No services yet" text="Assigned services will appear here." /> : null}
         </div>
       </SectionCard>
     </div>
   );
 }
 
-function UserServices({ resources, selectedId, onSelect, search, onSearch, onOpenConsole }) {
+function UserServices({ resources, selectedId, detailOpen, onDetails, onCloseDetails, onConsole }) {
+  const [filter, setFilter] = useState('');
   const filtered = useMemo(() => {
-    const term = search.trim().toLowerCase();
+    const term = filter.trim().toLowerCase();
     if (!term) return resources;
-    return resources.filter((item) => [item.name, item.clusterName, item.node, item.status].some((field) => String(field || '').toLowerCase().includes(term)));
-  }, [resources, search]);
-
-  const selected = filtered.find((item) => String(item.id) === String(selectedId)) || filtered[0] || null;
-
-  useEffect(() => {
-    if (!selectedId && filtered[0]) onSelect(filtered[0].id);
-  }, [filtered, onSelect, selectedId]);
+    return resources.filter((item) => [item.name, item.clusterName, item.node, item.status, item.containerId].some((field) => String(field || '').toLowerCase().includes(term)));
+  }, [resources, filter]);
+  const selected = resources.find((item) => String(item.id) === String(selectedId)) || null;
 
   return (
-    <div className="two-column-layout">
-      <SectionCard title="Services" subtitle="Browse and manage your assigned services" action={<input className="search-clean" value={search} onChange={(event) => onSearch(event.target.value)} placeholder="Search services…" />}>
-        <div className="service-table-clean">
-          {filtered.map((resource) => (
-            <button type="button" key={resource.id} className={`service-table-row ${String(selected?.id) === String(resource.id) ? 'active' : ''}`} onClick={() => onSelect(resource.id)}>
-              <div className="service-table-main">
-                <strong>{resource.name}</strong>
-                <span>{resource.clusterName || 'No cluster'} · {resourceTypeLabel(resource)}</span>
-              </div>
-              <div className="service-table-side">
-                <StatusBadge status={resource.status} />
-              </div>
-            </button>
-          ))}
-          {!filtered.length ? <EmptyState title="No matching services" text="Try another search or wait for new assignments." /> : null}
+    <div className={`service-workspace-v4 ${detailOpen && selected ? 'has-detail' : ''}`}>
+      <SectionCard title="Services" action={<input className="search-clean services-inline-search" value={filter} onChange={(event) => setFilter(event.target.value)} placeholder="Filter services…" />}>
+        <div className="service-card-grid">
+          {filtered.map((resource) => <ServiceCard key={resource.id} resource={resource} onDetails={onDetails} onConsole={onConsole} />)}
+          {!filtered.length ? <EmptyState title="No matching services" text="Try another filter." /> : null}
         </div>
       </SectionCard>
-
-      <SectionCard title={selected ? selected.name : 'Service details'} subtitle={selected ? `${selected.clusterName || 'Unknown cluster'} · ${resourceTypeLabel(selected)}` : 'Select a service to inspect it'}>
-        {selected ? (
-          <>
-            <div className="service-action-row">
-              {servicePrimaryUrl(selected) ? <a className="btn-primary" href={servicePrimaryUrl(selected)} target="_blank" rel="noreferrer">Open service</a> : null}
-              {selected.adminUrl ? <a className="btn-secondary" href={selected.adminUrl} target="_blank" rel="noreferrer">Open admin</a> : null}
-              <button type="button" className="btn-secondary" onClick={() => onOpenConsole(selected.id)}>Open console</button>
-            </div>
-            <div className="detail-grid-clean">
-              {detailPairs(selected).map(([label, value]) => (
-                <div key={label} className="detail-pair-clean">
-                  <span>{label}</span>
-                  <strong>{value}</strong>
-                </div>
-              ))}
-            </div>
-          </>
-        ) : <EmptyState title="No service selected" text="Choose a service on the left to see details and actions." />}
-      </SectionCard>
+      {detailOpen && selected ? <ServiceDetailPanel resource={selected} onClose={onCloseDetails} onConsole={onConsole} /> : null}
     </div>
   );
 }
 
 function SettingsSummary({ profile, setProfile, saveProfile, savingProfile, error, notice }) {
   return (
-    <SectionCard title="Profile" subtitle="Basic account settings">
+    <SectionCard title="Profile">
       {error ? <InlineNotice tone="danger">{error}</InlineNotice> : null}
       {notice ? <InlineNotice tone="success">{notice}</InlineNotice> : null}
       <form className="clean-form-grid compact two-up" onSubmit={saveProfile}>
-        <label>
-          <span>Name</span>
-          <input value={profile.name || ''} onChange={(event) => setProfile((current) => ({ ...current, name: event.target.value }))} />
-        </label>
-        <label>
-          <span>Timezone</span>
-          <input value={profile.timezone || ''} onChange={(event) => setProfile((current) => ({ ...current, timezone: event.target.value }))} placeholder="Europe/Berlin" />
-        </label>
+        <label><span>Name</span><input value={profile.name || ''} onChange={(event) => setProfile((current) => ({ ...current, name: event.target.value }))} /></label>
+        <label><span>Timezone</span><input value={profile.timezone || ''} onChange={(event) => setProfile((current) => ({ ...current, timezone: event.target.value }))} placeholder="Europe/Berlin" /></label>
         <div className="span-full"><button type="submit" className="btn-primary" disabled={savingProfile}>{savingProfile ? 'Saving…' : 'Save profile'}</button></div>
       </form>
     </SectionCard>
@@ -192,7 +225,6 @@ function SettingsSummary({ profile, setProfile, saveProfile, savingProfile, erro
 }
 
 export default function UserDashboard() {
-  const navigate = useNavigate();
   const { user, logout, applyUserPatch } = useAuth();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [resources, setResources] = useState([]);
@@ -200,13 +232,13 @@ export default function UserDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
-  const [search, setSearch] = useState('');
   const [selectedId, setSelectedId] = useState('');
+  const [detailOpen, setDetailOpen] = useState(false);
   const [language, setLanguage] = useState(readStoredLanguage());
   const [provisioningOptions, setProvisioningOptions] = useState([]);
   const [createOpen, setCreateOpen] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
-  const [jobModal, setJobModal] = useState(null);
+  const [activeProvisioningJob, setActiveProvisioningJob] = useState(null);
   const { theme, setTheme } = useTheme();
 
   const load = useCallback(async () => {
@@ -223,19 +255,25 @@ export default function UserDashboard() {
       setResources(nextResources);
       setProfile(profileRes.data?.profile || {});
       setProvisioningOptions(optionsRes.data?.options || []);
-      setJobModal((jobsRes.data?.jobs || []).find((item) => ['queued', 'running'].includes(item.status)) || null);
-      if (nextResources[0] && !selectedId) setSelectedId(nextResources[0].id);
+      setActiveProvisioningJob((jobsRes.data?.jobs || []).find((item) => ['queued', 'running'].includes(item.status)) || null);
+      setSelectedId((current) => current || nextResources[0]?.id || '');
     } catch (err) {
       setError(getErrorMessage(err, 'The dashboard could not be loaded.'));
     } finally {
       setLoading(false);
     }
-  }, [selectedId]);
+  }, []);
 
   useEffect(() => { load(); }, [load]);
 
   const openConsole = (resourceId) => {
-    navigate(`/console/${resourceId}`);
+    window.open(`/console/${resourceId}`, '_blank', 'noopener,noreferrer');
+  };
+
+  const openServiceDetails = (resourceId) => {
+    setSelectedId(resourceId);
+    setDetailOpen(true);
+    setActiveTab('services');
   };
 
   const saveProfile = async (event) => {
@@ -263,68 +301,51 @@ export default function UserDashboard() {
     try {
       await userApi.updateLanguage(value);
     } catch (_) {
-      // keep local change
     }
   };
 
   const navItems = [
     { key: 'dashboard', label: 'Dashboard', icon: HomeIcon },
-    { key: 'services', label: 'Services', icon: ServerIcon, badge: `${resources.length}` },
+    { key: 'services', label: 'Services', icon: ServerIcon, count: resources.length },
     { key: 'wiki', label: 'Wiki', icon: BookIcon },
     { key: 'settings', label: 'Settings', icon: SettingsIcon }
   ];
 
-  const activeTitle = {
-    dashboard: 'Dashboard',
-    services: 'Services',
-    wiki: 'Wiki',
-    settings: 'Settings'
-  }[activeTab];
+  const searchItems = useMemo(() => resources.map((resource) => ({
+    id: `service-${resource.id}`,
+    label: resource.name,
+    description: `${resource.clusterName || 'Unknown cluster'} · ${resourceTypeLabel(resource)}`,
+    category: 'Service',
+    icon: ServerIcon,
+    keywords: `${resource.name} ${resource.clusterName || ''} ${resource.node || ''} ${resource.containerId || ''}`,
+    onSelect: () => openServiceDetails(resource.id)
+  })), [resources]);
 
-  const toolbar = <input className="search-clean global-toolbar-search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search services, clusters or docs…" />;
+  const activeTitle = { dashboard: 'Dashboard', services: 'Services', wiki: 'Wiki', settings: 'Settings' }[activeTab];
 
   let content = null;
   if (loading) {
-    content = <SectionCard><div className="page-state-clean">Loading…</div></SectionCard>;
+    content = <PageSkeleton variant={activeTab === 'services' ? 'table' : 'dashboard'} />;
   } else if (activeTab === 'dashboard') {
-    content = <UserOverview resources={resources} onOpenProvisioning={() => setCreateOpen(true)} onSelectService={(id) => { setSelectedId(id); setActiveTab('services'); }} />;
+    content = <UserOverview resources={resources} onOpenProvisioning={() => setCreateOpen(true)} onSelectService={openServiceDetails} onConsole={openConsole} />;
   } else if (activeTab === 'services') {
-    content = <UserServices resources={resources} selectedId={selectedId} onSelect={setSelectedId} search={search} onSearch={setSearch} onOpenConsole={openConsole} />;
+    content = <UserServices resources={resources} selectedId={selectedId} detailOpen={detailOpen} onDetails={openServiceDetails} onCloseDetails={() => setDetailOpen(false)} onConsole={openConsole} />;
   } else if (activeTab === 'wiki') {
-    content = <SectionCard title="Wiki" subtitle="Documentation and shared knowledge"><WikiBrowser /></SectionCard>;
+    content = <SectionCard title="Wiki"><WikiBrowser language={language} /></SectionCard>;
   } else {
     content = (
-      <div className="settings-layout-clean">
-        <SettingsSummary
-          profile={profile}
-          setProfile={setProfile}
-          saveProfile={saveProfile}
-          savingProfile={savingProfile}
-          error={error}
-          notice={notice}
-        />
-        <SectionCard title="Appearance & language" subtitle="Personal display preferences for this account">
+      <div className="settings-layout-clean user-settings-grid-v4">
+        <SettingsSummary profile={profile} setProfile={setProfile} saveProfile={saveProfile} savingProfile={savingProfile} error={error} notice={notice} />
+        <SectionCard title="Appearance & language">
           <div className="settings-choice-grid">
-            <div className="settings-choice-block">
-              <span className="settings-choice-label">Appearance</span>
-              <div className="segmented-clean">
-                <button type="button" className={theme === 'light' ? 'active' : ''} onClick={() => setTheme('light')}>Light</button>
-                <button type="button" className={theme === 'dark' ? 'active' : ''} onClick={() => setTheme('dark')}>Dark</button>
-              </div>
-            </div>
-            <div className="settings-choice-block">
-              <span className="settings-choice-label">Language</span>
-              <div className="segmented-clean">
-                <button type="button" className={language === 'en' ? 'active' : ''} onClick={() => changeLanguage('en')}>English</button>
-                <button type="button" className={language === 'de' ? 'active' : ''} onClick={() => changeLanguage('de')}>Deutsch</button>
-              </div>
-            </div>
+            <div className="settings-choice-block"><span className="settings-choice-label">Appearance</span><div className="segmented-clean"><button type="button" className={theme === 'light' ? 'active' : ''} onClick={() => setTheme('light')}>Light</button><button type="button" className={theme === 'dark' ? 'active' : ''} onClick={() => setTheme('dark')}>Dark</button></div></div>
+            <div className="settings-choice-block"><span className="settings-choice-label">Language</span><div className="segmented-clean"><button type="button" className={language === 'en' ? 'active' : ''} onClick={() => changeLanguage('en')}>English</button><button type="button" className={language === 'de' ? 'active' : ''} onClick={() => changeLanguage('de')}>Deutsch</button></div></div>
           </div>
         </SectionCard>
         <SectionCard title="Profile picture"><AvatarSettingsPanel language={language} /></SectionCard>
         <SectionCard title="Email address"><AccountEmailSettingsPanel language={language} /></SectionCard>
         <SectionCard title="Password"><AccountPasswordSettingsPanel language={language} /></SectionCard>
-        <SectionCard title="Notifications" subtitle="Mail preferences for service monitoring"><NotificationSettingsPanel language={language} /></SectionCard>
+        <SectionCard title="Notifications"><NotificationSettingsPanel language={language} /></SectionCard>
       </div>
     );
   }
@@ -334,15 +355,13 @@ export default function UserDashboard() {
       <PortalShell
         user={user}
         title={activeTitle}
-        subtitle="A rebuilt full-width workspace for your hosting portal."
         navItems={navItems}
         activeKey={activeTab}
-        onSelect={setActiveTab}
+        onSelect={(key) => { setActiveTab(key); if (key !== 'services') setDetailOpen(false); }}
         onLogout={logout}
-        toolbar={toolbar}
+        onOpenSettings={() => setActiveTab('settings')}
         language={language}
-        onLanguageChange={changeLanguage}
-        footer={<span>Hosting by TechByGiusi · Self-hosted. More freedom.</span>}
+        searchItems={searchItems}
       >
         {error && activeTab !== 'settings' ? <InlineNotice tone="danger">{error}</InlineNotice> : null}
         {content}
@@ -351,20 +370,10 @@ export default function UserDashboard() {
       {createOpen ? (
         <CreateMachineModal
           options={provisioningOptions}
-          initialJob={jobModal}
+          initialJob={activeProvisioningJob}
           onClose={() => setCreateOpen(false)}
-          onCreated={() => { load(); }}
+          onCreated={load}
         />
-      ) : null}
-
-      {jobModal && !createOpen ? (
-        <ActionModal title="Provisioning still running" subtitle="A machine creation job is active." onClose={() => setJobModal(null)}>
-          <p>You can reopen the create dialog to watch the live progress.</p>
-          <div className="form-actions">
-            <button type="button" className="btn-secondary" onClick={() => setJobModal(null)}>Dismiss</button>
-            <button type="button" className="btn-primary" onClick={() => { setCreateOpen(true); }}>Open provisioning</button>
-          </div>
-        </ActionModal>
       ) : null}
     </>
   );

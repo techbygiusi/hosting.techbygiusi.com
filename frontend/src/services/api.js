@@ -316,7 +316,6 @@ export const adminApi = {
   discoverPangolin: (data) => apiClient.post('/admin/pangolin-settings/discover', data),
   testSmtp: (data) => apiClient.post('/admin/settings/test-smtp', data),
   testProxmox: (data) => apiClient.post('/admin/settings/test-proxmox', data),
-  // v2.0
   getGroups: () => apiClient.get('/admin/groups'),
   createGroup: (data) => apiClient.post('/admin/groups', data),
   updateGroup: (groupId, data) => apiClient.put(`/admin/groups/${groupId}`, data),
@@ -332,19 +331,16 @@ export const adminApi = {
   getProvisioningJobs: () => apiClient.get('/admin/provisioning-jobs'),
   updateClusterProvisioning: (clusterId, data) => apiClient.put(`/admin/clusters/${clusterId}/provisioning`, data),
   getAudit: ({ page = 1, search = '' } = {}) => apiClient.get(`/admin/audit?page=${page}&limit=50${search ? `&search=${encodeURIComponent(search)}` : ''}`),
-  // Admin credential vault
   getAdminCredentials: () => apiClient.get('/admin/credentials'),
   revealAdminCredential: (credId) => apiClient.get(`/admin/credentials/${credId}/reveal`),
   createAdminCredential: (data) => apiClient.post('/admin/credentials', data),
   updateAdminCredential: (credId, data) => apiClient.put(`/admin/credentials/${credId}`, data),
   deleteAdminCredential: (credId) => apiClient.delete(`/admin/credentials/${credId}`),
-  // Admin → credentials attached to a specific resource
   getResourceCredentials: (resourceId) => apiClient.get(`/admin/resources/${resourceId}/credentials`),
   revealResourceCredential: (resourceId, credId) => apiClient.get(`/admin/resources/${resourceId}/credentials/${credId}/reveal`),
   createResourceCredential: (resourceId, data) => apiClient.post(`/admin/resources/${resourceId}/credentials`, data),
   updateResourceCredential: (resourceId, credId, data) => apiClient.put(`/admin/resources/${resourceId}/credentials/${credId}`, data),
   deleteResourceCredential: (resourceId, credId) => apiClient.delete(`/admin/resources/${resourceId}/credentials/${credId}`),
-  // v3.0: maintenance windows, status events, test mail
   getMaintenanceWindows: () => apiClient.get('/admin/maintenance'),
   createMaintenanceWindow: (data) => apiClient.post('/admin/maintenance', data),
   updateMaintenanceWindow: (windowId, data) => apiClient.put(`/admin/maintenance/${windowId}`, data),
@@ -379,7 +375,6 @@ export const userApi = {
   deleteAvatar: () => apiClient.delete('/user/avatar'),
   updateLanguage: (language) => apiClient.put('/user/language', { language }),
   updateTheme: (theme) => apiClient.put('/user/theme', { theme }),
-  // v2.0
   powerAction: (resourceId, action) => apiClient.post(`/user/resources/${resourceId}/power`, { action }),
   getTasks: (resourceId) => apiClient.get(`/user/resources/${resourceId}/tasks`),
   getTaskLog: (resourceId, upid) => apiClient.get(`/user/resources/${resourceId}/tasks/${encodeURIComponent(upid)}/log`),
@@ -396,19 +391,15 @@ export const userApi = {
   getProvisioningJobs: (limit = 20) => apiClient.get(`/user/provisioning/jobs?limit=${limit}`),
   getProvisioningJob: (jobId) => apiClient.get(`/user/provisioning/jobs/${jobId}`),
   deleteMachine: (resourceId) => apiClient.delete(`/user/resources/${resourceId}`),
-  // v3.0: notification preferences
   getNotificationPreferences: () => apiClient.get('/user/notifications'),
   updateNotificationPreferences: (data) => apiClient.put('/user/notifications', data),
   sendNotificationTestMail: () => apiClient.post('/user/notifications/send-test-mail')
 };
 
-// v3.1.80: wiki - published articles for users, full management for admins
 export const wikiApi = {
-  // portal users
   getTree: (language) => apiClient.get(`/wiki/tree?language=${encodeURIComponent(language || 'en')}`),
   getArticle: (slug, language) => apiClient.get(`/wiki/articles/${encodeURIComponent(slug)}?language=${encodeURIComponent(language || 'en')}`),
 
-  // administrators
   getAdminContent: () => apiClient.get('/wiki/admin/content'),
   createFolder: (data) => apiClient.post('/wiki/admin/folders', data),
   updateFolder: (folderId, data) => apiClient.put(`/wiki/admin/folders/${folderId}`, data),
@@ -430,7 +421,6 @@ export const wikiApi = {
   deleteImage: (token) => apiClient.delete(`/wiki/admin/images/${token}`)
 };
 
-// v3.0: public - maintenance announcements for the banner (no auth required)
 export const publicApi = {
   getAnnouncements: () => apiClient.get('/announcements')
 };

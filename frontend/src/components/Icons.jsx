@@ -1,12 +1,5 @@
 import React from 'react';
 
-/**
- * Central SVG icon set for the portal.
- *
- * The portal never uses emoji as icons - every glyph is a stroked SVG so it
- * inherits `currentColor`, scales cleanly on high-DPI displays and looks
- * identical on every platform. Icons are 24x24 on a 1.6px stroke grid.
- */
 
 function Icon({ children, size = 20, className = '', strokeWidth = 1.6, viewBox = '0 0 24 24', ...rest }) {
   return (
@@ -185,6 +178,15 @@ export const AlignCenterIcon = (props) => (
 
 export const AlignRightIcon = (props) => (
   <Icon {...props}><path d="M4 6h16" /><path d="M10 12h10" /><path d="M7 18h13" /></Icon>
+);
+
+
+export const SearchIcon = (props) => (
+  <Icon {...props}><circle cx="11" cy="11" r="6.5" /><path d="m16 16 4 4" /></Icon>
+);
+
+export const TerminalIcon = (props) => (
+  <Icon {...props}><path d="m5 7 4 4-4 4" /><path d="M11 16h8" /></Icon>
 );
 
 export const ServerIcon = (props) => (

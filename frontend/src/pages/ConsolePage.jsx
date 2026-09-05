@@ -6,6 +6,7 @@ import '../styles/globals.css';
 import { readStoredLanguage } from '../components/LanguageSwitch';
 import { translatePortalText } from '../i18n';
 import { BrandMark } from '../components/BrandLogo';
+import PageSkeleton from '../components/PageSkeleton';
 
 export default function ConsolePage() {
   const { resourceId } = useParams();
@@ -216,7 +217,7 @@ export default function ConsolePage() {
       </header>
 
       <main className="console-page-main">
-        {loading && <div className="loading"><span className="spinner"></span><span>{text('Konsole wird vorbereitet...')}</span></div>}
+        {loading && <PageSkeleton variant="console" compact />}
         {error && <div className="alert alert-danger">{error}</div>}
 
         {!loading && !error && resource && !canUseConsole && (

@@ -1,9 +1,10 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import BrandLogo from './BrandLogo';
-import ThemeButton from './ThemeButton';
-import LanguageSwitch from './LanguageSwitch';
+import AccountMenu from './AccountMenu';
 import Avatar from './Avatar';
-import { MenuIcon, CloseIcon, LogoutIcon } from './Icons';
+import GlobalSearch from './GlobalSearch';
+import PageSkeleton from './PageSkeleton';
+import { MenuIcon, CloseIcon, LogoutIcon, SettingsIcon } from './Icons';
 
 export default function PortalShell({
   user,
@@ -13,20 +14,26 @@ export default function PortalShell({
   activeKey,
   onSelect,
   onLogout,
+  onOpenSettings,
   actions,
   children,
-  toolbar,
   footer,
   language,
-  onLanguageChange
+  searchItems = [],
+  searchPlaceholder = 'Search services, users, clusters or pages…'
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [pageTransition, setPageTransition] = useState(false);
+  const transitionTimer = useRef(null);
+
+  useEffect(() => () => {
+    if (transitionTimer.current) window.clearTimeout(transitionTimer.current);
+  }, []);
 
   useEffect(() => {
     setMobileOpen(false);
   }, [activeKey]);
 
-  const activeItem = useMemo(() => navItems.find((item) => item.key === activeKey), [navItems, activeKey]);
   const navGroups = useMemo(() => {
     const groups = [];
     for (const item of navItems) {
@@ -41,6 +48,56 @@ export default function PortalShell({
     return groups;
   }, [navItems]);
 
+  const goTo = (key) => {
+    if (key === activeKey) return;
+    setPageTransition(true);
+    onSelect(key);
+    if (transitionTimer.current) window.clearTimeout(transitionTimer.current);
+    transitionTimer.current = window.setTimeout(() => setPageTransition(false), 260);
+  };
+
+
+  const openSettings = () => {
+    if (!onOpenSettings) return;
+    setPageTransition(true);
+    onOpenSettings();
+    if (transitionTimer.current) window.clearTimeout(transitionTimer.current);
+    transitionTimer.current = window.setTimeout(() => setPageTransition(false), 260);
+  };
+
+  const mergedSearchItems = useMemo(() => {
+    const menuItems = navItems.map((item) => ({
+      id: `menu-${item.key}`,
+      label: item.label,
+      description: item.section ? `${item.section} menu` : 'Portal menu',
+      category: 'Menu',
+      icon: item.icon,
+      keywords: `${item.label} ${item.section || ''}`,
+      onSelect: () => goTo(item.key)
+    }));
+    const customItems = searchItems.map((item) => ({
+      ...item,
+      onSelect: () => {
+        setPageTransition(true);
+        item.onSelect?.();
+        if (transitionTimer.current) window.clearTimeout(transitionTimer.current);
+        transitionTimer.current = window.setTimeout(() => setPageTransition(false), 260);
+      }
+    }));
+    return [...customItems, ...menuItems];
+  }, [navItems, searchItems, activeKey]);
+
+  useEffect(() => {
+    const onShortcut = (event) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault();
+        document.querySelector('.global-search-trigger')?.click();
+      }
+    };
+    window.addEventListener('keydown', onShortcut);
+    return () => window.removeEventListener('keydown', onShortcut);
+  }, []);
+
   const renderNavigation = (mobile = false) => (
     <nav className={`portal-nav ${mobile ? 'mobile-nav' : ''}`} aria-label={mobile ? 'Mobile primary' : 'Primary'}>
       {navGroups.map((group) => (
@@ -54,7 +111,7 @@ export default function PortalShell({
                   key={item.key}
                   type="button"
                   className={`portal-nav-item ${activeKey === item.key ? 'active' : ''}`}
-                  onClick={() => onSelect(item.key)}
+                  onClick={() => goTo(item.key)}
                 >
                   {Icon ? <Icon size={18} /> : null}
                   <span>{item.label}</span>
@@ -68,23 +125,15 @@ export default function PortalShell({
     </nav>
   );
 
+  const settingsLabel = language === 'de' ? 'Kontoeinstellungen' : 'Account settings';
+  const logoutLabel = language === 'de' ? 'Abmelden' : 'Log out';
+
   return (
     <div className="portal-shell">
       <aside className="portal-sidebar desktop-only">
         <div className="portal-sidebar-top">
           <BrandLogo compact />
           {renderNavigation(false)}
-        </div>
-
-        <div className="portal-sidebar-bottom">
-          <div className="sidebar-note card-soft">
-            <p>Self-hosted. More freedom.</p>
-            <small>Simple tools for infrastructure, apps and documentation.</small>
-          </div>
-          <button type="button" className="portal-logout" onClick={onLogout}>
-            <LogoutIcon size={18} />
-            <span>Logout</span>
-          </button>
         </div>
       </aside>
 
@@ -97,19 +146,11 @@ export default function PortalShell({
             <BrandLogo compact />
           </div>
           <div className="portal-topbar-search-wrap">
-            {toolbar || <div className="topbar-placeholder" />}
+            <GlobalSearch items={mergedSearchItems} placeholder={searchPlaceholder} />
           </div>
           <div className="portal-topbar-actions">
-            <ThemeButton />
-            <LanguageSwitch value={language} onChange={onLanguageChange} />
             {actions}
-            <div className="topbar-user-chip">
-              <Avatar src={user?.avatarUrl} name={user?.name} email={user?.email} size={36} />
-              <div className="topbar-user-copy desktop-only-inline">
-                <strong>{user?.name || user?.email || 'User'}</strong>
-                <span>{user?.role === 'admin' ? 'Administrator' : 'User'}</span>
-              </div>
-            </div>
+            <AccountMenu user={user} language={language} onOpenSettings={onOpenSettings ? openSettings : null} onLogout={onLogout} />
           </div>
         </header>
 
@@ -118,10 +159,11 @@ export default function PortalShell({
             <h1>{title}</h1>
             {subtitle ? <p>{subtitle}</p> : null}
           </div>
-          {activeItem?.badge ? <span className="pill pill-neutral">{activeItem.badge}</span> : null}
         </div>
 
-        <main className="portal-content">{children}</main>
+        <main className="portal-content">
+          {pageTransition ? <PageSkeleton variant={['users', 'services', 'clusters', 'groups', 'audit'].includes(activeKey) ? 'table' : activeKey === 'settings' ? 'settings' : 'dashboard'} compact /> : children}
+        </main>
         {footer ? <footer className="portal-footer">{footer}</footer> : null}
       </div>
 
@@ -133,6 +175,7 @@ export default function PortalShell({
               <CloseIcon size={20} />
             </button>
           </div>
+
           <div className="mobile-drawer-user">
             <Avatar src={user?.avatarUrl} name={user?.name} email={user?.email} size={48} />
             <div>
@@ -140,11 +183,17 @@ export default function PortalShell({
               <p>{user?.email || ''}</p>
             </div>
           </div>
+
           {renderNavigation(true)}
+
           <div className="mobile-drawer-footer">
-            <button type="button" className="portal-logout" onClick={onLogout}>
-              <LogoutIcon size={18} />
-              <span>Logout</span>
+            {onOpenSettings ? (
+              <button type="button" className="mobile-account-action" onClick={() => { setMobileOpen(false); openSettings(); }}>
+                <SettingsIcon size={18} /><span>{settingsLabel}</span>
+              </button>
+            ) : null}
+            <button type="button" className="mobile-account-action danger" onClick={onLogout}>
+              <LogoutIcon size={18} /><span>{logoutLabel}</span>
             </button>
           </div>
         </div>

@@ -1,11 +1,5 @@
 import React from 'react';
 
-/**
- * Round profile picture with an initials fallback.
- *
- * The fallback is deterministic: the same account always gets the same tint,
- * so the header still reads as "your account" before a picture is uploaded.
- */
 
 const TINTS = [
   'tint-sage', 'tint-moss', 'tint-clay', 'tint-slate', 'tint-sand', 'tint-fern'

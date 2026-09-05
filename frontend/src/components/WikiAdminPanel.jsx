@@ -4,8 +4,6 @@ import { wikiApi, getErrorMessage } from '../services/api';
 
 const LANGUAGES = ['en', 'de'];
 
-/* Compact line icons for the structure actions. Text buttons stacked four wide
-   made the tree look cluttered, so the actions are icon-only with tooltips. */
 const Icon = {
   folder: () => (
     <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true">
@@ -171,8 +169,6 @@ export default function WikiAdminPanel({ language = 'en' }) {
     setTimeout(() => setNotice(''), 2500);
   };
 
-  /* ----------------------------------------------------------- folder ops */
-
   const submitFolder = async () => {
     if (!folderForm) return;
     const titles = folderForm.titles || {};
@@ -211,8 +207,6 @@ export default function WikiAdminPanel({ language = 'en' }) {
     }
   };
 
-  /* ---------------------------------------------------------- article ops */
-
   const createArticle = async (folderId = null) => {
     setBusy('article');
     try {
@@ -244,10 +238,6 @@ export default function WikiAdminPanel({ language = 'en' }) {
       setBusy('');
     }
   };
-
-
-
-  /* ------------------------------------------------------- drag and drop */
 
   /**
    * Move an article into another folder. `folderId` is null for the top level.

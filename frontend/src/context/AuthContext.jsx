@@ -115,7 +115,6 @@ export function AuthProvider({ children }) {
           return next;
         });
       } catch (_) {
-        // Keep the visual theme even when persistence temporarily fails.
       }
     };
 

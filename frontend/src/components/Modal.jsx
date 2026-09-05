@@ -1,11 +1,6 @@
 import React, { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 
-/**
- * Shared modal. Desktop: centered dialog with pop-in.
- * Mobile (<768px): full-width bottom sheet sliding up, with grab handle.
- * Closes on ESC and on backdrop click (unless disableBackdropClose).
- */
 export default function Modal({ title, children, onClose, className = '', disableBackdropClose = false, closeLabel = 'Close' }) {
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;

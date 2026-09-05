@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import MarkdownView from '../components/MarkdownView';
 import { wikiApi, getErrorMessage } from '../services/api';
 import { readStoredLanguage } from '../components/LanguageSwitch';
+import PageSkeleton from '../components/PageSkeleton';
 import '../styles/globals.css';
 import { BrandMark } from '../components/BrandLogo';
 
@@ -260,7 +261,6 @@ export default function WikiEditorPage() {
 
   const backupKey = `${LOCAL_BACKUP_PREFIX}${articleId}`;
 
-  // The editor is a full-page route, so drop the dashboard chrome while it is open.
   useEffect(() => {
     document.body.classList.add('wiki-editor-route-active');
     return () => document.body.classList.remove('wiki-editor-route-active');
@@ -461,8 +461,6 @@ export default function WikiEditorPage() {
     try { window.localStorage.removeItem(backupKey); } catch (_) { /* ignore */ }
     setRecovery(null);
   };
-
-  /* --------------------------------------------------- text transformations */
 
   const replaceRange = useCallback((start, end, replacement, selectionStart, selectionEnd) => {
     const field = bodyRef.current;
@@ -879,7 +877,7 @@ export default function WikiEditorPage() {
   }
 
   if (!draft) {
-    return <div className="wiki-editor-page"><p className="hint-text">{text.loading}</p></div>;
+    return <div className="wiki-editor-page wiki-editor-loading"><PageSkeleton variant="editor" /></div>;
   }
 
   return (

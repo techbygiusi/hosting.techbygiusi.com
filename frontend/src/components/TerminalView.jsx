@@ -7,10 +7,6 @@ import { userApi, getErrorMessage } from '../services/api';
 import { readStoredLanguage } from './LanguageSwitch';
 import { translatePortalText } from '../i18n';
 
-/**
- * In-browser console for an assigned resource. The backend relays the
- * websocket to Proxmox or SSH, so API tokens and SSH credentials never reach the browser.
- */
 function terminalText(value) {
   return translatePortalText(value, readStoredLanguage());
 }
@@ -32,9 +28,6 @@ const NORD_TERMINAL_BASE = Object.freeze({
   brightMagenta: '#B48EAD',
   brightCyan: '#8FBCBB',
   brightWhite: '#ECEFF4',
-  // The shell's ANSI green slot is intentionally mapped to the softer Nord Frost teal.
-  // This keeps prompts and other accent text legible and stable across portal themes
-  // instead of inheriting the portal's own (now lavender) accent colour.
   green: '#8FBCBB',
   brightGreen: '#8FBCBB',
   cursor: '#8FBCBB',
@@ -128,9 +121,6 @@ export default function TerminalView({ resourceId, resourceName, fullscreen = fa
       resizeObserver = new ResizeObserver(() => fitAndResize());
       resizeObserver.observe(containerRef.current);
     }
-
-    // The console uses a fixed Nord palette in both portal themes. The terminal
-    // therefore stays visually consistent when light/dark mode changes.
 
     (async () => {
       try {

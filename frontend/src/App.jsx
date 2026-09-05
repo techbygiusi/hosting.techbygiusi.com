@@ -10,14 +10,10 @@ import ConsolePage from './pages/ConsolePage';
 import WikiEditorPage from './pages/WikiEditorPage';
 import { useDocumentTheme } from './components/ThemeButton';
 import { usePortalLanguageRuntime } from './i18n';
+import PageSkeleton from './components/PageSkeleton';
 
-function FullscreenLoader({ text }) {
-  return (
-    <div className="app-loader">
-      <div className="spinner spinner-lg"></div>
-      <div>{text}</div>
-    </div>
-  );
+function FullscreenLoader() {
+  return <div className="app-loader app-loader-skeleton"><PageSkeleton variant="dashboard" /></div>;
 }
 
 function FullscreenError({ title, text }) {
