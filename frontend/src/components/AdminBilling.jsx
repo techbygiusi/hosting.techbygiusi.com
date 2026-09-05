@@ -14,7 +14,7 @@ const TEXT = {
     cpuCores: 'CPU cores', ramSize: 'RAM size', storageSize: 'Storage size',
     cpuRate: 'CPU price / core-hour', ramRate: 'RAM price / GB-hour', storageRate: 'Storage price / GB-month',
     activeHours: 'Active hours', cpuCost: 'CPU', ramCost: 'RAM', storageCost: 'Storage',
-    useSavedRates: 'Use saved rates', groupTime: 'Time', groupStorage: 'Storage'
+    groupTime: 'Time', groupStorage: 'Storage', useSavedRates: 'Use saved rates'
   },
   de: {
     month: 'Monat', total: 'Gesamt in diesem Monat', users: 'Abgerechnete Benutzer', services: 'Abrechenbare Services',
@@ -27,7 +27,7 @@ const TEXT = {
     cpuCores: 'CPU-Cores', ramSize: 'RAM-Größe', storageSize: 'Speichergröße',
     cpuRate: 'CPU-Preis / Core-Stunde', ramRate: 'RAM-Preis / GB-Stunde', storageRate: 'Speicherpreis / GB-Monat',
     activeHours: 'Aktive Stunden', cpuCost: 'CPU', ramCost: 'RAM', storageCost: 'Speicher',
-    useSavedRates: 'Gespeicherte Tarife übernehmen', groupTime: 'Zeitraum', groupStorage: 'Speicher'
+    groupTime: 'Zeitraum', groupStorage: 'Speicher', useSavedRates: 'Gespeicherte Tarife übernehmen'
   }
 };
 
@@ -125,7 +125,16 @@ export default function AdminBilling({ language = 'en' }) {
     try {
       const response = await adminApi.getBilling(month);
       setData(response.data || null);
-      if (response.data?.settings) setSettings(response.data.settings);
+      if (response.data?.settings) {
+        const savedSettings = response.data.settings;
+        setSettings(savedSettings);
+        setSimulator((current) => ({
+          ...current,
+          cpuPerCoreHour: Number(savedSettings.cpuPerCoreHour || 0),
+          memoryPerGbHour: Number(savedSettings.memoryPerGbHour || 0),
+          storagePerGbMonth: Number(savedSettings.storagePerGbMonth || 0)
+        }));
+      }
     } catch (err) {
       setError(getErrorMessage(err, text.failed));
     }
@@ -138,7 +147,14 @@ export default function AdminBilling({ language = 'en' }) {
     setSaving(true); setError(''); setNotice('');
     try {
       const response = await adminApi.updateBillingSettings(settings);
-      setSettings(response.data?.settings || settings);
+      const savedSettings = response.data?.settings || settings;
+      setSettings(savedSettings);
+      setSimulator((current) => ({
+        ...current,
+        cpuPerCoreHour: Number(savedSettings.cpuPerCoreHour || 0),
+        memoryPerGbHour: Number(savedSettings.memoryPerGbHour || 0),
+        storagePerGbMonth: Number(savedSettings.storagePerGbMonth || 0)
+      }));
       setNotice(text.saved);
       await load();
     } catch (err) {
@@ -174,7 +190,6 @@ export default function AdminBilling({ language = 'en' }) {
           <div className="billing-simulator-topbar billing-simulator-topbar-actions">
             <button type="button" className="btn-secondary btn-small" onClick={applySavedRatesToSimulator}>{text.useSavedRates}</button>
           </div>
-
           <div className="billing-simulator-layout">
             <div className="billing-simulator-controls">
               <div className="billing-simulator-group">
