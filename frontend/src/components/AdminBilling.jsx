@@ -9,7 +9,7 @@ const TEXT = {
     save: 'Save rates', saving: 'Saving…', saved: 'Billing rates saved.', failed: 'Billing data could not be loaded.',
     userCosts: 'Cost by user', serviceList: 'Included services', sourceSelf: 'Self-service', sourceAssigned: 'Admin assigned',
     noUsage: 'No usage tracked for this month.', noServices: 'No billable services.', owner: 'Owner', saveFailed: 'Billing rates could not be saved.',
-    simulator: 'Cost simulator', simulatorHint: 'Test any configuration. CPU and RAM are calculated at full assigned capacity while running; storage is calculated at full assigned capacity. Values update instantly and are not saved.',
+    simulator: 'Cost simulator',
     simulatorTotal: 'Estimated monthly cost', monthDays: 'Days in month', uptime: 'Uptime in month',
     cpuCores: 'CPU cores', ramSize: 'RAM size', storageSize: 'Storage size',
     cpuRate: 'CPU price / core-hour', ramRate: 'RAM price / GB-hour', storageRate: 'Storage price / GB-month',
@@ -22,7 +22,7 @@ const TEXT = {
     save: 'Tarife speichern', saving: 'Speichern…', saved: 'Billing-Tarife gespeichert.', failed: 'Billing-Daten konnten nicht geladen werden.',
     userCosts: 'Kosten pro Benutzer', serviceList: 'Enthaltene Services', sourceSelf: 'Self-Service', sourceAssigned: 'Vom Admin zugewiesen',
     noUsage: 'Für diesen Monat wurden noch keine Nutzungsdaten erfasst.', noServices: 'Keine abrechenbaren Services.', owner: 'Besitzer', saveFailed: 'Billing-Tarife konnten nicht gespeichert werden.',
-    simulator: 'Kosten-Simulator', simulatorHint: 'Beliebige Konfiguration testen. CPU und RAM werden während der Laufzeit immer mit der vollständig zugewiesenen Kapazität berechnet, Speicher immer mit der vollständig zugewiesenen Größe. Alle Werte werden sofort berechnet und nicht gespeichert.',
+    simulator: 'Kosten-Simulator',
     simulatorTotal: 'Geschätzte Monatskosten', monthDays: 'Tage im Monat', uptime: 'Laufzeit im Monat',
     cpuCores: 'CPU-Cores', ramSize: 'RAM-Größe', storageSize: 'Speichergröße',
     cpuRate: 'CPU-Preis / Core-Stunde', ramRate: 'RAM-Preis / GB-Stunde', storageRate: 'Speicherpreis / GB-Monat',
@@ -171,8 +171,7 @@ export default function AdminBilling({ language = 'en' }) {
 
       <SectionCard title={text.simulator}>
         <div className="billing-simulator">
-          <div className="billing-simulator-topbar">
-            <p>{text.simulatorHint}</p>
+          <div className="billing-simulator-topbar billing-simulator-topbar-actions">
             <button type="button" className="btn-secondary btn-small" onClick={applySavedRatesToSimulator}>{text.useSavedRates}</button>
           </div>
 

@@ -9,7 +9,10 @@ const TEXT = {
     month: 'Month', hours: 'h', coreHours: 'core h', gbHours: 'GB h', gbMonth: 'GB month',
     average: 'Allocated', sourceSelf: 'Self-service', sourceAssigned: 'Assigned service', loading: 'Loading billing…',
     failed: 'Billing data could not be loaded.', yourShare: 'Your share', serviceTotal: 'Service total',
-    splitAcross: 'Split across', usersLabel: 'users'
+    splitAcross: 'Split across', usersLabel: 'users', priceExamples: 'Price examples',
+    priceExamplesIntro: 'Examples use the current billing rates, 30 days and 99% uptime.', currentRates: 'Current rates',
+    coreRate: 'CPU / core-hour', memoryRate: 'RAM / GB-hour', storageRate: 'Storage / GB-month',
+    configuration: 'Configuration', cores: 'Cores', ram: 'RAM', uptime: 'Uptime', monthlyPrice: 'Monthly price'
   },
   de: {
     total: 'Dein Anteil in diesem Monat', runtime: 'Laufzeit', cpu: 'CPU', memory: 'Arbeitsspeicher', storage: 'Speicher',
@@ -17,7 +20,10 @@ const TEXT = {
     month: 'Monat', hours: 'Std.', coreHours: 'Core-Std.', gbHours: 'GB-Std.', gbMonth: 'GB-Monat',
     average: 'zugewiesen', sourceSelf: 'Self-Service', sourceAssigned: 'Zugewiesener Service', loading: 'Billing wird geladen…',
     failed: 'Billing-Daten konnten nicht geladen werden.', yourShare: 'Dein Anteil', serviceTotal: 'Gesamtkosten',
-    splitAcross: 'Aufgeteilt auf', usersLabel: 'Benutzer'
+    splitAcross: 'Aufgeteilt auf', usersLabel: 'Benutzer', priceExamples: 'Preisbeispiele',
+    priceExamplesIntro: 'Die Beispiele verwenden die aktuell eingestellten Billing-Tarife, 30 Tage und 99 % Uptime.', currentRates: 'Aktuelle Tarife',
+    coreRate: 'CPU / Core-Stunde', memoryRate: 'RAM / GB-Stunde', storageRate: 'Speicher / GB-Monat',
+    configuration: 'Konfiguration', cores: 'Cores', ram: 'RAM', uptime: 'Uptime', monthlyPrice: 'Monatspreis'
   }
 };
 
@@ -26,6 +32,19 @@ function money(value, currency, language) {
     return new Intl.NumberFormat(language === 'de' ? 'de-DE' : 'en-GB', { style: 'currency', currency, minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(value || 0));
   } catch (_) {
     return `${Number(value || 0).toFixed(2)} ${currency || 'EUR'}`;
+  }
+}
+
+function rateMoney(value, currency, language) {
+  try {
+    return new Intl.NumberFormat(language === 'de' ? 'de-DE' : 'en-GB', {
+      style: 'currency',
+      currency,
+      minimumFractionDigits: 4,
+      maximumFractionDigits: 6
+    }).format(Number(value || 0));
+  } catch (_) {
+    return `${Number(value || 0).toFixed(4)} ${currency || 'EUR'}`;
   }
 }
 
@@ -68,6 +87,30 @@ export default function UserBilling({ language = 'en' }) {
 
   const settings = data?.settings || { currency: 'EUR' };
   const summary = data?.summary || {};
+  const priceExamples = useMemo(() => {
+    const activeHours = 30 * 24 * 0.99;
+    const configurations = [
+      { cores: 1, ram: 2, storage: 16 },
+      { cores: 1, ram: 4, storage: 32 },
+      { cores: 2, ram: 4, storage: 32 },
+      { cores: 2, ram: 8, storage: 64 },
+      { cores: 4, ram: 8, storage: 64 },
+      { cores: 4, ram: 16, storage: 128 },
+      { cores: 8, ram: 32, storage: 256 },
+      { cores: 12, ram: 64, storage: 512 }
+    ];
+    const cpuRate = Number(settings.cpuPerCoreHour || 0);
+    const memoryRate = Number(settings.memoryPerGbHour || 0);
+    const storageRate = Number(settings.storagePerGbMonth || 0);
+
+    return configurations.map((configuration) => ({
+      ...configuration,
+      uptime: 99,
+      price: configuration.cores * activeHours * cpuRate
+        + configuration.ram * activeHours * memoryRate
+        + configuration.storage * storageRate
+    }));
+  }, [settings.cpuPerCoreHour, settings.memoryPerGbHour, settings.storagePerGbMonth]);
   const metrics = useMemo(() => [
     { label: text.runtime, value: `${num(summary.runtimeHours)} ${text.hours}`, sub: money(summary.costs?.runtime, settings.currency, language) },
     { label: text.cpu, value: `${num(summary.cpuCoreHours)} ${text.coreHours}`, sub: money(summary.costs?.cpu, settings.currency, language) },
@@ -123,6 +166,44 @@ export default function UserBilling({ language = 'en' }) {
             ))}
           </div>
         ) : <EmptyState title={text.noData} text={text.noDataText} />}
+      </SectionCard>
+
+      <SectionCard title={text.priceExamples}>
+        <div className="billing-price-examples">
+          <p className="billing-price-examples-intro">{text.priceExamplesIntro}</p>
+          <div className="billing-rate-transparency">
+            <div><span>{text.coreRate}</span><strong>{rateMoney(settings.cpuPerCoreHour, settings.currency, language)}</strong></div>
+            <div><span>{text.memoryRate}</span><strong>{rateMoney(settings.memoryPerGbHour, settings.currency, language)}</strong></div>
+            <div><span>{text.storageRate}</span><strong>{rateMoney(settings.storagePerGbMonth, settings.currency, language)}</strong></div>
+          </div>
+
+          <div className="billing-example-table-wrap">
+            <table className="billing-example-table">
+              <thead>
+                <tr>
+                  <th>{text.configuration}</th>
+                  <th>{text.cores}</th>
+                  <th>{text.ram}</th>
+                  <th>{text.storage}</th>
+                  <th>{text.uptime}</th>
+                  <th>{text.monthlyPrice}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {priceExamples.map((example) => (
+                  <tr key={`${example.cores}-${example.ram}-${example.storage}`}>
+                    <td><strong>{example.cores}C / {example.ram} GB / {example.storage} GB</strong></td>
+                    <td>{example.cores}</td>
+                    <td>{example.ram} GB</td>
+                    <td>{example.storage} GB</td>
+                    <td>{example.uptime}%</td>
+                    <td><strong>{money(example.price, settings.currency, language)}</strong></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
       </SectionCard>
     </div>
   );
