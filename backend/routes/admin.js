@@ -25,6 +25,7 @@ const {
   deletePublication
 } = require('../services/pangolinService');
 const { syncClusterTemplates, ensureClusterTemplates, listClusterTemplates } = require('../services/templateService');
+const { getSystemUpdateStatus, startSystemUpdate } = require('../services/systemUpdateService');
 
 router.use(adminMiddleware);
 
@@ -1124,8 +1125,23 @@ router.post('/groups', async (req, res, next) => {
     if (!name) throw new AppError('Group name is required', HTTP_STATUS.BAD_REQUEST);
 
     const result = await run('INSERT INTO customer_groups (name) VALUES (?)', [name]);
-    await logAudit(req, 'group.create', `group:${result.lastID}`, name);
-    res.status(HTTP_STATUS.CREATED).json({ group: { id: result.lastID, name } });
+    const memberIds = Array.isArray(req.body.memberIds) ? req.body.memberIds : [];
+    for (const memberId of memberIds) {
+      const user = await get("SELECT id FROM users WHERE id = ? AND role = 'user'", [memberId]);
+      if (user) {
+        await run('INSERT OR IGNORE INTO user_groups (user_id, group_id) VALUES (?, ?)', [memberId, result.lastID]);
+      }
+    }
+
+    const members = await all(`
+      SELECT u.id, u.name, u.email
+      FROM user_groups ug JOIN users u ON ug.user_id = u.id
+      WHERE ug.group_id = ?
+      ORDER BY u.name, u.email
+    `, [result.lastID]);
+
+    await logAudit(req, 'group.create', `group:${result.lastID}`, `${name}; members=${members.length}`);
+    res.status(HTTP_STATUS.CREATED).json({ group: { id: result.lastID, name, members, member_count: members.length } });
   } catch (err) {
     next(err);
   }
@@ -1144,7 +1160,7 @@ router.put('/groups/:id', async (req, res, next) => {
     if (Array.isArray(req.body.memberIds)) {
       await run('DELETE FROM user_groups WHERE group_id = ?', [req.params.id]);
       for (const memberId of req.body.memberIds) {
-        const user = await get('SELECT id FROM users WHERE id = ?', [memberId]);
+        const user = await get("SELECT id FROM users WHERE id = ? AND role = 'user'", [memberId]);
         if (user) {
           await run('INSERT OR IGNORE INTO user_groups (user_id, group_id) VALUES (?, ?)', [memberId, req.params.id]);
         }
@@ -1725,6 +1741,16 @@ router.post('/settings/test-smtp', async (req, res, next) => {
   }
 });
 
+router.post('/clusters/test-connection', async (req, res, next) => {
+  try {
+    const { url, apiToken } = await resolveClusterTestData(req.body);
+    const result = await testConnection(url, apiToken);
+    res.status(result.success ? HTTP_STATUS.OK : HTTP_STATUS.BAD_REQUEST).json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.post('/settings/test-proxmox', async (req, res, next) => {
   try {
     const { url, apiToken } = await resolveClusterTestData(req.body);
@@ -1956,6 +1982,40 @@ router.get('/provisioning-jobs', async (req, res, next) => {
     }
     res.json({ jobs: rows });
   } catch (err) { next(err); }
+});
+
+
+router.get('/system-update/status', async (req, res, next) => {
+  try {
+    res.json({ update: getSystemUpdateStatus() });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/system-update/:type', async (req, res, next) => {
+  try {
+    const type = String(req.params.type || '').toLowerCase();
+    let update;
+    try {
+      update = startSystemUpdate(type, req.user?.email || req.user?.id || 'admin');
+    } catch (err) {
+      if (err.code === 'HELPER_MISSING') {
+        throw new AppError('The host updater helper is not installed. Run setup-updater.sh once on the Debian host.', HTTP_STATUS.SERVICE_UNAVAILABLE);
+      }
+      if (err.code === 'ALREADY_RUNNING') {
+        throw new AppError('Another system update is already running', HTTP_STATUS.CONFLICT);
+      }
+      if (err.code === 'INVALID_TYPE') {
+        throw new AppError('Invalid update type', HTTP_STATUS.BAD_REQUEST);
+      }
+      throw err;
+    }
+    await logAudit(req, 'system_update.start', `system:${type}`, `Update requested by ${req.user?.email || req.user?.id || 'admin'}`);
+    res.status(HTTP_STATUS.ACCEPTED).json({ update });
+  } catch (err) {
+    next(err);
+  }
 });
 
 module.exports = router;

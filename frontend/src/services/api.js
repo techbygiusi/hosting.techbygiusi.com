@@ -315,7 +315,7 @@ export const adminApi = {
   testPangolin: (data, clusterId) => apiClient.post('/admin/pangolin-settings/test', { ...data, clusterId: clusterId || data?.clusterId }),
   discoverPangolin: (data, clusterId) => apiClient.post('/admin/pangolin-settings/discover', { ...data, clusterId: clusterId || data?.clusterId }),
   testSmtp: (data) => apiClient.post('/admin/settings/test-smtp', data),
-  testProxmox: (data) => apiClient.post('/admin/settings/test-proxmox', data),
+  testProxmox: (data) => apiClient.post('/admin/clusters/test-connection', data),
   getGroups: () => apiClient.get('/admin/groups'),
   createGroup: (data) => apiClient.post('/admin/groups', data),
   updateGroup: (groupId, data) => apiClient.put(`/admin/groups/${groupId}`, data),
@@ -347,7 +347,9 @@ export const adminApi = {
   deleteMaintenanceWindow: (windowId) => apiClient.delete(`/admin/maintenance/${windowId}`),
   getStatusEvents: (limit = 25) => apiClient.get(`/admin/status-events?limit=${limit}`),
   sendTestMail: () => apiClient.post('/admin/settings/send-test-mail'),
-  searchLocations: (query) => apiClient.get(`/admin/geocode?q=${encodeURIComponent(query)}`)
+  searchLocations: (query) => apiClient.get(`/admin/geocode?q=${encodeURIComponent(query)}`),
+  getSystemUpdateStatus: () => apiClient.get('/admin/system-update/status'),
+  startSystemUpdate: (type) => apiClient.post(`/admin/system-update/${encodeURIComponent(type)}`)
 };
 
 export const userApi = {

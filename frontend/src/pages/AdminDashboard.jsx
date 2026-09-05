@@ -20,13 +20,13 @@ import { adminApi, getErrorMessage } from '../services/api';
 import { readStoredLanguage, storeLanguage } from '../components/LanguageSwitch';
 import PangolinSettingsPanel from '../components/PangolinSettingsPanel';
 import WikiAdminPanel from '../components/WikiAdminPanel';
-import HostingPortalSettings from '../components/HostingPortalSettings';
 import AdminEmailSettings from '../components/AdminEmailSettings';
 import AdminAccountSettings from '../components/AdminAccountSettings';
 import SelfServiceSettings from '../components/SelfServiceSettings';
 import TemplateManager from '../components/TemplateManager';
 import MaintenanceManager from '../components/MaintenanceManager';
 import AuditLog from '../components/AuditLog';
+import SystemUpdates from '../components/SystemUpdates';
 
 function formatPercent(value) {
   const number = Number(value || 0);
@@ -149,57 +149,62 @@ function ClusterLocationField({ data, onChange }) {
   );
 }
 
+function ClusterLoadBar({ label, value }) {
+  const numeric = Math.max(0, Math.min(100, Number(value || 0)));
+  return (
+    <div className="admin-cluster-load-row">
+      <div><span>{label}</span><strong>{formatPercent(numeric)}</strong></div>
+      <div className="admin-cluster-load-track"><span style={{ width: `${numeric}%` }} /></div>
+    </div>
+  );
+}
+
 function AdminOverview({ users, clusters, resources, groups, clusterStats, onOpen }) {
   const onlineClusters = clusterStats.filter((item) => !item.error).length;
   const totalNodes = clusterStats.reduce((sum, item) => sum + Number(item.totals?.nodes || 0), 0);
   const runningServices = resources.filter((item) => String(item.status || '').toLowerCase().includes('run')).length;
 
   return (
-    <div className="admin-overview-v4">
-      <section className="hero-card-clean admin-overview-hero-v4">
-        <div>
-          <p className="eyebrow-clean">Administrator</p>
-          <h2>{runningServices} of {resources.length} services running</h2>
+    <div className="admin-overview-v8">
+      <section className="hero-card-clean admin-overview-hero-v8">
+        <div className="admin-running-summary-v8">
+          <p className="eyebrow-clean">Services online</p>
+          <div className="admin-running-count-v8"><strong>{runningServices}</strong><span>of {resources.length}</span></div>
           <p>{onlineClusters} of {clusters.length} clusters reachable · {totalNodes} nodes</p>
         </div>
         <button type="button" className="btn-primary" onClick={() => onOpen('services')}>Manage services</button>
       </section>
 
-      <div className="admin-overview-stats-v4">
-        <StatCard label="Services" value={resources.length} hint={`${runningServices} running`} tone="success" />
+      <div className="admin-overview-stats-v8">
         <StatCard label="Users" value={users.length} hint="Portal accounts" />
         <StatCard label="Clusters" value={clusters.length} hint={`${onlineClusters} reachable`} tone={clusters.length && onlineClusters === clusters.length ? 'success' : 'neutral'} />
         <StatCard label="Groups" value={groups.length} hint="Access groups" />
         <StatCard label="Nodes" value={totalNodes} hint="Proxmox nodes" />
       </div>
 
-      <SectionCard title="Cluster capacity" className="admin-cluster-capacity-v4">
-        <div className="cluster-stat-grid admin-cluster-grid-v4">
+      <SectionCard title="Cluster utilization" className="admin-cluster-capacity-v8">
+        <div className="admin-cluster-grid-v8">
           {clusterStats.map((cluster) => (
-            <div key={cluster.id} className="cluster-stat-card">
+            <article key={cluster.id} className="admin-cluster-graph-card-v8">
               <div className="cluster-stat-head">
-                <div><strong>{cluster.name}</strong><span>{cluster.location_label || cluster.url}</span></div>
+                <div>
+                  <strong>{cluster.name}</strong>
+                  <span>{cluster.totals?.nodes || 0} nodes</span>
+                </div>
                 <span className={`status-badge ${cluster.error ? 'danger' : 'success'}`}>{cluster.error ? 'Offline' : 'Online'}</span>
               </div>
-              <div className="cluster-stat-body">
-                <div><span>CPU</span><strong>{formatPercent(cluster.totals?.cpuPercent)}</strong></div>
-                <div><span>Memory</span><strong>{formatPercent(cluster.totals?.memPercent)}</strong></div>
-                <div><span>Storage</span><strong>{formatPercent(cluster.totals?.storagePercent)}</strong></div>
-                <div><span>Nodes</span><strong>{cluster.totals?.nodes || 0}</strong></div>
-              </div>
-              {cluster.error ? <small className="cluster-error-line">{cluster.error}</small> : null}
-            </div>
+              {cluster.error ? (
+                <InlineNotice tone="danger">{cluster.error}</InlineNotice>
+              ) : (
+                <div className="admin-cluster-load-grid-v8">
+                  <ClusterLoadBar label="CPU" value={cluster.totals?.cpuPercent} />
+                  <ClusterLoadBar label="Memory" value={cluster.totals?.memPercent} />
+                  <ClusterLoadBar label="Storage" value={cluster.totals?.storagePercent} />
+                </div>
+              )}
+            </article>
           ))}
-          {!clusterStats.length ? <EmptyState title="No cluster stats" text="Add a cluster to view live data." /> : null}
-        </div>
-      </SectionCard>
-
-      <SectionCard title="Quick access" className="admin-quick-access-v4">
-        <div className="admin-shortcut-grid admin-shortcut-grid-v4">
-          <button type="button" onClick={() => onOpen('selfservice')}><strong>Self-Service</strong><span>Provisioning</span></button>
-          <button type="button" onClick={() => onOpen('pangolin')}><strong>Pangolin</strong><span>Publishing</span></button>
-          <button type="button" onClick={() => onOpen('maintenance')}><strong>Maintenance</strong><span>Windows</span></button>
-          <button type="button" onClick={() => onOpen('email')}><strong>Email</strong><span>SMTP</span></button>
+          {!clusterStats.length ? <EmptyState title="No cluster stats" text="Add a cluster to view live utilization." /> : null}
         </div>
       </SectionCard>
     </div>
@@ -222,6 +227,7 @@ export default function AdminDashboard() {
   const [clusterStats, setClusterStats] = useState([]);
   const [editor, setEditor] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [testingCluster, setTestingCluster] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -290,12 +296,32 @@ export default function AdminDashboard() {
       locationLon: null
     }
   });
-  const openGroupEditor = (entry = null) => setEditor({ type: 'group', mode: entry ? 'edit' : 'create', data: entry ? { ...entry } : { name: '' } });
+  const openGroupEditor = (entry = null) => setEditor({ type: 'group', mode: entry ? 'edit' : 'create', data: entry ? { ...entry, memberIds: (entry.members || []).map((member) => member.id) } : { name: '', memberIds: [] } });
   const openResourceEditor = (entry = null) => setEditor({
     type: 'resource',
     mode: entry ? 'edit' : 'create',
     data: entry ? { ...entry } : { name: '', containerId: '', clusterId: clusters[0]?.id || '', userId: '', groupId: '', adminUrl: '' }
   });
+
+  const testClusterConnection = async () => {
+    if (!editor || editor.type !== 'cluster') return;
+    setTestingCluster(true);
+    setError('');
+    setNotice('');
+    try {
+      const data = editor.data || {};
+      const response = await adminApi.testProxmox({
+        clusterId: editor.mode === 'edit' ? data.id : undefined,
+        url: data.url,
+        apiToken: data.apiToken || undefined
+      });
+      setNotice(response.data?.message || 'Proxmox API connection successful.');
+    } catch (err) {
+      setError(getErrorMessage(err, 'Proxmox API connection test failed.'));
+    } finally {
+      setTestingCluster(false);
+    }
+  };
 
   const saveEditor = async (event) => {
     event.preventDefault();
@@ -370,9 +396,9 @@ export default function AdminDashboard() {
     { key: 'templates', label: 'Templates', icon: ServerIcon, section: 'Infrastructure' },
     { key: 'selfservice', label: 'Self-Service', icon: UserIcon, section: 'Infrastructure' },
     { key: 'maintenance', label: 'Maintenance', icon: BellIcon, section: 'Infrastructure' },
-    { key: 'portal', label: 'Hosting Portal', icon: DashboardIcon, section: 'Platform' },
     { key: 'email', label: 'Email', icon: BellIcon, section: 'Platform' },
     { key: 'pangolin', label: 'Pangolin', icon: LinkIcon, section: 'Platform' },
+    { key: 'updates', label: 'System Updates', icon: ServerIcon, section: 'Platform' },
     { key: 'audit', label: 'Audit Log', icon: LockIcon, section: 'Platform' },
     { key: 'settings', label: 'Settings', icon: SettingsIcon, section: 'Account' }
   ];
@@ -389,7 +415,18 @@ export default function AdminDashboard() {
     { key: 'selfService', label: 'Self-service', render: (row) => <span className={`status-badge ${Number(row.allow_provisioning || 0) === 1 ? 'success' : 'neutral'}`}>{Number(row.allow_provisioning || 0) === 1 ? 'Enabled' : 'Disabled'}</span> },
     { key: 'publishing', label: 'Public access', render: (row) => <span className={`status-badge ${Number(row.allow_publishing ?? 1) === 1 ? 'success' : 'neutral'}`}>{Number(row.allow_publishing ?? 1) === 1 ? 'Enabled' : 'Disabled'}</span> }
   ], []);
-  const groupColumns = useMemo(() => [{ key: 'name', label: 'Name' }], []);
+  const groupColumns = useMemo(() => [
+    { key: 'name', label: 'Name' },
+    {
+      key: 'members',
+      label: 'Members',
+      render: (row) => (row.members || []).length ? (
+        <div className="group-member-chip-list">
+          {(row.members || []).map((member) => <span key={member.id} className="group-member-chip">{member.name || member.email}</span>)}
+        </div>
+      ) : <span className="muted-table-value">No members</span>
+    }
+  ], []);
   const resourceColumns = useMemo(() => [
     { key: 'name', label: 'Name' },
     { key: 'clusterName', label: 'Cluster', render: (row) => row.clusterName || row.cluster_name || '—' },
@@ -430,7 +467,7 @@ export default function AdminDashboard() {
     const groupItems = groups.map((entry) => ({
       id: `group-${entry.id}`,
       label: entry.name,
-      description: 'Access group',
+      description: `${(entry.members || []).length} member${(entry.members || []).length === 1 ? '' : 's'}`,
       category: 'Group',
       icon: DashboardIcon,
       keywords: entry.name || '',
@@ -478,10 +515,50 @@ export default function AdminDashboard() {
                   onChange={(value) => setEditor((current) => ({ ...current, data: { ...current.data, allowPublishing: value } }))}
                 />
               </div>
+              <div className="cluster-api-test-row span-full">
+                <div>
+                  <strong>Proxmox API</strong>
+                  <span>Test the current URL and API token before saving.</span>
+                </div>
+                <button type="button" className="btn-secondary" onClick={testClusterConnection} disabled={testingCluster || !editor.data.url || (editor.mode === 'create' && !editor.data.apiToken)}>
+                  {testingCluster ? 'Testing…' : 'Test connection'}
+                </button>
+              </div>
               <label className="span-full"><span>API token {editor.mode === 'edit' ? '(leave empty to keep existing)' : ''}</span><textarea rows="5" value={editor.data.apiToken || ''} onChange={(event) => setEditor((current) => ({ ...current, data: { ...current.data, apiToken: event.target.value } }))} required={editor.mode === 'create'} /></label>
             </> : null}
 
-            {type === 'group' ? <label><span>Name</span><input value={editor.data.name || ''} onChange={(event) => setEditor((current) => ({ ...current, data: { ...current.data, name: event.target.value } }))} required /></label> : null}
+            {type === 'group' ? <>
+              <label className="span-full"><span>Name</span><input value={editor.data.name || ''} onChange={(event) => setEditor((current) => ({ ...current, data: { ...current.data, name: event.target.value } }))} required /></label>
+              <div className="group-member-editor span-full">
+                <div className="group-member-editor-head">
+                  <div><strong>Users in this group</strong><span>Select the portal users that belong to this group.</span></div>
+                  <span className="pill pill-neutral">{(editor.data.memberIds || []).length} selected</span>
+                </div>
+                <div className="group-member-picker-grid">
+                  {users.filter((entry) => entry.role === 'user').map((entry) => {
+                    const selected = (editor.data.memberIds || []).some((id) => String(id) === String(entry.id));
+                    return (
+                      <button
+                        key={entry.id}
+                        type="button"
+                        className={`group-member-picker ${selected ? 'selected' : ''}`}
+                        onClick={() => setEditor((current) => {
+                          const currentIds = current.data.memberIds || [];
+                          const nextIds = selected
+                            ? currentIds.filter((id) => String(id) !== String(entry.id))
+                            : [...currentIds, entry.id];
+                          return { ...current, data: { ...current.data, memberIds: nextIds } };
+                        })}
+                      >
+                        <span className="group-member-check">{selected ? '✓' : ''}</span>
+                        <span><strong>{entry.name || entry.email}</strong><small>{entry.email}</small></span>
+                      </button>
+                    );
+                  })}
+                  {!users.some((entry) => entry.role === 'user') ? <span className="muted-table-value">No user accounts available.</span> : null}
+                </div>
+              </div>
+            </> : null}
 
             {type === 'resource' ? <>
               <label><span>Name</span><input value={editor.data.name || ''} onChange={(event) => setEditor((current) => ({ ...current, data: { ...current.data, name: event.target.value } }))} /></label>
@@ -540,12 +617,12 @@ export default function AdminDashboard() {
     content = <SelfServiceSettings clusters={clusters} />;
   } else if (activeTab === 'maintenance') {
     content = <MaintenanceManager />;
-  } else if (activeTab === 'portal') {
-    content = <HostingPortalSettings />;
   } else if (activeTab === 'email') {
     content = <AdminEmailSettings />;
   } else if (activeTab === 'pangolin') {
     content = <PangolinSettingsPanel language={language} clusters={clusters} />;
+  } else if (activeTab === 'updates') {
+    content = <SystemUpdates />;
   } else if (activeTab === 'audit') {
     content = <AuditLog />;
   } else if (activeTab === 'settings') {
