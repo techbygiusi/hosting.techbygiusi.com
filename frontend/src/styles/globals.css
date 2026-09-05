@@ -13585,3 +13585,113 @@ body.theme-light .cluster-map-canvas::after {
     min-height: 52px !important;
   }
 }
+
+
+/* v3.3.8 - compact admin overview headings after removing duplicate helper copy */
+.admin-overview-hero-main {
+  align-content: center !important;
+  gap: 0 !important;
+}
+
+.admin-overview-hero-main h2,
+.admin-overview-actions-header h2 {
+  margin: 0 !important;
+}
+
+/* v3.3.5 - Collapsible desktop wiki navigation */
+.wiki-panel-heading-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-left: auto;
+}
+
+.wiki-nav-toggle {
+  min-height: 40px;
+  padding: 0 13px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  background: var(--color-bg-alt);
+  color: var(--color-text);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  transition: background 0.16s ease, border-color 0.16s ease;
+}
+
+.wiki-nav-toggle:hover,
+.wiki-nav-toggle:focus-visible,
+.wiki-nav-toggle.is-open {
+  background: color-mix(in srgb, var(--color-bg-alt) 86%, var(--color-primary) 14%);
+  border-color: color-mix(in srgb, var(--color-primary) 24%, var(--color-border));
+}
+
+.wiki-nav-toggle svg {
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+}
+
+.wiki-panel .wiki-layout.nav-open {
+  grid-template-columns: minmax(170px, 210px) minmax(0, 1fr) !important;
+  gap: 18px !important;
+}
+
+.wiki-panel .wiki-layout.nav-hidden {
+  grid-template-columns: minmax(0, 1fr) !important;
+}
+
+.wiki-panel .wiki-layout.nav-hidden .wiki-article-inner {
+  max-width: 92ch;
+}
+
+.wiki-panel .wiki-sidebar {
+  padding-right: 12px;
+  max-height: min(70vh, 720px);
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.wiki-panel .wiki-tree-link {
+  padding: 6px 8px;
+}
+
+.wiki-panel .wiki-tree-folder-title {
+  padding-inline: 8px;
+}
+
+@media (max-width: 900px) {
+  .wiki-panel-heading-actions {
+    width: 100%;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .wiki-panel .wiki-layout.nav-open,
+  .wiki-panel .wiki-layout.nav-hidden {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .wiki-panel .wiki-sidebar {
+    max-height: 300px;
+    padding-right: 0;
+  }
+
+  .wiki-nav-toggle span {
+    display: none;
+  }
+
+  .wiki-nav-toggle {
+    width: 40px;
+    padding: 0;
+  }
+}

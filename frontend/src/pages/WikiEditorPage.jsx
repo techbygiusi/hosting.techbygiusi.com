@@ -120,7 +120,7 @@ function folderOptions(folders, language) {
   const output = [];
   const walk = (parentId, depth) => {
     for (const folder of (byParent.get(parentId) || []).sort((a, b) => a.position - b.position)) {
-      output.push({ id: folder.id, label: `${'— '.repeat(depth)}${titleOf(folder)}` });
+      output.push({ id: folder.id, label: `${'- '.repeat(depth)}${titleOf(folder)}` });
       walk(folder.id, depth + 1);
     }
   };
@@ -438,7 +438,7 @@ export default function WikiEditorPage() {
                 >
                   {lang.toUpperCase()}
                   <span className={`wiki-language-flag ${entry?.isPublished ? 'published' : 'draft'}`}>
-                    {String(entry?.title || '').trim() ? (entry?.isPublished ? text.published : text.draft) : '—'}
+                    {String(entry?.title || '').trim() ? (entry?.isPublished ? text.published : text.draft) : '-'}
                   </span>
                 </button>
               );

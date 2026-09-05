@@ -13,7 +13,9 @@ const TEXT = {
     articleFailed: 'The article could not be loaded.',
     updated: 'Last updated',
     fallbackNotice: 'This article is currently only available in English.',
-    backToOverview: 'All articles'
+    backToOverview: 'All articles',
+    showNavigation: 'Pages',
+    hideNavigation: 'Hide pages'
   },
   de: {
     title: 'Wiki',
@@ -25,7 +27,9 @@ const TEXT = {
     articleFailed: 'Der Artikel konnte nicht geladen werden.',
     updated: 'Zuletzt aktualisiert',
     fallbackNotice: 'Dieser Artikel ist derzeit nur auf Englisch verfügbar.',
-    backToOverview: 'Alle Artikel'
+    backToOverview: 'Alle Artikel',
+    showNavigation: 'Seiten',
+    hideNavigation: 'Seiten ausblenden'
   }
 };
 
@@ -97,6 +101,20 @@ export default function WikiBrowser({ language = 'en' }) {
   const [query, setQuery] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
+  const [navigationOpen, setNavigationOpen] = useState(() => {
+    if (typeof window === 'undefined') return true;
+    const stored = window.localStorage.getItem('wiki_navigation_open');
+    if (stored === 'true' || stored === 'false') return stored === 'true';
+    return window.innerWidth <= 900;
+  });
+
+  const toggleNavigation = () => {
+    setNavigationOpen(current => {
+      const next = !current;
+      if (typeof window !== 'undefined') window.localStorage.setItem('wiki_navigation_open', String(next));
+      return next;
+    });
+  };
 
   const loadTree = useCallback(async () => {
     setLoading(true);
@@ -148,14 +166,29 @@ export default function WikiBrowser({ language = 'en' }) {
       <div className="panel-header wiki-panel-heading">
         <h2>{text.title}</h2>
         {hasContent && (
-          <input
-            type="search"
-            className="wiki-search-input"
-            placeholder={text.search}
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            aria-label={text.search}
-          />
+          <div className="wiki-panel-heading-actions">
+            <button
+              type="button"
+              className={`wiki-nav-toggle ${navigationOpen ? 'is-open' : ''}`}
+              onClick={toggleNavigation}
+              aria-expanded={navigationOpen}
+              aria-controls="wiki-navigation"
+              title={navigationOpen ? text.hideNavigation : text.showNavigation}
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M4 5.5h16M4 12h16M4 18.5h16" />
+              </svg>
+              <span>{navigationOpen ? text.hideNavigation : text.showNavigation}</span>
+            </button>
+            <input
+              type="search"
+              className="wiki-search-input"
+              placeholder={text.search}
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              aria-label={text.search}
+            />
+          </div>
         )}
       </div>
 
@@ -164,19 +197,21 @@ export default function WikiBrowser({ language = 'en' }) {
       {!loading && !hasContent && !error && <p className="hint-text wiki-empty-state">{text.empty}</p>}
 
       {hasContent && (
-        <div className="wiki-layout">
-          <nav className="wiki-sidebar" aria-label={text.title}>
-            <WikiTree
-              folders={tree.folders}
-              rootArticles={tree.rootArticles}
-              activeSlug={activeSlug}
-              onSelect={setActiveSlug}
-              query={query.trim()}
-            />
-            {query.trim() && !allArticles.some(item => `${item.title} ${item.summary || ''}`.toLowerCase().includes(query.trim().toLowerCase())) && (
-              <p className="hint-text wiki-no-matches">{text.noMatches}</p>
-            )}
-          </nav>
+        <div className={`wiki-layout ${navigationOpen ? 'nav-open' : 'nav-hidden'}`}>
+          {navigationOpen && (
+            <nav id="wiki-navigation" className="wiki-sidebar" aria-label={text.title}>
+              <WikiTree
+                folders={tree.folders}
+                rootArticles={tree.rootArticles}
+                activeSlug={activeSlug}
+                onSelect={setActiveSlug}
+                query={query.trim()}
+              />
+              {query.trim() && !allArticles.some(item => `${item.title} ${item.summary || ''}`.toLowerCase().includes(query.trim().toLowerCase())) && (
+                <p className="hint-text wiki-no-matches">{text.noMatches}</p>
+              )}
+            </nav>
+          )}
 
           <article className="wiki-article">
             <div className="wiki-article-inner">

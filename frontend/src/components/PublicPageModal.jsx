@@ -421,7 +421,7 @@ export default function PublicPageModal({ resource, onClose, onSaved, language: 
                 disabled={!publication.publicUrl}
                 title={publication.publicUrl ? text.copyHint : undefined}
               >
-                <strong>{publication.publicUrl ? stripUrlProtocol(publication.publicUrl) : '—'}</strong>
+                <strong>{publication.publicUrl ? stripUrlProtocol(publication.publicUrl) : '-'}</strong>
                 {copiedId === publication.id && <span className="publishing-copy-flag">{text.copied}</span>}
               </button>
               <small>{publication.protocol === 'http' ? text.target : text.internalTarget}: {formatTarget(publication, primaryIp)}</small>
@@ -521,7 +521,7 @@ export default function PublicPageModal({ resource, onClose, onSaved, language: 
 
               <div className="publishing-security-note">
                 <strong>{text.autoIp}</strong>
-                <code>{primaryIp || '—'}</code>
+                <code>{primaryIp || '-'}</code>
                 <small>{text.security}</small>
               </div>
 
@@ -561,7 +561,7 @@ export default function PublicPageModal({ resource, onClose, onSaved, language: 
                           disabled={!entry.enabled || locked}
                         >
                           <strong>{entry.key.toUpperCase()}</strong>
-                          <small>{entry.enabled ? `${text.ranges}: ${entry.ports || '—'}` : text.disabled}</small>
+                          <small>{entry.enabled ? `${text.ranges}: ${entry.ports || '-'}` : text.disabled}</small>
                         </button>
                       );
                     })}
@@ -594,7 +594,7 @@ export default function PublicPageModal({ resource, onClose, onSaved, language: 
                       <datalist id="publishing-common-http-ports">
                         {commonHttpPorts.map((port) => <option key={port} value={port} />)}
                       </datalist>
-                      <small>{text.ranges}: {options?.protocols?.http?.allowedPorts || '—'}</small>
+                      <small>{text.ranges}: {options?.protocols?.http?.allowedPorts || '-'}</small>
                     </label>
                     <label className="form-group publishing-control-field">
                       <span>{text.backendProtocol}</span>
@@ -630,7 +630,7 @@ export default function PublicPageModal({ resource, onClose, onSaved, language: 
                         onChange={(event) => setPublicPort(event.target.value)}
                         disabled={!!busy || !options?.enabled}
                       />
-                      <small>{text.publicPortHint} {text.ranges}: {options?.protocols?.[protocol]?.allowedPorts || '—'}</small>
+                      <small>{text.publicPortHint} {text.ranges}: {options?.protocols?.[protocol]?.allowedPorts || '-'}</small>
                     </label>
                   </div>
                 )}
@@ -758,7 +758,7 @@ function stripUrlProtocol(value) {
 
 function formatTarget(publication, ip) {
   const method = publication.protocol === 'http' ? `${publication.targetMethod || 'http'}://` : `${publication.protocol}://`;
-  return `${method}${ip || '—'}:${publication.targetPort || '—'}`;
+  return `${method}${ip || '-'}:${publication.targetPort || '-'}`;
 }
 
 function slugify(value) {

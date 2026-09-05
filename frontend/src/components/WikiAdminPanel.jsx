@@ -116,7 +116,7 @@ function folderOptions(folders, language) {
   const output = [];
   const walk = (parentId, depth) => {
     for (const folder of (byParent.get(parentId) || []).sort((a, b) => a.position - b.position)) {
-      output.push({ id: folder.id, label: `${'— '.repeat(depth)}${titleOf(folder)}`, depth });
+      output.push({ id: folder.id, label: `${'- '.repeat(depth)}${titleOf(folder)}`, depth });
       walk(folder.id, depth + 1);
     }
   };

@@ -1404,9 +1404,7 @@ export default function AdminDashboard() {
             <div className="admin-overview-dashboard">
               <section className="panel-card admin-overview-hero-card">
                 <div className="admin-overview-hero-main">
-                  <span className="resource-id">Hosting by TechByGiusi</span>
                   <h2>Dashboard</h2>
-                  <p>{overviewText.heroText}</p>
                 </div>
                 <div className="admin-overview-hero-side">
                   <div className="admin-overview-inline-summary">
@@ -1464,7 +1462,6 @@ export default function AdminDashboard() {
                 <div className="panel-header admin-overview-actions-header">
                   <div>
                     <h2>{overviewText.quickActions}</h2>
-                    <p>{overviewText.quickActionsText}</p>
                   </div>
                 </div>
                 <div className="admin-overview-actions-grid">
@@ -1473,7 +1470,7 @@ export default function AdminDashboard() {
                   <OverviewActionTile title={dashboardText.manageClusters} detail={clusterText.title || 'Manage Proxmox clusters'} onClick={() => handleSelectTab('clusters')} />
                   <OverviewActionTile title={dashboardText.manageServices} detail={mobileMenuLanguage === 'de' ? 'Dienste, Vorlagen und Zuweisungen verwalten' : 'Manage services, templates and assignments'} onClick={() => handleSelectTab('resources')} />
                   <OverviewActionTile title={overviewText.manageLog} detail={overviewText.manageLogText} onClick={() => handleSelectTab('audit')} />
-                  <OverviewActionTile title={overviewText.manageSettings} detail={overviewText.manageSettingsText} onClick={() => handleSelectTab('settings')} />
+                  <OverviewActionTile title={overviewText.manageSettings} detail={overviewText.manageSettingsText} onClick={() => { setSettingsSection('hosting'); handleSelectTab('settings'); }} />
                 </div>
               </section>
 
@@ -2672,7 +2669,7 @@ function ResourceListRow({ resource, onEdit, onDelete, onManageCredentials, acti
           <strong>{resource.name}</strong>
           {adminReadOnly && <span className="credential-badge user-managed-badge">Benutzerverwaltet</span>}
         </div>
-        <small>{renderType(resource.type)} · ID {resource.containerId || '—'}{ipAddress ? ` · ${ipAddress}` : ''}</small>
+        <small>{renderType(resource.type)} · ID {resource.containerId || '-'}{ipAddress ? ` · ${ipAddress}` : ''}</small>
       </div>
 
       <div className="admin-service-cell" role="cell" data-label="Zuweisung">
