@@ -82,7 +82,7 @@ export default function ClusterMapSection({ clusters = [], mappedCount = 0, onOp
   const isDark = theme === 'dark';
   const countryStyle = isDark
     ? { color: 'rgba(241, 237, 255, 0.20)', weight: 0.8, fillColor: '#241E3E', fillOpacity: 1 }
-    : { color: 'rgba(140, 111, 240, 0.30)', weight: 0.8, fillColor: '#F6F1FF', fillOpacity: 1 };
+    : { color: 'rgba(182, 170, 235, 0.56)', weight: 0.9, fillColor: '#F8F7FC', fillOpacity: 1 };
   const markerStyle = isDark
     ? { color: '#171331', weight: 2, fillColor: '#A98BFF', fillOpacity: 0.96 }
     : { color: '#ffffff', weight: 2, fillColor: '#8C6FF0', fillOpacity: 0.95 };

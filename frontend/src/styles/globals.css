@@ -4493,13 +4493,13 @@ body.theme-dark .cluster-map-canvas::after {
 }
 
 body.theme-light .cluster-map-canvas .leaflet-container {
-  filter: saturate(0.82) brightness(0.98) contrast(0.98);
+  filter: saturate(0.9) brightness(1.01) contrast(1);
 }
 
 body.theme-light .cluster-map-canvas::after {
   background:
-    radial-gradient(circle at top left, rgba(140, 111, 240, 0.06), transparent 42%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(140, 111, 240, 0.08));
+    radial-gradient(circle at top left, rgba(255, 255, 255, 0.18), transparent 42%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(160, 188, 236, 0.12));
 }
 
 @media (max-width: 1180px) {
@@ -4951,7 +4951,7 @@ body.theme-light .cluster-map-canvas::after {
 }
 
 .cluster-map-canvas {
-  background: #ECE9F7;
+  background: #EAF0FB;
 }
 
 .cluster-map-canvas::after {
@@ -4995,13 +4995,13 @@ body.theme-dark .cluster-map-canvas::after {
 }
 
 body.theme-light .cluster-map-canvas .leaflet-container {
-  filter: saturate(0.82) brightness(1.02) contrast(1.02);
+  filter: saturate(0.9) brightness(1.03) contrast(1);
 }
 
 body.theme-light .cluster-map-canvas::after {
   background:
-    radial-gradient(circle at top left, rgba(140, 111, 240, 0.04), transparent 40%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(140, 111, 240, 0.08));
+    radial-gradient(circle at top left, rgba(255, 255, 255, 0.16), transparent 40%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(160, 188, 236, 0.10));
 }
 
 @media (max-width: 767px) {
@@ -8498,7 +8498,7 @@ body { background: var(--portal-shell-bg); }
 }
 
 .admin-sidebar-shell, .admin-main-shell { min-width: 0; }
-.admin-sidebar-shell { display: grid; gap: 18px; align-self: start; position: sticky; top: 98px; }
+.admin-sidebar-shell { display: grid; gap: 18px; align-self: start; position: sticky; top: calc(96px + var(--maintenance-banner-offset, 0px)); }
 
 .panel-card, .list-card, .metric-card, .resource-card, .settings-avatar-card, .settings-language-card, .settings-notification-card, .dashboard-hero-card, .audit-filter-card, .console-sidebar-card, .soft-box, .modal-card, .wiki-browser-layout, .wiki-card-shell, .cluster-map-card {
   background: var(--portal-surface-1) !important;
@@ -12607,7 +12607,7 @@ body.theme-dark .unified-settings-panel {
   .desktop-admin-sidebar {
     display: grid !important;
     position: sticky !important;
-    top: 98px !important;
+    top: calc(96px + var(--maintenance-banner-offset, 0px)) !important;
   }
 }
 
@@ -13345,5 +13345,111 @@ body.theme-dark .admin-overview-action-arrow {
 
   .admin-overview-action-tile {
     min-height: 82px;
+  }
+}
+
+
+/* v3.3.2 - lighter light-mode cluster map water and land palette */
+body.theme-light .cluster-map-canvas {
+  background: #EAF0FB !important;
+}
+
+body.theme-light .cluster-map-canvas .leaflet-container {
+  background: transparent !important;
+  filter: saturate(0.9) brightness(1.03) contrast(1) !important;
+}
+
+body.theme-light .cluster-map-canvas::after {
+  background:
+    radial-gradient(circle at top left, rgba(255, 255, 255, 0.16), transparent 40%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(160, 188, 236, 0.10)) !important;
+}
+
+
+/* v3.3.3 - compact audit log rows */
+.audit-panel .audit-list {
+  gap: 8px !important;
+}
+
+.audit-panel .audit-row {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center !important;
+  gap: 10px 18px !important;
+  min-height: 0 !important;
+  padding: 10px 14px !important;
+  border-radius: 16px !important;
+}
+
+.audit-panel .audit-main {
+  min-width: 0;
+  gap: 1px !important;
+}
+
+.audit-panel .audit-main strong,
+.audit-panel .audit-main span {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.audit-panel .audit-main strong {
+  font-size: 0.98rem;
+  line-height: 1.2;
+}
+
+.audit-panel .audit-main span {
+  line-height: 1.25 !important;
+}
+
+.audit-panel .audit-meta {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  gap: 0 !important;
+  min-width: 0;
+  white-space: nowrap;
+  text-align: right;
+  line-height: 1.2;
+}
+
+.audit-panel .audit-meta span {
+  white-space: nowrap;
+}
+
+.audit-panel .audit-meta span + span::before {
+  content: '·';
+  margin: 0 8px;
+  color: var(--color-text-light);
+  opacity: 0.75;
+}
+
+@media (max-width: 900px) {
+  .audit-panel .audit-row {
+    grid-template-columns: 1fr !important;
+    align-items: start !important;
+    gap: 6px !important;
+  }
+
+  .audit-panel .audit-meta {
+    justify-content: flex-start !important;
+    text-align: left !important;
+    overflow-x: auto;
+    scrollbar-width: thin;
+  }
+}
+
+
+/* v3.3.4 - keep the desktop admin sidebar stable from the first scroll pixel */
+@media (min-width: 961px) {
+  .admin-sidebar-shell,
+  .desktop-admin-sidebar {
+    top: calc(74px + 22px + var(--maintenance-banner-offset, 0px)) !important;
+    transition: none !important;
+    transform: none !important;
   }
 }
