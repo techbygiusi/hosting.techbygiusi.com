@@ -1272,13 +1272,19 @@ body.console-route-active #root { height: 100%; min-height: 100%; }
 .wiki-panel-heading-actions { position: relative; }
 .wiki-floating-menu-button { border: 1px solid var(--portal-border); border-radius: 12px; background: var(--portal-bg-soft); color: var(--portal-text); padding: 10px 13px; cursor: pointer; }
 .wiki-sidebar { max-height: 65vh; overflow: auto; }
-.wiki-tree { list-style: none; padding: 0; margin: 0; display: grid; gap: 5px; }
-.wiki-tree ul { list-style: none; padding-left: 14px; }
-.wiki-tree-folder { display: grid; gap: 5px; }
+.wiki-tree { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
+.wiki-tree ul { list-style: none; padding-left: 14px; margin: 4px 0 0; display: grid; gap: 6px; }
+.wiki-tree-folder { display: grid; gap: 6px; min-width: 0; }
 .wiki-tree-folder-title { display: block; padding: 7px 9px; color: var(--portal-text-soft); font-weight: 700; font-size: .86rem; }
-.wiki-tree-link { width: 100%; text-align: left; border: 1px solid transparent; background: transparent; color: var(--portal-text); padding: 9px 10px; border-radius: 11px; cursor: pointer; }
+.wiki-tree-link { width: 100%; min-width: 0; text-align: left; border: 1px solid transparent; background: transparent; color: var(--portal-text); padding: 10px 12px; border-radius: 12px; cursor: pointer; line-height: 1.35; overflow-wrap: anywhere; white-space: normal; display: block; }
 .wiki-tree-link:hover,
 .wiki-tree-link.active { background: var(--portal-primary-soft); border-color: var(--portal-border); color: var(--portal-primary); }
+
+.wiki-tree > li,
+.wiki-tree ul > li { min-width: 0; margin: 0; }
+.wiki-floating-sidebar { min-width: 0; }
+.wiki-floating-menu-popover-inline { max-width: min(420px, calc(100vw - 32px)); }
+
 .wiki-structure-card { border: 1px solid var(--portal-border); border-radius: 18px; background: var(--portal-bg-soft); padding: 14px; }
 .wiki-structure-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
 .wiki-admin-heading-actions,
@@ -1988,15 +1994,15 @@ body.theme-dark *::-webkit-scrollbar-thumb:hover {
   backdrop-filter: blur(12px) saturate(.85);
   -webkit-backdrop-filter: blur(12px) saturate(.85);
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: center;
-  padding: min(11vh, 100px) 18px 28px;
+  padding: 24px;
   animation: searchBackdropIn .15s ease-out;
 }
 
 .global-search-dialog {
   width: min(760px, 100%);
-  max-height: min(720px, calc(100vh - 130px));
+  max-height: min(720px, calc(100dvh - 48px));
   overflow: hidden;
   border: 1px solid var(--portal-border-strong);
   border-radius: 24px;
@@ -2032,7 +2038,7 @@ body.theme-dark *::-webkit-scrollbar-thumb:hover {
 .global-search-results {
   padding: 12px;
   overflow: auto;
-  max-height: calc(min(720px, 100vh - 130px) - 76px);
+  max-height: calc(min(720px, 100dvh - 48px) - 76px);
 }
 
 .global-search-results-head {
@@ -2847,16 +2853,16 @@ body.theme-dark *::-webkit-scrollbar-thumb:hover {
   }
 
   .global-search-backdrop {
-    padding: 18px 10px;
+    padding: 14px;
   }
 
   .global-search-dialog {
-    max-height: calc(100vh - 36px);
+    max-height: calc(100dvh - 28px);
     border-radius: 20px;
   }
 
   .global-search-results {
-    max-height: calc(100vh - 112px);
+    max-height: calc(100dvh - 104px);
   }
 
   .service-card-grid,
@@ -3738,17 +3744,27 @@ select {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
+  align-items: stretch;
 }
 
 .system-update-action-card {
-  height: 100%;
+  min-height: 250px;
+  height: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.system-update-action-card .section-card-header {
+  flex: 0 0 auto;
+  margin-bottom: 12px;
 }
 
 .system-update-action-content {
-  height: 100%;
+  flex: 1 1 auto;
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: stretch;
   gap: 14px;
 }
 
@@ -3758,8 +3774,16 @@ select {
   line-height: 1.55;
 }
 
-.system-update-action-content > .btn-primary {
+.system-update-action-footer {
   margin-top: auto;
+  padding-top: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+.system-update-action-footer .btn-primary {
+  min-width: 150px;
 }
 
 .system-update-command-preview {
@@ -3777,6 +3801,64 @@ select {
   border: 1px solid var(--portal-border);
   color: var(--portal-text);
   overflow-wrap: anywhere;
+}
+
+
+.host-timezone-control {
+  width: 100%;
+  display: grid;
+  gap: 8px;
+}
+.host-timezone-control label {
+  font-weight: 700;
+  color: var(--portal-heading);
+}
+.host-timezone-control small {
+  color: var(--portal-text-soft);
+}
+.host-timezone-control code {
+  font-size: .9em;
+}
+
+.system-update-timezone-card {
+  grid-column: 1 / -1;
+}
+
+.system-update-timezone-card .section-card-header {
+  margin-bottom: 12px;
+}
+
+.system-update-timezone-layout {
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) minmax(320px, 1.2fr) auto;
+  gap: 18px;
+  align-items: end;
+}
+
+.system-update-timezone-copy {
+  display: grid;
+  gap: 8px;
+  align-self: center;
+}
+
+.system-update-timezone-copy p {
+  margin: 0;
+  color: var(--portal-text-soft);
+  line-height: 1.55;
+}
+
+.system-update-timezone-copy small {
+  color: var(--portal-text-soft);
+}
+
+.system-update-timezone-button {
+  min-width: 150px;
+  height: 46px;
+}
+
+.system-update-progress-card,
+.system-update-log-card {
+  overflow: hidden;
 }
 
 .system-update-progress-head {
@@ -3887,8 +3969,12 @@ select {
 @media (max-width: 900px) {
   .admin-cluster-grid-v8,
   .system-update-actions-grid,
-  .group-member-picker-grid {
+  .group-member-picker-grid,
+  .system-update-timezone-layout {
     grid-template-columns: 1fr;
+  }
+  .system-update-timezone-button {
+    width: 100%;
   }
   .admin-overview-hero-v8 {
     align-items: flex-start;
@@ -3910,4 +3996,20 @@ select {
   .system-update-progress-head > div {
     align-items: flex-start;
   }
+}
+
+.services-section-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.services-section-actions .services-inline-search {
+  width: min(280px, 48vw);
+}
+@media (max-width: 720px) {
+  .services-section-actions { width: 100%; display: grid; grid-template-columns: 1fr; }
+  .services-section-actions .services-inline-search,
+  .services-section-actions .btn-primary { width: 100%; }
 }

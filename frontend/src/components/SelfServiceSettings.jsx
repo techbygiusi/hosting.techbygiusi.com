@@ -3,7 +3,6 @@ import { adminApi, getErrorMessage } from '../services/api';
 import { EmptyState, InlineNotice, SectionCard } from './UiBits';
 
 const emptyForm = {
-  allowProvisioning: false,
   vmidMin: '',
   vmidMax: '',
   ipStart: '',
@@ -20,7 +19,11 @@ const emptyForm = {
 };
 
 export default function SelfServiceSettings({ clusters = [] }) {
-  const [clusterId, setClusterId] = useState(String(clusters[0]?.id || ''));
+  const enabledClusters = useMemo(
+    () => clusters.filter((cluster) => Number(cluster.allow_provisioning ?? cluster.allowProvisioning ?? 0) === 1),
+    [clusters]
+  );
+  const [clusterId, setClusterId] = useState(String(enabledClusters[0]?.id || ''));
   const [form, setForm] = useState(emptyForm);
   const [storages, setStorages] = useState([]);
   const [templates, setTemplates] = useState([]);
@@ -31,8 +34,9 @@ export default function SelfServiceSettings({ clusters = [] }) {
   const [notice, setNotice] = useState('');
 
   useEffect(() => {
-    if (!clusterId && clusters[0]) setClusterId(String(clusters[0].id));
-  }, [clusters, clusterId]);
+    const stillAvailable = enabledClusters.some((cluster) => String(cluster.id) === String(clusterId));
+    if (!stillAvailable) setClusterId(String(enabledClusters[0]?.id || ''));
+  }, [enabledClusters, clusterId]);
 
   useEffect(() => {
     if (!clusterId) {
@@ -56,7 +60,6 @@ export default function SelfServiceSettings({ clusters = [] }) {
       if (!active) return;
       const p = provisioningRes.data?.provisioning || {};
       setForm({
-        allowProvisioning: Boolean(p.allowProvisioning),
         vmidMin: p.vmidMin ?? '',
         vmidMax: p.vmidMax ?? '',
         ipStart: p.ipStart || '',
@@ -82,7 +85,7 @@ export default function SelfServiceSettings({ clusters = [] }) {
     return () => { active = false; };
   }, [clusterId]);
 
-  const selectedCluster = useMemo(() => clusters.find((item) => String(item.id) === String(clusterId)), [clusters, clusterId]);
+  const selectedCluster = useMemo(() => enabledClusters.find((item) => String(item.id) === String(clusterId)), [enabledClusters, clusterId]);
   const setField = (field, value) => setForm((current) => ({ ...current, [field]: value }));
 
   const loadTemplates = async () => {
@@ -117,13 +120,8 @@ export default function SelfServiceSettings({ clusters = [] }) {
     setError('');
     setNotice('');
     try {
-      const response = await adminApi.updateClusterProvisioning(clusterId, form);
-      if (response.data?.activationWarning) {
-        setNotice(`Saved, but self-service remains disabled: ${response.data.activationWarning}`);
-        setField('allowProvisioning', false);
-      } else {
-        setNotice('Self-service configuration saved.');
-      }
+      await adminApi.updateClusterProvisioning(clusterId, form);
+      setNotice('Self-service configuration saved.');
     } catch (err) {
       setError(getErrorMessage(err, 'Self-service configuration could not be saved.'));
     } finally {
@@ -142,23 +140,18 @@ export default function SelfServiceSettings({ clusters = [] }) {
             <span>Cluster</span>
             <select value={clusterId} onChange={(event) => setClusterId(event.target.value)}>
               <option value="">Select cluster</option>
-              {clusters.map((cluster) => <option key={cluster.id} value={cluster.id}>{cluster.name}</option>)}
+              {enabledClusters.map((cluster) => <option key={cluster.id} value={cluster.id}>{cluster.name}</option>)}
             </select>
           </label>
         </div>
 
-        {!clusters.length ? <EmptyState title="No clusters configured" text="Add a Proxmox cluster before enabling self-service." /> : null}
+        {!enabledClusters.length ? <EmptyState title="No self-service clusters" text="Enable self-service in the cluster settings first. Only enabled clusters appear here." /> : null}
         {clusterId && caps && !caps.canProvision ? <InlineNotice tone="danger">The API token for {selectedCluster?.name || 'this cluster'} is missing the provisioning permissions required for self-service.</InlineNotice> : null}
         {clusterId && caps?.canProvision && !caps?.canManageFirewall ? <InlineNotice tone="danger">VM.Config.Network is missing. The required network isolation cannot be created safely.</InlineNotice> : null}
         {clusterId && caps?.canProvision && caps?.canManageFirewall && !caps?.canVerifyFirewall ? <InlineNotice tone="danger">Sys.Audit is missing. The datacenter firewall status cannot be verified safely.</InlineNotice> : null}
 
         {clusterId && !loading ? (
           <form className="clean-form-grid compact two-up self-service-form" onSubmit={save}>
-            <label className="settings-toggle-clean span-full">
-              <span><strong>Enable self-service</strong><small>Allow users assigned to this cluster to create approved LXC containers.</small></span>
-              <button type="button" className={`toggle-clean ${form.allowProvisioning ? 'active' : ''}`} onClick={() => setField('allowProvisioning', !form.allowProvisioning)}><span /></button>
-            </label>
-
             <label><span>VMID from</span><input type="number" min="100" value={form.vmidMin} onChange={(event) => setField('vmidMin', event.target.value)} /></label>
             <label><span>VMID to</span><input type="number" min="100" value={form.vmidMax} onChange={(event) => setField('vmidMax', event.target.value)} /></label>
             <label><span>IP from</span><input value={form.ipStart} onChange={(event) => setField('ipStart', event.target.value)} placeholder="10.0.10.100" /></label>

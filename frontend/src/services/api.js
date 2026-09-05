@@ -349,7 +349,7 @@ export const adminApi = {
   sendTestMail: () => apiClient.post('/admin/settings/send-test-mail'),
   searchLocations: (query) => apiClient.get(`/admin/geocode?q=${encodeURIComponent(query)}`),
   getSystemUpdateStatus: () => apiClient.get('/admin/system-update/status'),
-  startSystemUpdate: (type) => apiClient.post(`/admin/system-update/${encodeURIComponent(type)}`)
+  startSystemUpdate: (type, data = {}) => apiClient.post(`/admin/system-update/${encodeURIComponent(type)}`, data)
 };
 
 export const userApi = {

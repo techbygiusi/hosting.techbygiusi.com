@@ -7,6 +7,34 @@ const requestPath = path.join(dataDir, 'system-update-request.json');
 const statusPath = path.join(dataDir, 'system-update-status.json');
 const logPath = path.join(dataDir, 'system-update.log');
 const readyPath = path.join(dataDir, 'system-updater-ready');
+const versionPath = path.join(dataDir, 'system-updater-version');
+const timezonePath = path.join(dataDir, 'system-timezone.txt');
+
+
+function safeTextRead(filePath, fallback = '') {
+  try {
+    return String(fs.readFileSync(filePath, 'utf8') || '').trim();
+  } catch (_) {
+    return fallback;
+  }
+}
+
+function normalizeTimezone(value) {
+  const timezone = String(value || '').trim();
+  if (!timezone || timezone.length > 120 || /[\r\n\0]/.test(timezone)) {
+    const error = new Error('Invalid timezone');
+    error.code = 'INVALID_TIMEZONE';
+    throw error;
+  }
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: timezone }).format(new Date());
+  } catch (_) {
+    const error = new Error('Invalid timezone');
+    error.code = 'INVALID_TIMEZONE';
+    throw error;
+  }
+  return timezone;
+}
 
 function safeJsonRead(filePath, fallback = null) {
   try {
@@ -37,15 +65,20 @@ function getSystemUpdateStatus() {
     log = '';
   }
 
+  const helperVersion = Number.parseInt(safeTextRead(versionPath, '1'), 10) || 1;
+  const hostTimezone = safeTextRead(timezonePath, '');
+
   return {
     ...status,
     helperInstalled: fs.existsSync(readyPath),
+    helperVersion,
+    hostTimezone,
     log
   };
 }
 
-function startSystemUpdate(type, requestedBy = '') {
-  if (!['os', 'portal'].includes(type)) {
+function startSystemUpdate(type, requestedBy = '', options = {}) {
+  if (!['os', 'portal', 'timezone'].includes(type)) {
     const error = new Error('Unsupported update type');
     error.code = 'INVALID_TYPE';
     throw error;
@@ -58,6 +91,11 @@ function startSystemUpdate(type, requestedBy = '') {
   }
 
   const current = getSystemUpdateStatus();
+  if (type === 'timezone' && Number(current.helperVersion || 1) < 2) {
+    const error = new Error('Host updater helper is outdated');
+    error.code = 'HELPER_OUTDATED';
+    throw error;
+  }
   if (['queued', 'running'].includes(current.status)) {
     const error = new Error('Another update is already running');
     error.code = 'ALREADY_RUNNING';
@@ -65,11 +103,13 @@ function startSystemUpdate(type, requestedBy = '') {
   }
 
   fs.mkdirSync(dataDir, { recursive: true });
+  const timezone = type === 'timezone' ? normalizeTimezone(options.timezone) : '';
   const request = {
     id: crypto.randomUUID(),
     type,
     requestedBy: String(requestedBy || ''),
-    requestedAt: new Date().toISOString()
+    requestedAt: new Date().toISOString(),
+    ...(timezone ? { timezone } : {})
   };
 
   const initialStatus = {
@@ -81,7 +121,8 @@ function startSystemUpdate(type, requestedBy = '') {
     steps: [],
     startedAt: null,
     finishedAt: null,
-    error: ''
+    error: '',
+    ...(timezone ? { targetTimezone: timezone } : {})
   };
 
   fs.writeFileSync(statusPath, JSON.stringify(initialStatus, null, 2));

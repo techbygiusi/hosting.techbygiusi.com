@@ -7,6 +7,8 @@ HELPER_SOURCE="$PROJECT_DIR/scripts/host_updater.py"
 HELPER_TARGET="/usr/local/sbin/hosting-portal-updater"
 SERVICE_FILE="/etc/systemd/system/hosting-portal-updater.service"
 PATH_FILE="/etc/systemd/system/hosting-portal-updater.path"
+VERSION_FILE="$DATA_DIR/system-updater-version"
+TIMEZONE_FILE="$DATA_DIR/system-timezone.txt"
 
 if [ "$(id -u)" -ne 0 ]; then
   echo "Run this installer as root: sudo ./setup-updater.sh"
@@ -52,7 +54,12 @@ WantedBy=multi-user.target
 UNIT
 
 touch "$DATA_DIR/system-updater-ready"
-chmod 0644 "$DATA_DIR/system-updater-ready"
+printf '%s\n' '2' > "$VERSION_FILE"
+if command -v timedatectl >/dev/null 2>&1; then
+  timedatectl show --property=Timezone --value > "$TIMEZONE_FILE" 2>/dev/null || true
+fi
+chmod 0644 "$DATA_DIR/system-updater-ready" "$VERSION_FILE"
+[ ! -f "$TIMEZONE_FILE" ] || chmod 0644 "$TIMEZONE_FILE"
 systemctl daemon-reload
 systemctl enable --now hosting-portal-updater.path
 

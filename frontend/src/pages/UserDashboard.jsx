@@ -220,7 +220,7 @@ function UserOverview({ resources, metrics, onOpenProvisioning, onSelectService,
   );
 }
 
-function UserServices({ resources, metrics, selectedId, detailOpen, onDetails, onCloseDetails, onConsole }) {
+function UserServices({ resources, metrics, selectedId, detailOpen, onDetails, onCloseDetails, onConsole, onOpenProvisioning }) {
   const [filter, setFilter] = useState('');
   const filtered = useMemo(() => {
     const term = filter.trim().toLowerCase();
@@ -234,7 +234,12 @@ function UserServices({ resources, metrics, selectedId, detailOpen, onDetails, o
   }
 
   return (
-    <SectionCard title="Services" action={<input className="search-clean services-inline-search" value={filter} onChange={(event) => setFilter(event.target.value)} placeholder="Filter services…" />}>
+    <SectionCard title="Services" action={(
+      <div className="services-section-actions">
+        <input className="search-clean services-inline-search" value={filter} onChange={(event) => setFilter(event.target.value)} placeholder="Filter services…" />
+        <button type="button" className="btn-primary" onClick={onOpenProvisioning}>Create container</button>
+      </div>
+    )}>
       <div className="service-card-grid">
         {filtered.map((resource) => (
           <ServiceCard key={resource.id} resource={resource} history={metrics?.[String(resource.id)]?.points || []} onDetails={onDetails} onConsole={onConsole} />
@@ -378,7 +383,7 @@ export default function UserDashboard() {
   } else if (activeTab === 'dashboard') {
     content = <UserOverview resources={resources} metrics={metrics} onOpenProvisioning={() => setCreateOpen(true)} onSelectService={openServiceDetails} onConsole={openConsole} />;
   } else if (activeTab === 'services') {
-    content = <UserServices resources={resources} metrics={metrics} selectedId={selectedId} detailOpen={detailOpen} onDetails={openServiceDetails} onCloseDetails={() => setDetailOpen(false)} onConsole={openConsole} />;
+    content = <UserServices resources={resources} metrics={metrics} selectedId={selectedId} detailOpen={detailOpen} onDetails={openServiceDetails} onCloseDetails={() => setDetailOpen(false)} onConsole={openConsole} onOpenProvisioning={() => setCreateOpen(true)} />;
   } else if (activeTab === 'wiki') {
     content = <WikiBrowser language={language} />;
   } else {

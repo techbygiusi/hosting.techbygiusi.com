@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { SearchIcon, CloseIcon, ChevronRightIcon } from './Icons';
 
 function normalize(value) {
@@ -28,6 +29,8 @@ export default function GlobalSearch({ items = [], placeholder = 'Search…', co
 
   useEffect(() => {
     if (!open) return undefined;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
     const handleKey = (event) => {
       if (event.key === 'Escape') setOpen(false);
     };
@@ -35,6 +38,7 @@ export default function GlobalSearch({ items = [], placeholder = 'Search…', co
     const timer = window.setTimeout(() => inputRef.current?.focus(), 40);
     return () => {
       document.removeEventListener('keydown', handleKey);
+      document.body.style.overflow = previousOverflow;
       window.clearTimeout(timer);
     };
   }, [open]);
@@ -62,7 +66,7 @@ export default function GlobalSearch({ items = [], placeholder = 'Search…', co
         <kbd>Ctrl K</kbd>
       </button>
 
-      {open ? (
+      {open && typeof document !== 'undefined' ? createPortal(
         <div className="global-search-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setOpen(false); }}>
           <section className="global-search-dialog" role="dialog" aria-modal="true" aria-label="Portal search">
             <div className="global-search-input-row">
@@ -111,7 +115,8 @@ export default function GlobalSearch({ items = [], placeholder = 'Search…', co
               )}
             </div>
           </section>
-        </div>
+        </div>,
+        document.body
       ) : null}
     </>
   );

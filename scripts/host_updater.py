@@ -12,6 +12,7 @@ DATA_DIR = PROJECT_DIR / 'backend' / 'data'
 REQUEST_PATH = DATA_DIR / 'system-update-request.json'
 STATUS_PATH = DATA_DIR / 'system-update-status.json'
 LOG_PATH = DATA_DIR / 'system-update.log'
+TIMEZONE_PATH = DATA_DIR / 'system-timezone.txt'
 
 
 def now():
@@ -102,6 +103,10 @@ def main():
             {'key': 'compose-build', 'label': 'Build and restart portal', 'status': 'pending'},
             {'key': 'image-prune', 'label': 'Prune unused Docker images', 'status': 'pending'},
         ]
+    elif update_type == 'timezone':
+        steps = [
+            {'key': 'timezone', 'label': 'Set host timezone', 'status': 'pending'},
+        ]
     else:
         write_json(STATUS_PATH, {
             'id': update_id,
@@ -116,6 +121,7 @@ def main():
         })
         return 1
 
+    target_timezone = str(request.get('timezone', '')).strip() if update_type == 'timezone' else ''
     status = {
         'id': update_id,
         'type': update_type,
@@ -125,7 +131,8 @@ def main():
         'steps': steps,
         'startedAt': now(),
         'finishedAt': None,
-        'error': ''
+        'error': '',
+        **({'targetTimezone': target_timezone} if target_timezone else {})
     }
     write_json(STATUS_PATH, status)
     append_log(f"Update {update_id} started at {status['startedAt']} ({update_type})")
@@ -136,12 +143,26 @@ def main():
             env = os.environ.copy()
             env['DEBIAN_FRONTEND'] = 'noninteractive'
             run_command(status, steps, 1, ['apt-get', '-y', 'upgrade'], env=env)
-        else:
+        elif update_type == 'portal':
             if not PROJECT_DIR.exists():
                 raise RuntimeError(f'Project directory does not exist: {PROJECT_DIR}')
             run_command(status, steps, 0, ['git', 'pull', '--ff-only'], cwd=PROJECT_DIR)
             run_command(status, steps, 1, ['docker', 'compose', 'up', '--build', '-d'], cwd=PROJECT_DIR)
             run_command(status, steps, 2, ['docker', 'image', 'prune', '-f'], cwd=PROJECT_DIR)
+        else:
+            if not target_timezone:
+                raise RuntimeError('Timezone is missing')
+            run_command(status, steps, 0, ['timedatectl', 'set-timezone', target_timezone])
+            timezone_result = subprocess.run(
+                ['timedatectl', 'show', '--property=Timezone', '--value'],
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+            )
+            current_timezone = timezone_result.stdout.strip() or target_timezone
+            TIMEZONE_PATH.write_text(current_timezone + '\n', encoding='utf-8')
+            status['hostTimezone'] = current_timezone
 
         update_status(
             status,
@@ -150,7 +171,8 @@ def main():
             currentStep='Update completed',
             steps=steps,
             finishedAt=now(),
-            error=''
+            error='',
+            **({'hostTimezone': status.get('hostTimezone')} if status.get('hostTimezone') else {})
         )
         append_log('Update completed successfully.')
         return 0

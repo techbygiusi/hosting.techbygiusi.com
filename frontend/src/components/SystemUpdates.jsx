@@ -18,9 +18,20 @@ export default function SystemUpdates() {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [waitingForBackend, setWaitingForBackend] = useState(false);
+  const [hostTimezone, setHostTimezone] = useState(() => {
+    try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Berlin'; } catch (_) { return 'Europe/Berlin'; }
+  });
+  const timezoneTouched = useRef(false);
   const reloadScheduled = useRef(false);
 
   const running = ['queued', 'running'].includes(update?.status);
+  const timezoneOptions = useMemo(() => {
+    try {
+      if (typeof Intl.supportedValuesOf === 'function') return Intl.supportedValuesOf('timeZone');
+    } catch (_) {
+    }
+    return ['Europe/Berlin', 'Europe/London', 'UTC', 'America/New_York', 'America/Los_Angeles', 'Asia/Tokyo'];
+  }, []);
 
   const loadStatus = async (silent = false) => {
     if (!silent) setLoading(true);
@@ -29,6 +40,7 @@ export default function SystemUpdates() {
       const next = response.data?.update || null;
       setUpdate(next);
       setWaitingForBackend(false);
+      if (!timezoneTouched.current && next?.hostTimezone) setHostTimezone(next.hostTimezone);
       if (next?.status === 'completed' && next?.type === 'portal' && !reloadScheduled.current) {
         reloadScheduled.current = true;
         setNotice('Portal update completed. Reloading the portal…');
@@ -70,6 +82,27 @@ export default function SystemUpdates() {
     }
   };
 
+  const saveTimezone = async () => {
+    const timezone = String(hostTimezone || '').trim();
+    if (!timezone) {
+      setError('Choose a timezone first.');
+      return;
+    }
+    if (!window.confirm(`Set the Debian host timezone to ${timezone}?`)) return;
+    setStarting('timezone');
+    setError('');
+    setNotice('');
+    try {
+      const response = await adminApi.startSystemUpdate('timezone', { timezone });
+      setUpdate(response.data?.update || null);
+      setNotice(`Timezone change to ${timezone} started.`);
+    } catch (err) {
+      setError(getErrorMessage(err, 'The host timezone could not be changed.'));
+    } finally {
+      setStarting('');
+    }
+  };
+
   const steps = useMemo(() => update?.steps || [], [update]);
 
   if (loading) {
@@ -83,7 +116,11 @@ export default function SystemUpdates() {
       {waitingForBackend ? <InlineNotice tone="info">The portal is restarting. Waiting for the backend to come back online…</InlineNotice> : null}
       {!update?.helperInstalled ? (
         <InlineNotice tone="warning">
-          The Debian host updater is not installed yet. Run <code>sudo ./setup-updater.sh</code> once in <code>/opt/hosting.techbygiusi.com</code>.
+          The Debian host updater is not installed yet. Run <code>./setup-updater.sh</code> as root once in <code>/opt/hosting.techbygiusi.com</code>.
+        </InlineNotice>
+      ) : Number(update?.helperVersion || 1) < 2 ? (
+        <InlineNotice tone="warning">
+          Refresh the Debian helper once with <code>./setup-updater.sh</code> as root to enable host timezone management.
         </InlineNotice>
       ) : null}
 
@@ -91,9 +128,15 @@ export default function SystemUpdates() {
         <SectionCard title="Debian updates" className="system-update-action-card">
           <div className="system-update-action-content">
             <p>Refresh the Debian package lists and install available package upgrades. No automatic reboot is performed.</p>
-            <button type="button" className="btn-primary" onClick={() => start('os')} disabled={!update?.helperInstalled || running || !!starting}>
-              {starting === 'os' ? 'Starting…' : 'Update Debian'}
-            </button>
+            <div className="system-update-command-preview">
+              <code>apt-get update</code>
+              <code>apt-get -y upgrade</code>
+            </div>
+            <div className="system-update-action-footer">
+              <button type="button" className="btn-primary" onClick={() => start('os')} disabled={!update?.helperInstalled || running || !!starting}>
+                {starting === 'os' ? 'Starting…' : 'Update Debian'}
+              </button>
+            </div>
           </div>
         </SectionCard>
 
@@ -105,8 +148,42 @@ export default function SystemUpdates() {
               <code>docker compose up --build -d</code>
               <code>docker image prune -f</code>
             </div>
-            <button type="button" className="btn-primary" onClick={() => start('portal')} disabled={!update?.helperInstalled || running || !!starting}>
-              {starting === 'portal' ? 'Starting…' : 'Update portal'}
+            <div className="system-update-action-footer">
+              <button type="button" className="btn-primary" onClick={() => start('portal')} disabled={!update?.helperInstalled || running || !!starting}>
+                {starting === 'portal' ? 'Starting…' : 'Update portal'}
+              </button>
+            </div>
+          </div>
+        </SectionCard>
+
+        <SectionCard title="Host timezone" className="system-update-timezone-card">
+          <div className="system-update-timezone-layout">
+            <div className="system-update-timezone-copy">
+              <p>Set the timezone of the Debian LXC host with <code>timedatectl</code>.</p>
+              <small>Current host timezone: <strong>{update?.hostTimezone || 'Unknown'}</strong></small>
+            </div>
+            <div className="host-timezone-control">
+              <label htmlFor="host-timezone">Timezone</label>
+              <input
+                id="host-timezone"
+                className="search-clean"
+                list="host-timezone-options"
+                value={hostTimezone}
+                onChange={(event) => { setHostTimezone(event.target.value); timezoneTouched.current = true; }}
+                placeholder="Europe/Berlin"
+                autoComplete="off"
+              />
+              <datalist id="host-timezone-options">
+                {timezoneOptions.map((timezone) => <option key={timezone} value={timezone} />)}
+              </datalist>
+            </div>
+            <button
+              type="button"
+              className="btn-primary system-update-timezone-button"
+              onClick={saveTimezone}
+              disabled={!update?.helperInstalled || Number(update?.helperVersion || 1) < 2 || running || !!starting}
+            >
+              {starting === 'timezone' ? 'Applying…' : 'Apply timezone'}
             </button>
           </div>
         </SectionCard>

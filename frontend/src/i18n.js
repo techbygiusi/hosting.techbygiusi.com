@@ -2,6 +2,9 @@ import { useEffect } from 'react';
 import { readStoredLanguage } from './components/LanguageSwitch';
 
 export const DE_EN_PHRASES = {
+  "Keine Self-Service-Cluster": "No self-service clusters",
+  "Aktiviere Self-Service zuerst in den Cluster-Einstellungen. Nur aktivierte Cluster werden hier angezeigt.": "Enable self-service in the cluster settings first. Only enabled clusters appear here.",
+  "Self-Service ist für diesen Cluster deaktiviert. Aktiviere es zuerst in den Cluster-Einstellungen.": "Self-service is disabled for this cluster. Enable it in Cluster settings first.",
   "SMTP-Einstellungen": "SMTP settings",
   "Konfiguriere den Mailversand für Tests, Benachrichtigungen und Passwort-Zurücksetzungen.": "Configure email delivery for tests, notifications and password resets.",
   "Prüfe Administrator, Proxmox und SMTP direkt in den Einstellungen.": "Check the administrator, Proxmox and SMTP directly in Settings.",

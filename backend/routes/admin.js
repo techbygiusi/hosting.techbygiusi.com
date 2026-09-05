@@ -609,10 +609,13 @@ router.get('/clusters/:id/provisioning', async (req, res, next) => {
   try {
     const cluster = await get('SELECT * FROM proxmox_clusters WHERE id = ?', [req.params.id]);
     if (!cluster) throw new AppError('Cluster not found', HTTP_STATUS.NOT_FOUND);
+    if (!cluster.allow_provisioning) {
+      throw new AppError('Self-service is disabled for this cluster. Enable it in Cluster settings first.', HTTP_STATUS.BAD_REQUEST);
+    }
 
     res.json({
       provisioning: {
-        allowProvisioning: !!cluster.allow_provisioning,
+        allowProvisioning: true,
         allowTypes: 'ct',
         vmidMin: cluster.vmid_min ?? '',
         vmidMax: cluster.vmid_max ?? '',
@@ -641,51 +644,13 @@ router.put('/clusters/:id/provisioning', async (req, res, next) => {
     const cluster = await get('SELECT * FROM proxmox_clusters WHERE id = ?', [req.params.id]);
     if (!cluster) throw new AppError('Cluster not found', HTTP_STATUS.NOT_FOUND);
 
-    const provisioning = normalizeProvisioning(req.body, cluster);
-
-    // Only verify live Proxmox prerequisites when self-service is being
-    // activated. Existing settings such as approved templates must remain
-    // editable while the Datacenter firewall is temporarily disabled. The
-    // actual provisioning path performs the same checks again and therefore
-    // still fails closed before a container can be created.
-    const isEnablingProvisioning = provisioning.allowProvisioning && !cluster.allow_provisioning;
-
-    let effectiveAllowProvisioning = provisioning.allowProvisioning;
-    let activationWarning = null;
-
-    if (isEnablingProvisioning) {
-      try {
-        const apiToken = decrypt(cluster.api_token);
-        const capabilities = await getCapabilities(cluster.url, apiToken);
-        if (!capabilities.canProvision) {
-          throw new AppError('Provisioning is not permitted for this cluster token', HTTP_STATUS.FORBIDDEN);
-        }
-        if (!capabilities.canManageFirewall) {
-          throw new AppError('Provisioning firewall permission is missing', HTTP_STATUS.FORBIDDEN);
-        }
-        if (!capabilities.canVerifyFirewall) {
-          throw new AppError('Provisioning firewall audit permission is missing', HTTP_STATUS.FORBIDDEN);
-        }
-        const firewallStatus = await getClusterFirewallStatus(cluster.url, apiToken);
-        if (!firewallStatus.enabled) {
-          throw new AppError('Proxmox datacenter firewall is disabled', HTTP_STATUS.BAD_REQUEST);
-        }
-        const nodes = await getOnlineNodes(cluster.url, apiToken);
-        if (nodes.length === 0) throw new AppError('No online node available', HTTP_STATUS.BAD_REQUEST);
-        const liveStorages = await getNodeStorages(cluster.url, apiToken, nodes[0].node);
-        const liveStorageNames = liveStorages.map(item => item.storage);
-        if (!liveStorageNames.includes(provisioning.storage)) {
-          throw new AppError('Disk storage is not available on the selected Proxmox node', HTTP_STATUS.BAD_REQUEST);
-        }
-      } catch (error) {
-        // Preserve the edited settings, but never enable self-service when its
-        // live safety prerequisites cannot be verified.
-        effectiveAllowProvisioning = 0;
-        activationWarning = error instanceof AppError
-          ? error.message
-          : 'Self-service activation prerequisites could not be verified';
-      }
+    if (!cluster.allow_provisioning) {
+      throw new AppError('Self-service is disabled for this cluster. Enable it in Cluster settings first.', HTTP_STATUS.BAD_REQUEST);
     }
+
+    const provisioning = normalizeProvisioning({ ...req.body, allowProvisioning: true }, cluster);
+    const effectiveAllowProvisioning = 1;
+    const activationWarning = null;
 
     await run(
       `UPDATE proxmox_clusters SET
@@ -1998,20 +1963,27 @@ router.post('/system-update/:type', async (req, res, next) => {
     const type = String(req.params.type || '').toLowerCase();
     let update;
     try {
-      update = startSystemUpdate(type, req.user?.email || req.user?.id || 'admin');
+      update = startSystemUpdate(type, req.user?.email || req.user?.id || 'admin', req.body || {});
     } catch (err) {
       if (err.code === 'HELPER_MISSING') {
-        throw new AppError('The host updater helper is not installed. Run setup-updater.sh once on the Debian host.', HTTP_STATUS.SERVICE_UNAVAILABLE);
+        throw new AppError('The host updater helper is not installed. Run ./setup-updater.sh as root once in /opt/hosting.techbygiusi.com.', HTTP_STATUS.SERVICE_UNAVAILABLE);
       }
       if (err.code === 'ALREADY_RUNNING') {
         throw new AppError('Another system update is already running', HTTP_STATUS.CONFLICT);
+      }
+      if (err.code === 'HELPER_OUTDATED') {
+        throw new AppError('The host updater helper must be refreshed. Run ./setup-updater.sh as root again in /opt/hosting.techbygiusi.com.', HTTP_STATUS.SERVICE_UNAVAILABLE);
+      }
+      if (err.code === 'INVALID_TIMEZONE') {
+        throw new AppError('Invalid host timezone', HTTP_STATUS.BAD_REQUEST);
       }
       if (err.code === 'INVALID_TYPE') {
         throw new AppError('Invalid update type', HTTP_STATUS.BAD_REQUEST);
       }
       throw err;
     }
-    await logAudit(req, 'system_update.start', `system:${type}`, `Update requested by ${req.user?.email || req.user?.id || 'admin'}`);
+    const auditDetail = type === 'timezone' ? `Timezone ${String(req.body?.timezone || '').trim()}` : `Update requested by ${req.user?.email || req.user?.id || 'admin'}`;
+    await logAudit(req, 'system_update.start', `system:${type}`, auditDetail);
     res.status(HTTP_STATUS.ACCEPTED).json({ update });
   } catch (err) {
     next(err);

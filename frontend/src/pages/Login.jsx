@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { authApi, getErrorMessage } from '../services/api';
 import BrandLogo, { BrandMark } from '../components/BrandLogo';
 import ThemeButton from '../components/ThemeButton';
-import LanguageSwitch, { readStoredLanguage, storeLanguage } from '../components/LanguageSwitch';
+import { readStoredLanguage } from '../components/LanguageSwitch';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -55,7 +55,6 @@ export default function Login() {
       <header className="login-toolbar-v4">
         <div className="login-toolbar-brand"><BrandMark size={34} /><strong>Hosting</strong></div>
         <div className="login-toolbar-controls">
-          <LanguageSwitch value={language} onChange={(value) => { setLanguage(value); storeLanguage(value); }} />
           <ThemeButton />
         </div>
       </header>
