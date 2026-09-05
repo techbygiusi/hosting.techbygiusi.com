@@ -9,7 +9,7 @@ const { get, run, all } = require('../config/database');
 const { adminMiddleware } = require('../middleware/auth');
 const { AppError } = require('../middleware/errorHandler');
 const { HTTP_STATUS, ROLES } = require('../config/constants');
-const { getClusterResources, testConnection, getCapabilities, getClusterFirewallStatus, getOnlineNodes, getNodeTemplates, getNodeIsos, getNodeStorages, getClusterDashboardStats } = require('../services/proxmoxService');
+const { getAllContainers, getClusterResources, testConnection, getCapabilities, getClusterFirewallStatus, getOnlineNodes, getNodeTemplates, getNodeIsos, getNodeStorages, getClusterDashboardStats, destroyProxmoxResource } = require('../services/proxmoxService');
 const { enrichResources } = require('../services/resourceService');
 const { sendEmail, testSmtpConnection, initializeEmailService, encryptString, decryptString } = require('../services/emailService');
 const { welcomeTemplate, maintenanceTemplate, testMailTemplate } = require('../services/emailTemplates');
@@ -881,20 +881,23 @@ router.delete('/credentials/:id', async (req, res, next) => {
 
 /* --------------------------- ADMIN → RESOURCE-ATTACHED CREDENTIALS ------ */
 /**
- * The admin can attach credentials directly to a user's resource. These show
- * up in the user's resource credential list. Rules:
- * - Admin sees all credentials of a resource, but may only edit/delete the
- *   ones the admin created (created_by_role = 'admin').
- * - User-created credentials (created_by_role = 'user') are NEVER touched or
- *   deleted by the admin.
- * - The user themselves may keep or delete admin-provided credentials.
+ * The admin can attach credentials only to administrator-created resources.
+ * These show up in the assigned user's resource credential list. Rules:
+ * - Self-service resources are fully user-managed; the admin receives no
+ *   credential list, password reveal or SSH access through this API.
+ * - On administrator-created resources, admin-created credentials are managed
+ *   here and user-added credentials may be revealed for support purposes.
+ * - Only credentials created by the admin may be edited/deleted by the admin.
  */
 router.get('/resources/:id/credentials', async (req, res, next) => {
   try {
     const ownership = await getResourceOwnership(req.params.id);
     if (!ownership) throw new AppError('Resource not found', HTTP_STATUS.NOT_FOUND);
+
+    // Self-service resources are user-managed. Administrators may monitor the
+    // infrastructure entry, but they must not receive credentials or SSH data.
     if (ownership.isSelfService) {
-      return res.json({ credentials: [], locked: true });
+      return res.json({ credentials: [], userManaged: true });
     }
 
     const rows = await all(
@@ -906,13 +909,17 @@ router.get('/resources/:id/credentials', async (req, res, next) => {
       [req.params.id]
     );
     res.json({
-      credentials: rows.map(row => ({
-        ...row,
-        hasSecret: true,
-        fromAdmin: row.created_by_role === 'admin',
-        canManage: row.created_by_role === 'admin',
-        useForSshConsole: Number(row.is_ssh_console || 0) === 1
-      }))
+      credentials: rows.map(row => {
+        const fromAdmin = row.created_by_role === 'admin';
+        return {
+          ...row,
+          hasSecret: true,
+          fromAdmin,
+          canManage: fromAdmin,
+          canReveal: fromAdmin || !ownership.isSelfService,
+          useForSshConsole: Number(row.is_ssh_console || 0) === 1
+        };
+      })
     });
   } catch (err) {
     next(err);
@@ -921,16 +928,20 @@ router.get('/resources/:id/credentials', async (req, res, next) => {
 
 router.get('/resources/:id/credentials/:credId/reveal', async (req, res, next) => {
   try {
-    await assertResourceEditableByAdmin(req.params.id, 'eingesehen');
+    const ownership = await getResourceOwnership(req.params.id);
+    if (!ownership) throw new AppError('Resource not found', HTTP_STATUS.NOT_FOUND);
     const cred = await get(
       "SELECT id, label, secret_encrypted, created_by_role, COALESCE(purpose, 'general') AS purpose FROM resource_credentials WHERE id = ? AND resource_id = ?",
       [req.params.credId, req.params.id]
     );
     if (!cred) throw new AppError('Credential not found', HTTP_STATUS.NOT_FOUND);
-    if (cred.created_by_role !== 'admin') {
-      throw new AppError('This credential belongs to the user and cannot be viewed', HTTP_STATUS.FORBIDDEN);
+    if (ownership.isSelfService) {
+      throw new AppError('This service is user-managed. Credential and SSH access is private to the service owner.', HTTP_STATUS.FORBIDDEN);
     }
-
+    const canReveal = cred.created_by_role === 'admin' || !ownership.isSelfService;
+    if (!canReveal) {
+      throw new AppError('User-managed credentials are private', HTTP_STATUS.FORBIDDEN);
+    }
     await logAudit(req, 'admin.resource_credential.reveal', `resource:${req.params.id}`, cred.label);
     res.json({ secret: decrypt(cred.secret_encrypted) });
   } catch (err) {
@@ -1382,13 +1393,36 @@ router.put('/resources/:id', async (req, res, next) => {
 router.delete('/resources/:id', async (req, res, next) => {
   try {
     const resourceId = req.params.id;
-    const resource = await get('SELECT * FROM resources WHERE id = ?', [resourceId]);
+    const resource = await get(`
+      SELECT
+        r.*,
+        pc.url AS cluster_url,
+        pc.api_token,
+        pm.id AS provisioned_id,
+        pm.user_id AS provisioned_user_id
+      FROM resources r
+      JOIN proxmox_clusters pc ON pc.id = r.cluster_id
+      LEFT JOIN provisioned_machines pm
+        ON pm.cluster_id = r.cluster_id
+       AND CAST(pm.vmid AS TEXT) = CAST(r.container_id AS TEXT)
+      WHERE r.id = ?
+    `, [resourceId]);
 
     if (!resource) {
       throw new AppError('Resource not found', HTTP_STATUS.NOT_FOUND);
     }
 
-    await assertResourceEditableByAdmin(resourceId, 'entfernt');
+    const selfService = !!resource.provisioned_id
+      && String(resource.provisioned_user_id || '') === String(resource.user_id || '');
+
+    let selfServiceApiToken = '';
+    if (selfService) {
+      selfServiceApiToken = decrypt(resource.api_token);
+      const capabilities = await getCapabilities(resource.cluster_url, selfServiceApiToken);
+      if (!capabilities.canProvision) {
+        throw new AppError('Machine deletion is not permitted for this cluster token', HTTP_STATUS.FORBIDDEN);
+      }
+    }
 
     const publications = await all('SELECT * FROM resource_publications WHERE resource_id = ?', [resourceId]);
     if (publications.length > 0) {
@@ -1399,7 +1433,38 @@ router.delete('/resources/:id', async (req, res, next) => {
       await run('DELETE FROM resource_publications WHERE resource_id = ?', [resourceId]);
     }
 
+    // Administrator-created resources are only portal assignments. Deleting
+    // them keeps the underlying Proxmox VM/CT untouched. Self-service machines
+    // are different: they belong to the portal lifecycle, so an administrator
+    // deletion destroys the actual VM/CT and then removes the portal records.
+    if (selfService) {
+      const apiToken = selfServiceApiToken;
+      const liveResources = await getAllContainers(resource.cluster_url, apiToken);
+      const live = liveResources.find((item) => String(item.vmid) === String(resource.container_id));
+      let upid = '';
+      let node = live?.node || '';
+
+      if (live) {
+        const result = await destroyProxmoxResource(resource.cluster_url, apiToken, live.node, live.type, live.vmid);
+        upid = result.upid || '';
+        node = result.node || live.node;
+      }
+
+      await run('DELETE FROM resource_credentials WHERE resource_id = ?', [resourceId]);
+      await run('DELETE FROM resources WHERE id = ?', [resourceId]);
+      await run('DELETE FROM provisioned_machines WHERE id = ?', [resource.provisioned_id]);
+
+      await logAudit(
+        req,
+        'admin.machine.delete',
+        `resource:${resourceId}`,
+        `${resource.name || resource.container_id} (VMID ${resource.container_id})`
+      );
+      return res.json({ message: 'Self-service machine deletion started', upid, node });
+    }
+
     await run('DELETE FROM resources WHERE id = ?', [resourceId]);
+    await logAudit(req, 'resource.delete', `resource:${resourceId}`, resource.name || String(resource.container_id));
     res.json({ message: 'Resource deleted successfully' });
   } catch (err) {
     next(err);

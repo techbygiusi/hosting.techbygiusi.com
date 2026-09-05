@@ -1588,8 +1588,8 @@ async function clonePreparedLxcTemplate(clusterUrl, apiToken, sourceNode, source
 }
 
 /**
- * Destroy a VM or LXC and return the task UPID. Used only for user-owned
- * self-service machines after the backend has verified ownership.
+ * Destroy a VM or LXC and return the task UPID. Callers must verify that
+ * the target is a portal-managed Self-service machine before using this.
  */
 async function destroyProxmoxResource(clusterUrl, apiToken, node, type, vmid) {
   const client = createProxmoxClient(clusterUrl, apiToken);

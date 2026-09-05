@@ -607,7 +607,7 @@ router.get('/resources', async (req, res, next) => {
           canManageCredentials: !adminManaged && ownsResource && !!resource.isSelfService,
           canPublish,
           publishingClusterEnabled: clusterPublishingEnabled,
-          canDelete: !!resource.canDelete && ownsResource && !!capsByCluster[resource.clusterId]?.canProvision,
+          canDelete: !!resource.isSelfService && ownsResource && !!capsByCluster[resource.clusterId]?.canProvision,
           // Power remains cluster-token based. Console access uses VM.Console
           // for the traditional Proxmox serial console, while a manually configured
           // service IP enables the backend SSH relay independently of that permission.

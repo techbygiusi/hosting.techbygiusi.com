@@ -93,13 +93,47 @@ export default function AdminResourceCredentials({ resourceId, adminUrl = '' }) 
     }
   };
 
-  const reveal = async (credential) => {
+  const getSecret = async (credential) => {
+    if (Object.prototype.hasOwnProperty.call(revealed, credential.id)) return revealed[credential.id];
+    const response = await adminApi.revealResourceCredential(resourceId, credential.id);
+    const secret = response.data?.secret || '';
+    setRevealed((current) => ({ ...current, [credential.id]: secret }));
+    return secret;
+  };
+
+  const toggleReveal = async (credential) => {
+    if (Object.prototype.hasOwnProperty.call(revealed, credential.id)) {
+      setRevealed((current) => {
+        const next = { ...current };
+        delete next[credential.id];
+        return next;
+      });
+      return;
+    }
     setError('');
     try {
-      const response = await adminApi.revealResourceCredential(resourceId, credential.id);
-      setRevealed((current) => ({ ...current, [credential.id]: response.data?.secret || '' }));
+      await getSecret(credential);
     } catch (err) {
       setError(getErrorMessage(err, 'Password could not be revealed.'));
+    }
+  };
+
+  const copyText = async (value, fallback = 'Value') => {
+    try {
+      await navigator.clipboard.writeText(String(value || ''));
+      setNotice(`${fallback} copied.`);
+    } catch (_) {
+      setError(`${fallback} could not be copied.`);
+    }
+  };
+
+  const copyPassword = async (credential) => {
+    setError('');
+    try {
+      const secret = await getSecret(credential);
+      await copyText(secret, 'Password');
+    } catch (err) {
+      setError(getErrorMessage(err, 'Password could not be copied.'));
     }
   };
 
@@ -131,7 +165,7 @@ export default function AdminResourceCredentials({ resourceId, adminUrl = '' }) 
               <div className="admin-resource-credential-main">
                 <div>
                   <strong>{credential.label}</strong>
-                  <span>{credential.username || 'No username'}</span>
+                  <span>{credential.fromAdmin ? 'Administrator credential' : 'User credential'}</span>
                 </div>
                 <div className="admin-resource-credential-badges">
                   {credential.useForSshConsole ? <span className="status-badge success">SSH</span> : null}
@@ -140,11 +174,19 @@ export default function AdminResourceCredentials({ resourceId, adminUrl = '' }) 
               </div>
               {credential.url ? <a href={credential.url} target="_blank" rel="noreferrer" className="admin-resource-credential-url">{credential.url}</a> : null}
               {credential.notes ? <p>{credential.notes}</p> : null}
-              {revealed[credential.id] !== undefined ? (
-                <div className="admin-resource-secret"><span>Password</span><code>{revealed[credential.id] || '—'}</code></div>
-              ) : null}
+              <div className="admin-resource-credential-details">
+                <div><span>Username</span><strong>{credential.username || '—'}</strong></div>
+                <div>
+                  <span>Password</span>
+                  <code>{credential.canReveal === false
+                    ? 'Private user credential'
+                    : (Object.prototype.hasOwnProperty.call(revealed, credential.id) ? (revealed[credential.id] || '—') : '••••••••')}</code>
+                </div>
+              </div>
               <div className="admin-resource-credential-actions">
-                {credential.fromAdmin ? <button type="button" className="btn-secondary btn-small" onClick={() => reveal(credential)}>Show password</button> : null}
+                {credential.canReveal !== false ? <button type="button" className="btn-secondary btn-small" onClick={() => toggleReveal(credential)}>{Object.prototype.hasOwnProperty.call(revealed, credential.id) ? 'Hide password' : 'Show password'}</button> : null}
+                {credential.username ? <button type="button" className="btn-secondary btn-small" onClick={() => copyText(credential.username, 'Username')}>Copy username</button> : null}
+                {credential.canReveal !== false ? <button type="button" className="btn-secondary btn-small" onClick={() => copyPassword(credential)}>Copy password</button> : null}
                 {credential.canManage ? <button type="button" className="btn-secondary btn-small" onClick={() => startEdit(credential)}>Edit</button> : null}
                 {credential.canManage ? <button type="button" className="btn-danger btn-small" onClick={() => remove(credential)}>Delete</button> : null}
               </div>

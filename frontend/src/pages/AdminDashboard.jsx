@@ -395,7 +395,12 @@ export default function AdminDashboard() {
   };
 
   const removeEntry = async (kind, entry) => {
-    if (!window.confirm(`Delete ${entry.name || entry.email || 'this entry'}?`)) return;
+    const userManagedMachine = kind === 'resource' && (entry.isSelfService === true || entry.source === 'self-service');
+    const label = entry.name || entry.email || 'this entry';
+    const question = userManagedMachine
+      ? `Permanently delete ${label} from Proxmox and the portal? This cannot be undone.`
+      : `Delete ${label}?`;
+    if (!window.confirm(question)) return;
     setError('');
     setNotice('');
     try {
@@ -404,10 +409,10 @@ export default function AdminDashboard() {
       if (kind === 'group') await adminApi.deleteGroup(entry.id);
       if (kind === 'resource') await adminApi.deleteResource(entry.id);
       if (editor?.type === kind && editor?.data?.id === entry.id) setEditor(null);
-      setNotice('Deleted successfully.');
+      setNotice(userManagedMachine ? 'Container deletion started successfully.' : 'Deleted successfully.');
       await load();
     } catch (err) {
-      setError(getErrorMessage(err, 'The entry could not be deleted.'));
+      setError(getErrorMessage(err, userManagedMachine ? 'The container could not be deleted.' : 'The entry could not be deleted.'));
     }
   };
 
@@ -505,6 +510,54 @@ export default function AdminDashboard() {
 
   const renderEditorPage = (type, listTitle) => {
     if (!editor || editor.type !== type) return null;
+
+    const userManagedResource = type === 'resource'
+      && editor.mode === 'edit'
+      && (editor.data.isSelfService === true || editor.data.source === 'self-service');
+
+    if (userManagedResource) {
+      const resourceName = editor.data.name || `Service ${editor.data.containerId || editor.data.container_id || ''}`;
+      return (
+        <div className="admin-editor-replacement">
+          <div className="subpage-back-row">
+            <button type="button" className="btn-secondary" onClick={() => setEditor(null)}>← Back to {listTitle}</button>
+          </div>
+          <SectionCard>
+            <div className="admin-user-managed-service">
+              <div className="admin-user-managed-service-head">
+                <div>
+                  <span className="status-badge warning">User managed</span>
+                  <h2>{resourceName}</h2>
+                  <p>This service was created by the user through Self-service.</p>
+                </div>
+                <div className="admin-user-managed-lock" aria-hidden="true"><LockIcon size={24} /></div>
+              </div>
+              <div className="admin-user-managed-notice">
+                <strong>Service user managed</strong>
+                <span>Credentials, passwords, SSH access, URLs and service access settings are private to the service owner. The administrator can monitor the infrastructure resource, but cannot open or manage its access.</span>
+              </div>
+              <div className="admin-user-managed-grid">
+                <div><span>Cluster</span><strong>{editor.data.clusterName || editor.data.cluster_name || '—'}</strong></div>
+                <div><span>Owner</span><strong>{editor.data.userName || editor.data.user_name || editor.data.userEmail || editor.data.user_email || '—'}</strong></div>
+                <div><span>Type</span><strong>{editor.data.type || editor.data.resourceType || editor.data.resource_type || '—'}</strong></div>
+                <div><span>ID</span><strong>{editor.data.containerId || editor.data.container_id || '—'}</strong></div>
+                <div><span>Status</span><strong>{editor.data.status || '—'}</strong></div>
+                <div><span>Billing</span><strong>Self-service</strong></div>
+              </div>
+            </div>
+          </SectionCard>
+          <section className="service-danger-zone admin-service-danger-zone">
+            <div className="service-danger-zone-copy">
+              <span className="service-danger-zone-kicker">Danger zone</span>
+              <strong>Delete user-created container</strong>
+              <p>This permanently destroys the Self-service VM/CT in Proxmox and removes it from the portal. User credentials remain private and are not exposed before deletion.</p>
+            </div>
+            <button type="button" className="btn-danger" onClick={() => removeEntry('resource', editor.data)}>Delete container</button>
+          </section>
+        </div>
+      );
+    }
+
     const title = `${editor.mode === 'create' ? 'Create' : 'Edit'} ${type}`;
     return (
       <div className="admin-editor-replacement">
@@ -613,7 +666,7 @@ export default function AdminDashboard() {
             </div>
           </form>
         </SectionCard>
-        {type === 'resource' && editor.mode === 'edit' ? (
+        {type === 'resource' && editor.mode === 'edit' && !(editor.data.isSelfService === true || editor.data.source === 'self-service') ? (
           <AdminResourceCredentials
             resourceId={editor.data.id}
             adminUrl={editor.data.adminUrl ?? editor.data.admin_url ?? ''}
@@ -630,10 +683,21 @@ export default function AdminDashboard() {
         <CrudTable
           columns={columns}
           rows={rows}
-          renderActions={(entry) => <>
-            <button type="button" className="btn-secondary btn-small" onClick={() => onEdit(entry)}>Edit</button>
-            <button type="button" className="btn-danger btn-small" onClick={() => removeEntry(type, entry)}>Delete</button>
-          </>}
+          renderActions={(entry) => {
+            const userManaged = type === 'resource' && (entry.isSelfService === true || entry.source === 'self-service');
+            return userManaged ? (
+              <>
+                <button type="button" className="btn-secondary btn-small" onClick={() => onEdit(entry)}>View</button>
+                <button type="button" className="btn-danger btn-small" onClick={() => removeEntry(type, entry)}>Delete container</button>
+                <span className="status-badge warning">User managed</span>
+              </>
+            ) : (
+              <>
+                <button type="button" className="btn-secondary btn-small" onClick={() => onEdit(entry)}>Edit</button>
+                <button type="button" className="btn-danger btn-small" onClick={() => removeEntry(type, entry)}>Delete</button>
+              </>
+            );
+          }}
           emptyText={emptyText}
         />
       </SectionCard>

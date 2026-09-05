@@ -152,11 +152,15 @@ function ServiceCard({ resource, history = [], onDetails, onConsole, compact = f
   );
 }
 
-function ServiceDetailView({ resource, history = [], language = 'en', onBack, onConsole, onResourceUpdate }) {
+function ServiceDetailView({ resource, history = [], language = 'en', onBack, onConsole, onResourceUpdate, onDeleted }) {
   const [liveResource, setLiveResource] = useState(resource);
   const [powerBusy, setPowerBusy] = useState('');
   const [powerError, setPowerError] = useState('');
   const [powerNotice, setPowerNotice] = useState('');
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState('');
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
 
   useEffect(() => { setLiveResource(resource); }, [resource]);
   if (!liveResource) return null;
@@ -165,12 +169,20 @@ function ServiceDetailView({ resource, history = [], language = 'en', onBack, on
     ? {
         back: '← Zurück zu Services', openService: 'Service öffnen', openAdmin: 'Admin öffnen', openConsole: 'Konsole öffnen',
         start: 'Starten', stop: 'Stoppen', restart: 'Neustarten', unavailable: 'Power-Steuerung ist mit dem aktuellen Proxmox-Token nicht verfügbar.',
-        started: 'Aktion wurde gestartet.', failed: 'Power-Aktion konnte nicht ausgeführt werden.'
+        started: 'Aktion wurde gestartet.', failed: 'Power-Aktion konnte nicht ausgeführt werden.',
+        dangerZone: 'Gefahrenzone', deleteTitle: 'Container dauerhaft löschen',
+        deleteHint: 'Dieser Container wurde von dir über Self-Service erstellt. Beim Löschen wird er dauerhaft aus Proxmox und aus dem Portal entfernt. Diese Aktion kann nicht rückgängig gemacht werden.',
+        deleteButton: 'Container löschen', deleteConfirmLabel: 'Zum Bestätigen den Servicenamen eingeben',
+        deletePermanent: 'Dauerhaft löschen', cancelDelete: 'Abbrechen', deleteFailed: 'Container konnte nicht gelöscht werden.'
       }
     : {
         back: '← Back to services', openService: 'Open service', openAdmin: 'Open admin', openConsole: 'Open console',
         start: 'Start', stop: 'Stop', restart: 'Restart', unavailable: 'Power controls are unavailable with the current Proxmox token.',
-        started: 'Power action started.', failed: 'Power action could not be started.'
+        started: 'Power action started.', failed: 'Power action could not be started.',
+        dangerZone: 'Danger zone', deleteTitle: 'Permanently delete container',
+        deleteHint: 'This container was created by you through Self-service. Deleting it permanently removes it from Proxmox and from the portal. This action cannot be undone.',
+        deleteButton: 'Delete container', deleteConfirmLabel: 'Type the service name to confirm',
+        deletePermanent: 'Delete permanently', cancelDelete: 'Cancel', deleteFailed: 'The container could not be deleted.'
       };
 
   const publicUrl = servicePrimaryUrl(liveResource);
@@ -191,6 +203,21 @@ function ServiceDetailView({ resource, history = [], language = 'en', onBack, on
     ['Service IP', liveResource.manualIp || liveResource.primaryIp || liveResource.ip || '—'],
     ['Operating system', liveResource.operatingSystem || '—']
   ];
+
+  const deleteSelfServiceResource = async () => {
+    if (!liveResource?.canDelete || deleteBusy) return;
+    if (deleteConfirm.trim() !== String(liveResource.name || '').trim()) return;
+    setDeleteBusy(true);
+    setDeleteError('');
+    try {
+      await userApi.deleteMachine(liveResource.id);
+      await onDeleted?.(liveResource);
+    } catch (err) {
+      setDeleteError(getErrorMessage(err, text.deleteFailed));
+    } finally {
+      setDeleteBusy(false);
+    }
+  };
 
   const runPowerAction = async (action) => {
     if (!canPower || powerBusy) return;
@@ -262,6 +289,30 @@ function ServiceDetailView({ resource, history = [], language = 'en', onBack, on
         </div>
       </SectionCard>
       <ResourceAccessDetails resource={liveResource} language={language} />
+      {liveResource.canDelete ? (
+        <section className="service-danger-zone">
+          <div className="service-danger-zone-copy">
+            <span className="service-danger-zone-kicker">{text.dangerZone}</span>
+            <strong>{text.deleteTitle}</strong>
+            <p>{text.deleteHint}</p>
+          </div>
+          {!deleteOpen ? (
+            <button type="button" className="btn-danger" onClick={() => { setDeleteOpen(true); setDeleteError(''); }}>{text.deleteButton}</button>
+          ) : (
+            <div className="service-danger-zone-confirm">
+              {deleteError ? <InlineNotice tone="danger">{deleteError}</InlineNotice> : null}
+              <label>
+                <span>{text.deleteConfirmLabel}: <strong>{liveResource.name}</strong></span>
+                <input value={deleteConfirm} onChange={(event) => setDeleteConfirm(event.target.value)} autoComplete="off" />
+              </label>
+              <div className="service-danger-zone-actions">
+                <button type="button" className="btn-secondary" disabled={deleteBusy} onClick={() => { setDeleteOpen(false); setDeleteConfirm(''); setDeleteError(''); }}>{text.cancelDelete}</button>
+                <button type="button" className="btn-danger" disabled={deleteBusy || deleteConfirm.trim() !== String(liveResource.name || '').trim()} onClick={deleteSelfServiceResource}>{deleteBusy ? '…' : text.deletePermanent}</button>
+              </div>
+            </div>
+          )}
+        </section>
+      ) : null}
     </div>
   );
 }
@@ -344,7 +395,7 @@ function UserOverview({ resources, metrics, billing, language, onOpenBilling, on
   );
 }
 
-function UserServices({ resources, metrics, selectedId, detailOpen, language, onDetails, onCloseDetails, onConsole, onOpenProvisioning, onResourceUpdate }) {
+function UserServices({ resources, metrics, selectedId, detailOpen, language, onDetails, onCloseDetails, onConsole, onOpenProvisioning, onResourceUpdate, onResourceDeleted }) {
   const [filter, setFilter] = useState('');
   const filtered = useMemo(() => {
     const term = filter.trim().toLowerCase();
@@ -354,7 +405,7 @@ function UserServices({ resources, metrics, selectedId, detailOpen, language, on
   const selected = resources.find((item) => String(item.id) === String(selectedId)) || null;
 
   if (detailOpen && selected) {
-    return <ServiceDetailView resource={selected} history={metrics?.[String(selected.id)]?.points || []} language={language} onBack={onCloseDetails} onConsole={onConsole} onResourceUpdate={onResourceUpdate} />;
+    return <ServiceDetailView resource={selected} history={metrics?.[String(selected.id)]?.points || []} language={language} onBack={onCloseDetails} onConsole={onConsole} onResourceUpdate={onResourceUpdate} onDeleted={onResourceDeleted} />;
   }
 
   return (
@@ -462,6 +513,12 @@ export default function UserDashboard() {
     setResources((current) => current.map((item) => String(item.id) === String(nextResource.id) ? nextResource : item));
   }, []);
 
+  const handleResourceDeleted = useCallback(async () => {
+    setDetailOpen(false);
+    setSelectedId('');
+    await load();
+  }, [load]);
+
   const saveProfile = async (event) => {
     event.preventDefault();
     setSavingProfile(true);
@@ -525,7 +582,7 @@ export default function UserDashboard() {
       onConsole={openConsole}
     />;
   } else if (activeTab === 'services') {
-    content = <UserServices resources={resources} metrics={metrics} selectedId={selectedId} detailOpen={detailOpen} language={language} onDetails={openServiceDetails} onCloseDetails={() => setDetailOpen(false)} onConsole={openConsole} onOpenProvisioning={() => setCreateOpen(true)} onResourceUpdate={updateResource} />;
+    content = <UserServices resources={resources} metrics={metrics} selectedId={selectedId} detailOpen={detailOpen} language={language} onDetails={openServiceDetails} onCloseDetails={() => setDetailOpen(false)} onConsole={openConsole} onOpenProvisioning={() => setCreateOpen(true)} onResourceUpdate={updateResource} onResourceDeleted={handleResourceDeleted} />;
   } else if (activeTab === 'billing') {
     content = <UserBilling language={language} />;
   } else if (activeTab === 'wiki') {
