@@ -13272,7 +13272,7 @@ body.portal-shell-active .admin-side-editor {
   .portal-fixed-account {
     position: fixed;
     top: 34px;
-    right: max(38px, calc((100vw - 1920px) / 2 + 38px));
+    right: 38px;
     z-index: 1400;
     display: block;
     pointer-events: auto;
