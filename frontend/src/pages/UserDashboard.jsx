@@ -278,29 +278,59 @@ function ServiceDetailView({ resource, history = [], language = 'en', onBack, on
 
   const runPowerAction = async (action) => {
     if (!canPower || powerBusy) return;
+
+    const previous = liveResource;
+    const expected = action === 'start' ? 'running' : action === 'stop' ? 'stopped' : 'running';
+    const optimisticStatus = expected;
+    const optimistic = { ...liveResource, status: optimisticStatus };
+
+    // Reflect the requested power state immediately so the action buttons and
+    // dashboard/service cards react without requiring a manual page reload.
     setPowerBusy(action);
     setPowerError('');
     setPowerNotice('');
+    setLiveResource(optimistic);
+    onResourceUpdate?.(optimistic);
+
     try {
       await userApi.powerAction(liveResource.id, action);
       setPowerNotice(text.started);
 
-      const expected = action === 'start' ? 'running' : action === 'stop' ? 'stopped' : '';
-      for (let attempt = 0; attempt < 6; attempt += 1) {
-        await new Promise((resolve) => window.setTimeout(resolve, attempt === 0 ? 900 : 1200));
+      let lastResource = optimistic;
+      for (let attempt = 0; attempt < 20; attempt += 1) {
+        await new Promise((resolve) => window.setTimeout(resolve, attempt === 0 ? 650 : 900));
         try {
           const response = await userApi.getResourceDetails(liveResource.id);
           const next = response.data?.resource;
           if (!next) continue;
-          setLiveResource(next);
-          onResourceUpdate?.(next);
+          lastResource = next;
+
           const nextStatus = String(next.status || '').toLowerCase();
-          if (!expected || nextStatus.includes(expected === 'running' ? 'run' : 'stop')) break;
+          const reachedExpected = expected === 'running'
+            ? nextStatus.includes('run')
+            : nextStatus.includes('stop');
+
+          // While Proxmox is still switching state, keep the requested state in
+          // the UI. This prevents the buttons from jumping back to the old state
+          // between polling requests.
+          const displayed = reachedExpected ? next : { ...next, status: optimisticStatus };
+          setLiveResource(displayed);
+          onResourceUpdate?.(displayed);
+
+          if (reachedExpected) break;
         } catch (_) {
-          // Keep polling briefly while Proxmox completes the task.
+          // Proxmox may briefly be unavailable while the guest changes state.
+        }
+
+        if (attempt === 19) {
+          setLiveResource(lastResource);
+          onResourceUpdate?.(lastResource);
         }
       }
     } catch (err) {
+      // If the action itself could not be queued, restore the previous state.
+      setLiveResource(previous);
+      onResourceUpdate?.(previous);
       setPowerError(getErrorMessage(err, text.failed));
     } finally {
       setPowerBusy('');
