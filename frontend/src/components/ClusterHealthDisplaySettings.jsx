@@ -8,6 +8,44 @@ import PreferenceSlider from './PreferenceSlider';
 const COLS = 8;
 const ROWS = 4;
 const DRAG_THRESHOLD = 6;
+const DEFAULT_TIME_ZONE = 'Europe/Berlin';
+const DEFAULT_TIME_FORMAT = '24h';
+const FALLBACK_TIME_ZONES = [
+  'UTC',
+  'Europe/Berlin',
+  'Europe/London',
+  'Europe/Paris',
+  'Europe/Rome',
+  'Europe/Vienna',
+  'Europe/Zurich',
+  'America/New_York',
+  'America/Chicago',
+  'America/Denver',
+  'America/Los_Angeles',
+  'America/Toronto',
+  'America/Sao_Paulo',
+  'Asia/Dubai',
+  'Asia/Kolkata',
+  'Asia/Singapore',
+  'Asia/Tokyo',
+  'Australia/Sydney'
+];
+
+const TIME_ZONE_OPTIONS = (() => {
+  let supported = [];
+  try {
+    supported = typeof Intl.supportedValuesOf === 'function' ? Intl.supportedValuesOf('timeZone') : [];
+  } catch (_) {
+    supported = [];
+  }
+  return Array.from(new Set([...FALLBACK_TIME_ZONES, ...supported])).sort((a, b) => {
+    if (a === DEFAULT_TIME_ZONE) return -1;
+    if (b === DEFAULT_TIME_ZONE) return 1;
+    if (a === 'UTC') return -1;
+    if (b === 'UTC') return 1;
+    return a.localeCompare(b);
+  });
+})();
 
 const WIDGET_TYPES = [
   { type: 'cluster', label: 'Cluster health', hint: 'Overall cluster and node state', w: 4, h: 1, icon: DashboardIcon },
@@ -16,7 +54,7 @@ const WIDGET_TYPES = [
   { type: 'memory', label: 'Memory', hint: 'Current cluster memory usage', w: 2, h: 1, icon: ServerIcon },
   { type: 'storage', label: 'Storage', hint: 'Cluster storage utilization', w: 2, h: 1, icon: ServerIcon },
   { type: 'uptime', label: 'Uptime', hint: 'Shortest online node uptime', w: 2, h: 1, icon: ClockIcon },
-  { type: 'nodes', label: 'Nodes', hint: 'Compact node health list', w: 4, h: 2, icon: DashboardIcon },
+  { type: 'nodes', label: 'Nodes', hint: 'Compact node health list', w: 8, h: 1, icon: DashboardIcon },
   { type: 'pangolin', label: 'Pangolin', hint: 'Pangolin API and publishing status', w: 2, h: 1, icon: LinkIcon },
   { type: 'services', label: 'Portal services', hint: 'Services assigned to this cluster', w: 2, h: 1, icon: ServerIcon },
   { type: 'location', label: 'Location', hint: 'Configured cluster location', w: 2, h: 1, icon: GlobeIcon },
@@ -24,6 +62,53 @@ const WIDGET_TYPES = [
 ];
 
 const GLOBAL_TYPES = new Set(WIDGET_TYPES.filter((item) => item.global).map((item) => item.type));
+
+const SIZE_OPTIONS = {
+  cluster: ['4x1', '8x1'],
+  logo: ['2x1', '4x1'],
+  cpu: ['2x1', '4x1'],
+  memory: ['2x1', '4x1'],
+  storage: ['2x1', '4x1'],
+  uptime: ['2x1', '4x1'],
+  nodes: ['4x1', '8x1', '4x2'],
+  pangolin: ['2x1', '4x1'],
+  services: ['2x1', '4x1'],
+  location: ['2x1', '4x1'],
+  clock: ['2x1', '4x1']
+};
+
+function sizeOptionsFor(type) {
+  return SIZE_OPTIONS[type] || ['2x1'];
+}
+
+function normalizeWidgetSize(type, w, h) {
+  const requested = `${Number(w) || 0}x${Number(h) || 0}`;
+  const options = sizeOptionsFor(type);
+  if (options.includes(requested)) return requested;
+
+  if (type === 'nodes') {
+    if (Number(w) >= 8) return '8x1';
+    if (Number(h) >= 2) return '4x2';
+    return '4x1';
+  }
+
+  if (type === 'cluster') return Number(w) >= 8 ? '8x1' : '4x1';
+  return Number(w) >= 4 ? '4x1' : '2x1';
+}
+
+function normalizeWidget(widget) {
+  const size = normalizeWidgetSize(widget.type, widget.w, widget.h);
+  const [w, h] = size.split('x').map(Number);
+  return {
+    ...widget,
+    w,
+    h,
+    ...(widget.type === 'clock' ? {
+      timezone: widget.timezone || DEFAULT_TIME_ZONE,
+      timeFormat: widget.timeFormat === '12h' ? '12h' : DEFAULT_TIME_FORMAT
+    } : {})
+  };
+}
 
 function id() {
   return `health-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -65,17 +150,17 @@ function findFreePosition(widgets, w, h) {
 function buildStarterLayout(clusterId) {
   if (!clusterId) return [
     { id: id(), type: 'logo', clusterId: null, label: '', x: 0, y: 0, w: 2, h: 1 },
-    { id: id(), type: 'clock', clusterId: null, label: '', x: 6, y: 0, w: 2, h: 1 }
+    { id: id(), type: 'clock', clusterId: null, label: '', timezone: DEFAULT_TIME_ZONE, timeFormat: DEFAULT_TIME_FORMAT, x: 6, y: 0, w: 2, h: 1 }
   ];
   return [
     { id: id(), type: 'cluster', clusterId, label: '', x: 0, y: 0, w: 4, h: 1 },
     { id: id(), type: 'logo', clusterId: null, label: '', x: 4, y: 0, w: 2, h: 1 },
-    { id: id(), type: 'clock', clusterId: null, label: '', x: 6, y: 0, w: 2, h: 1 },
+    { id: id(), type: 'clock', clusterId: null, label: '', timezone: DEFAULT_TIME_ZONE, timeFormat: DEFAULT_TIME_FORMAT, x: 6, y: 0, w: 2, h: 1 },
     { id: id(), type: 'cpu', clusterId, label: '', x: 0, y: 1, w: 2, h: 1 },
     { id: id(), type: 'memory', clusterId, label: '', x: 2, y: 1, w: 2, h: 1 },
     { id: id(), type: 'storage', clusterId, label: '', x: 4, y: 1, w: 2, h: 1 },
     { id: id(), type: 'uptime', clusterId, label: '', x: 6, y: 1, w: 2, h: 1 },
-    { id: id(), type: 'nodes', clusterId, label: '', x: 0, y: 2, w: 8, h: 2 }
+    { id: id(), type: 'nodes', clusterId, label: '', x: 0, y: 2, w: 8, h: 1 }
   ];
 }
 
@@ -108,7 +193,7 @@ export default function ClusterHealthDisplaySettings({ clusters = [], clusterSta
         if (!active) return;
         const loaded = response.data?.config || {};
         const widgets = Array.isArray(loaded.widgets) && loaded.widgets.length
-          ? loaded.widgets
+          ? loaded.widgets.map(normalizeWidget)
           : buildStarterLayout(clusters[0]?.id ? Number(clusters[0].id) : null);
         setConfig({ ...loaded, widgets, columns: COLS, rows: ROWS, width: 800, height: 480 });
       } catch (err) {
@@ -132,7 +217,17 @@ export default function ClusterHealthDisplaySettings({ clusters = [], clusterSta
       setError(de ? 'Im 800×480 Raster ist kein freier Platz für dieses Element.' : 'There is no free space for this element in the 800×480 grid.');
       return;
     }
-    const widget = { id: id(), type: definition.type, clusterId, label: '', x: position.x, y: position.y, w: definition.w, h: definition.h };
+    const widget = {
+      id: id(),
+      type: definition.type,
+      clusterId,
+      label: '',
+      x: position.x,
+      y: position.y,
+      w: definition.w,
+      h: definition.h,
+      ...(definition.type === 'clock' ? { timezone: DEFAULT_TIME_ZONE, timeFormat: DEFAULT_TIME_FORMAT } : {})
+    };
     setConfig((current) => ({ ...current, widgets: [...current.widgets, widget] }));
     setSelectedId(widget.id);
     setError('');
@@ -276,7 +371,8 @@ export default function ClusterHealthDisplaySettings({ clusters = [], clusterSta
 
   const changeSize = (value) => {
     if (!selected) return;
-    const [w, h] = value.split('x').map(Number);
+    const normalizedValue = normalizeWidgetSize(selected.type, ...value.split('x').map(Number));
+    const [w, h] = normalizedValue.split('x').map(Number);
     const position = findNearestPosition(config.widgets, w, h, Math.min(selected.x, COLS - w), Math.min(selected.y, ROWS - h), selected.id);
     if (!position) {
       setError(de ? 'Für diese Größe ist im Raster nicht genug freier Platz.' : 'There is not enough free space in the grid for this size.');
@@ -452,12 +548,28 @@ export default function ClusterHealthDisplaySettings({ clusters = [], clusterSta
             <span>{selected ? `${selected.type} · ${selected.w}×${selected.h}` : (de ? 'Klicke ein Element im Raster an.' : 'Select a widget in the grid.')}</span>
           </div>
           {selected ? (
-            <div className="cluster-health-widget-editor-grid">
+            <div className={`cluster-health-widget-editor-grid ${selected.type === 'clock' ? 'clock-options' : ''}`}>
               {widgetNeedsCluster(selected.type) ? (
                 <label><span>Cluster</span><select value={selected.clusterId || ''} onChange={(event) => updateSelected({ clusterId: Number(event.target.value) || null })}><option value="">—</option>{clusters.map((cluster) => <option value={cluster.id} key={cluster.id}>{cluster.name}</option>)}</select></label>
+              ) : selected.type === 'clock' ? (
+                <>
+                  <label>
+                    <span>{de ? 'Zeitzone' : 'Time zone'}</span>
+                    <select value={selected.timezone || DEFAULT_TIME_ZONE} onChange={(event) => updateSelected({ timezone: event.target.value })}>
+                      {TIME_ZONE_OPTIONS.map((timezone) => <option value={timezone} key={timezone}>{timezone.replaceAll('_', ' ')}</option>)}
+                    </select>
+                  </label>
+                  <label>
+                    <span>{de ? 'Zeitformat' : 'Time format'}</span>
+                    <select value={selected.timeFormat === '12h' ? '12h' : DEFAULT_TIME_FORMAT} onChange={(event) => updateSelected({ timeFormat: event.target.value })}>
+                      <option value="24h">24h</option>
+                      <option value="12h">12h (AM/PM)</option>
+                    </select>
+                  </label>
+                </>
               ) : <div className="cluster-health-widget-editor-spacer" />}
               <label><span>{de ? 'Eigener Titel (optional)' : 'Custom label (optional)'}</span><input value={selected.label || ''} onChange={(event) => updateSelected({ label: event.target.value })} /></label>
-              <label><span>{de ? 'Größe' : 'Size'}</span><select value={`${selected.w}x${selected.h}`} onChange={(event) => changeSize(event.target.value)}><option value="2x1">2×1</option><option value="4x1">4×1</option><option value="8x1">8×1</option><option value="2x2">2×2</option><option value="4x2">4×2</option><option value="8x2">8×2</option></select></label>
+              <label><span>{de ? 'Größe' : 'Size'}</span><select value={normalizeWidgetSize(selected.type, selected.w, selected.h)} onChange={(event) => changeSize(event.target.value)}>{sizeOptionsFor(selected.type).map((option) => (<option value={option} key={option}>{option.replace('x', '×')}</option>))}</select></label>
               <button type="button" className="btn-danger" onClick={removeSelected}>{de ? 'Element entfernen' : 'Remove widget'}</button>
             </div>
           ) : null}

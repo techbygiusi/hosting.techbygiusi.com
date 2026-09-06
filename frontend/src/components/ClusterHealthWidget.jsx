@@ -49,6 +49,22 @@ function statusTone(state) {
   return '';
 }
 
+function safeTimeZone(timezone) {
+  const value = String(timezone || 'Europe/Berlin').trim() || 'Europe/Berlin';
+  try {
+    new Intl.DateTimeFormat('en', { timeZone: value }).format(new Date());
+    return value;
+  } catch (_) {
+    return 'Europe/Berlin';
+  }
+}
+
+function timeZoneLabel(timezone) {
+  if (timezone === 'UTC') return 'UTC';
+  const parts = String(timezone || '').split('/');
+  return (parts[parts.length - 1] || timezone || '').replaceAll('_', ' ');
+}
+
 export default function ClusterHealthWidget({ widget, cluster, now = new Date(), preview = false, language = 'en' }) {
   const de = language === 'de';
   const type = widget?.type || 'cluster';
@@ -65,12 +81,17 @@ export default function ClusterHealthWidget({ widget, cluster, now = new Date(),
   }
 
   if (type === 'clock') {
+    const timezone = safeTimeZone(widget?.timezone);
+    const is12Hour = widget?.timeFormat === '12h';
+    const locale = de ? 'de-DE' : (is12Hour ? 'en-US' : 'en-GB');
+    const time = now.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit', hour12: is12Hour, timeZone: timezone });
+    const date = now.toLocaleDateString(de ? 'de-DE' : 'en-GB', { weekday: 'short', day: '2-digit', month: '2-digit', timeZone: timezone });
     return (
-      <div className="health-display-clock-widget">
+      <div className="health-display-clock-widget" title={timezone}>
         <ClockIcon size={preview ? 18 : 22} />
         <div>
-          <strong>{now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</strong>
-          <span>{now.toLocaleDateString([], { weekday: 'short', day: '2-digit', month: '2-digit' })}</span>
+          <strong>{time}</strong>
+          <span>{date} · {timeZoneLabel(timezone)}</span>
         </div>
       </div>
     );
@@ -164,19 +185,22 @@ export default function ClusterHealthWidget({ widget, cluster, now = new Date(),
   }
 
   if (type === 'nodes') {
+    const compactHeight = Number(widget?.h || 0) <= 1;
+    const compactWidth = Number(widget?.w || 0) <= 4;
+    const maxNodes = compactHeight ? (compactWidth ? 2 : 3) : (compactWidth ? 4 : 6);
     return (
-      <div className="health-display-nodes-widget">
+      <div className={`health-display-nodes-widget ${compactHeight ? 'compact-height' : ''} ${compactWidth ? 'compact-width' : ''}`}>
         <div className="health-display-nodes-head">
           <strong>{label || `${cluster.name} ${de ? 'Nodes' : 'nodes'}`}</strong>
           <span>{totals.online || 0}/{totals.nodes || 0}</span>
         </div>
         <div className="health-display-node-list">
-          {(cluster.nodes || []).slice(0, 6).map((node) => (
-            <div className="health-display-node-row" key={node.node}>
+          {(cluster.nodes || []).slice(0, maxNodes).map((node) => (
+            <div className={`health-display-node-row ${compactHeight ? 'compact' : ''} ${compactWidth ? 'narrow' : ''}`} key={node.node}>
               <span className={`health-display-state-dot ${node.status === 'online' ? 'success' : 'danger'}`} />
               <strong>{node.node}</strong>
-              <span>CPU {Number(node.cpuPercent || 0).toFixed(0)}%</span>
-              <span>RAM {Number(node.memPercent || 0).toFixed(0)}%</span>
+              <span className="health-display-node-metrics">{compactHeight || compactWidth ? `CPU ${Number(node.cpuPercent || 0).toFixed(0)}% · RAM ${Number(node.memPercent || 0).toFixed(0)}%` : `CPU ${Number(node.cpuPercent || 0).toFixed(0)}%`}</span>
+              {!compactHeight && !compactWidth ? <span>RAM {Number(node.memPercent || 0).toFixed(0)}%</span> : null}
             </div>
           ))}
           {!cluster.nodes?.length ? <div className="health-display-node-empty">{de ? 'Keine Node-Daten' : 'No node data'}</div> : null}

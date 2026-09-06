@@ -12787,6 +12787,7 @@ button:disabled,
   gap: 12px;
   align-items: end;
 }
+.cluster-health-widget-editor-grid.clock-options { grid-template-columns: repeat(4, minmax(0, 1fr)) auto; }
 .cluster-health-widget-editor-spacer { min-height: 1px; }
 
 .cluster-health-builder-actions {
@@ -12835,8 +12836,15 @@ button:disabled,
 .health-display-nodes-head span { opacity: .65; font-size: .65rem; }
 .health-display-node-list { min-height: 0; display: grid; gap: 4px; align-content: start; overflow: hidden; }
 .health-display-node-row { min-width: 0; min-height: 23px; display: grid; grid-template-columns: auto minmax(0,1fr) auto auto; align-items: center; gap: 6px; padding: 3px 6px; border-radius: 7px; background: rgba(255,255,255,.04); font-size: .55rem; }
-.health-display-node-row strong { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.health-display-node-row strong,
+.health-display-node-row span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .health-display-node-row .health-display-state-dot { width: 6px; height: 6px; box-shadow: none; }
+.health-display-node-row.compact,
+.health-display-node-row.narrow { grid-template-columns: auto minmax(0,1fr) auto; }
+.health-display-node-metrics { opacity: .82; }
+.health-display-nodes-widget.compact-height { gap: 6px; }
+.health-display-nodes-widget.compact-height .health-display-node-list { gap: 3px; }
+.health-display-nodes-widget.compact-width .health-display-node-row { font-size: .52rem; }
 .health-display-node-empty { opacity: .65; font-size: .62rem; }
 .health-display-missing-widget { display: grid; place-items: center; align-content: center; gap: 3px; text-align: center; opacity: .62; }
 .health-display-missing-widget span { font-size: .58rem; }
@@ -12890,6 +12898,7 @@ button:disabled,
   .cluster-health-builder-shell { padding: 14px; border-radius: 18px; }
   .cluster-health-builder-settings-main,
   .cluster-health-widget-editor-grid,
+  .cluster-health-widget-editor-grid.clock-options,
   .cluster-health-palette-list { grid-template-columns: 1fr; }
   .cluster-health-builder-url,
   .cluster-health-builder-actions { align-items: stretch; flex-direction: column; }
@@ -13211,7 +13220,14 @@ body.portal-shell-active .portal-main-area {
   overflow-y: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
-  scrollbar-gutter: stable;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+body.portal-shell-active .portal-main-area::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
 }
 
 body.portal-shell-active .admin-side-editor {

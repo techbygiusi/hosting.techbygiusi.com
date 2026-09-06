@@ -8,6 +8,8 @@ const ALLOWED_TYPES = new Set(['cluster', 'cpu', 'memory', 'storage', 'nodes', '
 const GLOBAL_TYPES = new Set(['clock', 'logo']);
 const GRID_COLUMNS = 8;
 const GRID_ROWS = 4;
+const DEFAULT_TIME_ZONE = 'Europe/Berlin';
+const DEFAULT_TIME_FORMAT = '24h';
 
 const DEFAULT_CONFIG = {
   enabled: true,
@@ -28,17 +30,41 @@ function toInt(value, fallback, min, max) {
   return Math.min(max, Math.max(min, parsed));
 }
 
+function normalizeTimeZone(value) {
+  const timezone = String(value || DEFAULT_TIME_ZONE).trim().slice(0, 80) || DEFAULT_TIME_ZONE;
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: timezone }).format(new Date());
+    return timezone;
+  } catch (_) {
+    return DEFAULT_TIME_ZONE;
+  }
+}
+
 function defaultSize(type) {
-  if (type === 'nodes') return { w: 4, h: 2 };
+  if (type === 'nodes') return { w: 8, h: 1 };
   if (type === 'cluster') return { w: 4, h: 1 };
   return { w: 2, h: 1 };
 }
 
+function sanitizeSize(type, w, h) {
+  const width = toInt(w, defaultSize(type).w, 1, GRID_COLUMNS);
+  const height = toInt(h, defaultSize(type).h, 1, GRID_ROWS);
+
+  if (type === 'nodes') {
+    if (width >= 8) return { w: 8, h: 1 };
+    if (height >= 2) return { w: 4, h: 2 };
+    return { w: 4, h: 1 };
+  }
+
+  if (type === 'cluster') return { w: width >= 8 ? 8 : 4, h: 1 };
+  return { w: width >= 4 ? 4 : 2, h: 1 };
+}
+
 function sanitizeWidget(widget = {}, index = 0) {
   const type = ALLOWED_TYPES.has(String(widget.type || '')) ? String(widget.type) : 'cluster';
-  const size = defaultSize(type);
-  const w = toInt(widget.w, size.w, 1, GRID_COLUMNS);
-  const h = toInt(widget.h, size.h, 1, GRID_ROWS);
+  const size = sanitizeSize(type, widget.w, widget.h);
+  const w = size.w;
+  const h = size.h;
   const x = toInt(widget.x, 0, 0, Math.max(0, GRID_COLUMNS - w));
   const y = toInt(widget.y, 0, 0, Math.max(0, GRID_ROWS - h));
   const clusterId = GLOBAL_TYPES.has(type) ? null : (Number.isInteger(Number(widget.clusterId)) ? Number(widget.clusterId) : null);
@@ -50,7 +76,11 @@ function sanitizeWidget(widget = {}, index = 0) {
     x,
     y,
     w,
-    h
+    h,
+    ...(type === 'clock' ? {
+      timezone: normalizeTimeZone(widget.timezone),
+      timeFormat: widget.timeFormat === '12h' ? '12h' : DEFAULT_TIME_FORMAT
+    } : {})
   };
 }
 
