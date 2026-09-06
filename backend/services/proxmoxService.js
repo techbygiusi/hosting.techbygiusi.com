@@ -737,7 +737,92 @@ async function getNodeSensors(client, node) {
   return null;
 }
 
-async function getNodeStorageSummary(client, node) {
+function storageContentTokens(value) {
+  return new Set(String(value || '')
+    .toLowerCase()
+    .split(/[\s,;]+/)
+    .map(token => token.trim())
+    .filter(Boolean));
+}
+
+function isCephStorageType(type) {
+  return ['rbd', 'cephfs'].includes(String(type || '').toLowerCase());
+}
+
+function isDedicatedBackupStorage(item) {
+  const type = String(item?.type || '').toLowerCase();
+  const name = String(item?.storage || '').toLowerCase();
+  const content = storageContentTokens(item?.content);
+
+  // Proxmox Backup Server storage is always backup capacity and must never be
+  // mixed into the VM/container storage total shown on the health dashboard.
+  if (type === 'pbs') return true;
+
+  // A storage whose configured content is only backup/snippets is a dedicated
+  // backup target. Do not exclude "local" just because it can ALSO hold
+  // backups; default local storage commonly contains backup + ISO + templates.
+  const capacityContent = Array.from(content).filter(token => token !== 'snippets');
+  if (capacityContent.length > 0 && capacityContent.every(token => token === 'backup')) return true;
+
+  // Fallback for older Proxmox/API responses that omit the content field.
+  // Only treat an obvious backup name as dedicated when it is on a storage
+  // backend normally used as a backup target and has no workload content.
+  const hasWorkloadContent = ['images', 'rootdir', 'iso', 'vztmpl'].some(token => content.has(token));
+  if (!hasWorkloadContent && /(^|[-_.])(backup|pbs)([-_.]|$)/i.test(name) && ['dir', 'nfs', 'cifs'].includes(type)) return true;
+
+  return false;
+}
+
+async function getClusterStorageConfig(client) {
+  const response = await client.get('/api2/json/storage');
+  if (response.status < 200 || response.status >= 300) return new Map();
+
+  return new Map((response.data?.data || [])
+    .filter(item => item && item.storage)
+    .map(item => [String(item.storage), {
+      storage: String(item.storage),
+      type: String(item.type || ''),
+      content: String(item.content || ''),
+      pool: String(item.pool || ''),
+      monhost: String(item.monhost || ''),
+      server: String(item.server || '')
+    }]));
+}
+
+async function getCephClusterStorageSummary(client) {
+  const endpoints = [
+    '/api2/json/cluster/ceph/df',
+    '/api2/json/cluster/ceph/status'
+  ];
+
+  for (const endpoint of endpoints) {
+    const response = await client.get(endpoint);
+    if (response.status < 200 || response.status >= 300) continue;
+
+    const data = response.data?.data || {};
+    const candidates = [data.stats, data.pgmap, data].filter(Boolean);
+    for (const stats of candidates) {
+      const total = safeNumber(stats.total_bytes || stats.bytes_total || stats.total || stats.total_space || 0);
+      const used = safeNumber(stats.total_used_bytes || stats.bytes_used || stats.total_used || stats.used_bytes || stats.used || 0);
+      if (total <= 0) continue;
+
+      return {
+        storage: 'Ceph',
+        type: 'ceph',
+        shared: true,
+        content: 'images,rootdir',
+        used,
+        total,
+        percent: percentOf(used, total),
+        source: endpoint.endsWith('/df') ? 'cluster-ceph-df' : 'cluster-ceph-status'
+      };
+    }
+  }
+
+  return null;
+}
+
+async function getNodeStorageSummary(client, node, storageConfig = new Map()) {
   const response = await client.get(`/api2/json/nodes/${node}/storage`);
   if (response.status < 200 || response.status >= 300) return { used: 0, total: 0, items: [] };
 
@@ -745,12 +830,18 @@ async function getNodeStorageSummary(client, node) {
     .filter(item => item && item.storage)
     .filter(item => item.enabled !== 0 && item.active !== 0 && item.status !== 'disabled')
     .map(item => {
+      const config = storageConfig.get(String(item.storage)) || {};
       const total = safeNumber(item.total || item.maxdisk || 0);
       const used = safeNumber(item.used || item.disk || 0);
+      const type = String(item.type || config.type || '');
+      const content = String(item.content || config.content || '');
       return {
         storage: item.storage,
-        type: item.type || '',
+        type,
+        content,
+        pool: String(config.pool || ''),
         shared: item.shared === true || item.shared === 1 || item.shared === '1',
+        managedCeph: isCephStorageType(type) && !String(config.monhost || '').trim() && !String(config.server || '').trim(),
         used,
         total,
         percent: percentOf(used, total)
@@ -772,13 +863,22 @@ function isSharedStorageItem(item) {
     ['rbd', 'cephfs', 'nfs', 'cifs', 'pbs', 'iscsi', 'iscsidirect', 'glusterfs', 'zfs over iscsi'].includes(type);
 }
 
-function summarizeClusterStorage(nodes) {
+function summarizeClusterStorage(nodes, cephSummary = null) {
   const unique = new Map();
+  let hasManagedCephStorage = false;
 
   (nodes || []).forEach(node => {
     (node.storages || []).forEach(item => {
-      const total = safeNumber(item.total);
-      if (!item || !item.storage || total <= 0) return;
+      const total = safeNumber(item?.total);
+      if (!item || !item.storage || total <= 0 || isDedicatedBackupStorage(item)) return;
+
+      // When Proxmox manages Ceph locally, /cluster/ceph/df is the authoritative
+      // physical cluster total. Individual RBD/CephFS storages can otherwise
+      // report the same backing capacity and be counted more than once.
+      if (item.managedCeph && isCephStorageType(item.type) && cephSummary?.total > 0) {
+        hasManagedCephStorage = true;
+        return;
+      }
 
       const storageKey = isSharedStorageItem(item)
         ? `shared:${item.storage}:${item.type || ''}`
@@ -795,6 +895,8 @@ function summarizeClusterStorage(nodes) {
   });
 
   const items = Array.from(unique.values());
+  if (hasManagedCephStorage && cephSummary?.total > 0) items.push(cephSummary);
+
   const used = items.reduce((sum, item) => sum + safeNumber(item.used), 0);
   const total = items.reduce((sum, item) => sum + safeNumber(item.total), 0);
 
@@ -806,7 +908,7 @@ function summarizeClusterStorage(nodes) {
   };
 }
 
-async function getNodeStatusSummary(client, nodeResource) {
+async function getNodeStatusSummary(client, nodeResource, storageConfig = new Map()) {
   const nodeName = nodeResource.node;
   const isOnline = nodeResource.status === 'online';
   let status = {};
@@ -816,7 +918,7 @@ async function getNodeStatusSummary(client, nodeResource) {
   if (isOnline) {
     const [statusResult, storageResult, sensorResult] = await Promise.allSettled([
       client.get(`/api2/json/nodes/${nodeName}/status`),
-      getNodeStorageSummary(client, nodeName),
+      getNodeStorageSummary(client, nodeName, storageConfig),
       getNodeSensors(client, nodeName)
     ]);
 
@@ -857,7 +959,7 @@ async function getNodeStatusSummary(client, nodeResource) {
     storageUsed: storage.used,
     storageTotal: storage.total,
     storagePercent: percentOf(storage.used, storage.total),
-    storages: storage.items.slice(0, 4),
+    storages: storage.items,
     uptime,
     temperature: sensors
   };
@@ -865,14 +967,24 @@ async function getNodeStatusSummary(client, nodeResource) {
 
 async function getClusterDashboardStats(clusterUrl, apiToken) {
   const client = createProxmoxClient(clusterUrl, apiToken);
-  const response = await client.get('/api2/json/cluster/resources?type=node');
+  const [response, storageConfig] = await Promise.all([
+    client.get('/api2/json/cluster/resources?type=node'),
+    getClusterStorageConfig(client)
+  ]);
   ensureSuccess(response, 'Proxmox Node-Status konnte nicht geladen werden:');
 
   const nodeResources = (response.data?.data || [])
     .filter(item => item.type === 'node' && item.node)
     .sort((a, b) => String(a.node).localeCompare(String(b.node), undefined, { numeric: true }));
 
-  const settled = await Promise.allSettled(nodeResources.map(item => getNodeStatusSummary(client, item)));
+  const hasManagedCeph = Array.from(storageConfig.values()).some(item =>
+    isCephStorageType(item.type) && !String(item.monhost || '').trim() && !String(item.server || '').trim()
+  );
+
+  const [settled, cephSummary] = await Promise.all([
+    Promise.allSettled(nodeResources.map(item => getNodeStatusSummary(client, item, storageConfig))),
+    hasManagedCeph ? getCephClusterStorageSummary(client) : Promise.resolve(null)
+  ]);
   const nodes = settled.map((result, index) => {
     if (result.status === 'fulfilled') return result.value;
     const fallback = nodeResources[index] || {};
@@ -911,10 +1023,14 @@ async function getClusterDashboardStats(clusterUrl, apiToken) {
     return acc;
   }, { nodes: 0, online: 0, cpuPercentSum: 0, cpuSamples: 0, mem: 0, maxmem: 0, rootUsed: 0, rootTotal: 0 });
 
-  const clusterStorage = summarizeClusterStorage(nodes);
+  const clusterStorage = summarizeClusterStorage(nodes, cephSummary);
+  const responseNodes = nodes.map(node => ({
+    ...node,
+    storages: Array.isArray(node.storages) ? node.storages.slice(0, 4) : []
+  }));
 
   return {
-    nodes,
+    nodes: responseNodes,
     totals: {
       nodes: totals.nodes,
       online: totals.online,

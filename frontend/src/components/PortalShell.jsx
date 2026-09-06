@@ -157,7 +157,9 @@ export default function PortalShell({
           </div>
           <div className="portal-topbar-actions">
             {actions}
-            <AccountMenu user={user} language={language} onOpenSettings={onOpenSettings ? openSettings : null} onLogout={onLogout} />
+            <div className="portal-mobile-account mobile-only">
+              <AccountMenu user={user} language={language} onOpenSettings={onOpenSettings ? openSettings : null} onLogout={onLogout} />
+            </div>
           </div>
         </header>
 
@@ -174,6 +176,10 @@ export default function PortalShell({
           {pageTransition ? <PageSkeleton variant={['users', 'services', 'clusters', 'groups', 'audit'].includes(activeKey) ? 'table' : activeKey === 'settings' ? 'settings' : 'dashboard'} compact /> : children}
         </main>
         {footer ? <footer className="portal-footer">{footer}</footer> : null}
+      </div>
+
+      <div className="portal-fixed-account" aria-label={language === 'de' ? 'Festes Kontomenü' : 'Fixed account menu'}>
+        <AccountMenu user={user} language={language} onOpenSettings={onOpenSettings ? openSettings : null} onLogout={onLogout} />
       </div>
 
       <div className={`mobile-drawer-backdrop ${mobileOpen ? 'open' : ''}`} onClick={() => setMobileOpen(false)}>

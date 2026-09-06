@@ -13261,3 +13261,28 @@ body.portal-shell-active .admin-side-editor {
   min-height: var(--portal-viewport-height);
   max-height: var(--portal-viewport-height);
 }
+
+
+/* v69 keep the desktop account menu pinned to the visible portal viewport */
+.portal-fixed-account {
+  display: none;
+}
+
+@media (min-width: 1181px) {
+  .portal-fixed-account {
+    position: fixed;
+    top: 34px;
+    right: max(38px, calc((100vw - 1920px) / 2 + 38px));
+    z-index: 1400;
+    display: block;
+    pointer-events: auto;
+  }
+
+  .portal-fixed-account .account-menu {
+    position: relative;
+  }
+
+  .portal-topbar-actions .portal-mobile-account {
+    display: none !important;
+  }
+}
