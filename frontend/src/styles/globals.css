@@ -11750,7 +11750,7 @@ button:disabled,
   }
 }
 
-/* v47 user Public Access */
+/* User Public Access */
 .public-access-page {
   display: grid;
   gap: 16px;
@@ -11758,84 +11758,96 @@ button:disabled,
 
 .public-access-resource-card,
 .public-access-form-card,
-.public-access-list-card {
+.public-access-list-card,
+.public-access-loading {
   border: 1px solid var(--portal-border);
-  border-radius: var(--portal-radius-card);
-  background: var(--portal-card);
-  box-shadow: var(--portal-shadow-soft);
+  border-radius: var(--portal-radius-lg);
+  background: var(--portal-surface);
+  box-shadow: none;
 }
 
 .public-access-resource-card {
-  padding: 14px;
+  padding: 16px;
   display: grid;
   grid-template-columns: minmax(260px, 1.4fr) repeat(3, minmax(150px, 1fr));
   gap: 12px;
-  align-items: stretch;
+  align-items: start;
 }
 
 .public-access-service-select,
+.public-access-resource-meta,
 .public-access-form label {
+  min-width: 0;
   display: grid;
   gap: 7px;
 }
 
 .public-access-service-select > span,
+.public-access-resource-meta > span,
 .public-access-form label > span,
 .public-access-preview > span {
   color: var(--portal-text-soft);
-  font-size: .78rem;
+  font-size: .76rem;
   font-weight: 700;
+  line-height: 1.2;
+}
+
+.public-access-service-select select,
+.public-access-resource-meta > strong,
+.public-access-form input,
+.public-access-form select,
+.public-access-domain-input {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid var(--portal-border-strong);
+  border-radius: 14px;
+  background: var(--portal-input-bg);
+  color: var(--portal-text);
 }
 
 .public-access-service-select select,
 .public-access-form input,
 .public-access-form select {
-  width: 100%;
-  min-height: 42px;
-  border: 1px solid var(--portal-border);
-  border-radius: 12px;
-  background: var(--portal-card);
-  color: var(--portal-text);
-  padding: 0 12px;
+  padding: 0 13px;
   font: inherit;
+  outline: none;
+}
+
+.public-access-service-select select:focus,
+.public-access-form input:focus,
+.public-access-form select:focus,
+.public-access-domain-input:focus-within {
+  border-color: var(--portal-primary);
+  box-shadow: 0 0 0 3px rgba(126, 87, 194, .10);
+  outline: none;
 }
 
 .public-access-resource-meta {
+  align-content: start;
+}
+
+.public-access-resource-meta > strong {
   min-width: 0;
-  padding: 11px 13px;
-  display: grid;
-  align-content: center;
-  gap: 4px;
-  border: 1px solid var(--portal-border);
-  border-radius: 12px;
-  background: var(--portal-bg-soft);
-}
-
-.public-access-resource-meta span {
-  color: var(--portal-text-soft);
-  font-size: .72rem;
-}
-
-.public-access-resource-meta strong {
+  padding: 0 13px;
+  display: flex;
+  align-items: center;
   overflow: hidden;
   color: var(--portal-heading);
-  font-size: .86rem;
+  font-size: .84rem;
+  font-weight: 750;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .public-access-loading {
-  padding: 32px;
-  border: 1px solid var(--portal-border);
-  border-radius: var(--portal-radius-card);
-  background: var(--portal-card);
+  padding: 30px;
   color: var(--portal-text-soft);
   text-align: center;
 }
 
 .public-access-form-card,
 .public-access-list-card {
-  padding: 16px;
+  padding: 18px;
 }
 
 .public-access-section-head {
@@ -11873,24 +11885,26 @@ button:disabled,
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
-  margin-bottom: 14px;
+  margin-bottom: 16px;
 }
 
 .public-access-protocol-option {
   min-width: 0;
-  padding: 12px;
+  min-height: 68px;
+  padding: 12px 14px;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
-  column-gap: 9px;
+  column-gap: 10px;
   row-gap: 3px;
   align-items: center;
   border: 1px solid var(--portal-border);
-  border-radius: 13px;
+  border-radius: 16px;
   background: var(--portal-bg-soft);
   color: var(--portal-text);
   text-align: left;
   cursor: pointer;
-  transition: transform .15s ease, border-color .15s ease, background .15s ease, box-shadow .15s ease;
+  box-shadow: none;
+  transition: border-color .16s ease, background .16s ease, transform .16s ease;
 }
 
 .public-access-protocol-option > span {
@@ -11899,8 +11913,8 @@ button:disabled,
   height: 32px;
   display: grid;
   place-items: center;
-  border-radius: 9px;
-  background: var(--portal-card);
+  border-radius: 10px;
+  background: var(--portal-surface-strong);
   color: var(--portal-primary);
 }
 
@@ -11917,14 +11931,15 @@ button:disabled,
 .public-access-protocol-option:hover:not(:disabled),
 .public-access-protocol-option:focus-visible:not(:disabled) {
   transform: translateY(-1px);
-  border-color: var(--portal-primary);
+  border-color: var(--portal-border-strong);
+  background: var(--portal-primary-soft);
   outline: none;
 }
 
 .public-access-protocol-option.active {
-  border-color: var(--portal-primary);
+  border-color: rgba(126, 87, 194, .42);
   background: var(--portal-primary-soft);
-  box-shadow: inset 0 0 0 1px rgba(125, 77, 203, .08);
+  box-shadow: none;
 }
 
 .public-access-protocol-option:disabled {
@@ -11940,13 +11955,28 @@ button:disabled,
   display: grid;
   grid-template-columns: minmax(0, 1.5fr) minmax(150px, .7fr) minmax(170px, .8fr);
   gap: 12px;
-  align-items: end;
+  align-items: start;
 }
 
-.public-access-form label small {
-  min-height: 15px;
+.public-access-form label {
+  grid-template-rows: auto 44px 16px;
+  align-content: start;
+}
+
+.public-access-form label small,
+.public-access-field-spacer {
+  min-height: 16px;
+  margin: 0;
   color: var(--portal-text-soft);
   font-size: .66rem;
+  line-height: 16px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.public-access-field-spacer {
+  visibility: hidden;
 }
 
 .public-access-hostname-field {
@@ -11954,24 +11984,20 @@ button:disabled,
 }
 
 .public-access-domain-input {
+  height: 44px;
   display: grid;
   grid-template-columns: minmax(120px, 1fr) auto;
   align-items: center;
   overflow: hidden;
-  border: 1px solid var(--portal-border);
-  border-radius: 12px;
-  background: var(--portal-card);
-}
-
-.public-access-domain-input:focus-within {
-  border-color: var(--portal-primary);
-  box-shadow: 0 0 0 2px var(--portal-primary-soft);
 }
 
 .public-access-domain-input input {
   min-width: 0;
+  height: 42px;
+  min-height: 42px;
   border: 0;
   border-radius: 0;
+  background: transparent;
   box-shadow: none !important;
 }
 
@@ -11980,7 +12006,7 @@ button:disabled,
   padding: 0 12px 0 8px;
   overflow: hidden;
   color: var(--portal-text-soft);
-  font-size: .78rem;
+  font-size: .75rem;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -11988,27 +12014,42 @@ button:disabled,
 .public-access-preview {
   grid-column: span 2;
   min-width: 0;
-  min-height: 58px;
-  padding: 10px 12px;
+  min-height: 46px;
+  padding: 8px 13px;
   display: grid;
-  align-content: center;
-  gap: 4px;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
   border: 1px solid var(--portal-border);
-  border-radius: 12px;
+  border-radius: 14px;
   background: var(--portal-bg-soft);
+  box-shadow: none;
+}
+
+.public-access-preview > span {
+  white-space: nowrap;
 }
 
 .public-access-preview strong {
+  min-width: 0;
   overflow-wrap: anywhere;
   color: var(--portal-heading);
   font-size: .82rem;
+  text-align: right;
 }
 
 .public-access-form-actions {
+  min-height: 46px;
   display: flex;
-  align-items: center;
+  align-items: stretch;
   justify-content: flex-end;
   gap: 8px;
+}
+
+.public-access-form-actions > .btn-primary,
+.public-access-form-actions > .btn-secondary {
+  min-height: 46px;
+  box-shadow: none;
 }
 
 .public-access-list {
@@ -12017,14 +12058,15 @@ button:disabled,
 }
 
 .public-access-row {
-  padding: 11px 12px;
+  padding: 12px;
   display: grid;
   grid-template-columns: auto minmax(220px, 1.4fr) minmax(160px, .7fr) auto;
   gap: 12px;
   align-items: center;
   border: 1px solid var(--portal-border);
-  border-radius: 13px;
+  border-radius: 16px;
   background: var(--portal-bg-soft);
+  box-shadow: none;
 }
 
 .public-access-row-icon {
@@ -12071,6 +12113,17 @@ button:disabled,
   flex-wrap: wrap;
 }
 
+.public-access-row-actions > .btn-secondary,
+.public-access-row-actions > .btn-danger,
+.public-access-page .btn-primary {
+  box-shadow: none;
+}
+
+.public-access-list-card .empty-state-clean {
+  border-radius: 16px;
+  box-shadow: none;
+}
+
 @media (max-width: 1180px) {
   .public-access-resource-card {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -12105,13 +12158,20 @@ button:disabled,
     grid-template-columns: 1fr;
   }
 
+  .public-access-resource-card,
+  .public-access-form-card,
+  .public-access-list-card {
+    border-radius: 18px;
+  }
+
   .public-access-section-head {
     display: grid;
   }
 
   .public-access-form-card,
-  .public-access-list-card {
-    padding: 13px;
+  .public-access-list-card,
+  .public-access-resource-card {
+    padding: 14px;
   }
 
   .public-access-preview,
@@ -12125,6 +12185,15 @@ button:disabled,
 
   .public-access-domain-input > span {
     max-width: 160px;
+  }
+
+  .public-access-preview {
+    grid-template-columns: 1fr;
+    gap: 3px;
+  }
+
+  .public-access-preview strong {
+    text-align: left;
   }
 
   .public-access-form-actions {
@@ -12175,4 +12244,241 @@ button:disabled,
 .inline-notice + .public-access-form-card,
 .inline-notice + .public-access-list-card {
   margin-top: 14px;
+}
+
+
+/* v52 service storage graph and dashboard billing cleanup */
+.service-detail-history-grid.has-storage {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.dashboard-billing-card {
+  border-radius: 18px;
+  overflow: hidden;
+}
+
+.dashboard-billing-card:hover,
+.dashboard-billing-card:focus-visible {
+  box-shadow: 0 8px 20px rgba(70, 45, 118, .07);
+}
+
+@media (max-width: 900px) {
+  .service-detail-history-grid.has-storage {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* v53 public access visual polish */
+.public-access-page {
+  gap: 18px;
+}
+
+.public-access-page > .inline-notice {
+  border-radius: 18px;
+  box-shadow: 0 8px 20px rgba(70, 45, 118, 0.04);
+}
+
+.public-access-resource-card,
+.public-access-form-card,
+.public-access-list-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: 22px;
+  background: var(--portal-surface);
+  box-shadow: 0 12px 28px rgba(49, 27, 86, 0.05);
+  backdrop-filter: blur(16px);
+}
+
+.public-access-resource-card,
+.public-access-form-card,
+.public-access-list-card,
+.public-access-resource-card > *,
+.public-access-form > * {
+  min-width: 0;
+}
+
+.public-access-resource-card {
+  grid-template-columns: minmax(280px, 1.45fr) repeat(3, minmax(180px, 1fr));
+  gap: 16px;
+  align-items: stretch;
+}
+
+.public-access-service-select,
+.public-access-form label {
+  gap: 8px;
+}
+
+.public-access-service-select > span,
+.public-access-form label > span,
+.public-access-preview > span,
+.public-access-resource-meta span {
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.public-access-service-select select,
+.public-access-form input,
+.public-access-form select {
+  min-height: 48px;
+  border: 1px solid var(--portal-border-strong);
+  border-radius: 14px;
+  background: var(--portal-input-bg);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.35);
+}
+
+.public-access-service-select select:focus,
+.public-access-form input:focus,
+.public-access-form select:focus {
+  border-color: var(--portal-primary);
+  box-shadow: 0 0 0 4px rgba(126, 87, 194, 0.12);
+  outline: none;
+}
+
+.public-access-resource-meta {
+  min-height: 48px;
+  padding: 13px 14px;
+  border-radius: 16px;
+  border: 1px solid var(--portal-border-strong);
+  background: var(--portal-input-bg);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.35);
+}
+
+.public-access-resource-meta strong {
+  font-size: 0.92rem;
+}
+
+.public-access-form-card,
+.public-access-list-card {
+  padding: 20px;
+}
+
+.public-access-section-head {
+  margin-bottom: 18px;
+}
+
+.public-access-section-head h2 {
+  font-size: 1.08rem;
+}
+
+.public-access-edit-note,
+.public-access-count {
+  border-radius: 999px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.3);
+}
+
+.public-access-protocol-picker {
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.public-access-protocol-option {
+  min-height: 82px;
+  border-radius: 18px;
+  background: var(--portal-bg-soft);
+  box-shadow: 0 6px 14px rgba(49, 27, 86, 0.03);
+}
+
+.public-access-protocol-option > span {
+  border-radius: 12px;
+  background: rgba(125, 77, 203, 0.08);
+}
+
+.public-access-protocol-option:hover:not(:disabled),
+.public-access-protocol-option:focus-visible:not(:disabled) {
+  background: var(--portal-surface-strong);
+  box-shadow: 0 10px 22px rgba(49, 27, 86, 0.06);
+}
+
+.public-access-protocol-option.active {
+  box-shadow: 0 10px 22px rgba(125, 77, 203, 0.08), inset 0 0 0 1px rgba(125, 77, 203, .08);
+}
+
+.public-access-form {
+  grid-template-columns: minmax(0, 1.45fr) minmax(200px, 0.8fr) minmax(220px, 0.95fr);
+  gap: 16px;
+  align-items: end;
+}
+
+.public-access-form label small {
+  min-height: 16px;
+  line-height: 1.4;
+}
+
+.public-access-domain-input {
+  min-height: 48px;
+  border: 1px solid var(--portal-border-strong);
+  border-radius: 14px;
+  background: var(--portal-input-bg);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.35);
+}
+
+.public-access-domain-input > span {
+  padding-right: 14px;
+  font-size: 0.8rem;
+}
+
+.public-access-preview {
+  min-height: 64px;
+  border: 1px solid var(--portal-border-strong);
+  border-radius: 16px;
+  background: var(--portal-bg-soft);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.28);
+}
+
+.public-access-form-actions {
+  gap: 10px;
+}
+
+.public-access-row {
+  padding: 15px 16px;
+  border-radius: 18px;
+  background: var(--portal-bg-soft);
+  box-shadow: 0 8px 18px rgba(49, 27, 86, 0.035);
+}
+
+.public-access-row-icon {
+  border-radius: 12px;
+  background: var(--portal-surface-strong);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.35);
+}
+
+.public-access-row-actions {
+  gap: 10px;
+}
+
+@media (max-width: 1320px) {
+  .public-access-resource-card {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 1080px) {
+  .public-access-protocol-picker,
+  .public-access-form,
+  .public-access-row {
+    grid-template-columns: 1fr;
+  }
+
+  .public-access-preview,
+  .public-access-form-actions {
+    grid-column: auto;
+  }
+
+  .public-access-form-actions {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 720px) {
+  .public-access-resource-card,
+  .public-access-form-card,
+  .public-access-list-card {
+    border-radius: 20px;
+  }
+
+  .public-access-resource-card {
+    grid-template-columns: 1fr;
+    padding: 16px;
+  }
 }

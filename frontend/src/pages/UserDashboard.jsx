@@ -80,6 +80,17 @@ function cpuPercent(resource) {
   return value <= 1 ? Math.min(Math.max(value * 100, 0), 100) : Math.min(Math.max(value, 0), 100);
 }
 
+function isLxcResource(resource) {
+  const type = String(resource?.resourceType || resource?.type || '').toLowerCase();
+  return type === 'lxc' || type === 'ct' || type === 'container';
+}
+
+function allocatedStorageBytes(resource) {
+  const configured = (Array.isArray(resource?.disks) ? resource.disks : [])
+    .reduce((sum, disk) => sum + Number(disk?.maxdisk || 0), 0);
+  return configured > 0 ? configured : Number(resource?.maxdisk || 0);
+}
+
 function chartValues(history, field, fallback) {
   const values = (Array.isArray(history) ? history : [])
     .map((point) => Number(point?.[field]))
@@ -189,6 +200,9 @@ function ServiceDetailView({ resource, history = [], language = 'en', onBack, on
   const publicUrl = servicePrimaryUrl(liveResource);
   const cpu = cpuPercent(liveResource);
   const memory = percent(liveResource.mem, liveResource.maxmem);
+  const isLxc = isLxcResource(liveResource);
+  const storage = isLxc ? percent(liveResource.disk, liveResource.maxdisk) : 0;
+  const allocatedStorage = allocatedStorageBytes(liveResource);
   const status = String(liveResource.status || '').toLowerCase();
   const running = status.includes('run');
   const canPower = liveResource?.capabilities?.canPower !== false;
@@ -201,6 +215,7 @@ function ServiceDetailView({ resource, history = [], language = 'en', onBack, on
     ['Uptime', formatUptime(liveResource.uptime)],
     ['CPU', liveResource.maxcpu ? `${liveResource.maxcpu} cores` : '—'],
     ['Memory', liveResource.maxmem ? formatBytes(liveResource.maxmem) : '—'],
+    ['Storage', allocatedStorage > 0 ? formatBytes(allocatedStorage) : '—'],
     ['Service IP', liveResource.manualIp || liveResource.primaryIp || liveResource.ip || '—'],
     ['Operating system', liveResource.operatingSystem || '—']
   ];
@@ -279,9 +294,10 @@ function ServiceDetailView({ resource, history = [], language = 'en', onBack, on
       >
         {powerError ? <InlineNotice tone="danger">{powerError}</InlineNotice> : null}
         {powerNotice ? <InlineNotice tone="success">{powerNotice}</InlineNotice> : null}
-        <div className="service-detail-history-grid">
+        <div className={`service-detail-history-grid ${isLxc ? 'has-storage' : ''}`}>
           <MetricSparkline label="CPU" value={cpu} history={history} field="cpuPercent" large />
           <MetricSparkline label="Memory" value={memory} history={history} field="memoryPercent" large />
+          {isLxc ? <MetricSparkline label="Storage" value={storage} history={history} field="storagePercent" large /> : null}
         </div>
         <div className="detail-grid-clean service-detail-info-grid">
           {values.map(([label, value]) => (
@@ -339,7 +355,6 @@ function UserOverview({ resources, metrics, billing, language, onOpenBilling, on
   const billingTotal = Number(billing?.summary?.totalCost || 0);
   const billingCosts = billing?.summary?.costs || {};
   const billingLabel = language === 'de' ? 'Billing diesen Monat' : 'Billing this month';
-  const billingHint = language === 'de' ? 'Billing öffnen' : 'Open billing';
   const billingParts = [
     { label: 'CPU', value: Number(billingCosts.cpu || 0) },
     { label: 'RAM', value: Number(billingCosts.memory || 0) },
@@ -399,7 +414,6 @@ function UserOverview({ resources, metrics, billing, language, onOpenBilling, on
               );
             })}
           </div>
-          <span className="dashboard-billing-card-link">{billingHint} →</span>
         </button>
       </div>
 

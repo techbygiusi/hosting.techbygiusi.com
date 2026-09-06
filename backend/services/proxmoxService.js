@@ -159,11 +159,16 @@ async function getResourceRrdData(clusterUrl, apiToken, node, type, vmid, timefr
       const cpuRaw = Number(row?.cpu);
       const mem = Number(row?.mem);
       const maxmem = Number(row?.maxmem);
+      const disk = Number(row?.disk);
+      const maxdisk = Number(row?.maxdisk);
       const cpuPercent = Number.isFinite(cpuRaw)
         ? Math.min(Math.max(cpuRaw <= 1 ? cpuRaw * 100 : cpuRaw, 0), 100)
         : null;
       const memoryPercent = Number.isFinite(mem) && Number.isFinite(maxmem) && maxmem > 0
         ? Math.min(Math.max((mem / maxmem) * 100, 0), 100)
+        : null;
+      const storagePercent = type === 'lxc' && Number.isFinite(disk) && Number.isFinite(maxdisk) && maxdisk > 0
+        ? Math.min(Math.max((disk / maxdisk) * 100, 0), 100)
         : null;
 
       if (!Number.isFinite(time) || time <= 0) return null;
@@ -171,8 +176,11 @@ async function getResourceRrdData(clusterUrl, apiToken, node, type, vmid, timefr
         time,
         cpuPercent,
         memoryPercent,
+        storagePercent,
         mem: Number.isFinite(mem) ? mem : null,
-        maxmem: Number.isFinite(maxmem) ? maxmem : null
+        maxmem: Number.isFinite(maxmem) ? maxmem : null,
+        disk: type === 'lxc' && Number.isFinite(disk) ? disk : null,
+        maxdisk: type === 'lxc' && Number.isFinite(maxdisk) ? maxdisk : null
       };
     })
     .filter(Boolean);

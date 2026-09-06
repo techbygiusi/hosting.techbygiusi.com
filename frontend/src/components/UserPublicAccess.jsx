@@ -373,6 +373,7 @@ export default function UserPublicAccess({ resources = [], language = 'en', onRe
                 />
                 <span>.{baseDomain || 'domain'}</span>
               </div>
+              <small className="public-access-field-spacer" aria-hidden="true">&nbsp;</small>
             </label>
 
             <label>
