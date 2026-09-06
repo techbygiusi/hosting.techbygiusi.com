@@ -319,6 +319,7 @@ export const adminApi = {
   createResource: (data) => apiClient.post('/admin/resources', data),
   updateResource: (resourceId, data) => apiClient.put(`/admin/resources/${resourceId}`, data),
   deleteResource: (resourceId) => apiClient.delete(`/admin/resources/${resourceId}`),
+  deletePortalResourceEntry: (resourceId) => apiClient.delete(`/admin/resources/${resourceId}/portal-entry`),
   getSettings: () => apiClient.get('/admin/settings'),
   updateSettings: (data) => apiClient.put('/admin/settings', data),
   getInfrastructureNotificationPreferences: () => apiClient.get('/admin/settings/infrastructure-notifications'),
@@ -367,7 +368,14 @@ export const adminApi = {
   startSystemUpdate: (type, data = {}) => apiClient.post(`/admin/system-update/${encodeURIComponent(type)}`, data),
   getBilling: (month) => apiClient.get(`/admin/billing${month ? `?month=${encodeURIComponent(month)}` : ''}`),
   getBillingSettings: () => apiClient.get('/admin/billing/settings'),
-  updateBillingSettings: (data) => apiClient.put('/admin/billing/settings', data)
+  updateBillingSettings: (data) => apiClient.put('/admin/billing/settings', data),
+  getClusterHealthDisplay: () => apiClient.get('/admin/cluster-health-display'),
+  updateClusterHealthDisplay: (data) => apiClient.put('/admin/cluster-health-display', data)
+};
+
+
+export const displayApi = {
+  getClusterHealth: () => apiClient.get('/display/cluster-health')
 };
 
 export const userApi = {

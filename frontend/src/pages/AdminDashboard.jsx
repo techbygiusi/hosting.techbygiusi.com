@@ -29,6 +29,7 @@ import MaintenanceManager from '../components/MaintenanceManager';
 import AuditLog from '../components/AuditLog';
 import SystemUpdates from '../components/SystemUpdates';
 import AdminBilling from '../components/AdminBilling';
+import ClusterHealthDisplaySettings from '../components/ClusterHealthDisplaySettings';
 import AdminResourceCredentials from '../components/AdminResourceCredentials';
 
 function formatPercent(value) {
@@ -416,6 +417,23 @@ export default function AdminDashboard() {
     }
   };
 
+
+  const deletePortalServiceEntry = async (entry) => {
+    if (!entry?.id) return;
+    const label = entry.name || `Service ${entry.containerId || entry.container_id || entry.id}`;
+    if (!window.confirm(`Delete ${label} from the Hosting Portal? The underlying Proxmox VM/CT will remain untouched.`)) return;
+    setError('');
+    setNotice('');
+    try {
+      await adminApi.deletePortalResourceEntry(entry.id);
+      if (editor?.type === 'resource' && editor?.data?.id === entry.id) setEditor(null);
+      setNotice('Service entry deleted. The Proxmox machine was not changed.');
+      await load();
+    } catch (err) {
+      setError(getErrorMessage(err, 'The service entry could not be deleted.'));
+    }
+  };
+
   const navItems = [
     { key: 'overview', label: 'Overview', icon: HomeIcon, section: 'Workspace' },
     { key: 'services', label: 'Services', icon: ServerIcon, section: 'Workspace', count: resources.length },
@@ -427,6 +445,7 @@ export default function AdminDashboard() {
     { key: 'templates', label: 'Templates', icon: ServerIcon, section: 'Infrastructure' },
     { key: 'selfservice', label: 'Self-Service', icon: UserIcon, section: 'Infrastructure' },
     { key: 'maintenance', label: 'Maintenance', icon: BellIcon, section: 'Infrastructure' },
+    { key: 'healthdisplay', label: 'Health Display', icon: DashboardIcon, section: 'Infrastructure' },
     { key: 'email', label: 'Email', icon: BellIcon, section: 'Platform' },
     { key: 'pangolin', label: 'Pangolin', icon: LinkIcon, section: 'Platform' },
     { key: 'updates', label: 'System Updates', icon: ServerIcon, section: 'Platform' },
@@ -667,10 +686,20 @@ export default function AdminDashboard() {
           </form>
         </SectionCard>
         {type === 'resource' && editor.mode === 'edit' && !(editor.data.isSelfService === true || editor.data.source === 'self-service') ? (
-          <AdminResourceCredentials
-            resourceId={editor.data.id}
-            adminUrl={editor.data.adminUrl ?? editor.data.admin_url ?? ''}
-          />
+          <>
+            <AdminResourceCredentials
+              resourceId={editor.data.id}
+              adminUrl={editor.data.adminUrl ?? editor.data.admin_url ?? ''}
+            />
+            <section className="service-danger-zone admin-service-danger-zone">
+              <div className="service-danger-zone-copy">
+                <span className="service-danger-zone-kicker">Danger zone</span>
+                <strong>Delete service</strong>
+                <p>This removes only the service entry and its portal-managed access data. The underlying Proxmox VM/CT is never stopped, changed or deleted.</p>
+              </div>
+              <button type="button" className="btn-danger" onClick={() => deletePortalServiceEntry(editor.data)}>Delete service</button>
+            </section>
+          </>
         ) : null}
       </div>
     );
@@ -685,9 +714,12 @@ export default function AdminDashboard() {
           rows={rows}
           renderActions={(entry) => {
             const userManaged = type === 'resource' && (entry.isSelfService === true || entry.source === 'self-service');
-            return userManaged ? (
-              <button type="button" className="btn-secondary btn-small" onClick={() => onEdit(entry)}>View</button>
-            ) : (
+            if (type === 'resource') {
+              return (
+                <button type="button" className="btn-secondary btn-small" onClick={() => onEdit(entry)}>{userManaged ? 'View' : 'Edit'}</button>
+              );
+            }
+            return (
               <>
                 <button type="button" className="btn-secondary btn-small" onClick={() => onEdit(entry)}>Edit</button>
                 <button type="button" className="btn-danger btn-small" onClick={() => removeEntry(type, entry)}>Delete</button>
@@ -723,6 +755,8 @@ export default function AdminDashboard() {
     content = <SelfServiceSettings clusters={clusters} />;
   } else if (activeTab === 'maintenance') {
     content = <MaintenanceManager />;
+  } else if (activeTab === 'healthdisplay') {
+    content = <ClusterHealthDisplaySettings clusters={clusters} clusterStats={clusterStats} language={language} />;
   } else if (activeTab === 'email') {
     content = <AdminEmailSettings />;
   } else if (activeTab === 'pangolin') {

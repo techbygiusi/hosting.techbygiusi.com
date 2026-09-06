@@ -12,6 +12,7 @@ const adminRoutes = require('./routes/admin');
 const userRoutes = require('./routes/user');
 const announcementRoutes = require('./routes/announcements');
 const wikiRoutes = require('./routes/wiki');
+const displayRoutes = require('./routes/display');
 const { authMiddleware } = require('./middleware/auth');
 const { errorHandler } = require('./middleware/errorHandler');
 const { sanitizeRequest } = require('./middleware/validate');
@@ -92,6 +93,8 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/user', authMiddleware, userRoutes);
 // Public: maintenance announcements for the top banner (also on login screen)
 app.use('/api/announcements', announcementRoutes);
+// Public read-only kiosk display. It exposes only the administrator-selected aggregate cluster health data.
+app.use('/api/display', displayRoutes);
 // Wiki: admin-authored knowledge base. Auth is applied per route because the
 // image endpoint must stay reachable for <img> tags without an auth header.
 app.use('/api/wiki', wikiRoutes);

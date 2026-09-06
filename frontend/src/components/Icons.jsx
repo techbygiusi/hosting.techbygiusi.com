@@ -188,6 +188,13 @@ export const TerminalIcon = (props) => (
   <Icon {...props}><path d="m5 7 4 4-4 4" /><path d="M11 16h8" /></Icon>
 );
 
+export const ClockIcon = (props) => (
+  <Icon {...props}>
+    <circle cx="12" cy="12" r="8.5" />
+    <path d="M12 7.5V12l3 2" />
+  </Icon>
+);
+
 export const BillingIcon = (props) => (
   <Icon {...props}>
     <path d="M6 3.5h12v17l-3-1.8-3 1.8-3-1.8-3 1.8z" />

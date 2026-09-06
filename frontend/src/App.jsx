@@ -8,6 +8,7 @@ import UserDashboard from './pages/UserDashboard';
 import AdminDashboard from './pages/AdminDashboard';
 import ConsolePage from './pages/ConsolePage';
 import WikiEditorPage from './pages/WikiEditorPage';
+import ClusterHealthDisplay from './pages/ClusterHealthDisplay';
 import { useDocumentTheme } from './components/ThemeButton';
 import { usePortalLanguageRuntime } from './i18n';
 import PageSkeleton from './components/PageSkeleton';
@@ -162,6 +163,8 @@ export default function App() {
         />
 
         <Route path="/reset-password" element={<ResetPassword />} />
+
+        <Route path="/cluster-health" element={<ClusterHealthDisplay />} />
 
         <Route
           path="/dashboard"

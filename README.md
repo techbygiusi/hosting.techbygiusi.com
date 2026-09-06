@@ -36,6 +36,15 @@ Hosting Portal is a self-hosted customer portal for Proxmox environments. It com
 - Configure hostname, root password, network, gateway and firewall rules during provisioning.
 - Show live provisioning progress and automatically clean up completed jobs.
 
+### Cluster Health Display
+
+- Configure a dedicated 800×480 kiosk dashboard from the administrator portal.
+- Build the display on an 8×4 drag-and-drop tile grid with reusable cluster health widgets.
+- Choose the source Proxmox cluster independently for each widget.
+- Show cluster state, CPU, memory, storage, node health, uptime and a clock.
+- Use the public read-only `/cluster-health` route on a directly attached monitoring display.
+- Configure light/dark appearance, display language and refresh interval without editing code.
+
 ### Public Access
 
 - Publish services through the Pangolin Integration API.

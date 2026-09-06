@@ -27,6 +27,7 @@ const {
 const { syncClusterTemplates, ensureClusterTemplates, listClusterTemplates } = require('../services/templateService');
 const { getSystemUpdateStatus, startSystemUpdate } = require('../services/systemUpdateService');
 const { getBillingSettings, saveBillingSettings, getBillingSummary, deleteBillingHistoryIfZeroCost } = require('../services/billingService');
+const { getClusterHealthDisplayConfig, saveClusterHealthDisplayConfig } = require('../services/clusterHealthDisplayService');
 
 router.use(adminMiddleware);
 
@@ -1390,6 +1391,64 @@ router.put('/resources/:id', async (req, res, next) => {
   }
 });
 
+router.delete('/resources/:id/portal-entry', async (req, res, next) => {
+  try {
+    const resourceId = req.params.id;
+    const resource = await get(`
+      SELECT
+        r.*,
+        pm.id AS provisioned_id,
+        pm.user_id AS provisioned_user_id
+      FROM resources r
+      LEFT JOIN provisioned_machines pm
+        ON pm.cluster_id = r.cluster_id
+       AND CAST(pm.vmid AS TEXT) = CAST(r.container_id AS TEXT)
+      WHERE r.id = ?
+    `, [resourceId]);
+
+    if (!resource) {
+      throw new AppError('Resource not found', HTTP_STATUS.NOT_FOUND);
+    }
+
+    const selfService = !!resource.provisioned_id
+      && String(resource.provisioned_user_id || '') === String(resource.user_id || '');
+
+    if (selfService) {
+      throw new AppError(
+        'Self-service machines cannot be removed with the portal-only delete action',
+        HTTP_STATUS.BAD_REQUEST
+      );
+    }
+
+    const publications = await all('SELECT * FROM resource_publications WHERE resource_id = ?', [resourceId]);
+    if (publications.length > 0) {
+      const publishingConfig = await getPangolinConfig(resource.cluster_id);
+      for (const publication of publications) {
+        await deletePublication(publishingConfig, publication);
+      }
+      await run('DELETE FROM resource_publications WHERE resource_id = ?', [resourceId]);
+    }
+
+    await run('DELETE FROM resource_credentials WHERE resource_id = ?', [resourceId]);
+    await run('DELETE FROM resources WHERE id = ?', [resourceId]);
+    await deleteBillingHistoryIfZeroCost(resourceId);
+
+    await logAudit(
+      req,
+      'resource.delete',
+      `resource:${resourceId}`,
+      `${resource.name || resource.container_id} (portal entry only; Proxmox machine untouched)`
+    );
+
+    res.json({
+      message: 'Service entry deleted successfully',
+      machineDeleted: false
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.delete('/resources/:id', async (req, res, next) => {
   try {
     const resourceId = req.params.id;
@@ -2148,6 +2207,31 @@ router.get('/billing', async (req, res, next) => {
     res.json(await getBillingSummary({ month: req.query.month }));
   } catch (err) {
     next(err);
+  }
+});
+
+
+router.get('/cluster-health-display', async (req, res, next) => {
+  try {
+    res.json({ config: await getClusterHealthDisplayConfig() });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.put('/cluster-health-display', async (req, res, next) => {
+  try {
+    const config = await saveClusterHealthDisplayConfig(req.body || {});
+    await logAudit(req, 'cluster-health-display.update', 'cluster-health-display', JSON.stringify({
+      enabled: config.enabled,
+      title: config.title,
+      theme: config.theme,
+      refreshSeconds: config.refreshSeconds,
+      widgets: config.widgets.length
+    }));
+    res.json({ config, message: 'Cluster health display saved' });
+  } catch (err) {
+    next(new AppError(err.message || 'Cluster health display could not be saved', HTTP_STATUS.BAD_REQUEST));
   }
 });
 
