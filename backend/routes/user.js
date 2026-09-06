@@ -312,8 +312,8 @@ async function getOwnedPublishableResource(userId, resourceId, { requireClusterP
   if (rows.length === 0 || String(rows[0].user_id) !== String(userId)) {
     throw new AppError('Only the assigned user can manage publishing for this service', HTTP_STATUS.FORBIDDEN);
   }
-  if (!rows[0].provisioned_id) {
-    throw new AppError('Administrator-provided service URLs are read-only', HTTP_STATUS.FORBIDDEN);
+  if (!rows[0].provisioned_id || String(rows[0].provisioned_user_id || '') !== String(userId)) {
+    throw new AppError('Only self-created services can be published', HTTP_STATUS.FORBIDDEN);
   }
   if (requireClusterPublishing && Number(rows[0].allow_publishing ?? 1) !== 1) {
     throw new AppError('Public publishing is disabled for this cluster', HTTP_STATUS.FORBIDDEN);
@@ -734,6 +734,9 @@ router.get('/publishing/options', async (req, res, next) => {
       if (rows.length === 0 || String(rows[0].user_id) !== String(req.user.id)) {
         throw new AppError('Only the assigned user can manage publishing for this service', HTTP_STATUS.FORBIDDEN);
       }
+      if (!rows[0].provisioned_id || String(rows[0].provisioned_user_id || '') !== String(req.user.id)) {
+        throw new AppError('Only self-created services can be published', HTTP_STATUS.FORBIDDEN);
+      }
       clusterEnabled = Number(rows[0].allow_publishing ?? 1) === 1;
       clusterId = rows[0].cluster_id;
     }
@@ -747,6 +750,8 @@ router.get('/publishing/options', async (req, res, next) => {
         globalEnabled: visible.enabled,
         clusterEnabled,
         manualLinkEnabled: !visible.enabled || !clusterEnabled,
+        clusterId,
+        clusterConfigured: !!visible.clusterConfigured,
         baseDomain: visible.baseDomain,
         defaultTargetMethod: visible.defaultTargetMethod,
         protocols: {
@@ -919,8 +924,8 @@ async function getOwnedResourceWithoutIpRequirement(userId, resourceId) {
   if (rows.length === 0 || String(rows[0].user_id) !== String(userId)) {
     throw new AppError('Only the assigned user can manage publishing for this service', HTTP_STATUS.FORBIDDEN);
   }
-  if (!rows[0].provisioned_id) {
-    throw new AppError('Administrator-provided service URLs are read-only', HTTP_STATUS.FORBIDDEN);
+  if (!rows[0].provisioned_id || String(rows[0].provisioned_user_id || '') !== String(userId)) {
+    throw new AppError('Only self-created services can be published', HTTP_STATUS.FORBIDDEN);
   }
   const enriched = await attachPublications(await enrichResources(rows));
   return enriched[0];

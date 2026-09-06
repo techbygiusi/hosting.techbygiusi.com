@@ -1345,76 +1345,128 @@ function sendTermProxyInput(socket, value) {
  * termproxy to run chpasswd inside the new clone without requiring node SSH.
  */
 async function setClonedLxcRootPassword(client, clusterUrl, apiToken, node, vmid, password) {
-  const proxyResponse = await client.post(`/api2/json/nodes/${node}/lxc/${vmid}/termproxy`, {});
-  ensureSuccess(proxyResponse, 'Temporary LXC shell could not be opened:');
-  const proxy = proxyResponse.data?.data || {};
-  if (!proxy.ticket || !proxy.port || !proxy.user) {
-    throw new Error('Temporary LXC shell did not return a complete Proxmox ticket');
+  const maxAttempts = 4;
+  const attemptTimeoutMs = 25000;
+  const retryDelayMs = 1800;
+  let lastError = null;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      const proxyResponse = await client.post(`/api2/json/nodes/${node}/lxc/${vmid}/termproxy`, {});
+      ensureSuccess(proxyResponse, 'Temporary LXC shell could not be opened:');
+      const proxy = proxyResponse.data?.data || {};
+      if (!proxy.ticket || !proxy.port || !proxy.user) {
+        throw new Error('Temporary LXC shell did not return a complete Proxmox ticket');
+      }
+
+      const readyToken = crypto.randomBytes(12).toString('hex');
+      const successToken = crypto.randomBytes(12).toString('hex');
+      const failureToken = crypto.randomBytes(12).toString('hex');
+      const readyMarker = `__HOSTING_PORTAL_SHELL_READY_${readyToken}__`;
+      const successMarker = `__HOSTING_PORTAL_PASSWORD_OK_${successToken}__`;
+      const failureMarker = `__HOSTING_PORTAL_PASSWORD_FAILED_${failureToken}__`;
+      const passwordPayload = Buffer.from(`root:${String(password)}\n`, 'utf8').toString('base64');
+
+      // First wait until the cloned container really accepts shell commands. A
+      // completed Proxmox start task only means pct start has returned; systemd
+      // and the LXC console can still need several seconds before the shell is
+      // usable. The complete marker is assembled from two variables so PTY echo
+      // cannot make us mistake the echoed probe command for a successful probe.
+      const readyCommand = `ready_a='__HOSTING_PORTAL_SHELL_READY_'; ready_b='${readyToken}__'; stty -echo >/dev/null 2>&1; printf '\\n%s%s\\n' "$ready_a" "$ready_b"`;
+      const passwordCommand = `ok_a='__HOSTING_PORTAL_PASSWORD_OK_'; ok_b='${successToken}__'; fail_a='__HOSTING_PORTAL_PASSWORD_FAILED_'; fail_b='${failureToken}__'; printf '%s' '${passwordPayload}' | base64 -d | chpasswd && printf '\\n%s%s\\n' "$ok_a" "$ok_b" || printf '\\n%s%s\\n' "$fail_a" "$fail_b"`;
+      const target = buildProxmoxWebSocketUrl(
+        clusterUrl,
+        `/api2/json/nodes/${node}/lxc/${vmid}/vncwebsocket`,
+        { port: proxy.port, vncticket: proxy.ticket }
+      );
+
+      await new Promise((resolve, reject) => {
+        const socket = new WebSocket(target, ['binary'], {
+          rejectUnauthorized: false,
+          headers: { Authorization: `PVEAPIToken=${apiToken}` }
+        });
+        let settled = false;
+        let output = '';
+        let shellReady = false;
+        let probeTimer = null;
+        let passwordTimer = null;
+        const timeout = setTimeout(
+          () => finish(new Error(`Temporary LXC shell was not ready in time (attempt ${attempt}/${maxAttempts})`)),
+          attemptTimeoutMs
+        );
+
+        function finish(error = null) {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timeout);
+          if (probeTimer) clearInterval(probeTimer);
+          if (passwordTimer) clearTimeout(passwordTimer);
+          try { socket.close(); } catch (_) { /* noop */ }
+          if (error) reject(error); else resolve();
+        }
+
+        function sendProbe() {
+          if (settled || shellReady || socket.readyState !== WebSocket.OPEN) return;
+          // A leading CR wakes a console that has not printed a prompt yet.
+          sendTermProxyInput(socket, `\r${readyCommand}\r`);
+        }
+
+        socket.on('open', () => {
+          socket.send(`${proxy.user}:${proxy.ticket}\n`);
+          socket.send('1:120:34:');
+          // Do not assume the shell is ready 500 ms after the websocket opens.
+          // Probe repeatedly until the shell itself confirms command execution.
+          setTimeout(sendProbe, 700);
+          probeTimer = setInterval(sendProbe, 2200);
+        });
+
+        socket.on('message', data => {
+          output = (output + (Buffer.isBuffer(data) ? data.toString('utf8') : String(data || ''))).slice(-16000);
+
+          if (output.includes(successMarker)) {
+            try { sendTermProxyInput(socket, 'exit\r'); } catch (_) { /* noop */ }
+            finish();
+            return;
+          }
+          if (output.includes(failureMarker)) {
+            finish(new Error('The cloned LXC root password could not be written inside the container'));
+            return;
+          }
+
+          if (!shellReady && output.includes(readyMarker)) {
+            shellReady = true;
+            if (probeTimer) {
+              clearInterval(probeTimer);
+              probeTimer = null;
+            }
+            // stty -echo has now actually run in the container. Only after that
+            // do we send the base64 password payload, preventing it from being
+            // echoed into Proxmox or portal logs.
+            passwordTimer = setTimeout(() => {
+              if (socket.readyState === WebSocket.OPEN) {
+                sendTermProxyInput(socket, `${passwordCommand}\r`);
+              } else {
+                finish(new Error('Temporary LXC shell disconnected before the password command could be sent'));
+              }
+            }, 120);
+          }
+        });
+
+        socket.on('error', error => finish(new Error(`Temporary LXC shell connection failed: ${error.message || 'unknown error'}`)));
+        socket.on('close', () => {
+          if (!settled) finish(new Error('Temporary LXC shell closed before the root password was applied'));
+        });
+      });
+
+      return;
+    } catch (error) {
+      lastError = error;
+      if (attempt >= maxAttempts) break;
+      await new Promise(resolve => setTimeout(resolve, retryDelayMs));
+    }
   }
 
-  const successToken = crypto.randomBytes(12).toString('hex');
-  const failureToken = crypto.randomBytes(12).toString('hex');
-  const successMarker = `__HOSTING_PORTAL_PASSWORD_OK_${successToken}__`;
-  const failureMarker = `__HOSTING_PORTAL_PASSWORD_FAILED_${failureToken}__`;
-  const passwordPayload = Buffer.from(`root:${String(password)}\n`, 'utf8').toString('base64');
-  // Build each marker from two shell variables so the complete marker never
-  // occurs in the echoed command line, even if PTY echo disables slowly.
-  const command = `ok_a='__HOSTING_PORTAL_PASSWORD_OK_'; ok_b='${successToken}__'; fail_a='__HOSTING_PORTAL_PASSWORD_FAILED_'; fail_b='${failureToken}__'; printf '%s' '${passwordPayload}' | base64 -d | chpasswd && printf '\n%s%s\n' "$ok_a" "$ok_b" || printf '\n%s%s\n' "$fail_a" "$fail_b"`;
-  const target = buildProxmoxWebSocketUrl(
-    clusterUrl,
-    `/api2/json/nodes/${node}/lxc/${vmid}/vncwebsocket`,
-    { port: proxy.port, vncticket: proxy.ticket }
-  );
-
-  await new Promise((resolve, reject) => {
-    const socket = new WebSocket(target, ['binary'], {
-      rejectUnauthorized: false,
-      headers: { Authorization: `PVEAPIToken=${apiToken}` }
-    });
-    let settled = false;
-    let output = '';
-    let commandTimer = null;
-    let passwordCommandTimer = null;
-    const timeout = setTimeout(() => finish(new Error('Timed out while setting the cloned LXC root password')), 30000);
-
-    function finish(error = null) {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timeout);
-      if (commandTimer) clearTimeout(commandTimer);
-      if (passwordCommandTimer) clearTimeout(passwordCommandTimer);
-      try { socket.close(); } catch (_) { /* noop */ }
-      if (error) reject(error); else resolve();
-    }
-
-    socket.on('open', () => {
-      socket.send(`${proxy.user}:${proxy.ticket}\n`);
-      socket.send('1:120:34:');
-      commandTimer = setTimeout(() => {
-        // Disable PTY echo before sending the base64-encoded password payload,
-        // so it never appears in Proxmox task or portal logs.
-        if (socket.readyState !== WebSocket.OPEN) return;
-        sendTermProxyInput(socket, 'stty -echo\r');
-        passwordCommandTimer = setTimeout(() => {
-          if (socket.readyState === WebSocket.OPEN) sendTermProxyInput(socket, `${command}\r`);
-        }, 180);
-      }, 500);
-    });
-
-    socket.on('message', data => {
-      output = (output + (Buffer.isBuffer(data) ? data.toString('utf8') : String(data || ''))).slice(-12000);
-      if (output.includes(successMarker)) {
-        try { sendTermProxyInput(socket, 'exit\r'); } catch (_) { /* noop */ }
-        finish();
-      } else if (output.includes(failureMarker)) {
-        finish(new Error('The cloned LXC root password could not be written inside the container'));
-      }
-    });
-    socket.on('error', error => finish(new Error(`Temporary LXC shell connection failed: ${error.message || 'unknown error'}`)));
-    socket.on('close', () => {
-      if (!settled) finish(new Error('Temporary LXC shell closed before the root password was applied'));
-    });
-  });
+  throw new Error(`Timed out while setting the cloned LXC root password after ${maxAttempts} attempts${lastError?.message ? `: ${lastError.message}` : ''}`);
 }
 
 async function clearContainerFirewallRules(client, node, vmid) {

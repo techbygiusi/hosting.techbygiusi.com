@@ -46,6 +46,7 @@ const MESSAGE_TRANSLATIONS = {
   'Public page URL is too long': 'Die URL der öffentlichen Seite ist zu lang.',
   'Only the assigned user can manage this public page': 'Nur der direkt zugewiesene Benutzer kann diese öffentliche Seite bearbeiten.',
   'Only the assigned user can manage publishing for this service': 'Nur der direkt zugewiesene Benutzer kann diesen Dienst veröffentlichen.',
+  'Only self-created services can be published': 'Nur selbst erstellte Services können veröffentlicht werden.',
   'Only the assigned user can manage the public page for this service': 'Nur der direkt zugewiesene Benutzer kann die öffentliche Seite dieses Dienstes verwalten.',
   'Public page URL is required': 'Bitte gib eine URL für die öffentliche Seite ein.',
   'Public page URL must be a valid http:// or https:// URL': 'Die öffentliche Seite muss eine gültige URL mit http:// oder https:// sein.',

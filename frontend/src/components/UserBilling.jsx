@@ -10,9 +10,9 @@ const TEXT = {
     average: 'Allocated', sourceSelf: 'Self-service', sourceAssigned: 'Assigned service', loading: 'Loading billing…',
     failed: 'Billing data could not be loaded.', yourShare: 'Your share', serviceTotal: 'Service total',
     splitAcross: 'Split across', usersLabel: 'users', priceExamples: 'Price examples',
-    priceExamplesNote: 'Calculation: 30 days · 99% uptime · 50% average CPU usage · 50% average RAM usage · 100% assigned storage capacity', currentRates: 'Current rates',
+    priceExamplesNote: 'Calculation: 30 days · 99% uptime · storage is billed at 100% of assigned capacity', currentRates: 'Current rates',
     coreRate: 'CPU / core-hour', memoryRate: 'RAM / GB-hour', storageRate: 'Storage / GB-month',
-    configuration: 'Configuration', cores: 'Cores', ram: 'RAM', monthlyPrice: 'Monthly price'
+    cores: 'Cores', cpuUsage: 'CPU usage', ram: 'RAM', ramUsage: 'RAM usage', monthlyPrice: 'Monthly price'
   },
   de: {
     total: 'Dein Anteil in diesem Monat', runtime: 'Laufzeit', cpu: 'CPU', memory: 'Arbeitsspeicher', storage: 'Speicher',
@@ -21,9 +21,9 @@ const TEXT = {
     average: 'zugewiesen', sourceSelf: 'Self-Service', sourceAssigned: 'Zugewiesener Service', loading: 'Billing wird geladen…',
     failed: 'Billing-Daten konnten nicht geladen werden.', yourShare: 'Dein Anteil', serviceTotal: 'Gesamtkosten',
     splitAcross: 'Aufgeteilt auf', usersLabel: 'Benutzer', priceExamples: 'Preisbeispiele',
-    priceExamplesNote: 'Berechnung: 30 Tage · 99 % Uptime · 50 % durchschnittliche CPU-Auslastung · 50 % durchschnittliche RAM-Auslastung · 100 % der zugewiesenen Storage-Größe', currentRates: 'Aktuelle Tarife',
+    priceExamplesNote: 'Berechnung: 30 Tage · 99 % Uptime · Storage wird zu 100 % der zugewiesenen Größe berechnet', currentRates: 'Aktuelle Tarife',
     coreRate: 'CPU / Core-Stunde', memoryRate: 'RAM / GB-Stunde', storageRate: 'Speicher / GB-Monat',
-    configuration: 'Konfiguration', cores: 'Cores', ram: 'RAM', monthlyPrice: 'Monatspreis'
+    cores: 'Cores', cpuUsage: 'CPU-Auslastung', ram: 'RAM', ramUsage: 'RAM-Auslastung', monthlyPrice: 'Monatspreis'
   }
 };
 
@@ -180,9 +180,10 @@ export default function UserBilling({ language = 'en' }) {
             <table className="billing-example-table">
               <thead>
                 <tr>
-                  <th>{text.configuration}</th>
                   <th>{text.cores}</th>
+                  <th>{text.cpuUsage}</th>
                   <th>{text.ram}</th>
+                  <th>{text.ramUsage}</th>
                   <th>{text.storage}</th>
                   <th>{text.monthlyPrice}</th>
                 </tr>
@@ -190,9 +191,10 @@ export default function UserBilling({ language = 'en' }) {
               <tbody>
                 {priceExamples.map((example) => (
                   <tr key={`${example.cores}-${example.ram}-${example.storage}`}>
-                    <td><strong>{example.cores}C / {example.ram} GB / {example.storage} GB</strong></td>
-                    <td>{example.cores}</td>
+                    <td><strong>{example.cores}</strong></td>
+                    <td>50%</td>
                     <td>{example.ram} GB</td>
+                    <td>50%</td>
                     <td>{example.storage} GB</td>
                     <td><strong>{money(example.price, settings.currency, language)}</strong></td>
                   </tr>

@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import PortalShell from '../components/PortalShell';
 import PageSkeleton from '../components/PageSkeleton';
 import PreferenceSlider from '../components/PreferenceSlider';
-import { ServerIcon, BookIcon, SettingsIcon, HomeIcon, TerminalIcon, LinkIcon, BillingIcon } from '../components/Icons';
+import { ServerIcon, BookIcon, SettingsIcon, HomeIcon, TerminalIcon, LinkIcon, BillingIcon, GlobeIcon } from '../components/Icons';
 import { EmptyState, InlineNotice, SectionCard, StatCard, StatusBadge } from '../components/UiBits';
 import { useAuth } from '../context/AuthContext';
 import { userApi, getErrorMessage } from '../services/api';
@@ -14,6 +14,7 @@ import NotificationSettingsPanel from '../components/NotificationSettingsPanel';
 import WikiBrowser from '../components/WikiBrowser';
 import CreateMachineModal from '../components/CreateMachineModal';
 import UserBilling from '../components/UserBilling';
+import UserPublicAccess from '../components/UserPublicAccess';
 import ResourceAccessDetails from '../components/ResourceAccessDetails';
 import { useTheme } from '../components/ThemeButton';
 
@@ -335,9 +336,16 @@ function UserOverview({ resources, metrics, billing, language, onOpenBilling, on
   const totalStorage = resources.reduce((sum, item) => sum + Number(item.maxdisk || 0), 0);
   const storageUsage = totalStorage > 0 ? Math.min(Math.max((usedStorage / totalStorage) * 100, 0), 100) : 0;
   const billingCurrency = billing?.settings?.currency || 'EUR';
-  const billingTotal = billing?.summary?.totalCost;
+  const billingTotal = Number(billing?.summary?.totalCost || 0);
+  const billingCosts = billing?.summary?.costs || {};
   const billingLabel = language === 'de' ? 'Billing diesen Monat' : 'Billing this month';
-  const billingHint = language === 'de' ? 'Details ansehen' : 'View details';
+  const billingHint = language === 'de' ? 'Billing öffnen' : 'Open billing';
+  const billingParts = [
+    { label: 'CPU', value: Number(billingCosts.cpu || 0) },
+    { label: 'RAM', value: Number(billingCosts.memory || 0) },
+    { label: 'Storage', value: Number(billingCosts.storage || 0) }
+  ];
+  const billingMaxPart = Math.max(...billingParts.map((part) => part.value), 0);
 
   return (
     <div className="user-dashboard-v4">
@@ -348,14 +356,6 @@ function UserOverview({ resources, metrics, billing, language, onOpenBilling, on
           <p>{resources.length} services across {clusters.size} {clusters.size === 1 ? 'cluster' : 'clusters'}.</p>
         </div>
         <div className="user-dashboard-hero-actions">
-          <button type="button" className="dashboard-billing-mini" onClick={onOpenBilling}>
-            <span className="dashboard-billing-mini-icon"><BillingIcon size={18} /></span>
-            <span className="dashboard-billing-mini-copy">
-              <small>{billingLabel}</small>
-              <strong>{billing ? formatMoney(billingTotal, billingCurrency, language) : '—'}</strong>
-            </span>
-            <span className="dashboard-billing-mini-link">{billingHint} →</span>
-          </button>
           <button type="button" className="btn-primary" onClick={onOpenProvisioning}>Create container</button>
         </div>
       </section>
@@ -381,6 +381,26 @@ function UserOverview({ resources, metrics, billing, language, onOpenBilling, on
             </div>
           </div>
         </div>
+
+        <button type="button" className="stat-card dashboard-billing-card" onClick={onOpenBilling}>
+          <div className="dashboard-billing-card-head">
+            <span className="dashboard-billing-card-icon"><BillingIcon size={17} /></span>
+            <span className="stat-label">{billingLabel}</span>
+            <strong>{billing ? formatMoney(billingTotal, billingCurrency, language) : '—'}</strong>
+          </div>
+          <div className="dashboard-billing-cost-graph">
+            {billingParts.map((part) => {
+              const width = billingMaxPart > 0 ? Math.max((part.value / billingMaxPart) * 100, part.value > 0 ? 4 : 0) : 0;
+              return (
+                <div className="dashboard-billing-cost-row" key={part.label}>
+                  <div><span>{part.label}</span><strong>{formatMoney(part.value, billingCurrency, language)}</strong></div>
+                  <div className="dashboard-billing-cost-track"><span style={{ width: `${width}%` }} /></div>
+                </div>
+              );
+            })}
+          </div>
+          <span className="dashboard-billing-card-link">{billingHint} →</span>
+        </button>
       </div>
 
       <SectionCard title="Services" className="user-dashboard-services-v4">
@@ -550,6 +570,7 @@ export default function UserDashboard() {
   const navItems = [
     { key: 'dashboard', label: 'Dashboard', icon: HomeIcon },
     { key: 'services', label: 'Services', icon: ServerIcon, count: resources.length },
+    { key: 'public-access', label: language === 'de' ? 'Öffentlicher Zugriff' : 'Public Access', icon: GlobeIcon },
     { key: 'billing', label: language === 'de' ? 'Billing' : 'Billing', icon: BillingIcon },
     { key: 'wiki', label: 'Wiki', icon: BookIcon },
     { key: 'settings', label: 'Settings', icon: SettingsIcon }
@@ -565,7 +586,7 @@ export default function UserDashboard() {
     onSelect: () => openServiceDetails(resource.id)
   })), [resources]);
 
-  const activeTitle = { dashboard: 'Dashboard', services: 'Services', billing: 'Billing', wiki: 'Wiki', settings: 'Settings' }[activeTab];
+  const activeTitle = { dashboard: 'Dashboard', services: 'Services', 'public-access': language === 'de' ? 'Öffentlicher Zugriff' : 'Public Access', billing: 'Billing', wiki: 'Wiki', settings: 'Settings' }[activeTab];
 
   let content = null;
   if (loading) {
@@ -583,6 +604,8 @@ export default function UserDashboard() {
     />;
   } else if (activeTab === 'services') {
     content = <UserServices resources={resources} metrics={metrics} selectedId={selectedId} detailOpen={detailOpen} language={language} onDetails={openServiceDetails} onCloseDetails={() => setDetailOpen(false)} onConsole={openConsole} onOpenProvisioning={() => setCreateOpen(true)} onResourceUpdate={updateResource} onResourceDeleted={handleResourceDeleted} />;
+  } else if (activeTab === 'public-access') {
+    content = <UserPublicAccess resources={resources} language={language} onResourceUpdate={updateResource} />;
   } else if (activeTab === 'billing') {
     content = <UserBilling language={language} />;
   } else if (activeTab === 'wiki') {
