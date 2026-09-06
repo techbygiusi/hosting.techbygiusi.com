@@ -38,21 +38,21 @@ function formatPercent(value) {
   return `${number.toFixed(number >= 10 ? 0 : 1)}%`;
 }
 
-function CrudTable({ columns, rows, renderActions, emptyText = 'Nothing here yet.' }) {
+function CrudTable({ columns, rows, renderActions, emptyText = 'Nothing here yet.', className = '' }) {
   if (!rows.length) return <EmptyState title="No entries" text={emptyText} />;
   return (
-    <div className="crud-table-wrap">
-      <table className="crud-table-clean">
+    <div className={`crud-table-wrap ${className ? `${className}-wrap` : ''}`.trim()}>
+      <table className={`crud-table-clean ${className}`.trim()}>
         <thead>
           <tr>
-            {columns.map((column) => <th key={column.key}>{column.label}</th>)}
+            {columns.map((column) => <th key={column.key} className={`crud-col-${column.key}`}>{column.label}</th>)}
             {renderActions ? <th>Actions</th> : null}
           </tr>
         </thead>
         <tbody>
           {rows.map((row) => (
             <tr key={row.id}>
-              {columns.map((column) => <td key={column.key}>{column.render ? column.render(row) : row[column.key]}</td>)}
+              {columns.map((column) => <td key={column.key} className={`crud-col-${column.key}`}>{column.render ? column.render(row) : row[column.key]}</td>)}
               {renderActions ? <td className="actions-cell">{renderActions(row)}</td> : null}
             </tr>
           ))}
@@ -459,9 +459,9 @@ export default function AdminDashboard() {
     { key: 'role', label: 'Role' }
   ], []);
   const clustersColumns = useMemo(() => [
-    { key: 'name', label: 'Name' },
-    { key: 'url', label: 'URL' },
-    { key: 'location', label: 'Location', render: (row) => row.location_label || '—' },
+    { key: 'name', label: 'Name', render: (row) => <span className="cluster-table-name" title={row.name || ''}>{row.name || '—'}</span> },
+    { key: 'url', label: 'URL', render: (row) => <span className="cluster-table-clamp" title={row.url || ''}>{row.url || '—'}</span> },
+    { key: 'location', label: 'Location', render: (row) => <span className="cluster-table-clamp cluster-table-location" title={row.location_label || ''}>{row.location_label || '—'}</span> },
     { key: 'selfService', label: 'Self-service', render: (row) => <span className={`status-badge ${Number(row.allow_provisioning || 0) === 1 ? 'success' : 'neutral'}`}>{Number(row.allow_provisioning || 0) === 1 ? 'Enabled' : 'Disabled'}</span> },
     { key: 'publishing', label: 'Public access', render: (row) => <span className={`status-badge ${Number(row.allow_publishing ?? 1) === 1 ? 'success' : 'neutral'}`}>{Number(row.allow_publishing ?? 1) === 1 ? 'Enabled' : 'Disabled'}</span> }
   ], []);
@@ -705,7 +705,7 @@ export default function AdminDashboard() {
     );
   };
 
-  const renderCrudWorkspace = ({ type, title, subtitle, addLabel, columns, rows, onAdd, onEdit, emptyText }) => {
+  const renderCrudWorkspace = ({ type, title, subtitle, addLabel, columns, rows, onAdd, onEdit, emptyText, tableClassName = '' }) => {
     if (editor?.type === type) return renderEditorPage(type, title);
     return (
       <SectionCard action={<button type="button" className="btn-primary" onClick={onAdd}>{addLabel}</button>}>
@@ -727,6 +727,7 @@ export default function AdminDashboard() {
             );
           }}
           emptyText={emptyText}
+          className={tableClassName}
         />
       </SectionCard>
     );
@@ -740,7 +741,7 @@ export default function AdminDashboard() {
   } else if (activeTab === 'users') {
     content = renderCrudWorkspace({ type: 'user', title: 'Users', subtitle: 'Portal accounts and access', addLabel: 'Add user', columns: usersColumns, rows: users, onAdd: () => openUserEditor(), onEdit: openUserEditor, emptyText: 'Create the first portal user.' });
   } else if (activeTab === 'clusters') {
-    content = renderCrudWorkspace({ type: 'cluster', title: 'Clusters', subtitle: 'Connected Proxmox backends', addLabel: 'Add cluster', columns: clustersColumns, rows: clusters, onAdd: () => openClusterEditor(), onEdit: openClusterEditor, emptyText: 'Add a Proxmox cluster to start managing infrastructure.' });
+    content = renderCrudWorkspace({ type: 'cluster', title: 'Clusters', subtitle: 'Connected Proxmox backends', addLabel: 'Add cluster', columns: clustersColumns, rows: clusters, onAdd: () => openClusterEditor(), onEdit: openClusterEditor, emptyText: 'Add a Proxmox cluster to start managing infrastructure.', tableClassName: 'cluster-crud-table' });
   } else if (activeTab === 'groups') {
     content = renderCrudWorkspace({ type: 'group', title: 'Groups', subtitle: 'Customer groups for service assignment', addLabel: 'Add group', columns: groupColumns, rows: groups, onAdd: () => openGroupEditor(), onEdit: openGroupEditor, emptyText: 'Groups help you assign services to teams or customers.' });
   } else if (activeTab === 'services') {
