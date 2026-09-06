@@ -28,6 +28,11 @@ export default function PortalShell({
   const [pageTransition, setPageTransition] = useState(false);
   const transitionTimer = useRef(null);
 
+  useEffect(() => {
+    document.body.classList.add('portal-shell-active');
+    return () => document.body.classList.remove('portal-shell-active');
+  }, []);
+
   useEffect(() => () => {
     if (transitionTimer.current) window.clearTimeout(transitionTimer.current);
   }, []);

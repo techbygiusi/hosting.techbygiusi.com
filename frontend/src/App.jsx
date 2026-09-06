@@ -14,6 +14,38 @@ import { usePortalLanguageRuntime } from './i18n';
 import PageSkeleton from './components/PageSkeleton';
 
 
+function useVisibleViewportHeight() {
+  useEffect(() => {
+    const root = document.documentElement;
+    let frame = 0;
+
+    const updateViewportHeight = () => {
+      if (frame) window.cancelAnimationFrame(frame);
+      frame = window.requestAnimationFrame(() => {
+        const viewport = window.visualViewport;
+        const height = viewport?.height || window.innerHeight || document.documentElement.clientHeight;
+        if (height > 0) root.style.setProperty('--portal-viewport-height', `${Math.round(height)}px`);
+      });
+    };
+
+    updateViewportHeight();
+    window.addEventListener('resize', updateViewportHeight, { passive: true });
+    window.addEventListener('orientationchange', updateViewportHeight, { passive: true });
+    window.visualViewport?.addEventListener('resize', updateViewportHeight, { passive: true });
+    window.visualViewport?.addEventListener('scroll', updateViewportHeight, { passive: true });
+
+    return () => {
+      if (frame) window.cancelAnimationFrame(frame);
+      window.removeEventListener('resize', updateViewportHeight);
+      window.removeEventListener('orientationchange', updateViewportHeight);
+      window.visualViewport?.removeEventListener('resize', updateViewportHeight);
+      window.visualViewport?.removeEventListener('scroll', updateViewportHeight);
+      root.style.removeProperty('--portal-viewport-height');
+    };
+  }, []);
+}
+
+
 function useGlobalTransientMessages() {
   useEffect(() => {
     const timers = new Map();
@@ -132,6 +164,7 @@ export default function App() {
 
   useDocumentTheme();
   usePortalLanguageRuntime();
+  useVisibleViewportHeight();
   useGlobalTransientMessages();
   const { setupRequired, loading, isAuthenticated, user, error } = useAuth();
 

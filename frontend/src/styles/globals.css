@@ -12902,3 +12902,346 @@ button:disabled,
 @media (max-width: 1500px) {
   .cluster-health-builder-settings-main { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
+
+/* v59 self-service links and health display theme control */
+.resource-service-links-editor {
+  margin-top: 18px;
+  padding: 16px;
+  display: grid;
+  gap: 14px;
+  border: 1px solid var(--portal-border);
+  border-radius: 18px;
+  background: var(--portal-bg-soft);
+}
+
+.resource-service-links-head > div {
+  display: grid;
+  gap: 4px;
+}
+
+.resource-service-links-head strong {
+  color: var(--portal-heading);
+}
+
+.resource-service-links-head span {
+  color: var(--portal-text-soft);
+  font-size: .8rem;
+}
+
+.resource-service-links-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.resource-service-links-grid label {
+  min-width: 0;
+  display: grid;
+  gap: 7px;
+}
+
+.resource-service-links-grid label > span {
+  color: var(--portal-text-soft);
+  font-size: .82rem;
+  font-weight: 700;
+}
+
+.resource-service-links-grid input {
+  width: 100%;
+  min-height: 44px;
+  padding: 11px 13px;
+  border: 1px solid var(--portal-border-strong);
+  border-radius: 14px;
+  background: var(--portal-input-bg);
+  color: var(--portal-text);
+  outline: none;
+}
+
+.resource-service-links-grid input:focus {
+  border-color: var(--portal-primary);
+  box-shadow: 0 0 0 4px rgba(126, 87, 194, 0.12);
+}
+
+.resource-link-remove {
+  justify-self: start;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--portal-danger);
+  font: inherit;
+  font-size: .74rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.resource-link-remove:disabled {
+  opacity: .5;
+}
+
+.resource-service-links-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.cluster-health-theme-setting .preference-slider {
+  width: 100%;
+  min-height: 44px;
+}
+
+@media (max-width: 720px) {
+  .resource-service-links-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .resource-service-links-actions,
+  .resource-service-links-actions .btn-primary {
+    width: 100%;
+  }
+}
+.resource-service-links-grid label > small {
+  color: var(--portal-text-soft);
+  font-size: .7rem;
+  line-height: 1.35;
+}
+
+/* v60 health display pointer/touch builder and additional widgets */
+.cluster-health-palette-item,
+.cluster-health-layout-widget {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.cluster-health-palette-item {
+  touch-action: none;
+}
+
+.cluster-health-layout-widget {
+  touch-action: none;
+  cursor: grab;
+  transition: grid-column .08s ease, grid-row .08s ease, transform .08s ease, box-shadow .12s ease, border-color .12s ease;
+}
+
+.cluster-health-layout-widget:active,
+.cluster-health-layout-widget.dragging {
+  cursor: grabbing;
+}
+
+.cluster-health-layout-widget.dragging {
+  z-index: 4;
+  transform: scale(.985);
+  border-color: #b88cff;
+  box-shadow: 0 0 0 3px rgba(184, 140, 255, .20), 0 14px 26px rgba(0, 0, 0, .18);
+}
+
+.cluster-health-layout-widget:focus-visible {
+  outline: 2px solid #b88cff;
+  outline-offset: 2px;
+}
+
+.cluster-health-drop-preview {
+  position: relative;
+  z-index: 3;
+  min-width: 0;
+  min-height: 0;
+  pointer-events: none;
+  border: 2px dashed rgba(184, 140, 255, .82);
+  border-radius: 13px;
+  background: rgba(184, 140, 255, .12);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .07);
+}
+
+.cluster-health-layout-canvas.theme-light .cluster-health-drop-preview {
+  border-color: rgba(104, 69, 159, .72);
+  background: rgba(104, 69, 159, .10);
+}
+
+.health-display-logo-widget,
+.health-display-status-widget {
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  color: inherit;
+}
+
+.health-display-logo-widget {
+  padding: 10px 13px;
+  display: grid;
+  place-items: center;
+}
+
+.health-display-logo-widget img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-width: 190px;
+  max-height: 76px;
+  object-fit: contain;
+  pointer-events: none;
+}
+
+.health-display-widget-label-row {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  opacity: .72;
+}
+
+.health-display-widget-label-row .health-display-widget-label {
+  min-width: 0;
+  flex: 1;
+  opacity: 1;
+}
+
+.health-display-widget-label-row .icon {
+  flex: 0 0 auto;
+}
+
+.health-display-status-widget {
+  padding: 12px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.health-display-status-icon {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: rgba(154, 105, 235, .14);
+  color: #ad80f8;
+}
+
+.health-display-status-copy {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.health-display-status-copy > span,
+.health-display-status-copy > small {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.health-display-status-copy > span {
+  opacity: .65;
+  font-size: .62rem;
+}
+
+.health-display-status-copy > strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: clamp(.8rem, 2vw, 1.18rem);
+}
+
+.health-display-status-copy > small {
+  opacity: .64;
+  font-size: .56rem;
+}
+
+@media (pointer: coarse) {
+  .cluster-health-palette-item {
+    min-height: 58px;
+  }
+
+  .cluster-health-layout-widget.selected {
+    box-shadow: 0 0 0 3px rgba(168, 119, 255, .24), 0 8px 18px rgba(0, 0, 0, .13);
+  }
+}
+
+/* v61 Android Chrome / dynamic visible viewport sizing */
+:root {
+  --portal-viewport-height: 100vh;
+}
+
+@supports (height: 100dvh) {
+  :root {
+    --portal-viewport-height: 100dvh;
+  }
+}
+
+body.portal-shell-active {
+  height: var(--portal-viewport-height);
+  min-height: 0;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+body.portal-shell-active #root {
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+body.portal-shell-active .portal-shell {
+  height: 100%;
+  min-height: 0;
+  max-height: 100%;
+  grid-template-rows: minmax(0, 1fr);
+  overflow: hidden;
+}
+
+body.portal-shell-active .portal-sidebar,
+body.portal-shell-active .portal-main-area {
+  min-height: 0;
+  height: auto;
+  max-height: none;
+  align-self: stretch;
+}
+
+body.portal-shell-active .portal-sidebar {
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+body.portal-shell-active .portal-main-area {
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-gutter: stable;
+}
+
+body.portal-shell-active .admin-side-editor {
+  max-height: calc(var(--portal-viewport-height) - 110px);
+}
+
+@media (min-width: 1181px) {
+  body.portal-shell-active .portal-sidebar.desktop-only {
+    position: static;
+    top: auto;
+    height: auto;
+    min-height: 0;
+    max-height: none;
+    align-self: stretch;
+  }
+}
+
+@media (max-width: 1180px) {
+  body.portal-shell-active .portal-shell {
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  body.portal-shell-active .portal-main-area {
+    height: 100%;
+  }
+}
+
+/* Full-screen overlays must use the same visible viewport on mobile Chrome. */
+.mobile-drawer {
+  height: var(--portal-viewport-height);
+  min-height: var(--portal-viewport-height);
+  max-height: var(--portal-viewport-height);
+}

@@ -376,7 +376,7 @@ function ServiceDetailView({ resource, history = [], language = 'en', onBack, on
           ))}
         </div>
       </SectionCard>
-      <ResourceAccessDetails resource={liveResource} language={language} />
+      <ResourceAccessDetails resource={liveResource} language={language} onResourceUpdate={(nextResource) => { setLiveResource(nextResource); onResourceUpdate?.(nextResource); }} />
       {liveResource.canDelete ? (
         <section className="service-danger-zone">
           <div className="service-danger-zone-copy">

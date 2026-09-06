@@ -301,8 +301,8 @@ async function attachPublications(resources) {
       pangolinPublicUrl,
       manualPublicUrl,
       adminPublicUrl,
-      publicUrl: adminPublicUrl || pangolinPublicUrl || manualPublicUrl,
-      webUrl: adminPublicUrl || pangolinPublicUrl || manualPublicUrl
+      publicUrl: adminPublicUrl || manualPublicUrl || pangolinPublicUrl,
+      webUrl: adminPublicUrl || manualPublicUrl || pangolinPublicUrl
     };
   });
 }
@@ -592,9 +592,7 @@ router.get('/resources', async (req, res, next) => {
         const canManageManualPublicPage = !adminManaged && ownsResource && !pangolinAvailable;
         const effectivePublicUrl = adminManaged
           ? (resource.adminPublicUrl || resource.publicUrl || resource.webUrl || '')
-          : (pangolinAvailable
-            ? (resource.pangolinPublicUrl || '')
-            : (resource.manualPublicUrl || resource.pangolinPublicUrl || ''));
+          : (resource.manualPublicUrl || resource.pangolinPublicUrl || '');
         return {
           ...resource,
           publicUrl: effectivePublicUrl,
@@ -708,9 +706,7 @@ router.get('/resources/:id', async (req, res, next) => {
     const canManageManualPublicPage = !adminManaged && ownsResource && !pangolinAvailable;
     const effectivePublicUrl = adminManaged
       ? (resource.adminPublicUrl || resource.publicUrl || resource.webUrl || '')
-      : (pangolinAvailable
-        ? (resource.pangolinPublicUrl || '')
-        : (resource.manualPublicUrl || resource.pangolinPublicUrl || ''));
+      : (resource.manualPublicUrl || resource.pangolinPublicUrl || '');
     res.json({
       resource: {
         ...resource,
@@ -1093,11 +1089,9 @@ async function getOwnedManualPublicPageResource(userId, resourceId) {
   if (!rows[0].provisioned_id) {
     throw new AppError('Administrator-provided service URLs are read-only', HTTP_STATUS.FORBIDDEN);
   }
-  const publishingConfig = await getPangolinConfig(rows[0].cluster_id);
-  const clusterPublishingEnabled = Number(rows[0].allow_publishing ?? 1) === 1;
-  if (publishingConfig.enabled && clusterPublishingEnabled) {
-    throw new AppError('Manual public page links are only available when Pangolin publishing is disabled', HTTP_STATUS.FORBIDDEN);
-  }
+  // Self-created services may always define a preferred website link. When
+  // Pangolin is available this acts as the service's display/open URL while
+  // publications remain managed separately under Public Access.
   return rows[0];
 }
 

@@ -1,5 +1,5 @@
 import React from 'react';
-import { ServerIcon, DashboardIcon, ClockIcon } from './Icons';
+import { ServerIcon, DashboardIcon, ClockIcon, LinkIcon, GlobeIcon } from './Icons';
 
 function clamp(value) {
   return Math.max(0, Math.min(100, Number(value || 0)));
@@ -28,15 +28,25 @@ function Meter({ value }) {
   return <div className="health-display-meter"><span style={{ width: `${width}%` }} /></div>;
 }
 
-function MetricWidget({ label, value, detail, percent }) {
+function MetricWidget({ label, value, detail, percent, icon: Icon = null }) {
   return (
     <div className="health-display-metric-widget">
-      <span className="health-display-widget-label">{label}</span>
+      <div className="health-display-widget-label-row">
+        <span className="health-display-widget-label">{label}</span>
+        {Icon ? <Icon size={15} /> : null}
+      </div>
       <strong className="health-display-big-value">{value}</strong>
       {detail ? <small>{detail}</small> : null}
       {percent !== undefined ? <Meter value={percent} /> : null}
     </div>
   );
+}
+
+function statusTone(state) {
+  if (state === 'online') return 'success';
+  if (state === 'offline') return 'danger';
+  if (state === 'disabled' || state === 'unconfigured') return 'warning';
+  return '';
 }
 
 export default function ClusterHealthWidget({ widget, cluster, now = new Date(), preview = false, language = 'en' }) {
@@ -45,6 +55,14 @@ export default function ClusterHealthWidget({ widget, cluster, now = new Date(),
   const label = widget?.label || '';
   const totals = cluster?.totals || {};
   const offline = !!cluster?.error || (Number(totals.nodes || 0) > 0 && Number(totals.online || 0) < Number(totals.nodes || 0));
+
+  if (type === 'logo') {
+    return (
+      <div className="health-display-logo-widget">
+        <img src="/brand-logo.png" alt="Hosting by TechByGiusi" draggable="false" />
+      </div>
+    );
+  }
 
   if (type === 'clock') {
     return (
@@ -101,6 +119,48 @@ export default function ClusterHealthWidget({ widget, cluster, now = new Date(),
     const onlineNodes = (cluster.nodes || []).filter((node) => node.status === 'online');
     const shortest = onlineNodes.length ? Math.min(...onlineNodes.map((node) => Number(node.uptime || 0))) : 0;
     return <MetricWidget label={label || `${cluster.name} ${de ? 'Laufzeit' : 'Uptime'}`} value={formatDisplayUptime(shortest)} detail={de ? 'Kürzeste Node-Laufzeit' : 'Shortest node uptime'} />;
+  }
+
+  if (type === 'pangolin') {
+    const pangolin = cluster.pangolin || { state: 'unknown' };
+    const stateText = pangolin.state === 'online'
+      ? (de ? 'Online' : 'Online')
+      : pangolin.state === 'offline'
+        ? (de ? 'Nicht erreichbar' : 'Unavailable')
+        : pangolin.state === 'disabled'
+          ? (de ? 'Deaktiviert' : 'Disabled')
+          : pangolin.state === 'unconfigured'
+            ? (de ? 'Nicht konfiguriert' : 'Not configured')
+            : (de ? 'Unbekannt' : 'Unknown');
+    return (
+      <div className="health-display-status-widget">
+        <div className="health-display-status-icon"><LinkIcon size={preview ? 18 : 22} /></div>
+        <div className="health-display-status-copy">
+          <span>{label || `${cluster.name} Pangolin`}</span>
+          <strong>{stateText}</strong>
+          <small>{pangolin.baseDomain || pangolin.message || (de ? 'Publishing Status' : 'Publishing status')}</small>
+        </div>
+        <span className={`health-display-state-dot ${statusTone(pangolin.state)}`} />
+      </div>
+    );
+  }
+
+  if (type === 'services') {
+    const count = Number(cluster.portalServices || 0);
+    return <MetricWidget icon={ServerIcon} label={label || (de ? `${cluster.name} Services` : `${cluster.name} services`)} value={String(count)} detail={de ? 'Im Portal zugewiesen' : 'Assigned in portal'} />;
+  }
+
+  if (type === 'location') {
+    return (
+      <div className="health-display-status-widget">
+        <div className="health-display-status-icon"><GlobeIcon size={preview ? 18 : 22} /></div>
+        <div className="health-display-status-copy">
+          <span>{label || (de ? 'Standort' : 'Location')}</span>
+          <strong>{cluster.location || '—'}</strong>
+          <small>{cluster.name}</small>
+        </div>
+      </div>
+    );
   }
 
   if (type === 'nodes') {

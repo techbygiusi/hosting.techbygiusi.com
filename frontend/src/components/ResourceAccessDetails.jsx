@@ -55,7 +55,18 @@ const TEXT = {
     deleted: 'Credentials deleted.',
     saveFailed: 'Credentials could not be saved.',
     deleteFailed: 'Credentials could not be deleted.',
-    deleteConfirm: 'Delete these credentials?'
+    deleteConfirm: 'Delete these credentials?',
+    linksTitle: 'Service links',
+    linksHint: 'Set the website and admin page shown for this self-created service.',
+    websiteUrl: 'Website URL',
+    adminUrl: 'Admin page URL',
+    saveLinks: 'Save links',
+    linksSaved: 'Service links saved.',
+    linksRemoved: 'Service links removed.',
+    linksFailed: 'Service links could not be saved.',
+    removeWebsite: 'Remove website',
+    removeAdmin: 'Remove admin page',
+    websiteAutoHint: 'Leave blank to use the automatic Public Access website.'
   },
   de: {
     title: 'Zugriff & SSH',
@@ -97,7 +108,18 @@ const TEXT = {
     deleted: 'Zugangsdaten gelöscht.',
     saveFailed: 'Zugangsdaten konnten nicht gespeichert werden.',
     deleteFailed: 'Zugangsdaten konnten nicht gelöscht werden.',
-    deleteConfirm: 'Diese Zugangsdaten wirklich löschen?'
+    deleteConfirm: 'Diese Zugangsdaten wirklich löschen?',
+    linksTitle: 'Service-Links',
+    linksHint: 'Lege die Webseite und Admin-Seite fest, die bei diesem selbst erstellten Service angezeigt werden.',
+    websiteUrl: 'Webseiten-URL',
+    adminUrl: 'Admin-Seiten-URL',
+    saveLinks: 'Links speichern',
+    linksSaved: 'Service-Links gespeichert.',
+    linksRemoved: 'Service-Link entfernt.',
+    linksFailed: 'Service-Links konnten nicht gespeichert werden.',
+    removeWebsite: 'Webseite entfernen',
+    removeAdmin: 'Admin-Seite entfernen',
+    websiteAutoHint: 'Leer lassen, um automatisch die Public-Access-Webseite zu verwenden.'
   }
 };
 
@@ -113,7 +135,7 @@ function copyFallback(value) {
   document.body.removeChild(area);
 }
 
-export default function ResourceAccessDetails({ resource, language = 'en' }) {
+export default function ResourceAccessDetails({ resource, language = 'en', onResourceUpdate }) {
   const text = TEXT[language] || TEXT.en;
   const [credentials, setCredentials] = useState([]);
   const [revealed, setRevealed] = useState({});
@@ -122,10 +144,16 @@ export default function ResourceAccessDetails({ resource, language = 'en' }) {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [form, setForm] = useState(EMPTY_FORM);
+  const [linkSaving, setLinkSaving] = useState(false);
+  const [websiteUrl, setWebsiteUrl] = useState(resource.manualPublicUrl || '');
+  const [adminPageUrl, setAdminPageUrl] = useState(resource.adminUrl || '');
+  const [managementPage, setManagementPage] = useState({ username: '', notes: '', fromAdmin: false });
 
   const canManageCredentials = resource.canManageCredentials === true
     || (resource.source === 'self-service' && resource.adminManaged !== true);
   const adminManaged = resource.adminManaged === true || resource.source === 'admin';
+  const canManageServiceLinks = resource.canManagePublicPage === true
+    || (resource.source === 'self-service' && resource.adminManaged !== true);
 
   const loadCredentials = useCallback(async () => {
     setLoading(true);
@@ -145,8 +173,20 @@ export default function ResourceAccessDetails({ resource, language = 'en' }) {
     setError('');
     setNotice('');
     setForm(EMPTY_FORM);
+    setWebsiteUrl(resource.manualPublicUrl || '');
+    setAdminPageUrl(resource.adminUrl || '');
+    setManagementPage({ username: '', notes: '', fromAdmin: false });
     loadCredentials();
-  }, [resource.id, loadCredentials]);
+    if (canManageServiceLinks) {
+      userApi.getManagementPage(resource.id)
+        .then((response) => {
+          const page = response.data?.managementPage || {};
+          setManagementPage({ username: page.username || '', notes: page.notes || '', fromAdmin: !!page.fromAdmin });
+          if (page.url) setAdminPageUrl(page.url);
+        })
+        .catch(() => {});
+    }
+  }, [resource.id, resource.manualPublicUrl, resource.publicUrl, resource.webUrl, resource.adminUrl, canManageServiceLinks, loadCredentials]);
 
   const copyText = async (value) => {
     const safe = String(value || '');
@@ -263,9 +303,88 @@ export default function ResourceAccessDetails({ resource, language = 'en' }) {
     }
   };
 
+  const refreshResource = async () => {
+    try {
+      const response = await userApi.getResourceDetails(resource.id);
+      const nextResource = response.data?.resource;
+      if (nextResource) onResourceUpdate?.(nextResource);
+    } catch (_) {
+      // The links are already saved; a later dashboard refresh will reconcile the resource.
+    }
+  };
+
+  const saveServiceLinks = async (event) => {
+    event.preventDefault();
+    if (!canManageServiceLinks) return;
+    setLinkSaving(true);
+    setError('');
+    setNotice('');
+    try {
+      const cleanWebsite = String(websiteUrl || '').trim();
+      const cleanAdmin = String(adminPageUrl || '').trim();
+      if (cleanWebsite) await userApi.saveManualPublicPage(resource.id, cleanWebsite);
+      else await userApi.removeManualPublicPage(resource.id).catch((err) => {
+        if (err.response?.status !== 404) throw err;
+      });
+      if (!managementPage.fromAdmin) {
+        if (cleanAdmin) {
+          await userApi.saveManagementPage(resource.id, {
+            url: cleanAdmin,
+            username: managementPage.username || '',
+            notes: managementPage.notes || ''
+          });
+        } else {
+          await userApi.removeManagementPage(resource.id).catch((err) => {
+            if (err.response?.status !== 404) throw err;
+          });
+        }
+      }
+      await refreshResource();
+      setNotice(text.linksSaved);
+    } catch (err) {
+      setError(getErrorMessage(err, text.linksFailed));
+    } finally {
+      setLinkSaving(false);
+    }
+  };
+
+  const removeWebsiteLink = async () => {
+    if (!canManageServiceLinks) return;
+    setLinkSaving(true);
+    setError('');
+    setNotice('');
+    try {
+      await userApi.removeManualPublicPage(resource.id);
+      setWebsiteUrl('');
+      await refreshResource();
+      setNotice(text.linksRemoved);
+    } catch (err) {
+      setError(getErrorMessage(err, text.linksFailed));
+    } finally {
+      setLinkSaving(false);
+    }
+  };
+
+  const removeAdminLink = async () => {
+    if (!canManageServiceLinks || managementPage.fromAdmin) return;
+    setLinkSaving(true);
+    setError('');
+    setNotice('');
+    try {
+      await userApi.removeManagementPage(resource.id);
+      setAdminPageUrl('');
+      await refreshResource();
+      setNotice(text.linksRemoved);
+    } catch (err) {
+      setError(getErrorMessage(err, text.linksFailed));
+    } finally {
+      setLinkSaving(false);
+    }
+  };
+
   const serviceIp = resource.manualIp || resource.primaryIp || resource.detectedIp || resource.ip || '';
-  const publicUrl = resource.publicUrl || resource.webUrl || '';
-  const adminUrl = resource.adminUrl || '';
+  const publicUrl = canManageServiceLinks ? (websiteUrl || resource.publicUrl || resource.webUrl || '') : (resource.publicUrl || resource.webUrl || '');
+  const adminUrl = canManageServiceLinks ? (adminPageUrl || resource.adminUrl || '') : (resource.adminUrl || '');
 
   return (
     <SectionCard title={text.title}>
@@ -291,6 +410,31 @@ export default function ResourceAccessDetails({ resource, language = 'en' }) {
           <strong>{serviceIp ? `${serviceIp}:${resource.sshPort || 22}` : '—'}</strong>
         </div>
       </div>
+
+      {canManageServiceLinks ? (
+        <form className="resource-service-links-editor" onSubmit={saveServiceLinks}>
+          <div className="resource-service-links-head">
+            <div><strong>{text.linksTitle}</strong><span>{text.linksHint}</span></div>
+          </div>
+          <div className="resource-service-links-grid">
+            <label>
+              <span>{text.websiteUrl}</span>
+              <input type="url" value={websiteUrl} onChange={(event) => setWebsiteUrl(event.target.value)} placeholder="https://" />
+              <small>{text.websiteAutoHint}</small>
+              {websiteUrl ? <button type="button" className="resource-link-remove" onClick={removeWebsiteLink} disabled={linkSaving}>{text.removeWebsite}</button> : null}
+            </label>
+            <label>
+              <span>{text.adminUrl}</span>
+              <input type="url" value={adminPageUrl} onChange={(event) => setAdminPageUrl(event.target.value)} placeholder="https://" disabled={managementPage.fromAdmin} />
+              {adminPageUrl && !managementPage.fromAdmin ? <button type="button" className="resource-link-remove" onClick={removeAdminLink} disabled={linkSaving}>{text.removeAdmin}</button> : null}
+            </label>
+          </div>
+          {managementPage.fromAdmin ? <div className="resource-access-readonly-note">{text.readOnly}</div> : null}
+          <div className="resource-service-links-actions">
+            <button type="submit" className="btn-primary" disabled={linkSaving}>{linkSaving ? text.saving : text.saveLinks}</button>
+          </div>
+        </form>
+      ) : null}
 
       <div className="resource-access-credentials-head"><strong>{text.credentials}</strong></div>
       <div className="resource-access-credential-list">
