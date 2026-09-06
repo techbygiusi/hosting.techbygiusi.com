@@ -479,7 +479,6 @@ export default function ClusterHealthDisplaySettings({ clusters = [], clusterSta
           <aside className="cluster-health-widget-palette">
             <div className="cluster-health-builder-section-head">
               <strong>{de ? 'Elemente' : 'Widgets'}</strong>
-              <span>{de ? 'Klicken oder per Maus/Touch ins Raster ziehen' : 'Click or drag into the grid with mouse/touch'}</span>
             </div>
             <div className="cluster-health-palette-list">
               {WIDGET_TYPES.map((definition) => {
@@ -576,7 +575,6 @@ export default function ClusterHealthDisplaySettings({ clusters = [], clusterSta
         </div>
 
         <div className="cluster-health-builder-actions">
-          <span>{de ? 'Maus, Touch und Pfeiltasten werden unterstützt. Die Anzeige nutzt nur schreibgeschützte Statusdaten.' : 'Mouse, touch and arrow keys are supported. The display only exposes read-only status data.'}</span>
           <button type="button" className="btn-primary" onClick={save} disabled={saving}>{saving ? (de ? 'Speichert…' : 'Saving…') : (de ? 'Display speichern' : 'Save display')}</button>
         </div>
       </section>

@@ -12793,10 +12793,9 @@ button:disabled,
 .cluster-health-builder-actions {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 14px;
 }
-.cluster-health-builder-actions > span { color: var(--portal-text-soft); font-size: .72rem; }
 .cluster-health-builder-loading { padding: 24px; }
 
 /* Shared widget rendering inside preview and the 800x480 kiosk */
@@ -12842,8 +12841,9 @@ button:disabled,
 .health-display-node-row.compact,
 .health-display-node-row.narrow { grid-template-columns: auto minmax(0,1fr) auto; }
 .health-display-node-metrics { opacity: .82; }
-.health-display-nodes-widget.compact-height { gap: 6px; }
-.health-display-nodes-widget.compact-height .health-display-node-list { gap: 3px; }
+.health-display-nodes-widget.compact-height { grid-template-rows: 1fr; gap: 0; padding: 8px 10px; }
+.health-display-nodes-widget.compact-height .health-display-node-list { gap: 3px; align-content: center; }
+.health-display-nodes-widget.compact-height .health-display-node-row { min-height: 0; height: 22px; padding: 2px 5px; font-size: .5rem; }
 .health-display-nodes-widget.compact-width .health-display-node-row { font-size: .52rem; }
 .health-display-node-empty { opacity: .65; font-size: .62rem; }
 .health-display-missing-widget { display: grid; place-items: center; align-content: center; gap: 3px; text-align: center; opacity: .62; }

@@ -187,13 +187,15 @@ export default function ClusterHealthWidget({ widget, cluster, now = new Date(),
   if (type === 'nodes') {
     const compactHeight = Number(widget?.h || 0) <= 1;
     const compactWidth = Number(widget?.w || 0) <= 4;
-    const maxNodes = compactHeight ? (compactWidth ? 2 : 3) : (compactWidth ? 4 : 6);
+    const maxNodes = compactHeight ? 3 : (compactWidth ? 4 : 6);
     return (
       <div className={`health-display-nodes-widget ${compactHeight ? 'compact-height' : ''} ${compactWidth ? 'compact-width' : ''}`}>
-        <div className="health-display-nodes-head">
-          <strong>{label || `${cluster.name} ${de ? 'Nodes' : 'nodes'}`}</strong>
-          <span>{totals.online || 0}/{totals.nodes || 0}</span>
-        </div>
+        {!compactHeight ? (
+          <div className="health-display-nodes-head">
+            <strong>{label || `${cluster.name} ${de ? 'Nodes' : 'nodes'}`}</strong>
+            <span>{totals.online || 0}/{totals.nodes || 0}</span>
+          </div>
+        ) : null}
         <div className="health-display-node-list">
           {(cluster.nodes || []).slice(0, maxNodes).map((node) => (
             <div className={`health-display-node-row ${compactHeight ? 'compact' : ''} ${compactWidth ? 'narrow' : ''}`} key={node.node}>
