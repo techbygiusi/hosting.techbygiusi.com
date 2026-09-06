@@ -10,9 +10,9 @@ const TEXT = {
     average: 'Allocated', sourceSelf: 'Self-service', sourceAssigned: 'Assigned service', loading: 'Loading billing…',
     failed: 'Billing data could not be loaded.', yourShare: 'Your share', serviceTotal: 'Service total',
     splitAcross: 'Split across', usersLabel: 'users', priceExamples: 'Price examples',
-    priceExamplesIntro: 'Examples use the current billing rates, 30 days and 99% uptime.', currentRates: 'Current rates',
+    priceExamplesNote: 'Calculation: 30 days · 99% uptime · 50% average CPU usage · 50% average RAM usage · 100% assigned storage capacity', currentRates: 'Current rates',
     coreRate: 'CPU / core-hour', memoryRate: 'RAM / GB-hour', storageRate: 'Storage / GB-month',
-    configuration: 'Configuration', cores: 'Cores', ram: 'RAM', uptime: 'Uptime', monthlyPrice: 'Monthly price'
+    configuration: 'Configuration', cores: 'Cores', ram: 'RAM', monthlyPrice: 'Monthly price'
   },
   de: {
     total: 'Dein Anteil in diesem Monat', runtime: 'Laufzeit', cpu: 'CPU', memory: 'Arbeitsspeicher', storage: 'Speicher',
@@ -21,9 +21,9 @@ const TEXT = {
     average: 'zugewiesen', sourceSelf: 'Self-Service', sourceAssigned: 'Zugewiesener Service', loading: 'Billing wird geladen…',
     failed: 'Billing-Daten konnten nicht geladen werden.', yourShare: 'Dein Anteil', serviceTotal: 'Gesamtkosten',
     splitAcross: 'Aufgeteilt auf', usersLabel: 'Benutzer', priceExamples: 'Preisbeispiele',
-    priceExamplesIntro: 'Die Beispiele verwenden die aktuell eingestellten Billing-Tarife, 30 Tage und 99 % Uptime.', currentRates: 'Aktuelle Tarife',
+    priceExamplesNote: 'Berechnung: 30 Tage · 99 % Uptime · 50 % durchschnittliche CPU-Auslastung · 50 % durchschnittliche RAM-Auslastung · 100 % der zugewiesenen Storage-Größe', currentRates: 'Aktuelle Tarife',
     coreRate: 'CPU / Core-Stunde', memoryRate: 'RAM / GB-Stunde', storageRate: 'Speicher / GB-Monat',
-    configuration: 'Konfiguration', cores: 'Cores', ram: 'RAM', uptime: 'Uptime', monthlyPrice: 'Monatspreis'
+    configuration: 'Konfiguration', cores: 'Cores', ram: 'RAM', monthlyPrice: 'Monatspreis'
   }
 };
 
@@ -103,11 +103,11 @@ export default function UserBilling({ language = 'en' }) {
     const memoryRate = Number(settings.memoryPerGbHour || 0);
     const storageRate = Number(settings.storagePerGbMonth || 0);
 
+    const averageLoad = 0.5;
     return configurations.map((configuration) => ({
       ...configuration,
-      uptime: 99,
-      price: configuration.cores * activeHours * cpuRate
-        + configuration.ram * activeHours * memoryRate
+      price: configuration.cores * averageLoad * activeHours * cpuRate
+        + configuration.ram * averageLoad * activeHours * memoryRate
         + configuration.storage * storageRate
     }));
   }, [settings.cpuPerCoreHour, settings.memoryPerGbHour, settings.storagePerGbMonth]);
@@ -170,7 +170,6 @@ export default function UserBilling({ language = 'en' }) {
 
       <SectionCard title={text.priceExamples}>
         <div className="billing-price-examples">
-          <p className="billing-price-examples-intro">{text.priceExamplesIntro}</p>
           <div className="billing-rate-transparency">
             <div><span>{text.coreRate}</span><strong>{rateMoney(settings.cpuPerCoreHour, settings.currency, language)}</strong></div>
             <div><span>{text.memoryRate}</span><strong>{rateMoney(settings.memoryPerGbHour, settings.currency, language)}</strong></div>
@@ -185,7 +184,6 @@ export default function UserBilling({ language = 'en' }) {
                   <th>{text.cores}</th>
                   <th>{text.ram}</th>
                   <th>{text.storage}</th>
-                  <th>{text.uptime}</th>
                   <th>{text.monthlyPrice}</th>
                 </tr>
               </thead>
@@ -196,13 +194,13 @@ export default function UserBilling({ language = 'en' }) {
                     <td>{example.cores}</td>
                     <td>{example.ram} GB</td>
                     <td>{example.storage} GB</td>
-                    <td>{example.uptime}%</td>
                     <td><strong>{money(example.price, settings.currency, language)}</strong></td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
+          <p className="billing-price-examples-note">{text.priceExamplesNote}</p>
         </div>
       </SectionCard>
     </div>

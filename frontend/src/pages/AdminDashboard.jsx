@@ -686,11 +686,7 @@ export default function AdminDashboard() {
           renderActions={(entry) => {
             const userManaged = type === 'resource' && (entry.isSelfService === true || entry.source === 'self-service');
             return userManaged ? (
-              <>
-                <button type="button" className="btn-secondary btn-small" onClick={() => onEdit(entry)}>View</button>
-                <button type="button" className="btn-danger btn-small" onClick={() => removeEntry(type, entry)}>Delete container</button>
-                <span className="status-badge warning">User managed</span>
-              </>
+              <button type="button" className="btn-secondary btn-small" onClick={() => onEdit(entry)}>View</button>
             ) : (
               <>
                 <button type="button" className="btn-secondary btn-small" onClick={() => onEdit(entry)}>Edit</button>

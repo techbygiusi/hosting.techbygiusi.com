@@ -26,7 +26,7 @@ const {
 } = require('../services/pangolinService');
 const { syncClusterTemplates, ensureClusterTemplates, listClusterTemplates } = require('../services/templateService');
 const { getSystemUpdateStatus, startSystemUpdate } = require('../services/systemUpdateService');
-const { getBillingSettings, saveBillingSettings, getBillingSummary } = require('../services/billingService');
+const { getBillingSettings, saveBillingSettings, getBillingSummary, deleteBillingHistoryIfZeroCost } = require('../services/billingService');
 
 router.use(adminMiddleware);
 
@@ -1453,6 +1453,7 @@ router.delete('/resources/:id', async (req, res, next) => {
       await run('DELETE FROM resource_credentials WHERE resource_id = ?', [resourceId]);
       await run('DELETE FROM resources WHERE id = ?', [resourceId]);
       await run('DELETE FROM provisioned_machines WHERE id = ?', [resource.provisioned_id]);
+      await deleteBillingHistoryIfZeroCost(resourceId);
 
       await logAudit(
         req,
@@ -1464,6 +1465,7 @@ router.delete('/resources/:id', async (req, res, next) => {
     }
 
     await run('DELETE FROM resources WHERE id = ?', [resourceId]);
+    await deleteBillingHistoryIfZeroCost(resourceId);
     await logAudit(req, 'resource.delete', `resource:${resourceId}`, resource.name || String(resource.container_id));
     res.json({ message: 'Resource deleted successfully' });
   } catch (err) {

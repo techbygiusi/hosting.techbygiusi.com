@@ -46,7 +46,7 @@ const { buildAvatarUrl, saveAvatarForUser, deleteAvatarForUser } = require('../s
 const { generateToken } = require('../middleware/auth');
 const { sendEmail } = require('../services/emailService');
 const { testMailTemplate } = require('../services/emailTemplates');
-const { getBillingSummary } = require('../services/billingService');
+const { getBillingSummary, deleteBillingHistoryIfZeroCost } = require('../services/billingService');
 
 /* ------------------------------------------------------------ ACCESS ---- */
 /**
@@ -1166,6 +1166,7 @@ router.delete('/resources/:id', async (req, res, next) => {
     await run('DELETE FROM resource_credentials WHERE resource_id = ?', [req.params.id]);
     await run('DELETE FROM resources WHERE id = ?', [req.params.id]);
     await run('DELETE FROM provisioned_machines WHERE id = ?', [row.provisioned_id]);
+    await deleteBillingHistoryIfZeroCost(req.params.id);
 
     await logAudit(req, 'machine.delete', `resource:${req.params.id}`, `${row.name || row.hostname || row.container_id} (VMID ${row.container_id})`);
 

@@ -11,7 +11,7 @@ const TEXT = {
     noUsage: 'No usage tracked for this month.', noServices: 'No billable services.', owner: 'Owner', saveFailed: 'Billing rates could not be saved.',
     simulator: 'Cost simulator',
     simulatorTotal: 'Estimated monthly cost', monthDays: 'Days in month', uptime: 'Uptime in month',
-    cpuCores: 'CPU cores', ramSize: 'RAM size', storageSize: 'Storage size',
+    cpuCores: 'CPU cores', cpuUsage: 'Average CPU utilization', ramSize: 'RAM size', ramUsage: 'Average RAM utilization', storageSize: 'Storage size',
     cpuRate: 'CPU price / core-hour', ramRate: 'RAM price / GB-hour', storageRate: 'Storage price / GB-month',
     activeHours: 'Active hours', cpuCost: 'CPU', ramCost: 'RAM', storageCost: 'Storage',
     groupTime: 'Time', groupStorage: 'Storage', useSavedRates: 'Use saved rates'
@@ -24,7 +24,7 @@ const TEXT = {
     noUsage: 'Für diesen Monat wurden noch keine Nutzungsdaten erfasst.', noServices: 'Keine abrechenbaren Services.', owner: 'Besitzer', saveFailed: 'Billing-Tarife konnten nicht gespeichert werden.',
     simulator: 'Kosten-Simulator',
     simulatorTotal: 'Geschätzte Monatskosten', monthDays: 'Tage im Monat', uptime: 'Laufzeit im Monat',
-    cpuCores: 'CPU-Cores', ramSize: 'RAM-Größe', storageSize: 'Speichergröße',
+    cpuCores: 'CPU-Cores', cpuUsage: 'Ø CPU-Auslastung', ramSize: 'RAM-Größe', ramUsage: 'Ø RAM-Auslastung', storageSize: 'Speichergröße',
     cpuRate: 'CPU-Preis / Core-Stunde', ramRate: 'RAM-Preis / GB-Stunde', storageRate: 'Speicherpreis / GB-Monat',
     activeHours: 'Aktive Stunden', cpuCost: 'CPU', ramCost: 'RAM', storageCost: 'Speicher',
     groupTime: 'Zeitraum', groupStorage: 'Speicher', useSavedRates: 'Gespeicherte Tarife übernehmen'
@@ -88,7 +88,9 @@ export default function AdminBilling({ language = 'en' }) {
     monthDays: 30,
     uptimePercent: 100,
     cpuCores: 4,
+    cpuUsagePercent: 50,
     ramGb: 8,
+    ramUsagePercent: 50,
     storageGb: 100,
     cpuPerCoreHour: 0,
     memoryPerGbHour: 0,
@@ -104,11 +106,13 @@ export default function AdminBilling({ language = 'en' }) {
     const uptime = Math.max(0, Math.min(100, Number(simulator.uptimePercent || 0))) / 100;
     const activeHours = days * 24 * uptime;
     const cpuCores = Math.max(0, Number(simulator.cpuCores || 0));
+    const cpuUsage = Math.max(0, Math.min(100, Number(simulator.cpuUsagePercent || 0))) / 100;
     const ramGb = Math.max(0, Number(simulator.ramGb || 0));
+    const ramUsage = Math.max(0, Math.min(100, Number(simulator.ramUsagePercent || 0))) / 100;
     const storageGb = Math.max(0, Number(simulator.storageGb || 0));
 
-    const cpuCost = cpuCores * activeHours * Math.max(0, Number(simulator.cpuPerCoreHour || 0));
-    const ramCost = ramGb * activeHours * Math.max(0, Number(simulator.memoryPerGbHour || 0));
+    const cpuCost = cpuCores * cpuUsage * activeHours * Math.max(0, Number(simulator.cpuPerCoreHour || 0));
+    const ramCost = ramGb * ramUsage * activeHours * Math.max(0, Number(simulator.memoryPerGbHour || 0));
     const storageCost = storageGb * Math.max(0, Number(simulator.storagePerGbMonth || 0));
 
     return {
@@ -201,12 +205,14 @@ export default function AdminBilling({ language = 'en' }) {
               <div className="billing-simulator-group">
                 <div className="billing-simulator-group-title">CPU</div>
                 <SimulatorSlider label={text.cpuCores} value={simulator.cpuCores} min={1} max={64} step={1} onChange={(value) => setSimulatorValue('cpuCores', value)} />
+                <SimulatorSlider label={text.cpuUsage} value={simulator.cpuUsagePercent} min={0} max={100} step={1} suffix="%" onChange={(value) => setSimulatorValue('cpuUsagePercent', value)} />
                 <SimulatorSlider label={text.cpuRate} value={simulator.cpuPerCoreHour} min={0} max={2} step={0.0001} suffix={currency} onChange={(value) => setSimulatorValue('cpuPerCoreHour', value)} />
               </div>
 
               <div className="billing-simulator-group">
                 <div className="billing-simulator-group-title">RAM</div>
                 <SimulatorSlider label={text.ramSize} value={simulator.ramGb} min={1} max={256} step={1} suffix="GB" onChange={(value) => setSimulatorValue('ramGb', value)} />
+                <SimulatorSlider label={text.ramUsage} value={simulator.ramUsagePercent} min={0} max={100} step={1} suffix="%" onChange={(value) => setSimulatorValue('ramUsagePercent', value)} />
                 <SimulatorSlider label={text.ramRate} value={simulator.memoryPerGbHour} min={0} max={2} step={0.0001} suffix={currency} onChange={(value) => setSimulatorValue('memoryPerGbHour', value)} />
               </div>
 

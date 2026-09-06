@@ -5880,3 +5880,12 @@ button:disabled,
     grid-template-columns: 1fr;
   }
 }
+
+
+/* v44 compact billing example assumptions */
+.billing-price-examples-note {
+  margin: 10px 2px 0;
+  color: var(--portal-text-soft);
+  font-size: .78rem;
+  line-height: 1.45;
+}

@@ -43,6 +43,12 @@ function numberSetting(value, fallback) {
   return Number.isFinite(number) && number >= 0 ? number : fallback;
 }
 
+function normalizedCpuRatio(resource) {
+  const raw = Number(resource?.cpu || 0);
+  if (!Number.isFinite(raw) || raw <= 0) return 0;
+  return Math.min(raw <= 1 ? raw : raw / 100, 1);
+}
+
 async function getBillingSettings() {
   const keys = Object.values(SETTING_KEYS);
   const placeholders = keys.map(() => '?').join(',');
@@ -143,15 +149,14 @@ async function recordClusterBillingUsage(cluster, liveResources = []) {
     const running = String(live.status || '').toLowerCase() === 'running';
     const runningSeconds = running ? elapsed : 0;
 
-    // Billing is allocation-based, not utilization-based:
-    // while a service is running, charge its full assigned CPU and RAM.
-    // Storage is charged using the full assigned disk capacity for the whole observed period.
+    // CPU and RAM billing follows actual utilization while the service is running.
+    // Storage remains allocation-based and is charged using the full assigned disk capacity.
     const allocatedCpuCores = Math.max(Number(live.maxcpu || 0), 0);
-    const allocatedMemoryBytes = Math.max(Number(live.maxmem || live.mem || 0), 0);
+    const usedMemoryBytes = Math.max(Number(live.mem || 0), 0);
     const allocatedStorageBytes = Math.max(Number(live.maxdisk || live.disk || 0), 0);
 
-    const cpuCoreSeconds = running ? allocatedCpuCores * elapsed : 0;
-    const memoryGbSeconds = running ? allocatedMemoryBytes / GB * elapsed : 0;
+    const cpuCoreSeconds = running ? normalizedCpuRatio(live) * allocatedCpuCores * elapsed : 0;
+    const memoryGbSeconds = running ? usedMemoryBytes / GB * elapsed : 0;
     const storageGbSeconds = allocatedStorageBytes / GB * elapsed;
     const share = 1 / users.length;
     const source = row.provisioned_id ? 'self-service' : 'assigned';
@@ -208,6 +213,68 @@ function calculateUsage(row, settings, monthHours) {
   };
 }
 
+
+function isZeroCurrencyAmount(value) {
+  return Math.abs(Number(value || 0)) < 0.005;
+}
+
+async function getResourceLifetimeBillingCost(resourceId, settings = null) {
+  const billingSettings = settings || await getBillingSettings();
+  const rows = await all(`
+    SELECT
+      substr(sampled_at, 1, 7) as month,
+      COALESCE(SUM(duration_seconds), 0) as duration_seconds,
+      COALESCE(SUM(running_seconds), 0) as running_seconds,
+      COALESCE(SUM(cpu_core_seconds), 0) as cpu_core_seconds,
+      COALESCE(SUM(memory_gb_seconds), 0) as memory_gb_seconds,
+      COALESCE(SUM(storage_gb_seconds), 0) as storage_gb_seconds
+    FROM billing_usage_samples
+    WHERE resource_id = ?
+    GROUP BY substr(sampled_at, 1, 7)
+    ORDER BY month
+  `, [resourceId]);
+
+  return rows.reduce((total, row) => {
+    const info = monthInfo(row.month);
+    return total + calculateUsage(row, billingSettings, info.hours).totalCost;
+  }, 0);
+}
+
+async function deleteBillingHistoryIfZeroCost(resourceId, settings = null) {
+  if (resourceId === null || resourceId === undefined) {
+    return { removed: false, totalCost: 0 };
+  }
+
+  const sample = await get('SELECT 1 as found FROM billing_usage_samples WHERE resource_id = ? LIMIT 1', [resourceId]);
+  if (!sample) {
+    lastObservedAt.delete(String(resourceId));
+    return { removed: false, totalCost: 0 };
+  }
+
+  const totalCost = await getResourceLifetimeBillingCost(resourceId, settings);
+  if (!isZeroCurrencyAmount(totalCost)) {
+    return { removed: false, totalCost };
+  }
+
+  await run('DELETE FROM billing_usage_samples WHERE resource_id = ?', [resourceId]);
+  lastObservedAt.delete(String(resourceId));
+  return { removed: true, totalCost };
+}
+
+async function cleanupDeletedZeroCostBillingHistory(settings = null) {
+  const billingSettings = settings || await getBillingSettings();
+  const orphaned = await all(`
+    SELECT DISTINCT bus.resource_id
+    FROM billing_usage_samples bus
+    LEFT JOIN resources r ON r.id = bus.resource_id
+    WHERE r.id IS NULL AND bus.resource_id IS NOT NULL
+  `);
+
+  for (const row of orphaned) {
+    await deleteBillingHistoryIfZeroCost(row.resource_id, billingSettings);
+  }
+}
+
 async function availableMonths(userId = null) {
   const params = [];
   const where = userId ? 'WHERE user_id = ?' : '';
@@ -220,6 +287,7 @@ async function availableMonths(userId = null) {
 
 async function getBillingSummary({ userId = null, month = null } = {}) {
   const settings = await getBillingSettings();
+  await cleanupDeletedZeroCostBillingHistory(settings);
   const info = monthInfo(month);
   const params = [info.start, info.next];
   let userFilter = '';
@@ -357,5 +425,6 @@ module.exports = {
   getBillingSettings,
   saveBillingSettings,
   recordClusterBillingUsage,
-  getBillingSummary
+  getBillingSummary,
+  deleteBillingHistoryIfZeroCost
 };
