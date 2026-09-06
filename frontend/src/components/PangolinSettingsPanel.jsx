@@ -348,19 +348,20 @@ export default function PangolinSettingsPanel({ onSuccess, onError, language: la
       </div>
 
       {loading ? <p className="loading">{text.loadSettings}</p> : <>
-      {!form.clusterConfigured ? (
-        <div className="pangolin-inherited-note">
-          This cluster is using the previous shared Pangolin values. Save once to create an independent connector configuration for {selectedCluster?.name || 'this cluster'}.
+      <section className="pangolin-config-card">
+        {!form.clusterConfigured ? (
+          <div className="pangolin-inherited-note">
+            This cluster is using the previous shared Pangolin values. Save once to create an independent connector configuration for {selectedCluster?.name || 'this cluster'}.
+          </div>
+        ) : null}
+        <div className="panel-header pangolin-panel-header">
+          <div>
+            <h2>{text.title}</h2>
+          </div>
+          <span className={`status-badge ${form.enabled ? 'status-running' : 'status-stopped'}`}>{form.enabled ? text.active : text.inactive}</span>
         </div>
-      ) : null}
-      <div className="panel-header pangolin-panel-header">
-        <div>
-          <h2>{text.title}</h2>
-        </div>
-        <span className={`status-badge ${form.enabled ? 'status-running' : 'status-stopped'}`}>{form.enabled ? text.active : text.inactive}</span>
-      </div>
 
-      <form className="pangolin-settings-form" onSubmit={save}>
+        <form className="pangolin-settings-form" onSubmit={save}>
         <label className="settings-toggle-card full-width">
           <span><strong>{text.enableTitle}</strong></span>
           <span className={`toggle-switch ${form.enabled ? 'is-on' : ''}`}>
@@ -484,9 +485,10 @@ export default function PangolinSettingsPanel({ onSuccess, onError, language: la
             <button type="submit" className="btn-primary" disabled={!!busy}>{busy === 'save' ? text.saving : text.save}</button>
           </div>
         </div>
-      </form>
+        </form>
+      </section>
 
-      <div className="pangolin-publication-admin-list">
+      <section className="pangolin-publication-admin-list pangolin-publications-card">
         <div className="settings-section-header">
           <h3>{text.publicationsTitle}</h3>
         </div>
@@ -519,7 +521,7 @@ export default function PangolinSettingsPanel({ onSuccess, onError, language: la
             ))}
           </div>
         )}
-      </div>
+      </section>
 
       </>}
     </section>

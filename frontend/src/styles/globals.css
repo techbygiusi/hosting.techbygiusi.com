@@ -12482,3 +12482,91 @@ button:disabled,
     padding: 16px;
   }
 }
+
+/* v54 Pangolin admin: match the portal's nested card layout */
+.pangolin-settings-panel {
+  width: 100%;
+  min-width: 0;
+  padding: 20px !important;
+  display: grid;
+  gap: 16px;
+  border: 1px solid var(--portal-border) !important;
+  border-radius: 22px !important;
+  background: var(--portal-surface) !important;
+  box-shadow: var(--portal-shadow-soft) !important;
+  backdrop-filter: blur(16px);
+}
+
+.pangolin-cluster-toolbar {
+  margin-bottom: 0;
+  padding: 16px;
+  border-radius: 18px;
+  background: var(--portal-bg-soft);
+  box-shadow: none;
+}
+
+.pangolin-config-card,
+.pangolin-publications-card {
+  min-width: 0;
+  padding: 18px;
+  border: 1px solid var(--portal-border);
+  border-radius: 18px;
+  background: var(--portal-bg-soft);
+  box-shadow: none;
+}
+
+.pangolin-config-card {
+  display: grid;
+  gap: 16px;
+}
+
+.pangolin-config-card .pangolin-panel-header,
+.pangolin-publications-card .settings-section-header {
+  margin: 0;
+}
+
+.pangolin-config-card .pangolin-inherited-note {
+  margin: 0;
+}
+
+.pangolin-settings-form {
+  gap: 18px;
+}
+
+.pangolin-settings-grid {
+  gap: 14px;
+}
+
+.pangolin-protocol-grid {
+  gap: 12px;
+}
+
+.pangolin-protocol-card,
+.pangolin-publication-card {
+  border-radius: 16px;
+  background: var(--portal-surface-strong);
+  box-shadow: 0 6px 16px rgba(49, 27, 86, 0.035);
+}
+
+.pangolin-publications-card {
+  display: grid;
+  gap: 14px;
+}
+
+.pangolin-publication-grid {
+  gap: 12px;
+}
+
+@media (max-width: 720px) {
+  .pangolin-settings-panel {
+    padding: 16px !important;
+    border-radius: 20px !important;
+  }
+
+  .pangolin-cluster-toolbar,
+  .pangolin-config-card,
+  .pangolin-publications-card {
+    padding: 14px;
+    border-radius: 16px;
+  }
+}

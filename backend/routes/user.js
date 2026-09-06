@@ -670,8 +670,16 @@ router.get('/resource-metrics', async (req, res, next) => {
         const storagePercent = String(live.type || '').toLowerCase() === 'lxc' && Number(live.maxdisk || 0) > 0
           ? Math.min(Math.max((Number(live.disk || 0) / Number(live.maxdisk)) * 100, 0), 100)
           : null;
+        const isLxc = String(live.type || '').toLowerCase() === 'lxc';
         return [String(row.id), {
-          points: [{ time: Math.floor(Date.now() / 1000), cpuPercent, memoryPercent, storagePercent }]
+          points: [{
+            time: Math.floor(Date.now() / 1000),
+            cpuPercent,
+            memoryPercent,
+            storagePercent,
+            disk: isLxc ? Number(live.disk || 0) : null,
+            maxdisk: isLxc ? Number(live.maxdisk || 0) : null
+          }]
         }];
       }
     }));

@@ -124,6 +124,47 @@ function MetricSparkline({ label, value, history, field, large = false }) {
   );
 }
 
+function storageChartValues(history, fallback) {
+  const values = (Array.isArray(history) ? history : [])
+    .map((point) => Number(point?.disk))
+    .filter((value) => Number.isFinite(value) && value >= 0);
+  if (values.length >= 2) return values.slice(-48);
+  const safeFallback = Math.max(Number(fallback || 0), 0);
+  return [safeFallback, safeFallback];
+}
+
+function StorageSparkline({ value, max, history, large = false }) {
+  const values = storageChartValues(history, value);
+  const width = 100;
+  const height = large ? 46 : 34;
+  const observedMin = Math.min(...values);
+  const observedMax = Math.max(...values);
+  const spread = Math.max(observedMax - observedMin, Math.max(observedMax * 0.02, 1));
+  const floor = Math.max(0, observedMin - spread * 0.18);
+  const ceiling = Math.max(floor + 1, observedMax + spread * 0.18);
+  const line = values.map((item, index) => {
+    const x = values.length === 1 ? width : (index / (values.length - 1)) * width;
+    const normalized = Math.min(Math.max((item - floor) / (ceiling - floor), 0), 1);
+    const y = height - normalized * (height - 4) - 2;
+    return `${x.toFixed(2)},${y.toFixed(2)}`;
+  }).join(' ');
+  const area = `0,${height} ${line} ${width},${height}`;
+  const currentLabel = formatBytes(value);
+  const maxLabel = formatBytes(max);
+  const valueLabel = maxLabel === '—' ? currentLabel : `${currentLabel} / ${maxLabel}`;
+
+  return (
+    <div className={`metric-sparkline ${large ? 'large' : ''}`}>
+      <div className="metric-sparkline-head"><span>Storage</span><strong>{valueLabel}</strong></div>
+      <svg viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" role="img" aria-label={`Storage consumption over the last hour: ${valueLabel}`}>
+        <polygon className="metric-sparkline-area" points={area} />
+        <polyline className="metric-sparkline-line" points={line} />
+      </svg>
+      <div className="metric-sparkline-axis"><span>1h</span><span>Now</span></div>
+    </div>
+  );
+}
+
 function ServiceCard({ resource, history = [], onDetails, onConsole, compact = false }) {
   const publicUrl = servicePrimaryUrl(resource);
   const adminUrl = resource.adminUrl || '';
@@ -201,7 +242,7 @@ function ServiceDetailView({ resource, history = [], language = 'en', onBack, on
   const cpu = cpuPercent(liveResource);
   const memory = percent(liveResource.mem, liveResource.maxmem);
   const isLxc = isLxcResource(liveResource);
-  const storage = isLxc ? percent(liveResource.disk, liveResource.maxdisk) : 0;
+  const storageUsed = isLxc ? Math.max(Number(liveResource.disk || 0), 0) : 0;
   const allocatedStorage = allocatedStorageBytes(liveResource);
   const status = String(liveResource.status || '').toLowerCase();
   const running = status.includes('run');
@@ -297,7 +338,7 @@ function ServiceDetailView({ resource, history = [], language = 'en', onBack, on
         <div className={`service-detail-history-grid ${isLxc ? 'has-storage' : ''}`}>
           <MetricSparkline label="CPU" value={cpu} history={history} field="cpuPercent" large />
           <MetricSparkline label="Memory" value={memory} history={history} field="memoryPercent" large />
-          {isLxc ? <MetricSparkline label="Storage" value={storage} history={history} field="storagePercent" large /> : null}
+          {isLxc ? <StorageSparkline value={storageUsed} max={allocatedStorage} history={history} large /> : null}
         </div>
         <div className="detail-grid-clean service-detail-info-grid">
           {values.map(([label, value]) => (
