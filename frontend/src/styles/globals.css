@@ -12157,3 +12157,22 @@ button:disabled,
     text-align: center;
   }
 }
+
+
+/* v50 consistent notice spacing */
+.service-detail-page .section-card > .inline-notice:not(:last-child),
+.service-danger-zone-confirm > .inline-notice:not(:last-child),
+.public-access-page > .inline-notice:not(:last-child),
+.public-access-form-card > .inline-notice:not(:last-child),
+.public-access-list-card > .inline-notice:not(:last-child) {
+  margin-bottom: 14px;
+}
+
+.inline-notice + .section-card,
+.inline-notice + .panel-card,
+.inline-notice + .service-detail-history-grid,
+.inline-notice + .public-access-resource-card,
+.inline-notice + .public-access-form-card,
+.inline-notice + .public-access-list-card {
+  margin-top: 14px;
+}

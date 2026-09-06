@@ -497,6 +497,52 @@ function reservedSubdomainSet(config) {
   return new Set(String(config.reservedSubdomains || '').split(/[\s,;]+/).map((item) => item.trim().toLowerCase()).filter(Boolean));
 }
 
+function targetHealthCheck(protocol, input, targetMethod = '') {
+  const targetPort = Number(input.targetPort);
+  const common = {
+    hcEnabled: true,
+    hcHostname: input.ip,
+    hcPort: targetPort,
+    hcInterval: 30,
+    hcUnhealthyInterval: 30,
+    hcTimeout: 5,
+    hcHealthyThreshold: 1,
+    hcUnhealthyThreshold: 1
+  };
+
+  if (protocol === 'http') {
+    return {
+      ...common,
+      hcMode: 'http',
+      hcScheme: targetMethod === 'https' ? 'https' : 'http',
+      hcPath: '/',
+      hcMethod: 'GET',
+      hcStatus: null,
+      hcHeaders: [],
+      hcFollowRedirects: true,
+      hcTlsServerName: null
+    };
+  }
+
+  if (protocol === 'tcp') {
+    return {
+      ...common,
+      hcMode: 'tcp',
+      hcPath: null,
+      hcScheme: null,
+      hcMethod: null,
+      hcStatus: null,
+      hcHeaders: [],
+      hcFollowRedirects: null,
+      hcTlsServerName: null
+    };
+  }
+
+  // Pangolin exposes HTTP/TCP target health checks. A TCP probe is not a
+  // meaningful check for an arbitrary UDP-only service, so UDP stays unchecked.
+  return { hcEnabled: false };
+}
+
 async function createPublication(config, input) {
   validateConfig(config);
   const protocol = ['http', 'tcp', 'udp'].includes(input.protocol) ? input.protocol : 'http';
@@ -537,10 +583,10 @@ async function createPublication(config, input) {
       ip: input.ip,
       mode: protocol,
       port: targetPort,
-      enabled: true,
-      hcEnabled: false
+      enabled: true
     };
     if (protocol === 'http') targetBody.method = ['http', 'https', 'h2c'].includes(input.targetMethod) ? input.targetMethod : config.defaultTargetMethod;
+    Object.assign(targetBody, targetHealthCheck(protocol, input, targetBody.method || ''));
     const pangolinTarget = await request(config, 'put', `/resource/${resourceId}/target`, targetBody);
     const targetId = Number(pangolinTarget?.targetId ?? pangolinTarget?.id);
     if (!targetId) throw new Error('Pangolin did not return a target ID');
@@ -581,7 +627,8 @@ async function updatePublication(config, publication, input) {
       subdomain,
       domainId: config.domainId,
       ssl: true,
-      enabled: true
+      enabled: true,
+      sso: false
     });
   } else {
     await request(config, 'post', `/resource/${publication.pangolin_resource_id}`, {
@@ -596,10 +643,10 @@ async function updatePublication(config, publication, input) {
     ip: input.ip,
     mode: protocol,
     port: targetPort,
-    enabled: true,
-    hcEnabled: false
+    enabled: true
   };
   if (protocol === 'http') targetBody.method = ['http', 'https', 'h2c'].includes(input.targetMethod) ? input.targetMethod : config.defaultTargetMethod;
+  Object.assign(targetBody, targetHealthCheck(protocol, input, targetBody.method || ''));
   await request(config, 'post', `/target/${publication.pangolin_target_id}`, targetBody);
 
   return {
