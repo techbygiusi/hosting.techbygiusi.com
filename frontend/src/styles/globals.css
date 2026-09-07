@@ -5803,24 +5803,6 @@ button:disabled,
   color: var(--portal-primary);
 }
 
-.admin-user-managed-notice {
-  display: grid;
-  gap: 5px;
-  padding: 16px 18px;
-  border: 1px solid var(--portal-border);
-  border-radius: 16px;
-  background: var(--portal-bg-soft);
-}
-
-.admin-user-managed-notice strong {
-  color: var(--portal-heading);
-}
-
-.admin-user-managed-notice span {
-  color: var(--portal-text-soft);
-  line-height: 1.5;
-}
-
 .admin-user-managed-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -5981,9 +5963,9 @@ button:disabled,
   appearance: none;
   width: 100%;
   min-height: 116px;
-  padding: 14px 16px;
+  padding: 22px;
   display: grid;
-  gap: 9px;
+  gap: 10px;
   align-content: start;
   border: 1px solid var(--portal-border);
   border-radius: var(--portal-radius-card);
@@ -6030,31 +6012,33 @@ button:disabled,
 
 .dashboard-billing-cost-graph {
   display: grid;
-  gap: 5px;
+  gap: 9px;
 }
 
 .dashboard-billing-cost-row {
   display: grid;
-  gap: 3px;
+  gap: 5px;
 }
 
 .dashboard-billing-cost-row > div:first-child {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: 10px;
   color: var(--portal-text-soft);
-  font-size: .68rem;
+  font-size: .78rem;
+  line-height: 1.2;
 }
 
 .dashboard-billing-cost-row > div:first-child strong {
   color: var(--portal-heading);
-  font-size: .68rem;
-  font-weight: 750;
+  font-size: .78rem;
+  font-weight: 700;
+  white-space: nowrap;
 }
 
 .dashboard-billing-cost-track {
-  height: 3px;
+  height: 5px;
   overflow: hidden;
   border-radius: 999px;
   background: var(--portal-primary-soft);
@@ -11470,24 +11454,6 @@ button:disabled,
   color: var(--portal-primary);
 }
 
-.admin-user-managed-notice {
-  display: grid;
-  gap: 5px;
-  padding: 16px 18px;
-  border: 1px solid var(--portal-border);
-  border-radius: 16px;
-  background: var(--portal-bg-soft);
-}
-
-.admin-user-managed-notice strong {
-  color: var(--portal-heading);
-}
-
-.admin-user-managed-notice span {
-  color: var(--portal-text-soft);
-  line-height: 1.5;
-}
-
 .admin-user-managed-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -11648,9 +11614,9 @@ button:disabled,
   appearance: none;
   width: 100%;
   min-height: 116px;
-  padding: 14px 16px;
+  padding: 22px;
   display: grid;
-  gap: 9px;
+  gap: 10px;
   align-content: start;
   border: 1px solid var(--portal-border);
   border-radius: var(--portal-radius-card);
@@ -11697,31 +11663,33 @@ button:disabled,
 
 .dashboard-billing-cost-graph {
   display: grid;
-  gap: 5px;
+  gap: 9px;
 }
 
 .dashboard-billing-cost-row {
   display: grid;
-  gap: 3px;
+  gap: 5px;
 }
 
 .dashboard-billing-cost-row > div:first-child {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: 10px;
   color: var(--portal-text-soft);
-  font-size: .68rem;
+  font-size: .78rem;
+  line-height: 1.2;
 }
 
 .dashboard-billing-cost-row > div:first-child strong {
   color: var(--portal-heading);
-  font-size: .68rem;
-  font-weight: 750;
+  font-size: .78rem;
+  font-weight: 700;
+  white-space: nowrap;
 }
 
 .dashboard-billing-cost-track {
-  height: 3px;
+  height: 5px;
   overflow: hidden;
   border-radius: 999px;
   background: var(--portal-primary-soft);
@@ -13356,4 +13324,29 @@ body.portal-shell-active .admin-side-editor {
   .cluster-crud-table .crud-col-publishing { width: 12%; }
   .cluster-crud-table .actions-cell { width: 17%; }
   .cluster-table-location { -webkit-line-clamp: 1; line-clamp: 1; }
+}
+
+/* v74 align billing metric rows with Resource usage */
+.user-dashboard-stats-v4 .dashboard-billing-card {
+  padding: 22px;
+  gap: 10px;
+}
+.user-dashboard-stats-v4 .dashboard-billing-cost-graph {
+  gap: 9px;
+}
+.user-dashboard-stats-v4 .dashboard-billing-cost-row {
+  gap: 5px;
+}
+.user-dashboard-stats-v4 .dashboard-billing-cost-row > div:first-child {
+  gap: 10px;
+  font-size: .78rem;
+  line-height: 1.2;
+}
+.user-dashboard-stats-v4 .dashboard-billing-cost-row > div:first-child strong {
+  font-size: .78rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.user-dashboard-stats-v4 .dashboard-billing-cost-track {
+  height: 5px;
 }

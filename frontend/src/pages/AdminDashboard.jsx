@@ -551,10 +551,6 @@ export default function AdminDashboard() {
                 </div>
                 <div className="admin-user-managed-lock" aria-hidden="true"><LockIcon size={24} /></div>
               </div>
-              <div className="admin-user-managed-notice">
-                <strong>Service user managed</strong>
-                <span>Credentials, passwords, SSH access, URLs and service access settings are private to the service owner. The administrator can monitor the infrastructure resource, but cannot open or manage its access.</span>
-              </div>
               <div className="admin-user-managed-grid">
                 <div><span>Cluster</span><strong>{editor.data.clusterName || editor.data.cluster_name || '—'}</strong></div>
                 <div><span>Owner</span><strong>{editor.data.userName || editor.data.user_name || editor.data.userEmail || editor.data.user_email || '—'}</strong></div>
