@@ -663,6 +663,44 @@ async function updatePublication(config, publication, input) {
   };
 }
 
+async function updatePublicationTargetIp(config, publication, ip) {
+  validateConfig(config);
+  const protocol = ['http', 'tcp', 'udp'].includes(String(publication?.protocol || ''))
+    ? String(publication.protocol)
+    : 'http';
+  const targetPort = Number(publication?.target_port);
+  if (!Number.isInteger(targetPort) || targetPort < 1 || targetPort > 65535) {
+    throw new AppError('Stored Pangolin target port is invalid', HTTP_STATUS.BAD_REQUEST);
+  }
+  if (!publication?.pangolin_target_id) {
+    throw new AppError('Stored Pangolin target ID is missing', HTTP_STATUS.BAD_REQUEST);
+  }
+
+  const targetMethod = protocol === 'http'
+    ? (['http', 'https', 'h2c'].includes(String(publication?.target_method || '').toLowerCase())
+      ? String(publication.target_method).toLowerCase()
+      : config.defaultTargetMethod)
+    : '';
+
+  const targetBody = {
+    siteId: Number(config.siteId),
+    ip: String(ip || '').trim(),
+    mode: protocol,
+    port: targetPort,
+    enabled: true
+  };
+  if (protocol === 'http') targetBody.method = targetMethod;
+  Object.assign(targetBody, targetHealthCheck(protocol, { ip: targetBody.ip, targetPort }, targetMethod));
+
+  await request(config, 'post', `/target/${publication.pangolin_target_id}`, targetBody);
+  return {
+    pangolinTargetId: Number(publication.pangolin_target_id),
+    protocol,
+    targetPort,
+    ip: targetBody.ip
+  };
+}
+
 async function deletePublication(config, publication) {
   if (!publication) return;
   if (publication.pangolin_target_id) {
@@ -698,5 +736,6 @@ module.exports = {
   normalizeSubdomain,
   createPublication,
   updatePublication,
+  updatePublicationTargetIp,
   deletePublication
 };

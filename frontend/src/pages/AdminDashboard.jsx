@@ -310,7 +310,8 @@ export default function AdminDashboard() {
       adminUrl: entry.adminUrl ?? entry.admin_url ?? '',
       manualIp: entry.manualIp ?? entry.manual_ip ?? '',
       sshPort: entry.sshPort ?? entry.ssh_port ?? 22,
-      billable: !!entry.billable
+      billable: !!entry.billable,
+      selfServiceIp: entry.primaryIp || entry.detectedIp || ''
     } : {
       name: '',
       containerId: '',
@@ -390,6 +391,38 @@ export default function AdminDashboard() {
       await load();
     } catch (err) {
       setError(getErrorMessage(err, 'The entry could not be saved.'));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const saveSelfServiceIp = async (event) => {
+    event.preventDefault();
+    if (!editor || editor.type !== 'resource' || editor.mode !== 'edit') return;
+    const ip = String(editor.data.selfServiceIp || '').trim();
+    if (!ip) {
+      setError('Enter the new IPv4 address for this container.');
+      return;
+    }
+    setSaving(true);
+    setError('');
+    setNotice('');
+    try {
+      const response = await adminApi.updateSelfServiceResourceIp(editor.data.id, ip);
+      const updated = response.data?.resource || {};
+      setEditor((current) => current ? {
+        ...current,
+        data: {
+          ...current.data,
+          ...updated,
+          selfServiceIp: updated.primaryIp || ip
+        }
+      } : current);
+      setNotice(response.data?.message || `Container IP changed to ${ip}.`);
+      if (response.data?.warning) setError(response.data.warning);
+      await load();
+    } catch (err) {
+      setError(getErrorMessage(err, 'The Self-service container IP could not be changed.'));
     } finally {
       setSaving(false);
     }
@@ -557,9 +590,29 @@ export default function AdminDashboard() {
                 <div><span>Type</span><strong>{editor.data.type || editor.data.resourceType || editor.data.resource_type || '—'}</strong></div>
                 <div><span>ID</span><strong>{editor.data.containerId || editor.data.container_id || '—'}</strong></div>
                 <div><span>Status</span><strong>{editor.data.status || '—'}</strong></div>
+                <div><span>IP address</span><strong>{editor.data.primaryIp || editor.data.detectedIp || '—'}</strong></div>
                 <div><span>Billing</span><strong>Self-service</strong></div>
               </div>
             </div>
+          </SectionCard>
+          <SectionCard title="Container network" subtitle="Maintenance access for Self-service container networking.">
+            <form className="admin-self-service-ip-form" onSubmit={saveSelfServiceIp}>
+              <div className="admin-self-service-ip-copy">
+                <strong>Change container IP address</strong>
+                <p>The current Self-service prefix, gateway and bridge from this cluster are applied. Existing Pangolin publications are detected and their targets are moved to the new IP automatically.</p>
+              </div>
+              <label>
+                <span>IPv4 address</span>
+                <input
+                  value={editor.data.selfServiceIp || ''}
+                  onChange={(event) => setEditor((current) => ({ ...current, data: { ...current.data, selfServiceIp: event.target.value } }))}
+                  placeholder="10.10.20.10"
+                  inputMode="decimal"
+                  required
+                />
+              </label>
+              <button type="submit" className="btn-primary" disabled={saving}>{saving ? 'Applying…' : 'Change IP'}</button>
+            </form>
           </SectionCard>
           <section className="service-danger-zone admin-service-danger-zone">
             <div className="service-danger-zone-copy">

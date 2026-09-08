@@ -318,6 +318,7 @@ export const adminApi = {
   getResources: () => apiClient.get('/admin/resources'),
   createResource: (data) => apiClient.post('/admin/resources', data),
   updateResource: (resourceId, data) => apiClient.put(`/admin/resources/${resourceId}`, data),
+  updateSelfServiceResourceIp: (resourceId, ip) => apiClient.put(`/admin/resources/${resourceId}/self-service-ip`, { ip }),
   deleteResource: (resourceId) => apiClient.delete(`/admin/resources/${resourceId}`),
   deletePortalResourceEntry: (resourceId) => apiClient.delete(`/admin/resources/${resourceId}/portal-entry`),
   getSettings: () => apiClient.get('/admin/settings'),

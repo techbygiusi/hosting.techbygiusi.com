@@ -12196,22 +12196,18 @@ button:disabled,
 }
 
 
-/* v50 consistent notice spacing */
-.service-detail-page .section-card > .inline-notice:not(:last-child),
-.service-danger-zone-confirm > .inline-notice:not(:last-child),
-.public-access-page > .inline-notice:not(:last-child),
-.public-access-form-card > .inline-notice:not(:last-child),
-.public-access-list-card > .inline-notice:not(:last-child) {
+/* Consistent notice spacing across forms, cards and page sections. */
+.inline-notice:not(:first-child) {
+  margin-top: 14px;
+}
+
+.inline-notice:not(:last-child) {
   margin-bottom: 14px;
 }
 
-.inline-notice + .section-card,
-.inline-notice + .panel-card,
-.inline-notice + .service-detail-history-grid,
-.inline-notice + .public-access-resource-card,
-.inline-notice + .public-access-form-card,
-.inline-notice + .public-access-list-card {
-  margin-top: 14px;
+/* Adjacent notices share one gap instead of doubling it. */
+.inline-notice + .inline-notice {
+  margin-top: 0;
 }
 
 
@@ -13349,4 +13345,136 @@ body.portal-shell-active .admin-side-editor {
 }
 .user-dashboard-stats-v4 .dashboard-billing-cost-track {
   height: 5px;
+}
+
+/* v75: keep dashboard cards readable on medium desktop widths */
+@media (min-width: 1381px) and (max-width: 1900px) {
+  .user-dashboard-hero-v4,
+  .user-dashboard-stats-v4 {
+    grid-column: span 6;
+  }
+
+  .user-dashboard-stats-v4 {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  .user-dashboard-stats-v4 > .stat-card:nth-child(-n + 3) {
+    grid-column: span 2;
+  }
+
+  .user-dashboard-stats-v4 .resource-usage-stat-card,
+  .user-dashboard-stats-v4 .dashboard-billing-card {
+    grid-column: span 3;
+  }
+
+  .user-dashboard-stats-v4 .stat-card,
+  .user-dashboard-stats-v4 .dashboard-billing-card {
+    padding: 20px;
+  }
+
+  .user-dashboard-stats-v4 .dashboard-billing-card-head {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    column-gap: 9px;
+  }
+
+  .user-dashboard-stats-v4 .dashboard-billing-card-head .stat-label {
+    min-width: 0;
+  }
+}
+
+@media (min-width: 1381px) and (max-width: 1580px) {
+  .user-dashboard-stats-v4 {
+    gap: 12px;
+  }
+
+  .user-dashboard-stats-v4 .stat-card,
+  .user-dashboard-stats-v4 .dashboard-billing-card {
+    padding: 18px;
+  }
+}
+
+/* v77: keep state/empty cards visually separated from adjacent form content */
+.section-card > .page-state-clean:not(:first-child),
+.section-card > .empty-state-clean:not(:first-child) {
+  margin-top: 14px;
+}
+.section-card > .page-state-clean:not(:last-child),
+.section-card > .empty-state-clean:not(:last-child) {
+  margin-bottom: 14px;
+}
+.section-card > .clean-form-grid + .page-state-clean,
+.section-card > .clean-form-grid + .empty-state-clean,
+.section-card > form + .page-state-clean,
+.section-card > form + .empty-state-clean {
+  margin-top: 14px;
+}
+
+
+/* v78 admin maintenance for Self-service container network addresses */
+.admin-self-service-ip-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(230px, 360px) auto;
+  align-items: end;
+  gap: 18px;
+}
+
+.admin-self-service-ip-copy {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+}
+
+.admin-self-service-ip-copy strong {
+  color: var(--portal-heading);
+  font-size: .94rem;
+}
+
+.admin-self-service-ip-copy p {
+  margin: 0;
+  max-width: 760px;
+  color: var(--portal-text-soft);
+  font-size: .8rem;
+  line-height: 1.5;
+}
+
+.admin-self-service-ip-form label {
+  min-width: 0;
+  display: grid;
+  gap: 7px;
+}
+
+.admin-self-service-ip-form label > span {
+  color: var(--portal-text-soft);
+  font-size: .78rem;
+  font-weight: 700;
+}
+
+.admin-self-service-ip-form input {
+  width: 100%;
+}
+
+.admin-self-service-ip-form .btn-primary {
+  min-width: 118px;
+}
+
+@media (max-width: 1080px) {
+  .admin-self-service-ip-form {
+    grid-template-columns: 1fr minmax(220px, 320px);
+  }
+  .admin-self-service-ip-copy {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 680px) {
+  .admin-self-service-ip-form {
+    grid-template-columns: 1fr;
+  }
+  .admin-self-service-ip-copy {
+    grid-column: auto;
+  }
+  .admin-self-service-ip-form .btn-primary {
+    width: 100%;
+  }
 }

@@ -1763,6 +1763,134 @@ async function clonePreparedLxcTemplate(clusterUrl, apiToken, sourceNode, source
   }
 }
 
+function getIpv4PrefixFromLxcNetwork(value, fallback = 24) {
+  const options = parseKeyValueOptions(value);
+  const match = String(options.ip || '').match(/\/(\d{1,2})$/);
+  const parsed = match ? Number(match[1]) : Number(fallback);
+  return Number.isInteger(parsed) && parsed >= 8 && parsed <= 32 ? parsed : 24;
+}
+
+function buildUpdatedLxcNet0(currentValue, options = {}) {
+  const current = parseKeyValueOptions(currentValue);
+  const prefix = Number(options.ipPrefix);
+  const normalizedPrefix = Number.isInteger(prefix) && prefix >= 8 && prefix <= 32
+    ? prefix
+    : getIpv4PrefixFromLxcNetwork(currentValue, 24);
+  const forced = {
+    name: current.name || 'eth0',
+    bridge: String(options.bridge || current.bridge || 'vmbr0').trim(),
+    ip: `${String(options.ip || '').trim()}/${normalizedPrefix}`,
+    gw: String(options.gateway || current.gw || '').trim(),
+    firewall: '1'
+  };
+  if (!forced.gw) delete forced.gw;
+
+  const preferredOrder = ['name', 'bridge', 'hwaddr', 'ip', 'gw', 'ip6', 'firewall', 'tag', 'trunks', 'rate', 'mtu', 'type'];
+  const combined = { ...current, ...forced };
+  const keys = [
+    ...preferredOrder.filter(key => Object.prototype.hasOwnProperty.call(combined, key)),
+    ...Object.keys(combined).filter(key => !preferredOrder.includes(key))
+  ];
+  return keys.map((key) => combined[key] === true ? key : `${key}=${combined[key]}`).join(',');
+}
+
+/**
+ * Change the IPv4 address of a portal-managed Self-service LXC. The current
+ * cluster Self-service network settings are applied, firewall isolation is
+ * rebuilt, and a running container is restarted so the new network becomes
+ * active immediately.
+ */
+async function updateSelfServiceLxcNetwork(clusterUrl, apiToken, node, vmid, options = {}) {
+  const client = createProxmoxClient(clusterUrl, apiToken);
+  const configResponse = await client.get(`/api2/json/nodes/${node}/lxc/${vmid}/config`);
+  ensureSuccess(configResponse, 'LXC network configuration could not be read:');
+  const currentConfig = configResponse.data?.data || {};
+  const originalNet0 = String(currentConfig.net0 || '').trim();
+  if (!originalNet0) throw new Error('The Self-service container has no net0 configuration');
+
+  const currentOptions = parseKeyValueOptions(originalNet0);
+  const oldIp = stripCidrAddress(currentOptions.ip || '');
+  const oldPrefix = getIpv4PrefixFromLxcNetwork(originalNet0, options.ipPrefix || 24);
+  const newIp = stripCidrAddress(options.ip || '');
+  if (!isUsableIpv4(newIp)) throw new Error('The new container IP is not a valid IPv4 address');
+
+  const nextNet0 = buildUpdatedLxcNet0(originalNet0, {
+    ip: newIp,
+    ipPrefix: options.ipPrefix,
+    gateway: options.gateway,
+    bridge: options.bridge
+  });
+  const wasRunning = String(options.status || '').toLowerCase() === 'running';
+  let stoppedForChange = false;
+  let networkChanged = false;
+
+  try {
+    if (wasRunning) {
+      const stopResponse = await client.post(`/api2/json/nodes/${node}/lxc/${vmid}/status/stop`, {});
+      ensureSuccess(stopResponse, 'Container could not be stopped before changing its IP address:');
+      await waitForProxmoxTask(client, node, stopResponse.data?.data || '', 120000);
+      stoppedForChange = true;
+    }
+
+    const networkResponse = await client.put(`/api2/json/nodes/${node}/lxc/${vmid}/config`, { net0: nextNet0 });
+    ensureSuccess(networkResponse, 'Container IP address could not be applied:');
+    networkChanged = true;
+
+    await clearContainerFirewallRules(client, node, vmid);
+    const isolation = await applyInternetOnlyIsolation(client, node, vmid, {
+      ip: newIp,
+      ipPrefix: Number(options.ipPrefix) || getIpv4PrefixFromLxcNetwork(nextNet0, 24),
+      dnsServers: options.dnsServers,
+      blockedDestinations: options.blockedDestinations || []
+    });
+
+    if (wasRunning) {
+      const startResponse = await client.post(`/api2/json/nodes/${node}/lxc/${vmid}/status/start`, {});
+      ensureSuccess(startResponse, 'Container could not be restarted after changing its IP address:');
+      await waitForProxmoxTask(client, node, startResponse.data?.data || '', 120000);
+      stoppedForChange = false;
+    }
+
+    return {
+      node,
+      vmid: Number(vmid),
+      oldIp,
+      ip: newIp,
+      restarted: wasRunning,
+      net0: nextNet0,
+      isolation: 'internet-only',
+      dnsServers: isolation.dnsServers,
+      blockedDestinations: isolation.blockedDestinations
+    };
+  } catch (error) {
+    if (networkChanged) {
+      try {
+        await client.put(`/api2/json/nodes/${node}/lxc/${vmid}/config`, { net0: originalNet0 });
+        await clearContainerFirewallRules(client, node, vmid);
+        if (oldIp) {
+          await applyInternetOnlyIsolation(client, node, vmid, {
+            ip: oldIp,
+            ipPrefix: oldPrefix,
+            dnsServers: options.dnsServers,
+            blockedDestinations: options.blockedDestinations || []
+          });
+        }
+      } catch (rollbackError) {
+        console.error(`Failed to restore LXC ${vmid} network configuration:`, rollbackError.message);
+      }
+    }
+    if (wasRunning && stoppedForChange) {
+      try {
+        const restartResponse = await client.post(`/api2/json/nodes/${node}/lxc/${vmid}/status/start`, {});
+        ensureSuccess(restartResponse, 'Container rollback restart failed:');
+      } catch (restartError) {
+        console.error(`Failed to restart LXC ${vmid} after network update failure:`, restartError.message);
+      }
+    }
+    throw error;
+  }
+}
+
 /**
  * Destroy a VM or LXC and return the task UPID. Callers must verify that
  * the target is a portal-managed Self-service machine before using this.
@@ -1834,5 +1962,6 @@ module.exports = {
   clonePreparedLxcTemplate,
   createQemuVm,
   destroyProxmoxResource,
+  updateSelfServiceLxcNetwork,
   POWER_ACTIONS
 };

@@ -9,7 +9,7 @@ const { get, run, all } = require('../config/database');
 const { adminMiddleware } = require('../middleware/auth');
 const { AppError } = require('../middleware/errorHandler');
 const { HTTP_STATUS, ROLES } = require('../config/constants');
-const { getAllContainers, getClusterResources, testConnection, getCapabilities, getClusterFirewallStatus, getOnlineNodes, getNodeTemplates, getNodeIsos, getNodeStorages, getClusterDashboardStats, destroyProxmoxResource } = require('../services/proxmoxService');
+const { getAllContainers, getClusterResources, testConnection, getCapabilities, getClusterFirewallStatus, getClusterNodeAddresses, getOnlineNodes, getNodeTemplates, getNodeIsos, getNodeStorages, getClusterDashboardStats, destroyProxmoxResource, updateSelfServiceLxcNetwork } = require('../services/proxmoxService');
 const { enrichResources } = require('../services/resourceService');
 const { sendEmail, testSmtpConnection, initializeEmailService, encryptString, decryptString } = require('../services/emailService');
 const { welcomeTemplate, maintenanceTemplate, testMailTemplate } = require('../services/emailTemplates');
@@ -22,6 +22,7 @@ const {
   publicConfig: getPublicPangolinConfig,
   testPangolinConnection,
   discoverPangolin,
+  updatePublicationTargetIp,
   deletePublication
 } = require('../services/pangolinService');
 const { syncClusterTemplates, ensureClusterTemplates, listClusterTemplates } = require('../services/templateService');
@@ -1386,6 +1387,154 @@ router.put('/resources/:id', async (req, res, next) => {
     const rows = await getResourceRows(resourceId);
     const resources = await enrichResources(rows);
     res.json({ resource: resources[0] });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.put('/resources/:id/self-service-ip', async (req, res, next) => {
+  try {
+    const resourceId = req.params.id;
+    const newIp = normalizeManualIpv4(req.body?.ip);
+    if (!newIp) throw new AppError('A new IPv4 address is required', HTTP_STATUS.BAD_REQUEST);
+
+    const resource = await get(`
+      SELECT
+        r.*,
+        pc.name AS cluster_name,
+        pc.url AS cluster_url,
+        pc.api_token,
+        pc.ip_start,
+        pc.ip_end,
+        pc.ip_prefix,
+        pc.gateway,
+        pc.bridge,
+        pm.id AS provisioned_id,
+        pm.ip AS provisioned_ip,
+        pm.user_id AS provisioned_user_id
+      FROM resources r
+      JOIN proxmox_clusters pc ON pc.id = r.cluster_id
+      LEFT JOIN provisioned_machines pm
+        ON pm.cluster_id = r.cluster_id
+       AND CAST(pm.vmid AS TEXT) = CAST(r.container_id AS TEXT)
+      WHERE r.id = ?
+    `, [resourceId]);
+
+    if (!resource) throw new AppError('Resource not found', HTTP_STATUS.NOT_FOUND);
+    const selfService = !!resource.provisioned_id
+      && String(resource.provisioned_user_id || '') === String(resource.user_id || '');
+    if (!selfService) {
+      throw new AppError('Only Self-service containers use this IP maintenance action', HTTP_STATUS.BAD_REQUEST);
+    }
+
+    const reserved = await all(
+      'SELECT id, ip FROM provisioned_machines WHERE cluster_id = ? AND id != ? AND ip IS NOT NULL',
+      [resource.cluster_id, resource.provisioned_id]
+    );
+    const collision = reserved.find((row) => String(row.ip || '').split('/')[0].trim() === newIp);
+    if (collision) throw new AppError('This IP address is already assigned to another Self-service container', HTTP_STATUS.CONFLICT);
+
+    const apiToken = decrypt(resource.api_token);
+    const capabilities = await getCapabilities(resource.cluster_url, apiToken);
+    if (!capabilities.canManageFirewall || !capabilities.canVerifyFirewall) {
+      throw new AppError('The Proxmox API token is missing the network/firewall permissions required to change Self-service IP addresses', HTTP_STATUS.FORBIDDEN);
+    }
+
+    const liveResources = await getClusterResources(resource.cluster_url, apiToken);
+    const live = liveResources.find((item) => String(item.vmid) === String(resource.container_id));
+    if (!live) throw new AppError('The Self-service container was not found in Proxmox', HTTP_STATUS.NOT_FOUND);
+    if (String(live.type || '').toLowerCase() !== 'lxc') {
+      throw new AppError('Self-service IP maintenance is currently available for LXC containers only', HTTP_STATUS.BAD_REQUEST);
+    }
+    if (String(live.status || '').toLowerCase() === 'running' && !capabilities.canPower) {
+      throw new AppError('The Proxmox API token needs VM.PowerMgmt to restart a running container after changing its IP address', HTTP_STATUS.FORBIDDEN);
+    }
+
+    const blockedDestinations = new Set(
+      reserved.map((row) => String(row.ip || '').split('/')[0].trim()).filter(Boolean)
+    );
+    const nodeAddresses = await getClusterNodeAddresses(resource.cluster_url, apiToken).catch(() => []);
+    nodeAddresses.forEach((ip) => blockedDestinations.add(ip));
+
+    const networkResult = await updateSelfServiceLxcNetwork(
+      resource.cluster_url,
+      apiToken,
+      live.node,
+      resource.container_id,
+      {
+        status: live.status,
+        ip: newIp,
+        ipPrefix: resource.ip_prefix ?? 24,
+        gateway: resource.gateway || '',
+        bridge: resource.bridge || 'vmbr0',
+        blockedDestinations: Array.from(blockedDestinations)
+      }
+    );
+
+    await run(
+      'UPDATE provisioned_machines SET ip = ? WHERE id = ?',
+      [newIp, resource.provisioned_id]
+    );
+
+    const publications = await all(
+      'SELECT * FROM resource_publications WHERE resource_id = ? ORDER BY id ASC',
+      [resourceId]
+    );
+    let pangolinUpdated = 0;
+    const pangolinErrors = [];
+
+    if (publications.length > 0) {
+      const publishingConfig = await getPangolinConfig(resource.cluster_id);
+      for (const publication of publications) {
+        try {
+          await updatePublicationTargetIp(publishingConfig, publication, newIp);
+          await run(
+            `UPDATE resource_publications
+             SET status = 'active', last_error = '', updated_at = CURRENT_TIMESTAMP
+             WHERE id = ?`,
+            [publication.id]
+          );
+          pangolinUpdated += 1;
+        } catch (publicationError) {
+          const message = String(publicationError?.message || 'Pangolin target update failed').slice(0, 1000);
+          pangolinErrors.push({ id: publication.id, message });
+          await run(
+            `UPDATE resource_publications
+             SET status = 'error', last_error = ?, updated_at = CURRENT_TIMESTAMP
+             WHERE id = ?`,
+            [message, publication.id]
+          );
+        }
+      }
+    }
+
+    const oldIp = String(resource.provisioned_ip || '').split('/')[0].trim();
+    await logAudit(
+      req,
+      'admin.selfservice.ip.change',
+      `resource:${resourceId}`,
+      `${resource.name || resource.container_id}: ${oldIp || 'unknown'} -> ${newIp}; Pangolin ${pangolinUpdated}/${publications.length}`
+    );
+
+    const rows = await getResourceRows(resourceId);
+    const enriched = await enrichResources(rows);
+    const failedCount = pangolinErrors.length;
+    res.json({
+      resource: enriched[0],
+      network: networkResult,
+      pangolin: {
+        found: publications.length,
+        updated: pangolinUpdated,
+        failed: failedCount,
+        errors: pangolinErrors
+      },
+      message: publications.length
+        ? `Container IP changed to ${newIp}. ${pangolinUpdated} Pangolin target${pangolinUpdated === 1 ? '' : 's'} updated.`
+        : `Container IP changed to ${newIp}.`,
+      warning: failedCount
+        ? `${failedCount} Pangolin target${failedCount === 1 ? '' : 's'} could not be updated automatically. The publication is marked with an error.`
+        : ''
+    });
   } catch (err) {
     next(err);
   }
