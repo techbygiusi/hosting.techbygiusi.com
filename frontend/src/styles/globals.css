@@ -13452,6 +13452,39 @@ body.portal-shell-active .admin-side-editor {
 
 .admin-self-service-ip-form input {
   width: 100%;
+  min-height: var(--control-height);
+  box-sizing: border-box;
+  border: 1px solid var(--portal-border-strong);
+  border-radius: var(--control-radius);
+  background: var(--portal-input-bg);
+  color: var(--portal-text);
+  padding: 0 14px;
+  font: inherit;
+  outline: none;
+  transition:
+    border-color var(--control-transition),
+    box-shadow var(--control-transition),
+    background-color var(--control-transition),
+    color var(--control-transition);
+}
+
+.admin-self-service-ip-form input::placeholder {
+  color: var(--portal-text-soft);
+  opacity: .72;
+}
+
+.admin-self-service-ip-form input:hover:not(:disabled) {
+  border-color: var(--portal-primary);
+}
+
+.admin-self-service-ip-form input:focus {
+  border-color: var(--portal-primary);
+  box-shadow: var(--control-focus-ring);
+}
+
+.admin-self-service-ip-form input:disabled {
+  opacity: .6;
+  cursor: not-allowed;
 }
 
 .admin-self-service-ip-form .btn-primary {
