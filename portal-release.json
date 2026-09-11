@@ -1,0 +1,4 @@
+{
+  "version": "v85",
+  "commit": "Add release rollback history with commit metadata and refresh README"
+}

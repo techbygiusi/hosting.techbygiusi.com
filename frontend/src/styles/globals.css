@@ -3957,6 +3957,126 @@ select {
   overflow-wrap: anywhere;
 }
 
+.system-update-package-card {
+  overflow: hidden;
+}
+
+.system-update-package-card .section-card-header {
+  margin-bottom: 12px;
+}
+
+.system-update-package-layout {
+  display: grid;
+  grid-template-columns: minmax(320px, 1.15fr) minmax(360px, .85fr);
+  gap: 24px;
+  align-items: end;
+}
+
+.system-update-package-copy {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+
+.system-update-package-copy > p {
+  margin: 0;
+  color: var(--portal-text-soft);
+  line-height: 1.55;
+}
+
+.system-update-package-state {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  color: var(--portal-text-soft);
+  font-size: .78rem;
+}
+
+.system-update-package-state strong {
+  color: var(--portal-heading);
+}
+
+.system-update-package-control {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px 12px;
+  align-items: end;
+}
+
+.system-update-package-control > label {
+  grid-column: 1 / -1;
+  color: var(--portal-heading);
+  font-weight: 700;
+}
+
+.system-update-package-control input[type="file"] {
+  width: 100%;
+  min-width: 0;
+  height: 46px;
+  padding: 5px 7px;
+  border-radius: 12px;
+  border: 1px solid var(--portal-border);
+  background: var(--portal-bg-soft);
+  color: var(--portal-text);
+  font: inherit;
+}
+
+.system-update-package-control input[type="file"]::file-selector-button {
+  height: 34px;
+  margin-right: 10px;
+  padding: 0 12px;
+  border: 1px solid var(--portal-border);
+  border-radius: 9px;
+  background: var(--portal-surface);
+  color: var(--portal-heading);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.system-update-package-control .btn-primary {
+  height: 46px;
+  min-width: 150px;
+}
+
+.system-update-package-file-meta {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+  color: var(--portal-text-soft);
+  font-size: .72rem;
+}
+
+.system-update-package-file-meta span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.system-update-upload-track {
+  grid-column: 1 / -1;
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--portal-bg-soft);
+  border: 1px solid var(--portal-border);
+}
+
+.system-update-upload-track > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--portal-primary);
+  transition: width .2s ease;
+}
+
+.system-update-action-hint {
+  color: var(--portal-text-soft);
+  margin-left: 10px;
+}
+
 
 .host-timezone-control {
   width: 100%;
@@ -9608,6 +9728,126 @@ select {
   overflow-wrap: anywhere;
 }
 
+.system-update-package-card {
+  overflow: hidden;
+}
+
+.system-update-package-card .section-card-header {
+  margin-bottom: 12px;
+}
+
+.system-update-package-layout {
+  display: grid;
+  grid-template-columns: minmax(320px, 1.15fr) minmax(360px, .85fr);
+  gap: 24px;
+  align-items: end;
+}
+
+.system-update-package-copy {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+
+.system-update-package-copy > p {
+  margin: 0;
+  color: var(--portal-text-soft);
+  line-height: 1.55;
+}
+
+.system-update-package-state {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  color: var(--portal-text-soft);
+  font-size: .78rem;
+}
+
+.system-update-package-state strong {
+  color: var(--portal-heading);
+}
+
+.system-update-package-control {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px 12px;
+  align-items: end;
+}
+
+.system-update-package-control > label {
+  grid-column: 1 / -1;
+  color: var(--portal-heading);
+  font-weight: 700;
+}
+
+.system-update-package-control input[type="file"] {
+  width: 100%;
+  min-width: 0;
+  height: 46px;
+  padding: 5px 7px;
+  border-radius: 12px;
+  border: 1px solid var(--portal-border);
+  background: var(--portal-bg-soft);
+  color: var(--portal-text);
+  font: inherit;
+}
+
+.system-update-package-control input[type="file"]::file-selector-button {
+  height: 34px;
+  margin-right: 10px;
+  padding: 0 12px;
+  border: 1px solid var(--portal-border);
+  border-radius: 9px;
+  background: var(--portal-surface);
+  color: var(--portal-heading);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.system-update-package-control .btn-primary {
+  height: 46px;
+  min-width: 150px;
+}
+
+.system-update-package-file-meta {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+  color: var(--portal-text-soft);
+  font-size: .72rem;
+}
+
+.system-update-package-file-meta span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.system-update-upload-track {
+  grid-column: 1 / -1;
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--portal-bg-soft);
+  border: 1px solid var(--portal-border);
+}
+
+.system-update-upload-track > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--portal-primary);
+  transition: width .2s ease;
+}
+
+.system-update-action-hint {
+  color: var(--portal-text-soft);
+  margin-left: 10px;
+}
+
 
 .host-timezone-control {
   width: 100%;
@@ -13705,4 +13945,47 @@ body.portal-shell-active .admin-side-editor {
   .hermes-permission-grid { grid-template-columns: 1fr; }
   .hermes-token-actions { align-items: stretch; flex-direction: column; }
   .hermes-token-actions .btn-secondary { width: 100%; }
+}
+
+/* Local package update controls */
+@media (max-width: 1100px) {
+  .system-update-package-layout { grid-template-columns: 1fr; align-items: stretch; }
+}
+@media (max-width: 700px) {
+  .system-update-package-control { grid-template-columns: 1fr; }
+  .system-update-package-control > label,
+  .system-update-package-file-meta,
+  .system-update-upload-track { grid-column: 1; }
+  .system-update-package-control .btn-primary { width: 100%; }
+}
+
+
+/* Portal package version history */
+.system-update-history-card { margin-top: 14px; }
+.system-update-history-head { display: flex; align-items: center; justify-content: space-between; gap: 18px; margin-bottom: 14px; }
+.system-update-history-head p { margin: 0; color: var(--muted); font-size: .9rem; }
+.system-update-history-head > span { flex: 0 0 auto; color: var(--muted); font-size: .82rem; font-weight: 700; }
+.system-update-history-list { display: grid; gap: 8px; }
+.system-update-history-row { display: grid; grid-template-columns: minmax(180px, .8fr) minmax(260px, 1.8fr) minmax(190px, .8fr) auto; align-items: center; gap: 14px; min-width: 0; padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--radius-md); background: color-mix(in srgb, var(--panel) 94%, var(--accent) 6%); }
+.system-update-history-row.current { border-color: color-mix(in srgb, var(--success) 42%, var(--line)); }
+.system-update-history-version { min-width: 0; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.system-update-history-version strong { font-size: .95rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.system-update-history-commit { min-width: 0; display: flex; align-items: center; gap: 7px; overflow: hidden; white-space: nowrap; }
+.system-update-history-commit span { flex: 0 0 auto; color: var(--muted); font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; }
+.system-update-history-commit strong { min-width: 0; color: var(--text); font-size: .86rem; font-weight: 650; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.system-update-history-meta { display: flex; flex-direction: column; gap: 2px; min-width: 0; color: var(--muted); font-size: .78rem; }
+.system-update-history-action { display: flex; align-items: center; justify-content: flex-end; gap: 8px; min-width: 88px; }
+.system-update-history-action small { color: var(--danger); font-size: .72rem; }
+@media (max-width: 1450px) {
+  .system-update-history-row { grid-template-columns: minmax(165px, .8fr) minmax(220px, 1.45fr) minmax(155px, .7fr) auto; gap: 10px; padding: 11px 12px; }
+}
+@media (max-width: 1120px) {
+  .system-update-history-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .system-update-history-commit, .system-update-history-meta { grid-column: 1 / -1; }
+  .system-update-history-action { grid-column: 2; grid-row: 1; }
+}
+@media (max-width: 760px) {
+  .system-update-history-head { align-items: flex-start; flex-direction: column; gap: 6px; }
+  .system-update-history-row { grid-template-columns: 1fr; }
+  .system-update-history-action { grid-column: 1; grid-row: auto; justify-content: flex-start; }
 }

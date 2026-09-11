@@ -26,7 +26,7 @@ const {
   deletePublication
 } = require('../services/pangolinService');
 const { syncClusterTemplates, ensureClusterTemplates, listClusterTemplates } = require('../services/templateService');
-const { getSystemUpdateStatus, startSystemUpdate } = require('../services/systemUpdateService');
+const { getSystemUpdateStatus, startSystemUpdate, startPortalRollback, savePortalUpdatePackage, MAX_PACKAGE_BYTES } = require('../services/systemUpdateService');
 const { getBillingSettings, saveBillingSettings, getBillingSummary, deleteBillingHistoryIfZeroCost } = require('../services/billingService');
 const { getClusterHealthDisplayConfig, saveClusterHealthDisplayConfig } = require('../services/clusterHealthDisplayService');
 const { getHermesConfig, saveHermesConfig, regeneratePortalToken, buildConnectionCommand, testHermesConnection, sendHermesChat } = require('../services/hermesService');
@@ -2267,7 +2267,7 @@ async function recordSystemUpdateResult(update) {
     );
 
     const labels = {
-      os: 'Debian update',
+      os: 'Host update',
       portal: 'Portal update',
       timezone: 'Host timezone change'
     };
@@ -2313,6 +2313,58 @@ router.get('/system-update/status', async (req, res, next) => {
   }
 });
 
+router.post('/system-update/package', express.raw({
+  type: ['application/zip', 'application/x-zip-compressed', 'application/octet-stream'],
+  limit: MAX_PACKAGE_BYTES
+}), async (req, res, next) => {
+  try {
+    const filename = String(req.get('x-package-filename') || 'hosting-portal-package.zip');
+    const packageInfo = savePortalUpdatePackage(req.body, filename, req.user?.email || req.user?.id || 'admin');
+    await logAudit(req, 'system_update.package_upload', `system:portal-package:${packageInfo.id}`, JSON.stringify({
+      version: packageInfo.version || '',
+      filename: packageInfo.originalFilename,
+      sizeBytes: packageInfo.sizeBytes,
+      sha256: packageInfo.sha256
+    }));
+    res.status(HTTP_STATUS.CREATED).json({ package: packageInfo, update: getSystemUpdateStatus() });
+  } catch (err) {
+    if (err.code === 'INVALID_PACKAGE') {
+      return next(new AppError(err.message || 'Invalid portal package', HTTP_STATUS.BAD_REQUEST));
+    }
+    if (err.code === 'PACKAGE_TOO_LARGE' || err.type === 'entity.too.large') {
+      return next(new AppError('Portal package is too large', HTTP_STATUS.BAD_REQUEST));
+    }
+    next(err);
+  }
+});
+
+router.post('/system-update/rollback', async (req, res, next) => {
+  try {
+    const packageId = String(req.body?.packageId || '').trim();
+    if (!packageId) throw new AppError('Choose a portal version to roll back to', HTTP_STATUS.BAD_REQUEST);
+    let update;
+    try {
+      update = startPortalRollback(packageId, req.user?.email || req.user?.id || 'admin');
+    } catch (err) {
+      if (err.code === 'HELPER_MISSING') throw new AppError('The host updater helper is not installed. Run ./setup-updater.sh as root once in /opt/hosting.techbygiusi.com.', HTTP_STATUS.SERVICE_UNAVAILABLE);
+      if (err.code === 'HELPER_OUTDATED') throw new AppError('The host updater helper must be refreshed for local package updates. Run ./setup-updater.sh as root again in /opt/hosting.techbygiusi.com.', HTTP_STATUS.SERVICE_UNAVAILABLE);
+      if (err.code === 'ALREADY_RUNNING') throw new AppError('Another system update is already running', HTTP_STATUS.CONFLICT);
+      if (err.code === 'ROLLBACK_PACKAGE_NOT_FOUND') throw new AppError('The selected rollback version was not found', HTTP_STATUS.NOT_FOUND);
+      if (err.code === 'ROLLBACK_CURRENT_VERSION') throw new AppError('The selected portal version is already installed', HTTP_STATUS.BAD_REQUEST);
+      if (err.code === 'PACKAGE_UNAVAILABLE') throw new AppError('The selected rollback package is no longer available on disk', HTTP_STATUS.BAD_REQUEST);
+      throw err;
+    }
+    await logAudit(req, 'system_update.rollback', `system:portal:${update.id}`, JSON.stringify({
+      packageId,
+      version: update.package?.version || '',
+      commit: update.package?.commit || ''
+    }));
+    res.status(HTTP_STATUS.ACCEPTED).json({ update });
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.post('/system-update/:type', async (req, res, next) => {
   try {
     const type = String(req.params.type || '').toLowerCase();
@@ -2327,7 +2379,12 @@ router.post('/system-update/:type', async (req, res, next) => {
         throw new AppError('Another system update is already running', HTTP_STATUS.CONFLICT);
       }
       if (err.code === 'HELPER_OUTDATED') {
-        throw new AppError('The host updater helper must be refreshed. Run ./setup-updater.sh as root again in /opt/hosting.techbygiusi.com before starting another system update.', HTTP_STATUS.SERVICE_UNAVAILABLE);
+        throw new AppError(type === 'portal'
+          ? 'The host updater helper must be refreshed for local package updates. Run ./setup-updater.sh as root again in /opt/hosting.techbygiusi.com.'
+          : 'The host updater helper must be refreshed. Run ./setup-updater.sh as root again in /opt/hosting.techbygiusi.com before starting another system update.', HTTP_STATUS.SERVICE_UNAVAILABLE);
+      }
+      if (err.code === 'NO_PORTAL_PACKAGE') {
+        throw new AppError('Upload a portal package before starting the portal update', HTTP_STATUS.BAD_REQUEST);
       }
       if (err.code === 'INVALID_TIMEZONE') {
         throw new AppError('Invalid host timezone', HTTP_STATUS.BAD_REQUEST);
@@ -2339,7 +2396,7 @@ router.post('/system-update/:type', async (req, res, next) => {
     }
     const auditDetail = type === 'timezone'
       ? `Host timezone change requested: ${String(req.body?.timezone || '').trim()}`
-      : `${type === 'os' ? 'Debian update' : 'Portal update'} requested`;
+      : `${type === 'os' ? 'Host update' : 'Portal update'} requested`;
     await logAudit(req, 'system_update.start', `system:${type}:${update.id}`, auditDetail);
     res.status(HTTP_STATUS.ACCEPTED).json({ update });
   } catch (err) {

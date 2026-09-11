@@ -1,74 +1,37 @@
 # Hosting Portal
 
-Hosting Portal is a self-hosted customer portal for Proxmox environments. It combines service administration, secure user access, automated LXC provisioning and public service publishing in one responsive web interface. The application uses a React frontend, an Express backend and SQLite storage.
+Hosting Portal is a self-hosted web portal for managing services running on Proxmox. It provides a dedicated administrator area and a simple user-facing interface for assigned services, self-service containers, access links, billing, documentation and browser-based administration.
 
-## Features
+## Portal overview
 
-### Administration
+### User experience
 
-- Manage portal users, groups and administrator permissions.
-- Connect and manage multiple Proxmox clusters.
-- Assign existing virtual machines and containers to users or groups.
-- Configure service names, descriptions, tags and access permissions.
-- Manage SMTP settings, password resets, maintenance tasks and audit logs.
-- Organize administrator settings into separate account and hosting sections.
-- Enable per-administrator email alerts for unavailable Proxmox clusters, nodes and Pangolin.
-- Validate required Proxmox API token permissions directly from the portal.
+Users can view the services assigned to them, check their current state and resource usage, open configured website or management links, and use available service controls. Supported services can also provide browser console access, credentials and additional service information.
 
-### User Portal
+The dashboard summarizes running and stopped services, resource usage and current billing information in one place. Personal settings such as language, appearance, profile information and notifications are available from the account area.
 
-- View assigned services with live status refresh after power actions.
-- Start, stop, restart and delete services according to the assigned permissions.
-- Open service details, task progress and a full-page browser console with a softer Nord Frost accent, secure server-side SSH password paste, start controls and SSH-ready reconnect checks after starts or reboots.
-- Store service credentials, select one credential explicitly for the SSH console and manage management-page access information.
-- Upload, replace and remove a profile picture from the Settings page.
-- Change the account email address from the Settings page.
-- Change the portal account password from the Settings page.
-- Send a test notification email directly from the user Settings page.
-- Use a responsive interface with English and German translations and light or dark themes.
+### Self-service containers
 
-### Self-Service LXC Provisioning
+When enabled for a cluster, users can create their own LXC containers from administrator-provided templates. Available CPU, memory and storage options are controlled by the portal configuration. Self-service containers receive their network configuration automatically and appear directly in the user's service list after provisioning.
 
-- Allow users to create LXC containers from approved Proxmox CT archives or prepared LXC templates.
-- Create prepared templates as full clones while preserving the configured portal tags.
-- Assign the next available VMID and IPv4 address from administrator-defined pools, checking each IP with ICMP before reservation and skipping addresses that respond.
-- Apply configurable CPU, memory, disk and storage limits.
-- Configure hostname, root password, network, gateway and firewall rules during provisioning.
-- Show live provisioning progress and automatically clean up completed jobs.
+### Public access
 
-### Cluster Health Display
-
-- Configure a dedicated 800×480 kiosk dashboard from the administrator portal.
-- Build the display on an 8×4 drag-and-drop tile grid with reusable cluster health widgets.
-- Choose the source Proxmox cluster independently for each widget.
-- Show cluster state, CPU, memory, storage, node health, uptime and a clock.
-- Use the public read-only `/cluster-health` route on a directly attached monitoring display.
-- Configure light/dark appearance, display language and refresh interval without editing code.
-
-### Public Access
-
-- Publish services through the Pangolin Integration API.
-- Create multiple HTTP, TCP and UDP publications for the same service.
-- Use configurable port policies for HTTP, TCP and UDP publications.
-- Map any internal TCP or UDP service port to a separate administrator-controlled public port.
-- Select the backend protocol Pangolin uses to reach an HTTP service.
-- Manage public website and management-page links from one service dialog.
-- Use a manual public website link when Pangolin publishing is unavailable.
+Supported self-service containers can publish HTTP, TCP and UDP services through the portal when Public Access is enabled for their cluster. Website, management and port-based publications can be managed from the user area without exposing the underlying infrastructure configuration.
 
 ### Wiki
 
-- Provide an administrator-managed knowledge base inside the user portal.
-- Organize articles in nested folders and move them between folders with a dedicated drag handle.
-- Write English and German Markdown articles with independent publication states.
-- Use a full-page Markdown editor with formatting tools, slash commands, list continuation, indentation shortcuts, synchronized split preview and local draft recovery.
-- Upload, paste or drag images into an article and control their alignment.
-- Keep wiki articles and uploaded images in persistent backend storage.
-- Search published articles and automatically fall back to the available language.
+The integrated Wiki provides English and German documentation directly inside the portal. Administrators can organize articles in folders, edit Markdown content and publish each language independently. Users only see the documentation that has been published for them.
 
-### Security
+### Administration
 
-- Encrypt Proxmox API tokens, passwords and stored secrets at rest.
-- Restrict actions according to portal roles and assigned service permissions.
-- Apply individual isolation rules to newly provisioned containers without changing the global Proxmox datacenter firewall.
-- Keep console credentials and backend connection details on the server side.
-- Record administrative and user actions in the audit log.
+Administrators can manage users, groups, services, clusters, templates, Self-service, Public Access, billing, maintenance, email, system updates and audit information. Existing Proxmox resources can be assigned to users or groups while portal-created resources can be managed through their dedicated workflows.
+
+The Health Display provides a configurable read-only dashboard for dedicated monitoring screens. The Hermes Agent integration can be configured separately with explicit portal permissions and an administrator chat interface.
+
+### Security and access
+
+Sensitive credentials and infrastructure secrets are stored server-side and protected by the portal's permission model. User-managed access information remains separated from administrator access where required. Administrative and user actions are recorded in the audit log.
+
+## Components
+
+The portal consists of a React frontend, an Express backend and persistent SQLite-backed portal data. Proxmox clusters and optional Pangolin Public Access integrations are connected through their respective APIs.

@@ -39,12 +39,24 @@ function formatDate(value) {
   }
 }
 
+function formatBytes(value) {
+  const bytes = Number(value || 0);
+  if (!Number.isFinite(bytes) || bytes <= 0) return '0 B';
+  const units = ['B', 'KB', 'MB', 'GB'];
+  const index = Math.min(units.length - 1, Math.floor(Math.log(bytes) / Math.log(1024)));
+  const amount = bytes / (1024 ** index);
+  return `${amount >= 10 || index === 0 ? amount.toFixed(0) : amount.toFixed(1)} ${units[index]}`;
+}
+
 export default function SystemUpdates() {
   const [update, setUpdate] = useState(null);
   const [loading, setLoading] = useState(true);
   const [starting, setStarting] = useState('');
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [packageFile, setPackageFile] = useState(null);
+  const [uploadingPackage, setUploadingPackage] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [waitingForBackend, setWaitingForBackend] = useState(false);
   const [hostTimezone, setHostTimezone] = useState(() => {
     try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Berlin'; } catch (_) { return 'Europe/Berlin'; }
@@ -53,6 +65,7 @@ export default function SystemUpdates() {
   const reloadScheduled = useRef(false);
   const portalUpdateObservedRunning = useRef(false);
   const logRef = useRef(null);
+  const packageInputRef = useRef(null);
   const logFollowEnabled = useRef(true);
 
   const running = ['queued', 'running'].includes(update?.status);
@@ -108,7 +121,7 @@ export default function SystemUpdates() {
   }, []);
 
   const start = async (type) => {
-    const label = type === 'portal' ? 'portal application' : 'Debian operating system';
+    const label = type === 'portal' ? 'portal application' : 'host operating system';
     if (!window.confirm(`Start the ${label} update now?`)) return;
     setStarting(type);
     setError('');
@@ -118,9 +131,65 @@ export default function SystemUpdates() {
     try {
       const response = await adminApi.startSystemUpdate(type);
       setUpdate(response.data?.update || null);
-      setNotice(type === 'portal' ? 'Portal update started.' : 'Debian update started.');
+      setNotice(type === 'portal' ? 'Portal update started.' : 'Host update started.');
     } catch (err) {
       setError(getErrorMessage(err, 'The update could not be started.'));
+    } finally {
+      setStarting('');
+    }
+  };
+
+  const uploadPackage = async () => {
+    if (!packageFile) {
+      setError('Choose a ZIP package first.');
+      return;
+    }
+    if (!String(packageFile.name || '').toLowerCase().endsWith('.zip')) {
+      setError('The portal package must be a ZIP file.');
+      return;
+    }
+    if (Number(packageFile.size || 0) > 100 * 1024 * 1024) {
+      setError('The portal package must be smaller than 100 MB.');
+      return;
+    }
+
+    setUploadingPackage(true);
+    setUploadProgress(0);
+    setError('');
+    setNotice('');
+    try {
+      const response = await adminApi.uploadSystemUpdatePackage(packageFile, (event) => {
+        if (!event?.total) return;
+        setUploadProgress(Math.min(100, Math.round((event.loaded / event.total) * 100)));
+      });
+      setUpdate(response.data?.update || update);
+      const uploaded = response.data?.package;
+      setNotice(`${uploaded?.version || uploaded?.originalFilename || 'Portal package'} uploaded and ready for the next portal update.`);
+      setPackageFile(null);
+      if (packageInputRef.current) packageInputRef.current.value = '';
+      setUploadProgress(100);
+    } catch (err) {
+      setError(getErrorMessage(err, 'The portal package could not be uploaded.'));
+    } finally {
+      setUploadingPackage(false);
+    }
+  };
+
+  const rollbackPackage = async (packageInfo) => {
+    if (!packageInfo?.id) return;
+    const version = packageInfo.version || packageInfo.originalFilename || 'this version';
+    if (!window.confirm(`Roll back the portal to ${version}? The portal will restart after the package is restored.`)) return;
+    setStarting(`rollback:${packageInfo.id}`);
+    setError('');
+    setNotice('');
+    reloadScheduled.current = false;
+    portalUpdateObservedRunning.current = true;
+    try {
+      const response = await adminApi.rollbackSystemUpdatePackage(packageInfo.id);
+      setUpdate(response.data?.update || update);
+      setNotice(`Rollback to ${version} started.`);
+    } catch (err) {
+      setError(getErrorMessage(err, 'The rollback could not be started.'));
     } finally {
       setStarting('');
     }
@@ -174,25 +243,104 @@ export default function SystemUpdates() {
       {waitingForBackend ? <InlineNotice tone="info">The portal is restarting. Waiting for the backend to come back online…</InlineNotice> : null}
       {!update?.helperInstalled ? (
         <InlineNotice tone="warning">
-          The Debian host updater is not installed yet. Run <code>./setup-updater.sh</code> as root once in <code>/opt/hosting.techbygiusi.com</code>.
+          The host updater is not installed yet. Run <code>./setup-updater.sh</code> as root once in <code>/opt/hosting.techbygiusi.com</code>.
         </InlineNotice>
       ) : Number(update?.helperVersion || 1) < 3 ? (
         <InlineNotice tone="warning">
-          Refresh the Debian helper once with <code>./setup-updater.sh</code> as root to install the latest update-state recovery and host timezone support.
+          Refresh the host updater once with <code>./setup-updater.sh</code> as root to install the current update support.
+        </InlineNotice>
+      ) : Number(update?.helperVersion || 1) < 4 ? (
+        <InlineNotice tone="warning">
+          Run <code>./setup-updater.sh</code> as root once more after installing this version. This enables local ZIP package updates and removes the GitHub dependency from future portal updates.
         </InlineNotice>
       ) : null}
 
+      <SectionCard title="Upload new package" className="system-update-package-card">
+        <div className="system-update-package-layout">
+          <div className="system-update-package-copy">
+            <p>Upload a complete Hosting Portal ZIP package. The package is stored locally on the server and the newest upload becomes the version installed by the next Portal update.</p>
+            <div className="system-update-package-state">
+              <span>Installed: <strong>{update?.currentPackage?.version || update?.currentPackage?.originalFilename || 'Not recorded yet'}</strong></span>
+              <span>Ready to install: <strong>{update?.pendingPackage?.version || update?.pendingPackage?.originalFilename || 'No package uploaded'}</strong></span>
+              {update?.pendingPackage?.commit ? <span>Commit: <strong>{update.pendingPackage.commit}</strong></span> : null}
+              {update?.pendingPackage?.sizeBytes ? <span>{formatBytes(update.pendingPackage.sizeBytes)} · SHA-256 {String(update.pendingPackage.sha256 || '').slice(0, 12)}…</span> : null}
+            </div>
+          </div>
+          <div className="system-update-package-control">
+            <label htmlFor="portal-package-file">Portal package</label>
+            <input
+              ref={packageInputRef}
+              id="portal-package-file"
+              type="file"
+              accept=".zip,application/zip,application/x-zip-compressed"
+              onChange={(event) => { setPackageFile(event.target.files?.[0] || null); setUploadProgress(0); }}
+              disabled={running || uploadingPackage}
+            />
+            <div className="system-update-package-file-meta">
+              <span>{packageFile ? `${packageFile.name} · ${formatBytes(packageFile.size)}` : 'Choose the full ZIP returned for a portal release.'}</span>
+              {uploadingPackage ? <span>{uploadProgress}%</span> : null}
+            </div>
+            {uploadingPackage ? <div className="system-update-upload-track"><span style={{ width: `${uploadProgress}%` }} /></div> : null}
+            <button type="button" className="btn-primary" onClick={uploadPackage} disabled={!packageFile || running || uploadingPackage}>
+              {uploadingPackage ? 'Uploading…' : 'Upload package'}
+            </button>
+          </div>
+        </div>
+      </SectionCard>
+
+      <SectionCard title="Version history" className="system-update-history-card">
+        <div className="system-update-history-head">
+          <p>The five most recently installed portal packages are kept on disk. Older packages are removed automatically.</p>
+          <span>{Math.min(5, update?.packageHistory?.length || 0)} / 5 stored</span>
+        </div>
+        {update?.packageHistory?.length ? (
+          <div className="system-update-history-list">
+            {update.packageHistory.map((item) => {
+              const current = String(update?.currentPackage?.id || '') === String(item?.id || '');
+              return (
+                <div className={`system-update-history-row ${current ? 'current' : ''}`} key={item.id}>
+                  <div className="system-update-history-version">
+                    <strong>{item.version || item.originalFilename || 'Portal version'}</strong>
+                    <span className={`status-badge ${current ? 'success' : 'neutral'}`}>{current ? 'Current' : 'Rollback available'}</span>
+                  </div>
+                  <div className="system-update-history-commit"><span>Commit</span><strong>{item.commit || 'Legacy package'}</strong></div>
+                  <div className="system-update-history-meta">
+                    <span>{formatDate(item.lastInstalledAt || item.installedAt)}</span>
+                    <span>{formatBytes(item.sizeBytes)}</span>
+                  </div>
+                  <div className="system-update-history-action">
+                    {!current ? (
+                      <button
+                        type="button"
+                        className="btn-secondary"
+                        onClick={() => rollbackPackage(item)}
+                        disabled={running || !!starting || !item.available}
+                      >
+                        {starting === `rollback:${item.id}` ? 'Starting…' : 'Rollback'}
+                      </button>
+                    ) : null}
+                    {!item.available ? <small>Package missing</small> : null}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="page-state-clean">Version history starts after the first package-based portal update.</div>
+        )}
+      </SectionCard>
+
       <div className="system-update-actions-grid">
-        <SectionCard title="Debian updates" className="system-update-action-card">
+        <SectionCard title="Host updates" className="system-update-action-card">
           <div className="system-update-action-content">
-            <p>Refresh the Debian package lists and install available package upgrades. No automatic reboot is performed.</p>
+            <p>Refresh the host package lists and install available Debian package upgrades. No automatic reboot is performed.</p>
             <div className="system-update-command-preview">
               <code>apt-get update</code>
               <code>apt-get -y upgrade</code>
             </div>
             <div className="system-update-action-footer">
               <button type="button" className="btn-primary" onClick={() => start('os')} disabled={!update?.helperInstalled || Number(update?.helperVersion || 1) < 3 || running || !!starting}>
-                {starting === 'os' ? 'Starting…' : 'Update Debian'}
+                {starting === 'os' ? 'Starting…' : 'Update host'}
               </button>
             </div>
           </div>
@@ -200,16 +348,18 @@ export default function SystemUpdates() {
 
         <SectionCard title="Portal update" className="system-update-action-card">
           <div className="system-update-action-content">
-            <p>Pull the Git repository, rebuild the Docker Compose stack and remove unused Docker images.</p>
+            <p>Install the newest uploaded ZIP package, rebuild the Docker Compose stack and remove unused Docker images.</p>
             <div className="system-update-command-preview">
-              <code>git pull --ff-only</code>
+              <code>validate uploaded ZIP package</code>
+              <code>install package into /opt/hosting.techbygiusi.com</code>
               <code>docker compose up --build -d</code>
               <code>docker image prune -f</code>
             </div>
             <div className="system-update-action-footer">
-              <button type="button" className="btn-primary" onClick={() => start('portal')} disabled={!update?.helperInstalled || Number(update?.helperVersion || 1) < 3 || running || !!starting}>
+              <button type="button" className="btn-primary" onClick={() => start('portal')} disabled={!update?.helperInstalled || Number(update?.helperVersion || 1) < 4 || !update?.pendingPackage || running || !!starting}>
                 {starting === 'portal' ? 'Starting…' : 'Update portal'}
               </button>
+              {!update?.pendingPackage ? <small className="system-update-action-hint">Upload a package first.</small> : null}
             </div>
           </div>
         </SectionCard>

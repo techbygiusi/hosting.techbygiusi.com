@@ -3,7 +3,7 @@ FROM node:18-alpine
 WORKDIR /app
 
 # ICMP availability checks for self-service IP pool allocation.
-RUN apk add --no-cache iputils
+RUN apk add --no-cache iputils unzip
 
 # Copy package files
 COPY package*.json ./
