@@ -13511,3 +13511,27 @@ body.portal-shell-active .admin-side-editor {
     width: 100%;
   }
 }
+
+/* Wiki editor: keep feedback messages in a dedicated grid row so save notices
+   cannot displace the toolbar/workspace into the flexible editor row. */
+.wiki-editor-page {
+  grid-template-rows: auto auto auto auto minmax(0, 1fr) auto;
+}
+.wiki-editor-feedback {
+  min-height: 0;
+  display: grid;
+  gap: 10px;
+}
+.wiki-editor-feedback:not(:empty) {
+  padding: 10px 16px 0;
+}
+.wiki-editor-feedback .wiki-editor-alert,
+.wiki-editor-feedback .wiki-editor-recovery {
+  margin: 0;
+}
+@media (max-width: 900px) {
+  .wiki-editor-page {
+    grid-template-rows: auto auto auto auto minmax(65vh, 1fr) auto;
+  }
+}
+

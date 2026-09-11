@@ -914,21 +914,23 @@ export default function WikiEditorPage() {
         </div>
       </header>
 
-      {error && <div className="alert alert-danger wiki-editor-alert">{error}</div>}
-      {notice && <div className="alert alert-success wiki-editor-alert">{notice}</div>}
+      <div className="wiki-editor-feedback" aria-live="polite">
+        {error && <div className="alert alert-danger wiki-editor-alert">{error}</div>}
+        {notice && <div className="alert alert-success wiki-editor-alert">{notice}</div>}
 
-      {recovery && (
-        <div className="wiki-editor-recovery" role="status">
-          <div>
-            <strong>{text.localBackup}</strong>
-            <span>{text.localBackupReady}</span>
+        {recovery && (
+          <div className="wiki-editor-recovery" role="status">
+            <div>
+              <strong>{text.localBackup}</strong>
+              <span>{text.localBackupReady}</span>
+            </div>
+            <div className="wiki-editor-recovery-actions">
+              <button type="button" className="btn-primary btn-small" onClick={restoreRecovery}>{text.restore}</button>
+              <button type="button" className="btn-secondary btn-small" onClick={discardRecovery}>{text.discard}</button>
+            </div>
           </div>
-          <div className="wiki-editor-recovery-actions">
-            <button type="button" className="btn-primary btn-small" onClick={restoreRecovery}>{text.restore}</button>
-            <button type="button" className="btn-secondary btn-small" onClick={discardRecovery}>{text.discard}</button>
-          </div>
-        </div>
-      )}
+        )}
+      </div>
 
       <div className="wiki-editor-metabar">
         <label className="form-group">
