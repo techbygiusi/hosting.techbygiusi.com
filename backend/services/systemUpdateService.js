@@ -118,27 +118,66 @@ function reconcileCompletedStatus(status) {
 
 
 function normalizeUpdateLog(value) {
+  // Treat updater output like a terminal stream instead of plain text. Several
+  // CLI tools redraw the current line with carriage returns and backspaces;
+  // rendering those bytes literally creates duplicated fragments and empty
+  // lines in the browser.
   const text = String(value || '')
-    .replace(/\u001b\[[0-?]*[ -/]*[@-~]/g, '')
     .replace(/\u001b\][^\u0007]*(?:\u0007|\u001b\\)/g, '')
-    .replace(/\u0008/g, '')
+    .replace(/\u001b\[[0-?]*[ -/]*[@-~]/g, '')
     .replace(/\u0000/g, '');
 
-  const output = [];
-  for (const rawLine of text.replace(/\r\n/g, '\n').split('\n')) {
-    const frames = rawLine.split('\r');
-    let line = '';
-    for (let index = frames.length - 1; index >= 0; index -= 1) {
-      if (frames[index] !== '') {
-        line = frames[index];
-        break;
-      }
+  const lines = [];
+  let current = '';
+
+  const commit = () => {
+    const line = current.replace(/[ \t]+$/g, '');
+    current = '';
+
+    // Keep at most one visual spacer line and suppress identical adjacent
+    // output lines. This preserves section separation without log noise.
+    if (!line) {
+      if (lines.length && lines[lines.length - 1] !== '') lines.push('');
+      return;
     }
-    line = line.replace(/[ \t]+$/g, '');
-    if (line && output[output.length - 1] === line) continue;
-    output.push(line);
+    if (lines[lines.length - 1] === line) return;
+    lines.push(line);
+  };
+
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index];
+
+    if (char === '\r') {
+      if (text[index + 1] === '\n') {
+        commit();
+        index += 1;
+      } else {
+        // A lone CR means "redraw this terminal line". Only keep the newest
+        // frame instead of appending every percentage/spinner update.
+        current = '';
+      }
+      continue;
+    }
+
+    if (char === '\n') {
+      commit();
+      continue;
+    }
+
+    if (char === '\b') {
+      current = current.slice(0, -1);
+      continue;
+    }
+
+    // Keep normal text and tabs; discard other terminal control characters.
+    const code = char.charCodeAt(0);
+    if (char === '\t' || code >= 32) current += char;
   }
-  return output.join('\n').replace(/\n{3,}/g, '\n\n').trimEnd();
+
+  if (current) commit();
+  while (lines.length && lines[0] === '') lines.shift();
+  while (lines.length && lines[lines.length - 1] === '') lines.pop();
+  return lines.join('\n');
 }
 
 function getSystemUpdateStatus() {

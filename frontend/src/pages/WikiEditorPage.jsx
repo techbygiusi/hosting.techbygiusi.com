@@ -914,9 +914,10 @@ export default function WikiEditorPage() {
         </div>
       </header>
 
-      <div className="wiki-editor-feedback" aria-live="polite">
+      {notice ? <div className="wiki-editor-toast" role="status" aria-live="polite">{notice}</div> : null}
+
+      <div className="wiki-editor-feedback" aria-live="assertive">
         {error && <div className="alert alert-danger wiki-editor-alert">{error}</div>}
-        {notice && <div className="alert alert-success wiki-editor-alert">{notice}</div>}
 
         {recovery && (
           <div className="wiki-editor-recovery" role="status">
