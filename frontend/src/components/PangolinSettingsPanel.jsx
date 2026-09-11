@@ -81,7 +81,8 @@ const TEXT = {
     removeConfirm: (name) => `Remove the publication for ${name}?`,
     removed: 'Publication removed.',
     removeFailed: 'Publication could not be removed.',
-    proxy502: 'The Pangolin connection test did not return a usable response. Check the backend log for the exact upstream error.'
+    proxy502: 'The Pangolin connection test did not return a usable response. Check the backend log for the exact upstream error.',
+    noEligibleClusters: 'Enable Public access on a cluster before configuring Pangolin.'
   },
   de: {
     eyebrow: 'ÖFFENTLICHER ZUGRIFF',
@@ -137,7 +138,8 @@ const TEXT = {
     removeConfirm: (name) => `Veröffentlichung für ${name} wirklich entfernen?`,
     removed: 'Veröffentlichung wurde entfernt.',
     removeFailed: 'Veröffentlichung konnte nicht entfernt werden.',
-    proxy502: 'Der Pangolin-Verbindungstest hat keine verwertbare Antwort geliefert. Prüfe das Backend-Log für den genauen Upstream-Fehler.'
+    proxy502: 'Der Pangolin-Verbindungstest hat keine verwertbare Antwort geliefert. Prüfe das Backend-Log für den genauen Upstream-Fehler.',
+    noEligibleClusters: 'Aktiviere zuerst Public Access bei einem Cluster, bevor Pangolin konfiguriert werden kann.'
   }
 };
 
@@ -151,7 +153,14 @@ export default function PangolinSettingsPanel({ onSuccess, onError, language: la
     ? languageProp
     : (readStoredLanguage() === 'de' ? 'de' : 'en');
   const text = TEXT[language];
-  const [selectedClusterId, setSelectedClusterId] = useState(() => clusters[0]?.id ? String(clusters[0].id) : '');
+  const configurableClusters = useMemo(
+    () => clusters.filter((cluster) => Number(cluster.allow_publishing ?? 1) === 1),
+    [clusters]
+  );
+  const [selectedClusterId, setSelectedClusterId] = useState(() => {
+    const initial = clusters.find((cluster) => Number(cluster.allow_publishing ?? 1) === 1);
+    return initial?.id ? String(initial.id) : '';
+  });
   const [form, setForm] = useState(DEFAULTS);
   const [sites, setSites] = useState([]);
   const [domains, setDomains] = useState([]);
@@ -165,18 +174,18 @@ export default function PangolinSettingsPanel({ onSuccess, onError, language: la
   useEffect(() => { onErrorRef.current = onError; }, [onError]);
 
   useEffect(() => {
-    if (!clusters.length) {
+    if (!configurableClusters.length) {
       setSelectedClusterId('');
       return;
     }
-    if (!clusters.some((cluster) => String(cluster.id) === String(selectedClusterId))) {
-      setSelectedClusterId(String(clusters[0].id));
+    if (!configurableClusters.some((cluster) => String(cluster.id) === String(selectedClusterId))) {
+      setSelectedClusterId(String(configurableClusters[0].id));
     }
-  }, [clusters, selectedClusterId]);
+  }, [configurableClusters, selectedClusterId]);
 
   const selectedCluster = useMemo(
-    () => clusters.find((cluster) => String(cluster.id) === String(selectedClusterId)) || null,
-    [clusters, selectedClusterId]
+    () => configurableClusters.find((cluster) => String(cluster.id) === String(selectedClusterId)) || null,
+    [configurableClusters, selectedClusterId]
   );
 
   const selectedDomain = useMemo(
@@ -327,8 +336,8 @@ export default function PangolinSettingsPanel({ onSuccess, onError, language: la
     }));
   };
 
-  if (!clusters.length) {
-    return <section className="panel-card settings-section-card pangolin-settings-panel unified-settings-panel"><p className="hint-text">Add a Proxmox cluster before configuring Pangolin.</p></section>;
+  if (!configurableClusters.length) {
+    return <section className="panel-card settings-section-card pangolin-settings-panel unified-settings-panel"><p className="hint-text">{clusters.length ? text.noEligibleClusters : 'Add a Proxmox cluster before configuring Pangolin.'}</p></section>;
   }
 
   return (
@@ -337,13 +346,13 @@ export default function PangolinSettingsPanel({ onSuccess, onError, language: la
         <label className="form-group pangolin-cluster-select">
           <span>Cluster</span>
           <select value={selectedClusterId} onChange={(event) => setSelectedClusterId(event.target.value)}>
-            {clusters.map((cluster) => <option key={cluster.id} value={cluster.id}>{cluster.name}</option>)}
+            {configurableClusters.map((cluster) => <option key={cluster.id} value={cluster.id}>{cluster.name}</option>)}
           </select>
         </label>
         <div className="pangolin-cluster-summary">
           <strong>{selectedCluster?.name || 'Cluster'}</strong>
           <span>{selectedCluster?.location_label || selectedCluster?.url || ''}</span>
-          <small>{Number(selectedCluster?.allow_publishing ?? 1) === 1 ? 'Public access enabled for this cluster' : 'Public access disabled in cluster settings'}</small>
+          <small>Public access enabled for this cluster</small>
         </div>
       </div>
 

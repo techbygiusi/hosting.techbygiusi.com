@@ -291,8 +291,11 @@ async function savePangolinConfig(input = {}, clusterId = null) {
   if (config.enabled) validateConfig(config);
 
   if (normalizedClusterId) {
-    const cluster = await get('SELECT id FROM proxmox_clusters WHERE id = ?', [normalizedClusterId]);
+    const cluster = await get('SELECT id, allow_publishing FROM proxmox_clusters WHERE id = ?', [normalizedClusterId]);
     if (!cluster) throw new AppError('Cluster not found', HTTP_STATUS.NOT_FOUND);
+    if (Number(cluster.allow_publishing ?? 1) !== 1) {
+      throw new AppError('Public access is disabled for this cluster', HTTP_STATUS.BAD_REQUEST);
+    }
     await run(
       `INSERT INTO pangolin_cluster_settings (
         cluster_id, enabled, api_url, api_key, org_id, site_id, domain_id, base_domain,

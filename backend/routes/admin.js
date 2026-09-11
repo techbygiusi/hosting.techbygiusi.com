@@ -113,6 +113,17 @@ function normalizeSshPort(value) {
   return port;
 }
 
+async function requirePangolinClusterAccess(clusterId) {
+  const normalizedClusterId = Number(clusterId || 0) || null;
+  if (!normalizedClusterId) return null;
+  const cluster = await get('SELECT id, allow_publishing FROM proxmox_clusters WHERE id = ?', [normalizedClusterId]);
+  if (!cluster) throw new AppError('Cluster not found', HTTP_STATUS.NOT_FOUND);
+  if (Number(cluster.allow_publishing ?? 1) !== 1) {
+    throw new AppError('Public access is disabled for this cluster', HTTP_STATUS.BAD_REQUEST);
+  }
+  return cluster;
+}
+
 function normalizeClusterLocation(input = {}) {
   const label = String(input.locationLabel || input.location_label || '').trim();
   const latRaw = input.locationLat ?? input.location_lat;
@@ -1758,6 +1769,7 @@ router.delete('/assignments/:id', async (req, res, next) => {
 router.get('/pangolin-publications', async (req, res, next) => {
   try {
     const clusterId = Number(req.query.clusterId || 0) || null;
+    if (clusterId) await requirePangolinClusterAccess(clusterId);
     const publications = await all(`
       SELECT
         rp.*,
@@ -1835,10 +1847,7 @@ router.delete('/pangolin-publications/:publicationId', async (req, res, next) =>
 router.get('/pangolin-settings', async (req, res, next) => {
   try {
     const clusterId = Number(req.query.clusterId || 0) || null;
-    if (clusterId) {
-      const cluster = await get('SELECT id FROM proxmox_clusters WHERE id = ?', [clusterId]);
-      if (!cluster) throw new AppError('Cluster not found', HTTP_STATUS.NOT_FOUND);
-    }
+    if (clusterId) await requirePangolinClusterAccess(clusterId);
     const config = await getPangolinConfig(clusterId);
     const publicationCount = clusterId
       ? await get(`SELECT COUNT(*) AS total FROM resource_publications rp JOIN resources r ON r.id = rp.resource_id WHERE r.cluster_id = ?`, [clusterId])
@@ -1855,6 +1864,7 @@ router.get('/pangolin-settings', async (req, res, next) => {
 router.put('/pangolin-settings', async (req, res, next) => {
   try {
     const clusterId = Number(req.body?.clusterId || req.query.clusterId || 0) || null;
+    if (clusterId) await requirePangolinClusterAccess(clusterId);
     const config = await savePangolinConfig(req.body || {}, clusterId);
     await logAudit(req, 'settings.pangolin.update', clusterId ? `cluster:${clusterId}:pangolin` : 'pangolin', `enabled=${config.enabled}`);
     res.json({ message: 'Pangolin settings updated successfully', settings: getPublicPangolinConfig(config) });
@@ -1865,6 +1875,8 @@ router.put('/pangolin-settings', async (req, res, next) => {
 
 router.post('/pangolin-settings/test', async (req, res, next) => {
   try {
+    const clusterId = Number(req.body?.clusterId || 0) || null;
+    if (clusterId) await requirePangolinClusterAccess(clusterId);
     const result = await testPangolinConnection(req.body || {});
     res.json(result);
   } catch (err) {
@@ -1874,6 +1886,8 @@ router.post('/pangolin-settings/test', async (req, res, next) => {
 
 router.post('/pangolin-settings/discover', async (req, res, next) => {
   try {
+    const clusterId = Number(req.body?.clusterId || 0) || null;
+    if (clusterId) await requirePangolinClusterAccess(clusterId);
     const result = await discoverPangolin(req.body || {});
     res.json(result);
   } catch (err) {

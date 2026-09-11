@@ -78,6 +78,7 @@ const MESSAGE_TRANSLATIONS = {
   'This subdomain is reserved by the administrator': 'Diese Subdomain ist vom Administrator reserviert.',
   'Manual public URLs are no longer supported. Use the publishing dialog.': 'Manuelle öffentliche URLs werden nicht mehr unterstützt. Verwende den Veröffentlichungsdialog.',
   'Pangolin settings updated successfully': 'Pangolin-Einstellungen erfolgreich gespeichert.',
+  'Public access is disabled for this cluster': 'Public Access ist für diesen Cluster deaktiviert.',
   'Pangolin connection successful': 'Pangolin-Verbindung erfolgreich.',
   'Pangolin API hostname could not be resolved': 'Der Hostname der Pangolin API konnte nicht aufgelöst werden.',
   'Pangolin API refused the connection': 'Die Pangolin API hat die Verbindung abgelehnt.',
