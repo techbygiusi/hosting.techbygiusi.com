@@ -13,6 +13,7 @@ const userRoutes = require('./routes/user');
 const announcementRoutes = require('./routes/announcements');
 const wikiRoutes = require('./routes/wiki');
 const displayRoutes = require('./routes/display');
+const hermesRoutes = require('./routes/hermes');
 const { authMiddleware } = require('./middleware/auth');
 const { errorHandler } = require('./middleware/errorHandler');
 const { sanitizeRequest } = require('./middleware/validate');
@@ -95,6 +96,8 @@ app.use('/api/user', authMiddleware, userRoutes);
 app.use('/api/announcements', announcementRoutes);
 // Public read-only kiosk display. It exposes only the administrator-selected aggregate cluster health data.
 app.use('/api/display', displayRoutes);
+// Hermes Agent: token-authenticated, permission-scoped API used by the configured agent.
+app.use('/api/hermes', hermesRoutes);
 // Wiki: admin-authored knowledge base. Auth is applied per route because the
 // image endpoint must stay reachable for <img> tags without an auth header.
 app.use('/api/wiki', wikiRoutes);

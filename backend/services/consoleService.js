@@ -281,8 +281,79 @@ function testSshConnection({ host, port = 22, username, password, timeout = 6000
   });
 }
 
+
+function executeSshCommand({ host, port = 22, username, password, command, timeout = 30000 }) {
+  return new Promise((resolve, reject) => {
+    const ssh = new SshClient();
+    let settled = false;
+    const finish = (err, value) => {
+      if (settled) return;
+      settled = true;
+      try { ssh.end(); } catch (_) { /* noop */ }
+      if (err) reject(err);
+      else resolve(value);
+    };
+    const timer = setTimeout(() => finish(new Error('SSH command timed out')), Math.max(2000, Number(timeout) || 30000));
+    timer.unref?.();
+
+    ssh.once('ready', () => {
+      ssh.exec(String(command || ''), (err, stream) => {
+        if (err) {
+          clearTimeout(timer);
+          finish(err);
+          return;
+        }
+        const stdout = [];
+        const stderr = [];
+        let total = 0;
+        const append = (target, chunk) => {
+          if (total >= 262144) return;
+          const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk));
+          const slice = buffer.subarray(0, Math.max(0, 262144 - total));
+          target.push(slice);
+          total += slice.length;
+        };
+        stream.on('data', (chunk) => append(stdout, chunk));
+        stream.stderr?.on('data', (chunk) => append(stderr, chunk));
+        stream.on('close', (code, signal) => {
+          clearTimeout(timer);
+          finish(null, {
+            exitCode: Number.isInteger(code) ? code : null,
+            signal: signal || null,
+            stdout: Buffer.concat(stdout).toString('utf8'),
+            stderr: Buffer.concat(stderr).toString('utf8'),
+            truncated: total >= 262144
+          });
+        });
+        stream.on('error', (streamError) => {
+          clearTimeout(timer);
+          finish(streamError);
+        });
+      });
+    });
+    ssh.once('error', (err) => {
+      clearTimeout(timer);
+      finish(err);
+    });
+    try {
+      ssh.connect({
+        host,
+        port: Number(port || 22),
+        username,
+        password,
+        readyTimeout: Math.min(Math.max(2000, Number(timeout) || 30000), 15000),
+        keepaliveInterval: 10000,
+        keepaliveCountMax: 2
+      });
+    } catch (err) {
+      clearTimeout(timer);
+      finish(err);
+    }
+  });
+}
+
 function localized(session, de, en) {
   return String(session?.language || '').toLowerCase() === 'de' ? de : en;
 }
 
-module.exports = { createConsoleSession, attachConsoleProxy, testSshConnection };
+module.exports = { createConsoleSession, attachConsoleProxy, testSshConnection, executeSshCommand };

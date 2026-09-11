@@ -372,7 +372,12 @@ export const adminApi = {
   getBillingSettings: () => apiClient.get('/admin/billing/settings'),
   updateBillingSettings: (data) => apiClient.put('/admin/billing/settings', data),
   getClusterHealthDisplay: () => apiClient.get('/admin/cluster-health-display'),
-  updateClusterHealthDisplay: (data) => apiClient.put('/admin/cluster-health-display', data)
+  updateClusterHealthDisplay: (data) => apiClient.put('/admin/cluster-health-display', data),
+  getHermesSettings: () => apiClient.get('/admin/hermes/settings'),
+  updateHermesSettings: (data) => apiClient.put('/admin/hermes/settings', data),
+  testHermesConnection: (data) => apiClient.post('/admin/hermes/settings/test', data),
+  regenerateHermesPortalToken: () => apiClient.post('/admin/hermes/settings/regenerate-token'),
+  sendHermesChat: (messages) => apiClient.post('/admin/hermes/chat', { messages })
 };
 
 

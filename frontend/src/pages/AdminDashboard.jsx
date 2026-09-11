@@ -13,7 +13,8 @@ import {
   BellIcon,
   LockIcon,
   LinkIcon,
-  BillingIcon
+  BillingIcon,
+  BotIcon
 } from '../components/Icons';
 import { EmptyState, InlineNotice, SectionCard, StatCard, StatusBadge } from '../components/UiBits';
 import { useAuth } from '../context/AuthContext';
@@ -31,6 +32,8 @@ import SystemUpdates from '../components/SystemUpdates';
 import AdminBilling from '../components/AdminBilling';
 import ClusterHealthDisplaySettings from '../components/ClusterHealthDisplaySettings';
 import AdminResourceCredentials from '../components/AdminResourceCredentials';
+import HermesAgentSettings from '../components/HermesAgentSettings';
+import HermesChatBubble from '../components/HermesChatBubble';
 
 function formatPercent(value) {
   const number = Number(value || 0);
@@ -481,6 +484,7 @@ export default function AdminDashboard() {
     { key: 'healthdisplay', label: 'Health Display', icon: DashboardIcon, section: 'Infrastructure' },
     { key: 'email', label: 'Email', icon: BellIcon, section: 'Platform' },
     { key: 'pangolin', label: 'Pangolin', icon: LinkIcon, section: 'Platform' },
+    { key: 'hermes', label: 'Hermes Agent', icon: BotIcon, section: 'Platform' },
     { key: 'updates', label: 'System Updates', icon: ServerIcon, section: 'Platform' },
     { key: 'audit', label: 'Audit Log', icon: LockIcon, section: 'Platform' },
     { key: 'settings', label: 'Settings', icon: SettingsIcon, section: 'Account' }
@@ -811,6 +815,8 @@ export default function AdminDashboard() {
     content = <AdminEmailSettings />;
   } else if (activeTab === 'pangolin') {
     content = <PangolinSettingsPanel language={language} clusters={clusters} />;
+  } else if (activeTab === 'hermes') {
+    content = <HermesAgentSettings language={language} />;
   } else if (activeTab === 'updates') {
     content = <SystemUpdates />;
   } else if (activeTab === 'audit') {
@@ -823,22 +829,25 @@ export default function AdminDashboard() {
   const activeSubtitle = '';
 
   return (
-    <PortalShell
-      user={user}
-      title={activeItem?.label || 'Overview'}
-      subtitle={activeSubtitle}
-      navItems={navItems}
-      activeKey={activeTab}
-      onSelect={selectTab}
-      onLogout={logout}
-      onOpenSettings={() => selectTab('settings')}
-      language={language}
-      onLanguageChange={changeLanguage}
-      searchItems={searchItems}
-    >
-      {error ? <InlineNotice tone="danger">{error}</InlineNotice> : null}
-      {notice ? <InlineNotice tone="success">{notice}</InlineNotice> : null}
-      {content}
-    </PortalShell>
+    <>
+      <PortalShell
+        user={user}
+        title={activeItem?.label || 'Overview'}
+        subtitle={activeSubtitle}
+        navItems={navItems}
+        activeKey={activeTab}
+        onSelect={selectTab}
+        onLogout={logout}
+        onOpenSettings={() => selectTab('settings')}
+        language={language}
+        onLanguageChange={changeLanguage}
+        searchItems={searchItems}
+      >
+        {error ? <InlineNotice tone="danger">{error}</InlineNotice> : null}
+        {notice ? <InlineNotice tone="success">{notice}</InlineNotice> : null}
+        {content}
+      </PortalShell>
+      <HermesChatBubble language={language} />
+    </>
   );
 }

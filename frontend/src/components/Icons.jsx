@@ -195,6 +195,24 @@ export const ClockIcon = (props) => (
   </Icon>
 );
 
+export const BotIcon = (props) => (
+  <Icon {...props}>
+    <rect x="5" y="7" width="14" height="11" rx="3" />
+    <path d="M12 7V4" /><circle cx="12" cy="3.5" r=".7" />
+    <path d="M2.8 11.5H5M19 11.5h2.2" />
+    <circle cx="9.5" cy="12" r=".8" /><circle cx="14.5" cy="12" r=".8" />
+    <path d="M9 15h6" />
+  </Icon>
+);
+
+export const ChatIcon = (props) => (
+  <Icon {...props}><path d="M5 5.5h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-8l-4.5 3v-3H5a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2z" /><path d="M8 10h8" /><path d="M8 13.5h5" /></Icon>
+);
+
+export const SendIcon = (props) => (
+  <Icon {...props}><path d="M4 4l17 8-17 8 3-8-3-8z" /><path d="M7 12h14" /></Icon>
+);
+
 export const BillingIcon = (props) => (
   <Icon {...props}>
     <path d="M6 3.5h12v17l-3-1.8-3 1.8-3-1.8-3 1.8z" />

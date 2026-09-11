@@ -29,6 +29,7 @@ const { syncClusterTemplates, ensureClusterTemplates, listClusterTemplates } = r
 const { getSystemUpdateStatus, startSystemUpdate } = require('../services/systemUpdateService');
 const { getBillingSettings, saveBillingSettings, getBillingSummary, deleteBillingHistoryIfZeroCost } = require('../services/billingService');
 const { getClusterHealthDisplayConfig, saveClusterHealthDisplayConfig } = require('../services/clusterHealthDisplayService');
+const { getHermesConfig, saveHermesConfig, regeneratePortalToken, buildConnectionCommand, testHermesConnection, sendHermesChat } = require('../services/hermesService');
 
 router.use(adminMiddleware);
 
@@ -2395,6 +2396,85 @@ router.put('/cluster-health-display', async (req, res, next) => {
     res.json({ config, message: 'Cluster health display saved' });
   } catch (err) {
     next(new AppError(err.message || 'Cluster health display could not be saved', HTTP_STATUS.BAD_REQUEST));
+  }
+});
+
+
+/* -------------------------------------------------------- HERMES AGENT ---- */
+router.get('/hermes/settings', async (req, res, next) => {
+  try {
+    const config = await getHermesConfig();
+    const portalOrigin = getPublicFrontendUrl(req);
+    res.json({
+      settings: {
+        enabled: config.enabled,
+        name: config.name,
+        apiUrl: config.apiUrl,
+        apiKey: '',
+        apiKeyConfigured: config.apiKeyConfigured,
+        model: config.model,
+        command: config.command,
+        permissions: config.permissions,
+        portalToken: config.portalToken,
+        portalApiUrl: `${portalOrigin.replace(/\/+$/, '')}/api/hermes`,
+        connectionCommand: buildConnectionCommand(config, portalOrigin)
+      }
+    });
+  } catch (err) { next(err); }
+});
+
+router.put('/hermes/settings', async (req, res, next) => {
+  try {
+    const saved = await saveHermesConfig(req.body || {});
+    const portalOrigin = getPublicFrontendUrl(req);
+    await logAudit(req, 'hermes.settings.update', 'hermes-agent', `Enabled: ${saved.enabled ? 'yes' : 'no'}`);
+    res.json({
+      message: 'Hermes Agent settings saved',
+      settings: {
+        enabled: saved.enabled, name: saved.name, apiUrl: saved.apiUrl, apiKey: '', apiKeyConfigured: saved.apiKeyConfigured,
+        model: saved.model, command: saved.command, permissions: saved.permissions, portalToken: saved.portalToken,
+        portalApiUrl: `${portalOrigin.replace(/\/+$/, '')}/api/hermes`,
+        connectionCommand: buildConnectionCommand(saved, portalOrigin)
+      }
+    });
+  } catch (err) {
+    if (err.message?.startsWith('Hermes API URL')) return next(new AppError(err.message, HTTP_STATUS.BAD_REQUEST));
+    next(err);
+  }
+});
+
+router.post('/hermes/settings/regenerate-token', async (req, res, next) => {
+  try {
+    await regeneratePortalToken();
+    const config = await getHermesConfig();
+    const portalOrigin = getPublicFrontendUrl(req);
+    await logAudit(req, 'hermes.token.rotate', 'hermes-agent');
+    res.json({ portalToken: config.portalToken, connectionCommand: buildConnectionCommand(config, portalOrigin) });
+  } catch (err) { next(err); }
+});
+
+router.post('/hermes/settings/test', async (req, res, next) => {
+  try {
+    const current = await getHermesConfig();
+    const candidate = {
+      apiUrl: req.body?.apiUrl || current.apiUrl,
+      apiKey: String(req.body?.apiKey || '').trim() || current.apiKey
+    };
+    const result = await testHermesConnection(candidate);
+    res.json({ message: 'Hermes Agent connection successful', ...result });
+  } catch (err) {
+    next(new AppError(err.message || 'Hermes Agent connection failed', HTTP_STATUS.BAD_GATEWAY));
+  }
+});
+
+router.post('/hermes/chat', async (req, res, next) => {
+  try {
+    const result = await sendHermesChat({ messages: req.body?.messages, portalOrigin: getPublicFrontendUrl(req) });
+    await logAudit(req, 'hermes.chat', 'hermes-agent');
+    res.json(result);
+  } catch (err) {
+    const status = /disabled|not configured|required/i.test(err.message || '') ? HTTP_STATUS.CONFLICT : HTTP_STATUS.BAD_GATEWAY;
+    next(new AppError(err.message || 'Hermes Agent request failed', status));
   }
 });
 
