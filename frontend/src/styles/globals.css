@@ -955,7 +955,6 @@ label { display: grid; gap: 7px; color: var(--site-muted); font-size: 14px; }
 }
 
 
-/* ===== v0.1.13 Admin readability and compact actions ===== */
 .admin-shell .site-main {
   --admin-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   font-family: var(--admin-font);
@@ -1012,7 +1011,6 @@ label { display: grid; gap: 7px; color: var(--site-muted); font-size: 14px; }
   }
 }
 
-/* ===== v0.1.14 Mobile admin login width ===== */
 @media (max-width: 900px) {
   .admin-shell .site-main {
     width: min(100% - 24px, 900px);
@@ -1028,7 +1026,6 @@ label { display: grid; gap: 7px; color: var(--site-muted); font-size: 14px; }
   }
 }
 
-/* ===== v0.1.15 Mobile gallery uses full width ===== */
 @media (max-width: 600px) {
   .admin-shell .gallery-grid {
     grid-template-columns: 1fr;
@@ -1062,7 +1059,6 @@ label { display: grid; gap: 7px; color: var(--site-muted); font-size: 14px; }
   }
 }
 
-/* ===== v0.1.16 Softer admin Helvetica typography ===== */
 .admin-shell .site-main {
   --admin-font: Helvetica, Arial, sans-serif;
   font-family: var(--admin-font) !important;
@@ -1128,7 +1124,6 @@ label { display: grid; gap: 7px; color: var(--site-muted); font-size: 14px; }
   font-size: 21px;
 }
 
-/* ===== v0.1.17 Dense gallery tiles ===== */
 .admin-shell .gallery-grid {
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   gap: 2px;
@@ -1285,7 +1280,6 @@ label { display: grid; gap: 7px; color: var(--site-muted); font-size: 14px; }
 }
 
 
-/* ===== v0.1.18 Compact desktop admin controls ===== */
 @media (min-width: 721px) {
   .admin-shell .admin-actions {
     display: flex;
@@ -1314,7 +1308,6 @@ label { display: grid; gap: 7px; color: var(--site-muted); font-size: 14px; }
 }
 
 
-/* ===== v0.1.20 Compact mobile admin dashboard ===== */
 .admin-shell .admin-dashboard {
   align-items: start;
 }
@@ -1411,7 +1404,6 @@ label { display: grid; gap: 7px; color: var(--site-muted); font-size: 14px; }
 }
 
 
-/* ===== v0.1.21 Tighten admin layout spacing ===== */
 .admin-shell .site-main {
   padding-top: 28px;
   padding-bottom: 28px;
@@ -1523,7 +1515,6 @@ label { display: grid; gap: 7px; color: var(--site-muted); font-size: 14px; }
 }
 
 
-/* ===== v0.1.22 Equal-height admin stats cards ===== */
 .admin-shell .admin-dashboard {
   align-items: stretch !important;
 }
@@ -1565,7 +1556,6 @@ label { display: grid; gap: 7px; color: var(--site-muted); font-size: 14px; }
   }
 }
 
-/* ===== v0.1.23 Admin SMB backup configuration ===== */
 select {
   width: 100%;
   min-height: 44px;
@@ -1737,7 +1727,6 @@ select:focus { border-color: var(--site-accent); box-shadow: 0 0 0 3px rgba(122,
 }
 
 
-/* ===== v0.1.26 Mobile admin action order ===== */
 .admin-action-download .zip-label-long {
   display: none;
 }
@@ -1760,4 +1749,138 @@ select:focus { border-color: var(--site-accent); box-shadow: 0 0 0 3px rgba(122,
   .admin-shell .admin-action-download .zip-label-long {
     display: inline;
   }
+}
+
+/* Picly ZIP updates */
+.update-modal {
+  width: min(760px, 100%);
+  max-height: min(92vh, 860px);
+  overflow: auto;
+}
+
+.update-modal-head p:not(.eyebrow) {
+  max-width: 64ch;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.update-current-card,
+.update-ready-card,
+.update-version-row {
+  border: 1px solid var(--site-border);
+  background: rgba(255, 255, 255, 0.34);
+  border-radius: var(--radius-lg);
+}
+
+.update-current-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+}
+
+.update-current-card span,
+.update-ready-card span,
+.update-version-row span,
+.update-history-head span {
+  color: var(--site-muted);
+  font-size: 13px;
+}
+
+.update-current-card strong {
+  font-size: 24px;
+  color: var(--site-text);
+}
+
+.update-upload {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 10px;
+  padding: 14px;
+  border: 1px dashed var(--site-border);
+  border-radius: var(--radius-lg);
+  background: var(--site-inset);
+}
+
+.update-upload label { min-width: 0; }
+.update-upload input[type="file"] { background: #fff; padding: 8px; }
+.update-upload .btn-secondary { min-height: 44px; }
+
+.update-progress {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.update-progress .progress-wrap { height: 9px; }
+.update-progress span { min-width: 42px; text-align: right; color: var(--site-muted); font-size: 13px; }
+
+.update-ready-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px 16px;
+}
+
+.update-ready-card > div { display: grid; gap: 2px; }
+.update-ready-card strong { font-size: 18px; }
+
+.update-running {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.update-running .spinner { width: 18px; height: 18px; flex: 0 0 auto; }
+
+.update-history { display: grid; gap: 10px; }
+.update-history-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.update-version-list { display: grid; gap: 8px; }
+.update-version-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 11px 12px;
+}
+.update-version-row > div { min-width: 0; display: grid; gap: 2px; }
+.update-version-row .btn-outline { min-height: 36px; padding: 7px 11px; }
+
+@media (min-width: 721px) {
+  .admin-shell .admin-actions {
+    grid-template-columns: repeat(6, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (max-width: 720px) {
+  .update-backdrop {
+    place-items: end center;
+    padding: 0;
+  }
+
+  .update-modal {
+    width: 100%;
+    max-height: calc(100vh - 18px);
+    border-radius: 18px 18px 0 0;
+    border-left: 0;
+    border-right: 0;
+    border-bottom: 0;
+  }
+
+  .update-upload { grid-template-columns: 1fr; }
+  .update-upload .btn-secondary { width: 100%; }
+  .update-ready-card { align-items: stretch; flex-direction: column; }
+  .update-ready-card .btn-primary { width: 100%; }
+
+  .admin-shell .admin-action-password { order: 1; }
+  .admin-shell .admin-action-backup { order: 2; }
+  .admin-shell .admin-action-update { order: 3; grid-column: 1 / -1; }
+  .admin-shell .admin-action-refresh { order: 4; }
+  .admin-shell .admin-action-logout { order: 5; }
+  .admin-shell .admin-action-download { order: 6; grid-column: 1 / -1; }
 }

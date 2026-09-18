@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { adminLogin, changeAdminPassword, deleteImage, downloadAll, downloadImage, getAdminStats, getBackupSettings, getImageBlob, getImages, saveBackupSettings, setAuthToken, syncBackupNow, testBackupSettings } from '../services/api.js';
+import { adminLogin, changeAdminPassword, deleteImage, downloadAll, downloadImage, getAdminStats, getBackupSettings, getImageBlob, getImages, getUpdateStatus, installUpdateRelease, rollbackUpdateVersion, saveBackupSettings, setAuthToken, syncBackupNow, testBackupSettings, uploadUpdateRelease } from '../services/api.js';
 
 const TOKEN_KEY = 'picly-admin-token';
 
@@ -463,6 +463,203 @@ function BackupDialog({ onClose, onSaved }) {
   );
 }
 
+
+function UpdateDialog({ onClose }) {
+  const [status, setStatus] = useState(null);
+  const [file, setFile] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [working, setWorking] = useState(false);
+  const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
+  const operationWasRunning = useRef(false);
+
+  async function loadStatus(silent = false) {
+    try {
+      const next = await getUpdateStatus();
+      const wasRunning = operationWasRunning.current;
+      operationWasRunning.current = next?.operation?.status === 'running';
+      setStatus(next);
+      if (!silent) setError('');
+
+      if (wasRunning && next?.operation?.status === 'success') {
+        setMessage(next.operation.message || 'Update abgeschlossen. Seite wird neu geladen …');
+        window.setTimeout(() => window.location.reload(), 1400);
+      } else if (wasRunning && next?.operation?.status === 'error') {
+        setError(next.operation.message || 'Update fehlgeschlagen.');
+        setWorking(false);
+      }
+    } catch (err) {
+      if (!silent || !operationWasRunning.current) {
+        setError(err.response?.data?.message || 'Update-Status konnte nicht geladen werden.');
+      }
+    }
+  }
+
+  useEffect(() => {
+    loadStatus();
+    const timer = window.setInterval(() => loadStatus(true), 2500);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  async function handleUpload(event) {
+    event.preventDefault();
+    if (!file) {
+      setError('Bitte zuerst eine ZIP-Datei auswählen.');
+      return;
+    }
+
+    try {
+      setUploading(true);
+      setUploadProgress(0);
+      setError('');
+      setMessage('');
+      const result = await uploadUpdateRelease(file, setUploadProgress);
+      setStatus(result.status || null);
+      setMessage(result.message || `Version ${result.version} ist bereit.`);
+      setFile(null);
+      event.currentTarget.reset();
+    } catch (err) {
+      setError(err.response?.data?.message || 'Update-ZIP konnte nicht geprüft werden.');
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  async function handleInstall() {
+    if (!status?.staged?.version || working) return;
+    const confirmed = window.confirm(`Version ${status.staged.version} jetzt installieren?\n\nPicly wird dabei kurz neu gestartet. Bilder, Einstellungen und Kennwort bleiben erhalten.`);
+    if (!confirmed) return;
+
+    try {
+      setWorking(true);
+      setError('');
+      setMessage('Update wird installiert. Die Verbindung kann dabei kurz unterbrochen werden …');
+      operationWasRunning.current = true;
+      const result = await installUpdateRelease();
+      if (result.status) setStatus(result.status);
+      await loadStatus(true);
+    } catch (err) {
+      setWorking(false);
+      operationWasRunning.current = false;
+      setError(err.response?.data?.message || 'Update konnte nicht gestartet werden.');
+    }
+  }
+
+  async function handleRollback(version) {
+    if (!version || working) return;
+    const confirmed = window.confirm(`Auf Version ${version} zurückgehen?\n\nPicly wird dabei kurz neu gestartet. Bilder und persistente Einstellungen bleiben erhalten.`);
+    if (!confirmed) return;
+
+    try {
+      setWorking(true);
+      setError('');
+      setMessage(`Rollback auf ${version} wird ausgeführt …`);
+      operationWasRunning.current = true;
+      const result = await rollbackUpdateVersion(version);
+      if (result.status) setStatus(result.status);
+      await loadStatus(true);
+    } catch (err) {
+      setWorking(false);
+      operationWasRunning.current = false;
+      setError(err.response?.data?.message || 'Rollback konnte nicht gestartet werden.');
+    }
+  }
+
+  const operation = status?.operation;
+  const isRunning = operation?.status === 'running' || working;
+
+  return (
+    <div className="modal-backdrop update-backdrop">
+      <div className="password-modal update-modal">
+        <button className="modal-close" type="button" onClick={onClose} aria-label="Schließen" disabled={isRunning}>×</button>
+        <div className="password-modal-head update-modal-head">
+          <p className="eyebrow">Admin</p>
+          <h2>Updates</h2>
+          <p>Neue Picly-Version als ZIP hochladen, prüfen und direkt installieren. Die letzten {status?.keepVersions || 5} Versionen bleiben für Rollbacks erhalten.</p>
+        </div>
+
+        {!status ? (
+          <div className="app-loader inline"><span className="spinner" /> Lädt Update-Status...</div>
+        ) : (
+          <>
+            <div className="update-current-card">
+              <span>Installierte Version</span>
+              <strong>{status.currentVersion || 'unbekannt'}</strong>
+            </div>
+
+            <form className="update-upload" onSubmit={handleUpload}>
+              <label>
+                Neue Version hochladen
+                <input
+                  type="file"
+                  accept=".zip,application/zip"
+                  disabled={uploading || isRunning}
+                  onChange={(event) => {
+                    setFile(event.target.files?.[0] || null);
+                    setError('');
+                    setMessage('');
+                  }}
+                />
+              </label>
+              {uploading && (
+                <div className="update-progress">
+                  <div className="progress-wrap"><div className="progress-bar" style={{ width: `${Math.max(4, uploadProgress)}%` }} /></div>
+                  <span>{uploadProgress}%</span>
+                </div>
+              )}
+              <button className="btn-secondary" type="submit" disabled={!file || uploading || isRunning}>{uploading ? 'Prüfe ZIP...' : 'ZIP hochladen & prüfen'}</button>
+            </form>
+
+            {status.staged && (
+              <div className="update-ready-card">
+                <div>
+                  <span>Bereit zur Installation</span>
+                  <strong>Version {status.staged.version}</strong>
+                </div>
+                <button className="btn-primary" type="button" onClick={handleInstall} disabled={isRunning}>Update installieren</button>
+              </div>
+            )}
+
+            {operation?.status === 'running' && (
+              <div className="notice update-running"><span className="spinner" /> {operation.message || 'Update läuft …'}</div>
+            )}
+            {operation?.status === 'error' && <div className="notice danger">{operation.message}</div>}
+            {message && <div className="notice success">{message}</div>}
+            {error && <div className="notice danger">{error}</div>}
+
+            <div className="update-history">
+              <div className="update-history-head">
+                <strong>Verfügbare Versionen</strong>
+                <span>max. {status.keepVersions || 5}</span>
+              </div>
+              {(status.versions || []).length === 0 ? (
+                <p>Noch keine Rollback-Version vorhanden.</p>
+              ) : (
+                <div className="update-version-list">
+                  {[...(status.versions || [])].reverse().map((entry) => (
+                    <div className="update-version-row" key={entry.version}>
+                      <div>
+                        <strong>{entry.version}</strong>
+                        <span>{entry.current ? 'Aktuell installiert' : (entry.installedAt ? formatDate(entry.installedAt) : 'Installierte Basisversion')}</span>
+                      </div>
+                      {entry.current ? (
+                        <span className="soft-badge">Aktuell</span>
+                      ) : (
+                        <button className="btn-outline" type="button" disabled={!entry.available || isRunning} onClick={() => handleRollback(entry.version)}>Zurückgehen</button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function galleryCornerClass(index, total, columns) {
   const safeTotal = Math.max(0, Number(total || 0));
   const safeColumns = Math.max(1, Number(columns || 1));
@@ -542,6 +739,7 @@ export default function AdminPage() {
   const [deletingId, setDeletingId] = useState('');
   const [passwordOpen, setPasswordOpen] = useState(false);
   const [backupOpen, setBackupOpen] = useState(false);
+  const [updateOpen, setUpdateOpen] = useState(false);
   const [success, setSuccess] = useState('');
   const [galleryColumns, setGalleryColumns] = useState(1);
   const galleryRef = useRef(null);
@@ -698,6 +896,7 @@ export default function AdminPage() {
         <div className="admin-actions">
           <button className="btn-secondary admin-action-password" type="button" onClick={() => setPasswordOpen(true)}>Kennwort ändern</button>
           <button className="btn-secondary admin-action-backup" type="button" onClick={() => setBackupOpen(true)}>Backup</button>
+          <button className="btn-secondary admin-action-update" type="button" onClick={() => setUpdateOpen(true)}>Updates</button>
           <button className="btn-secondary admin-action-refresh" type="button" onClick={loadImages} disabled={loading}>Aktualisieren</button>
           <button className="btn-primary admin-action-download" type="button" onClick={handleDownloadAll} disabled={!images.length} aria-label="Alle Bilder als ZIP herunterladen"><span className="zip-label-short">Alle als ZIP</span><span className="zip-label-long">Alle als ZIP herunterladen</span></button>
           <button className="btn-outline admin-action-logout" type="button" onClick={logout}>Abmelden</button>
@@ -751,6 +950,7 @@ export default function AdminPage() {
 
       {passwordOpen && <PasswordDialog onClose={() => setPasswordOpen(false)} onChanged={handlePasswordChanged} />}
       {backupOpen && <BackupDialog onClose={() => setBackupOpen(false)} onSaved={(message) => { setSuccess(message); window.setTimeout(() => setSuccess(''), 5000); }} />}
+      {updateOpen && <UpdateDialog onClose={() => setUpdateOpen(false)} />}
 
       {selected && (
         <div

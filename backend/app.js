@@ -28,6 +28,8 @@ const ADMIN_CONFIG_BACKUP_FILE = path.join(DATA_DIR, 'admin.json.bak');
 const BACKUP_CONFIG_FILE = path.join(DATA_DIR, 'backup.json');
 const BACKUP_CONFIG_BACKUP_FILE = path.join(DATA_DIR, 'backup.json.bak');
 const BACKUP_LOG_FILE = path.join(DATA_DIR, 'backup-log.json');
+const UPDATE_DIR = path.join(DATA_DIR, 'updates');
+const UPDATE_STAGING_DIR = path.join(UPDATE_DIR, 'staging');
 const DEFAULT_ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin';
 const DEFAULT_ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin';
 const ADMIN_PASSWORD_MIN_LENGTH = Number(process.env.ADMIN_PASSWORD_MIN_LENGTH || 8);
@@ -44,6 +46,10 @@ const TMP_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 const BACKUP_LOG_LIMIT = 80;
 const SMB_COMMAND_TIMEOUT_MS = Number(process.env.SMB_COMMAND_TIMEOUT_MS || 120000);
 const BACKUP_SYNC_INTERVAL_MS = Number(process.env.BACKUP_SYNC_INTERVAL_MS || 60000);
+const UPDATER_URL = String(process.env.UPDATER_URL || 'http://updater:3010').replace(/\/$/, '');
+const UPDATER_TOKEN = process.env.UPDATER_TOKEN || JWT_SECRET;
+const UPDATE_MAX_MB = Number(process.env.UPDATE_MAX_MB || 250);
+const UPDATE_MAX_BYTES = UPDATE_MAX_MB * 1024 * 1024;
 
 let activeUploads = 0;
 let metadataQueue = Promise.resolve();
@@ -104,6 +110,7 @@ function normalizeMetadata(items) {
 async function ensureDataFiles() {
   await fsp.mkdir(UPLOAD_DIR, { recursive: true });
   await fsp.mkdir(TEMP_UPLOAD_DIR, { recursive: true });
+  await fsp.mkdir(UPDATE_STAGING_DIR, { recursive: true });
 
   try {
     await fsp.access(METADATA_FILE, fs.constants.F_OK);
@@ -1029,6 +1036,61 @@ const upload = multer({
   }
 });
 
+
+const updateStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, UPDATE_STAGING_DIR),
+  filename: (_req, _file, cb) => cb(null, `${crypto.randomUUID()}.zip`)
+});
+
+const updateUpload = multer({
+  storage: updateStorage,
+  limits: {
+    fileSize: UPDATE_MAX_BYTES,
+    files: 1,
+    fields: 0,
+    parts: 2
+  },
+  fileFilter: (_req, file, cb) => {
+    const ext = path.extname(file.originalname || '').toLowerCase();
+    const mime = String(file.mimetype || '').toLowerCase();
+    if (ext === '.zip' || mime === 'application/zip' || mime === 'application/x-zip-compressed') {
+      return cb(null, true);
+    }
+    return cb(new multer.MulterError('LIMIT_UNEXPECTED_FILE', file.fieldname));
+  }
+});
+
+async function callUpdater(endpoint, options = {}) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), Number(options.timeoutMs || 15000));
+
+  try {
+    const response = await fetch(`${UPDATER_URL}${endpoint}`, {
+      method: options.method || 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Updater-Token': UPDATER_TOKEN
+      },
+      body: options.body === undefined ? undefined : JSON.stringify(options.body),
+      signal: controller.signal
+    });
+
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw createHttpError(response.status, payload.message || 'Update-Dienst hat die Anfrage abgelehnt.');
+    }
+    return payload;
+  } catch (error) {
+    if (error.name === 'AbortError') {
+      throw createHttpError(504, 'Update-Dienst antwortet nicht rechtzeitig.');
+    }
+    if (error.statusCode) throw error;
+    throw createHttpError(503, `Update-Dienst nicht erreichbar: ${error.message}`);
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 app.set('trust proxy', true);
 app.use(helmet({
   crossOriginResourcePolicy: { policy: 'same-site' }
@@ -1233,6 +1295,73 @@ app.post('/api/admin/backup/sync', requireAdmin, async (_req, res, next) => {
   try {
     const result = await queueBackupSync('manual');
     res.json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
+
+app.get('/api/admin/update', requireAdmin, async (_req, res, next) => {
+  try {
+    const status = await callUpdater('/status');
+    res.json(status);
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post('/api/admin/update/upload', requireAdmin, (req, res, next) => {
+  updateUpload.single('release')(req, res, async (err) => {
+    if (err) {
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(413).json({ message: `Die Update-ZIP darf maximal ${UPDATE_MAX_MB} MB groß sein.` });
+      }
+      if (err.code === 'LIMIT_UNEXPECTED_FILE') {
+        return res.status(400).json({ message: 'Bitte eine ZIP-Datei auswählen.' });
+      }
+      return res.status(400).json({ message: err.message || 'Update-ZIP konnte nicht hochgeladen werden.' });
+    }
+
+    const file = req.file;
+    if (!file) {
+      return res.status(400).json({ message: 'Bitte eine Update-ZIP auswählen.' });
+    }
+
+    try {
+      const result = await callUpdater('/validate', {
+        method: 'POST',
+        body: { file: file.filename },
+        timeoutMs: 30000
+      });
+      return res.json({
+        message: `Version ${result.version} ist bereit zur Installation.`,
+        version: result.version,
+        status: result.status
+      });
+    } catch (error) {
+      await fsp.rm(file.path, { force: true }).catch(() => {});
+      return next(error);
+    }
+  });
+});
+
+app.post('/api/admin/update/install', requireAdmin, async (_req, res, next) => {
+  try {
+    const result = await callUpdater('/install', { method: 'POST', body: {} });
+    res.status(202).json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post('/api/admin/update/rollback', requireAdmin, async (req, res, next) => {
+  try {
+    const version = String(req.body?.version || '').trim();
+    if (!version) {
+      return res.status(400).json({ message: 'Bitte eine Rollback-Version auswählen.' });
+    }
+    const result = await callUpdater('/rollback', { method: 'POST', body: { version } });
+    res.status(202).json(result);
   } catch (error) {
     next(error);
   }

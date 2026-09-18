@@ -89,4 +89,32 @@ export async function syncBackupNow() {
   return response.data;
 }
 
+export async function getUpdateStatus() {
+  const response = await api.get('/admin/update');
+  return response.data;
+}
+
+export async function uploadUpdateRelease(file, onProgress) {
+  const formData = new FormData();
+  formData.append('release', file);
+  const response = await api.post('/admin/update/upload', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    onUploadProgress: (event) => {
+      if (!event.total || !onProgress) return;
+      onProgress(Math.round((event.loaded * 100) / event.total));
+    }
+  });
+  return response.data;
+}
+
+export async function installUpdateRelease() {
+  const response = await api.post('/admin/update/install');
+  return response.data;
+}
+
+export async function rollbackUpdateVersion(version) {
+  const response = await api.post('/admin/update/rollback', { version });
+  return response.data;
+}
+
 export default api;

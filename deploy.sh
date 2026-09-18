@@ -2,8 +2,10 @@
 set -euo pipefail
 
 APP_NAME="Picly"
+APP_VERSION="$(tr -d '\r\n' < VERSION 2>/dev/null || printf 'unbekannt')"
 ENV_FILE=".env"
 FIRST_DEPLOY=false
+PROJECT_DIR="$(pwd -P)"
 
 require_command() {
   if ! command -v "$1" >/dev/null 2>&1; then
@@ -28,6 +30,16 @@ ensure_env_value() {
   fi
 }
 
+set_env_value() {
+  local key="$1"
+  local value="$2"
+  if grep -q "^${key}=" "$ENV_FILE"; then
+    sed -i "s#^${key}=.*#${key}=${value}#" "$ENV_FILE"
+  else
+    printf '%s=%s\n' "$key" "$value" >> "$ENV_FILE"
+  fi
+}
+
 replace_env_value_if_current() {
   local key="$1"
   local old_value="$2"
@@ -35,6 +47,29 @@ replace_env_value_if_current() {
   if grep -Eq "^${key}=${old_value}([[:space:]]*)$" "$ENV_FILE"; then
     sed -i -E "s/^${key}=${old_value}([[:space:]]*)$/${key}=${new_value}/" "$ENV_FILE"
   fi
+}
+
+cleanup_legacy_files() {
+  rm -rf \
+    .git \
+    README.md \
+    setup-cron.sh \
+    frontend/public/index.html \
+    frontend/src/App.jsx \
+    frontend/src/index.js \
+    frontend/src/context \
+    frontend/src/components/ThemeButton.jsx \
+    frontend/src/pages/Setup.jsx \
+    frontend/src/pages/Login.jsx \
+    frontend/src/pages/UserDashboard.jsx \
+    frontend/src/pages/AdminDashboard.jsx \
+    backend/config \
+    backend/middleware \
+    backend/routes \
+    backend/services \
+    backend/node_modules \
+    frontend/node_modules \
+    frontend/dist
 }
 
 migrate_parallel_uploads_default() {
@@ -51,6 +86,8 @@ if ! docker compose version >/dev/null 2>&1; then
   exit 1
 fi
 
+cleanup_legacy_files
+
 if [ ! -f "$ENV_FILE" ]; then
   FIRST_DEPLOY=true
   ADMIN_USERNAME="admin"
@@ -62,8 +99,11 @@ if [ ! -f "$ENV_FILE" ]; then
   MAX_PARALLEL_UPLOADS="${MAX_PARALLEL_UPLOADS:-12}"
   MIN_FREE_SPACE_MB="${MIN_FREE_SPACE_MB:-250}"
   UPLOAD_REQUEST_TIMEOUT_MS="${UPLOAD_REQUEST_TIMEOUT_MS:-600000}"
+  UPDATE_MAX_MB="${UPDATE_MAX_MB:-250}"
+  UPDATE_MAX_UNPACKED_MB="${UPDATE_MAX_UNPACKED_MB:-750}"
 
   cat > "$ENV_FILE" <<EOF
+PICLY_PROJECT_DIR=${PROJECT_DIR}
 ADMIN_USERNAME=${ADMIN_USERNAME}
 ADMIN_PASSWORD=${ADMIN_PASSWORD}
 JWT_SECRET=${JWT_SECRET}
@@ -74,11 +114,14 @@ MAX_UPLOAD_FILES=${MAX_UPLOAD_FILES}
 MAX_PARALLEL_UPLOADS=${MAX_PARALLEL_UPLOADS}
 MIN_FREE_SPACE_MB=${MIN_FREE_SPACE_MB}
 UPLOAD_REQUEST_TIMEOUT_MS=${UPLOAD_REQUEST_TIMEOUT_MS}
+UPDATE_MAX_MB=${UPDATE_MAX_MB}
+UPDATE_MAX_UNPACKED_MB=${UPDATE_MAX_UNPACKED_MB}
 EOF
 
   chmod 600 "$ENV_FILE"
 fi
 
+set_env_value "PICLY_PROJECT_DIR" "$PROJECT_DIR"
 ensure_env_value "JWT_EXPIRATION" "24h"
 ensure_env_value "PICLY_HTTP_PORT" "${PICLY_HTTP_PORT:-3002}"
 ensure_env_value "MAX_UPLOAD_MB" "${MAX_UPLOAD_MB:-25}"
@@ -88,6 +131,8 @@ replace_env_value_if_current "MAX_PARALLEL_UPLOADS" "24" "12"
 migrate_parallel_uploads_default
 ensure_env_value "MIN_FREE_SPACE_MB" "${MIN_FREE_SPACE_MB:-250}"
 ensure_env_value "UPLOAD_REQUEST_TIMEOUT_MS" "${UPLOAD_REQUEST_TIMEOUT_MS:-600000}"
+ensure_env_value "UPDATE_MAX_MB" "${UPDATE_MAX_MB:-250}"
+ensure_env_value "UPDATE_MAX_UNPACKED_MB" "${UPDATE_MAX_UNPACKED_MB:-750}"
 
 # shellcheck disable=SC1090
 set -a
@@ -99,7 +144,7 @@ chmod 750 data
 
 echo ""
 echo "========================================"
-echo "${APP_NAME} Deployment"
+echo "${APP_NAME} ${APP_VERSION} Deployment"
 echo "========================================"
 echo "Port: ${PICLY_HTTP_PORT:-3002}"
 echo "Parallel Uploads: ${MAX_PARALLEL_UPLOADS:-12}"

@@ -1,6 +1,5 @@
 {
   "name": "picly-backend",
-  "version": "0.1.34",
   "description": "Picly image upload backend",
   "main": "app.js",
   "scripts": {

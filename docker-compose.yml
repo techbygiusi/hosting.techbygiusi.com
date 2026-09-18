@@ -17,11 +17,17 @@ services:
       MAX_PARALLEL_UPLOADS: ${MAX_PARALLEL_UPLOADS:-12}
       MIN_FREE_SPACE_MB: ${MIN_FREE_SPACE_MB:-250}
       UPLOAD_REQUEST_TIMEOUT_MS: ${UPLOAD_REQUEST_TIMEOUT_MS:-600000}
+      UPDATER_URL: http://updater:3010
+      UPDATER_TOKEN: ${JWT_SECRET}
+      UPDATE_MAX_MB: ${UPDATE_MAX_MB:-250}
     volumes:
       - ./data:/app/data
     networks:
       - picly-network
     restart: unless-stopped
+    depends_on:
+      updater:
+        condition: service_healthy
     healthcheck:
       test:
         - CMD-SHELL
@@ -53,6 +59,34 @@ services:
       timeout: 5s
       retries: 6
       start_period: 10s
+
+  updater:
+    build:
+      context: ./updater
+      dockerfile: Dockerfile
+    container_name: picly-updater
+    environment:
+      UPDATER_PORT: 3010
+      UPDATER_TOKEN: ${JWT_SECRET}
+      PROJECT_DIR: ${PICLY_PROJECT_DIR}
+      UPDATE_STATE_DIR: ${PICLY_PROJECT_DIR}/data/updates
+      UPDATE_KEEP_VERSIONS: 5
+      UPDATE_MAX_ARCHIVE_MB: ${UPDATE_MAX_MB:-250}
+      UPDATE_MAX_UNPACKED_MB: ${UPDATE_MAX_UNPACKED_MB:-750}
+    volumes:
+      - "${PICLY_PROJECT_DIR}:${PICLY_PROJECT_DIR}"
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - picly-network
+    restart: unless-stopped
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - python3 -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:3010/health', timeout=3).read()" || exit 1
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 5s
 
 networks:
   picly-network:
