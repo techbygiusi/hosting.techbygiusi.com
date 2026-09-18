@@ -83,7 +83,7 @@ Update flow:
 6. If deployment fails, the updater attempts to restore the previous version automatically.
 7. Up to five version archives are retained under `data/updates/versions/` for rollback.
 
-The updater is intentionally isolated in its own internal container. Only that updater container receives the Docker socket and write access to the project directory. The normal backend does not receive the Docker socket.
+The updater is intentionally isolated in its own internal container. Only that updater container receives the Docker socket and write access to the project directory. The host project directory is mounted inside the updater as `/workspace`; the host path comes from `PICLY_PROJECT_DIR` and safely defaults to `/opt/picly.techbygiusi.com`. The normal backend does not receive the Docker socket.
 
 The updater API is not published to the host. Backend-to-updater calls use `JWT_SECRET` as the internal updater token.
 

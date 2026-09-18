@@ -68,13 +68,13 @@ services:
     environment:
       UPDATER_PORT: 3010
       UPDATER_TOKEN: ${JWT_SECRET}
-      PROJECT_DIR: ${PICLY_PROJECT_DIR}
-      UPDATE_STATE_DIR: ${PICLY_PROJECT_DIR}/data/updates
+      PROJECT_DIR: /workspace
+      UPDATE_STATE_DIR: /workspace/data/updates
       UPDATE_KEEP_VERSIONS: 5
       UPDATE_MAX_ARCHIVE_MB: ${UPDATE_MAX_MB:-250}
       UPDATE_MAX_UNPACKED_MB: ${UPDATE_MAX_UNPACKED_MB:-750}
     volumes:
-      - "${PICLY_PROJECT_DIR}:${PICLY_PROJECT_DIR}"
+      - "${PICLY_PROJECT_DIR:-/opt/picly.techbygiusi.com}:/workspace"
       - /var/run/docker.sock:/var/run/docker.sock
     networks:
       - picly-network

@@ -49,24 +49,9 @@ replace_env_value_if_current() {
   fi
 }
 
-cleanup_legacy_files() {
+cleanup_generated_files() {
   rm -rf \
     .git \
-    README.md \
-    setup-cron.sh \
-    frontend/public/index.html \
-    frontend/src/App.jsx \
-    frontend/src/index.js \
-    frontend/src/context \
-    frontend/src/components/ThemeButton.jsx \
-    frontend/src/pages/Setup.jsx \
-    frontend/src/pages/Login.jsx \
-    frontend/src/pages/UserDashboard.jsx \
-    frontend/src/pages/AdminDashboard.jsx \
-    backend/config \
-    backend/middleware \
-    backend/routes \
-    backend/services \
     backend/node_modules \
     frontend/node_modules \
     frontend/dist
@@ -86,7 +71,7 @@ if ! docker compose version >/dev/null 2>&1; then
   exit 1
 fi
 
-cleanup_legacy_files
+cleanup_generated_files
 
 if [ ! -f "$ENV_FILE" ]; then
   FIRST_DEPLOY=true
